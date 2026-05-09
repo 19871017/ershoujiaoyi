@@ -16,7 +16,7 @@
       </view>
       <input v-if="shipType === 'EXPRESS'" v-model.trim="company" class="field" maxlength="24" placeholder="快递公司，例如顺丰/圆通" />
       <input v-if="shipType === 'EXPRESS'" v-model.trim="trackingNo" class="field" maxlength="40" placeholder="运单号" />
-      <textarea v-model.trim="remark" class="textarea" maxlength="80" :placeholder="shipType === 'MEETUP' ? '请填写线下交付地点/时间，正式履约状态以后端订单记录为准' : '发货备注，可说明包装、清洁、凭证等'" />
+      <textarea v-model.trim="remark" class="textarea" maxlength="80" :placeholder="shipType === 'MEETUP' ? '请填写线下交付地点/时间，正式履约状态以后端订单记录为准' : '发货备注，可说明包装、清洁、票据等'" />
       <button class="primary-btn" :disabled="submitting" @click="submitShip">{{ submitting ? '提交中...' : '确认发货' }}</button>
     </view>
 
@@ -35,7 +35,7 @@ import { shipOrder, type ShippingType } from '../../../api/modules/order'
 const orderNo = ref('')
 const shipTypes: Array<{ label: string; value: ShippingType }> = [
   { label: '快递邮寄', value: 'EXPRESS' },
-  { label: '同城当面交付', value: 'MEETUP' }
+  { label: '线下交付', value: 'MEETUP' }
 ]
 const shipType = ref<ShippingType>('EXPRESS')
 const company = ref('')
@@ -51,7 +51,7 @@ function readQuery() {
 async function submitShip() {
   if (!orderNo.value) return uni.showToast({ title: '缺少订单号', icon: 'none' })
   if (shipType.value === 'EXPRESS' && (!company.value || !trackingNo.value)) return uni.showToast({ title: '请填写快递公司和运单号', icon: 'none' })
-  if (shipType.value === 'MEETUP' && !remark.value) return uni.showToast({ title: '请填写同城交付备注', icon: 'none' })
+  if (shipType.value === 'MEETUP' && !remark.value) return uni.showToast({ title: '请填写线下交付备注', icon: 'none' })
   submitting.value = true
   try {
     const res = await shipOrder(orderNo.value, { shippingType: shipType.value, shippingCompany: company.value, trackingNo: trackingNo.value, remark: remark.value })
