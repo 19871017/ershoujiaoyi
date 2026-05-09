@@ -177,3 +177,7 @@ export function post<T = unknown>(url: string, data?: unknown, header?: Record<s
 export function put<T = unknown>(url: string, data?: unknown, header?: Record<string, string>) {
   return request<T>({ url, method: 'PUT', data, header })
 }
+
+export function del<T = unknown>(url: string, data?: unknown, header?: Record<string, string>) {
+  return request<T>({ url, method: 'DELETE', data, header })
+}

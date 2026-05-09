@@ -78,9 +78,7 @@ public class ProductApplicationService {
     }
 
     public List<ProductListItemResponse> listProductsBySeller(Long sellerId) {
-        if (sellerId == null || sellerId <= 0) {
-            throw new IllegalArgumentException("valid sellerId required");
-        }
+        requirePositiveId(sellerId, "valid sellerId required");
         return jdbcTemplate.query(
                 "select id,product_no,title,price,product_status,audit_status,visible,created_at,image_urls from product_item where seller_id = ? and visible = true and product_status = ? and audit_status = ? order by created_at desc, id desc",
                 this::mapListItem,
@@ -88,6 +86,43 @@ public class ProductApplicationService {
                 STATUS_ACTIVE,
                 AUDIT_APPROVED
         );
+    }
+
+    public List<ProductListItemResponse> listFavorites(Long userId) {
+        requirePositiveId(userId, "valid userId required");
+        return jdbcTemplate.query(
+                "select p.id,p.product_no,p.title,p.price,p.product_status,p.audit_status,p.visible,p.created_at,p.image_urls from product_favorite f join product_item p on p.id = f.product_id where f.user_id = ? and p.visible = true and p.product_status = ? and p.audit_status = ? order by f.created_at desc, f.id desc",
+                this::mapListItem,
+                userId,
+                STATUS_ACTIVE,
+                AUDIT_APPROVED
+        );
+    }
+
+    @Transactional
+    public void favoriteProduct(Long userId, Long productId) {
+        requirePositiveId(userId, "valid userId required");
+        getVisibleProduct(productId);
+        Integer existing = jdbcTemplate.queryForObject(
+                "select count(*) from product_favorite where user_id = ? and product_id = ?",
+                Integer.class,
+                userId,
+                productId
+        );
+        if (existing == null || existing == 0) {
+            jdbcTemplate.update(
+                    "insert into product_favorite (user_id, product_id, created_at) values (?, ?, CURRENT_TIMESTAMP)",
+                    userId,
+                    productId
+            );
+        }
+    }
+
+    @Transactional
+    public void unfavoriteProduct(Long userId, Long productId) {
+        requirePositiveId(userId, "valid userId required");
+        requirePositiveId(productId, "valid productId required");
+        jdbcTemplate.update("delete from product_favorite where user_id = ? and product_id = ?", userId, productId);
     }
 
     public ProductDetailResponse detailProduct(Long productId) {
@@ -231,14 +266,18 @@ public class ProductApplicationService {
     }
 
     private ProductRecord getExistingProduct(Long productId) {
-        if (productId == null) {
-            throw new IllegalArgumentException("productId required");
-        }
+        requirePositiveId(productId, "productId required");
         ProductRecord product = findById(productId);
         if (product == null) {
             throw new IllegalArgumentException("product-not-found");
         }
         return product;
+    }
+
+    private void requirePositiveId(Long value, String message) {
+        if (value == null || value <= 0) {
+            throw new IllegalArgumentException(message);
+        }
     }
 
     private ProductRecord findByProductNo(String productNo) {

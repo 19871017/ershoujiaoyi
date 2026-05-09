@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -33,6 +34,26 @@ public class ProductController {
     @GetMapping("/seller/{sellerId}")
     public Result<List<ProductListItemResponse>> listSellerProducts(@PathVariable Long sellerId) {
         return Result.ok(productApplicationService.listProductsBySeller(sellerId));
+    }
+
+    @GetMapping("/favorites")
+    public Result<List<ProductListItemResponse>> listFavorites(HttpServletRequest request) {
+        long userId = currentUserResolver.resolve(request);
+        return Result.ok(productApplicationService.listFavorites(userId));
+    }
+
+    @PostMapping("/{productId}/favorite")
+    public Result<Void> favorite(@PathVariable Long productId, HttpServletRequest request) {
+        long userId = currentUserResolver.resolve(request);
+        productApplicationService.favoriteProduct(userId, productId);
+        return Result.ok(null);
+    }
+
+    @DeleteMapping("/{productId}/favorite")
+    public Result<Void> unfavorite(@PathVariable Long productId, HttpServletRequest request) {
+        long userId = currentUserResolver.resolve(request);
+        productApplicationService.unfavoriteProduct(userId, productId);
+        return Result.ok(null);
     }
 
     @GetMapping("/{productId}")

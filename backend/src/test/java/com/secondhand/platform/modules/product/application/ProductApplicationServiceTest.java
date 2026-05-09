@@ -141,6 +141,29 @@ class ProductApplicationServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.listProductsBySeller(0L));
     }
 
+    @Test
+    void userFavoritesShouldPersistOnlyVisibleApprovedProductsAndRemoveIdempotently() {
+        CreateProductResponse visible = service.createProduct(product("可收藏商品", "108.00"));
+        service.approveForSale(visible.getProductId());
+        CreateProductResponse pending = service.createProduct(product("待审不可收藏", "78.00"));
+
+        service.favoriteProduct(8L, visible.getProductId());
+        service.favoriteProduct(8L, visible.getProductId());
+        assertThrows(IllegalArgumentException.class, () -> service.favoriteProduct(8L, pending.getProductId()));
+        assertThrows(IllegalArgumentException.class, () -> service.favoriteProduct(0L, visible.getProductId()));
+
+        ProductApplicationService reloaded = new ProductApplicationService(new JdbcTemplate(database), new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database)));
+        var favorites = reloaded.listFavorites(8L);
+        assertEquals(1, favorites.size());
+        assertEquals(visible.getProductId(), favorites.get(0).getProductId());
+        assertEquals("可收藏商品", favorites.get(0).getTitle());
+        assertTrue(reloaded.listFavorites(9L).isEmpty());
+
+        reloaded.unfavoriteProduct(8L, visible.getProductId());
+        reloaded.unfavoriteProduct(8L, visible.getProductId());
+        assertTrue(reloaded.listFavorites(8L).isEmpty());
+    }
+
     private JdbcTemplate jdbcTemplate() {
         return new JdbcTemplate(database);
     }

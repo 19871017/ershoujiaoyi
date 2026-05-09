@@ -3,7 +3,9 @@ const path = require('path')
 
 const root = path.resolve(__dirname, '..')
 const file = 'src/pages/favorite/index.vue'
+const apiFile = 'src/api/modules/product.ts'
 const source = fs.readFileSync(path.join(root, file), 'utf8')
+const apiSource = fs.readFileSync(path.join(root, apiFile), 'utf8')
 
 const failures = []
 
@@ -20,7 +22,8 @@ const forbiddenMarkers = [
   "status: '同城可约看'",
   'openProduct(item.id)',
   'favorites.splice',
-  '已取消收藏'
+  '收藏列表接口尚未接入',
+  '收藏接口暂未接通后端'
 ]
 
 for (const marker of forbiddenMarkers) {
@@ -28,16 +31,27 @@ for (const marker of forbiddenMarkers) {
 }
 
 const requiredMarkers = [
-  '收藏列表接口尚未接入',
-  '未展示本地收藏样例',
-  '未打开本地收藏商品',
-  '收藏接口暂未接通后端，未执行任何收藏变更',
-  'const favorites = computed(() => []',
-  'function openProductUnavailable()'
+  "import { computed, onMounted, ref } from 'vue'",
+  "listFavoriteProducts, unfavoriteProduct, type ProductListItemResponse",
+  'const favorites = ref<ProductListItemResponse[]>([])',
+  'favorites.value = await listFavoriteProducts()',
+  'favorites.value = []',
+  '收藏列表接口加载失败，未展示本地收藏样例',
+  '后端取消收藏失败，未执行本地收藏变更',
+  'if (!productId || productId <= 0)',
+  'onMounted(loadFavorites)'
 ]
 
 for (const marker of requiredMarkers) {
-  if (!source.includes(marker)) failures.push(`${file}: missing fail-closed favorite marker: ${marker}`)
+  if (!source.includes(marker)) failures.push(`${file}: missing backend-derived favorite marker: ${marker}`)
+}
+
+if (!apiSource.includes("listFavoriteProducts()") || !apiSource.includes("'/api/products/favorites'")) {
+  failures.push(`${apiFile}: missing backend favorite list API wrapper`)
+}
+
+if (!apiSource.includes('unfavoriteProduct(productId: number)') || !apiSource.includes('del<void>(`/api/products/${productId}/favorite`)')) {
+  failures.push(`${apiFile}: missing backend favorite removal API wrapper`)
 }
 
 if (failures.length) {
@@ -45,4 +59,4 @@ if (failures.length) {
   process.exit(1)
 }
 
-console.log('favorite page avoids static products and fails closed without backend favorite list')
+console.log('favorite page uses backend favorite list/removal and avoids static local favorites')

@@ -1,4 +1,4 @@
-import { get, post, put } from '../http'
+import { del, get, post, put } from '../http'
 
 export type ProductCreateStatus = 'created' | 'PENDING_AUDIT' | 'ACTIVE' | 'SOLD'
 export type ProductAuditState = 'pending' | 'PENDING' | 'APPROVED' | 'REJECTED'
@@ -80,4 +80,16 @@ export function createProduct(data: CreateProductRequest) {
 
 export function updateProduct(productId: number, data: CreateProductRequest) {
   return put<UpdateProductResponse>(`/api/products/${productId}`, data)
+}
+
+export function listFavoriteProducts() {
+  return get<ProductListItemResponse[]>('/api/products/favorites')
+}
+
+export function favoriteProduct(productId: number) {
+  return post<void>(`/api/products/${productId}/favorite`)
+}
+
+export function unfavoriteProduct(productId: number) {
+  return del<void>(`/api/products/${productId}/favorite`)
 }
