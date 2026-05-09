@@ -49,6 +49,14 @@ const checks = [
     ]
   },
   {
+    file: 'src/pages/chat/session-list/index.vue',
+    forbidden: [
+      '同城姐妹',
+      '约看',
+      '包邮'
+    ]
+  },
+  {
     file: 'src/pages/tabbar/home/index.vue',
     forbidden: [
       '平台担保',

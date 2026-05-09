@@ -25,8 +25,8 @@
     <view v-if="errorText" class="status-card error">{{ errorText }}</view>
     <view v-else-if="!loading && visibleConversations.length === 0" class="empty-card ds-card">
       <view class="empty-icon">💌</view>
-      <view class="empty-title">暂无会话</view>
-      <view class="empty-desc">去宝贝详情页私信卖家，或者在社区里认识同城姐妹。</view>
+      <view class="empty-title">暂无服务端会话</view>
+      <view class="empty-desc">会话列表仅展示后端返回记录；聊天记录以服务端会话为准。</view>
     </view>
 
     <view v-else class="session-list">
@@ -73,7 +73,7 @@ const totalUnread = computed(() => conversations.value.reduce((sum, item) => sum
 const visibleConversations = computed(() => conversations.value.filter((item) => matchFilter(item, filter.value) && matchKeyword(item)))
 function matchFilter(item: ChatConversationItem, value: Filter) {
   if (value === 'UNREAD') return item.unreadCount > 0
-  if (value === 'ORDER') return /订单|付款|发货|约看|包邮/.test(item.lastMessageSummary || '')
+  if (value === 'ORDER') return /订单|付款|发货|售后|物流/.test(item.lastMessageSummary || '')
   return true
 }
 function matchKeyword(item: ChatConversationItem) {
