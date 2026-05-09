@@ -1,6 +1,9 @@
 # 小原圈 GitHub 同步说明
 
 仓库地址：<https://github.com/19871017/ershoujiaoyi.git>
+本地项目路径：`/mnt/c/Users/WangYu/Desktop/esxz-sj-jypt`
+当前远程：`origin -> https://github.com/19871017/ershoujiaoyi.git`
+当前分支：`main`
 
 ## 同步原则
 
