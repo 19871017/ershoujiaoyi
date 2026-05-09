@@ -20,8 +20,8 @@
       <view class="hero-main">
         <view class="hero-tag">小原圈 · 今日精选</view>
         <view class="hero-title">进小原圈，附近好物一眼能逛到</view>
-        <view class="hero-desc">围绕衣物、鞋袜、小用品，支持同城交易、圈内互动和平台担保。</view>
-        <view class="hero-tags"><text>同城圈</text><text>担保交易</text><text>女生好物</text></view>
+        <view class="hero-desc">围绕衣物、鞋袜、小用品，支持圈内互动；交易状态以服务端订单、支付和售后记录为准。</view>
+        <view class="hero-tags"><text>圈内互动</text><text>订单记录</text><text>女生好物</text></view>
       </view>
       <view class="hero-side tapable" @click="goCloset">
         <view class="hero-num">小</view>
@@ -127,21 +127,21 @@ const ranking: Array<{ logo: string; title: string; name: string; score: string;
 const forumTopics = [
   { icon: '🎀', title: '穿搭交流', count: '2.1k', id: 1 },
   { icon: '🧺', title: '闲置避坑', count: '896', id: 2 },
-  { icon: '💗', title: '同城约看', count: '518', id: 3 }
+  { icon: '💗', title: '圈内经验', count: '518', id: 3 }
 ]
 
 const loading = ref(false)
 const errorMessage = ref('')
 const products = ref<ProductListItemResponse[]>([])
-const locationLabel = ref('请选择城市 · 同城交易')
+const locationLabel = ref('请选择城市 · 手动选择')
 
 async function loadLocationConfig() {
   try {
     const config = await getLocationConfig()
     const city = config.defaultCity || '请选择城市'
-    locationLabel.value = `${city} · 同城交易`
+    locationLabel.value = `${city} · 手动选择`
   } catch (error) {
-    locationLabel.value = '请选择城市 · 同城交易'
+    locationLabel.value = '请选择城市 · 手动选择'
   }
 }
 
@@ -184,7 +184,7 @@ function compactPrice(price: string) { return Number(price).toLocaleString('zh-C
 function iconFor(title: string) { if (title.includes('裙')) return '👗'; if (title.includes('鞋')) return '👠'; if (title.includes('袜')) return '🧦'; return '👜' }
 function tagFor(title: string) { if (title.includes('裙')) return '衣物'; if (title.includes('鞋')) return '鞋子'; if (title.includes('袜')) return '袜子'; return '小用品' }
 function toneClass(id: number) { return `tone-${id % 4}` }
-function distanceFor(id: number) { return ['1.2km', '2.6km', '同城可约', '可邮寄'][id % 4] }
+function distanceFor(id: number) { return ['服务端记录', '订单为准', '售后为准', '可邮寄'][id % 4] }
 onMounted(() => {
   loadLocationConfig()
   loadProducts()

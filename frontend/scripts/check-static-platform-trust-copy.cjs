@@ -25,6 +25,15 @@ const checks = [
       '用于平台担保交易发货',
       '同城约看'
     ]
+  },
+  {
+    file: 'src/pages/tabbar/home/index.vue',
+    forbidden: [
+      '平台担保',
+      '担保交易',
+      '同城可约',
+      '同城约看'
+    ]
   }
 ]
 
