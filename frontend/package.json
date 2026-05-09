@@ -40,7 +40,8 @@
     "check:product-edit-real-data": "node scripts/check-product-edit-real-data.cjs",
     "check:location-city-fail-closed": "node scripts/check-location-city-fail-closed.cjs",
     "check:publish-form-no-static-defaults": "node scripts/check-publish-form-no-static-defaults.cjs",
-    "check:static-platform-trust-copy": "node scripts/check-static-platform-trust-copy.cjs"
+    "check:static-platform-trust-copy": "node scripts/check-static-platform-trust-copy.cjs",
+    "check:community-compose-real-post": "node scripts/check-community-compose-real-post.cjs"
   },
   "dependencies": {
     "@dcloudio/uni-app": "3.0.0-alpha-5000820260430001",

@@ -17,7 +17,7 @@
 
       <view class="section-title gap">动态内容</view>
       <input v-model.trim="form.title" class="field" maxlength="32" placeholder="写个标题，比如：奶油白裙子怎么搭？" />
-      <textarea v-model.trim="form.content" class="textarea" maxlength="500" placeholder="分享细节、交易经验、约看提醒或想求购的小物..." />
+      <textarea v-model.trim="form.content" class="textarea" maxlength="500" placeholder="分享细节、交易经验、搭配心得或想求购的小物..." />
       <view class="counter">{{ form.content.length }}/500</view>
 
       <view class="image-box tapable" @click="chooseImages">
@@ -37,11 +37,12 @@
 
     <view class="safe-card ds-card">
       <view class="safe-title">发布前提醒</view>
-      <view class="safe-line">不要发布手机号、微信、支付宝等联系方式，交易沟通请留在平台内。</view>
+      <view class="safe-line">请勿发布联系方式、完整证件号或未打码的隐私信息。</view>
       <view class="safe-line">涉及纠纷或异常交易，可直接从帖子/商品/聊天入口举报。</view>
+      <view v-if="submitMessage" class="safe-line strong">{{ submitMessage }}</view>
     </view>
 
-    <button class="primary-btn submit" :disabled="submitting" @click="submitPost">{{ submitting ? '发布中...' : '发布动态' }}</button>
+    <button class="primary-btn submit" :disabled="submitting" @click="submitPost">{{ submitting ? '提交中...' : '提交发布' }}</button>
   </view>
 </template>
 
@@ -52,6 +53,7 @@ import { createMediaUploadTicket } from '../../../api/modules/media'
 
 const topics = ['穿搭交流', '闲置避坑', '交易经验', '求购心愿']
 const submitting = ref(false)
+const submitMessage = ref('')
 const form = reactive({ topic: '穿搭交流', title: '', content: '', images: [] as string[] })
 function chooseImages() {
   const remain = Math.max(1, 9 - form.images.length)
@@ -61,6 +63,7 @@ function chooseImages() {
     sourceType: ['album', 'camera'],
     async success(res) {
       try {
+        const issuedUrls: string[] = []
         for (const path of res.tempFilePaths.slice(0, remain)) {
           if (path.startsWith('local://') || path.includes('placeholder')) {
             throw new Error('图片资料无效，请重新选择')
@@ -71,17 +74,17 @@ function chooseImages() {
             fileSize: 300_000,
             filename: fileNameFromPath(path)
           })
-          form.images.push(ticket.storageUrl)
+          issuedUrls.push(ticket.storageUrl)
         }
-        form.images = form.images.slice(0, 9)
-        uni.showToast({ title: `已生成上传票据 ${form.images.length} 张，发布后才会进入社区`, icon: 'none' })
+        form.images = [...form.images, ...issuedUrls].slice(0, 9)
+        uni.showToast({ title: `已生成上传票据 ${form.images.length} 张，提交发布后才会进入社区`, icon: 'none' })
       } catch (error) {
         uni.showToast({ title: error instanceof Error ? error.message : '图片上传票据创建失败', icon: 'none' })
       }
     }
   })
 }
-function removeImage(index: number) { form.images.splice(index, 1) }
+function removeImage(index: number) { form.images = form.images.filter((_, current) => current !== index) }
 function fileNameFromPath(path: string) {
   const clean = path.split('?')[0] || ''
   const last = clean.split('/').pop() || 'community-image.jpg'
@@ -94,6 +97,7 @@ function imageContentType(path: string) {
   return 'image/jpeg'
 }
 async function submitPost() {
+  submitMessage.value = ''
   if (!form.title) return uni.showToast({ title: '请填写标题', icon: 'none' })
   if (form.content.length < 8) return uni.showToast({ title: '内容至少 8 个字', icon: 'none' })
   if (form.images.some(url => url.startsWith('local://') || url.includes('placeholder') || !url.startsWith('/uploads/community-image/'))) {
@@ -102,8 +106,17 @@ async function submitPost() {
   submitting.value = true
   try {
     const created = await createCommunityPost({ title: form.title, topic: form.topic, content: form.content, imageUrls: form.images })
-    uni.showModal({ title: '动态已发布', content: '内容已进入小原圈社区广场。', showCancel: true, confirmText: '查看动态', cancelText: '继续编辑', success: (res) => { if (res.confirm) uni.navigateTo({ url: `/pages/community/detail/index?postId=${created.postId}` }) } })
+    submitMessage.value = `已提交发布：${created.postNo || created.postId}`
+    uni.showModal({
+      title: '已提交发布',
+      content: '后端已创建社区动态；列表、详情、评论和点赞均以服务端记录为准。',
+      showCancel: true,
+      confirmText: '查看动态',
+      cancelText: '继续编辑',
+      success: (res) => { if (res.confirm && created.postId > 0) uni.navigateTo({ url: `/pages/community/detail/index?postId=${created.postId}` }) }
+    })
   } catch (error) {
+    submitMessage.value = '发布没有提交成功，未进入社区广场'
     uni.showToast({ title: error instanceof Error ? error.message : '发布失败，请稍后重试', icon: 'none' })
   } finally {
     submitting.value = false
@@ -130,6 +143,6 @@ async function submitPost() {
 .preview-row { margin-top:14rpx; display:grid; grid-template-columns:repeat(3,1fr); gap:12rpx; }
 .preview { position:relative; height:150rpx; border-radius:22rpx; overflow:hidden; background:#fff3e7; }.preview image { width:100%; height:100%; }
 .remove { position:absolute; right:8rpx; top:8rpx; width:34rpx; height:34rpx; border-radius:50%; background:rgba(63,36,50,.72); color:#fff; display:flex; align-items:center; justify-content:center; }
-.safe-title { color:#3a2a1f; font-size:25rpx; font-weight:950; }.safe-line { margin-top:8rpx; color:#9b7560; font-size:22rpx; line-height:1.55; }
+.safe-title { color:#3a2a1f; font-size:25rpx; font-weight:950; }.safe-line { margin-top:8rpx; color:#9b7560; font-size:22rpx; line-height:1.55; }.safe-line.strong { color:#ff7a45; font-weight:900; }
 .submit { margin-top:24rpx; }
 </style>
