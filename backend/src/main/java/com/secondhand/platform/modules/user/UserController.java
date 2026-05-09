@@ -5,6 +5,8 @@ import com.secondhand.platform.shared.kernel.Result;
 import com.secondhand.platform.shared.web.CurrentUserResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -26,7 +28,22 @@ public class UserController {
     }
 
     @GetMapping("/{userId}/profile")
-    public Result<UserProfileResponse> publicProfile(@org.springframework.web.bind.annotation.PathVariable Long userId) {
-        return Result.ok(userApplicationService.publicProfile(userId));
+    public Result<UserProfileResponse> publicProfile(@PathVariable Long userId, HttpServletRequest request) {
+        Long viewerId = resolveOptionalViewer(request);
+        return Result.ok(userApplicationService.publicProfile(userId, viewerId));
+    }
+
+    @PostMapping("/{userId}/follow")
+    public Result<UserProfileResponse> follow(@PathVariable Long userId, HttpServletRequest request) {
+        long followerId = currentUserResolver.resolve(request);
+        return Result.ok(userApplicationService.followProfile(followerId, userId));
+    }
+
+    private Long resolveOptionalViewer(HttpServletRequest request) {
+        try {
+            return currentUserResolver.resolve(request);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 }

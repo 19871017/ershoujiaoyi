@@ -6,17 +6,23 @@ public class UserProfileResponse {
     private String mainRole;
     private String videoIdentityStatus;
     private boolean videoVerified;
+    private boolean followedByMe;
 
     public UserProfileResponse(Long userId, String nickname, String mainRole) {
-        this(userId, nickname, mainRole, "UNVERIFIED", false);
+        this(userId, nickname, mainRole, "UNVERIFIED", false, false);
     }
 
     public UserProfileResponse(Long userId, String nickname, String mainRole, String videoIdentityStatus, boolean videoVerified) {
+        this(userId, nickname, mainRole, videoIdentityStatus, videoVerified, false);
+    }
+
+    public UserProfileResponse(Long userId, String nickname, String mainRole, String videoIdentityStatus, boolean videoVerified, boolean followedByMe) {
         this.userId = userId;
         this.nickname = nickname;
         this.mainRole = mainRole;
         this.videoIdentityStatus = videoIdentityStatus == null ? "UNVERIFIED" : videoIdentityStatus;
         this.videoVerified = videoVerified;
+        this.followedByMe = followedByMe;
     }
 
     public Long getUserId() {
@@ -37,5 +43,9 @@ public class UserProfileResponse {
 
     public boolean isVideoVerified() {
         return videoVerified;
+    }
+
+    public boolean isFollowedByMe() {
+        return followedByMe;
     }
 }

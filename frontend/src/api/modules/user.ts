@@ -22,6 +22,10 @@ export function getPublicProfile(userId: number | string) {
   return get<UserProfileResponse>(`/api/user/${userId}/profile`)
 }
 
+export function followPublicProfile(userId: number | string) {
+  return post<UserProfileResponse>(`/api/user/${encodeURIComponent(String(userId))}/follow`, {})
+}
+
 export function submitVideoIdentity(data: SubmitVideoIdentityRequest) {
   return post('/api/audit/video-identity', data)
 }

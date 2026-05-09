@@ -77,6 +77,42 @@ class UserApplicationServiceTest {
     }
 
     @Test
+    void publicProfileShouldExposeViewerScopedFollowStateAfterFollow() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.login(login("13800138221", "pass-123456"));
+        auth.login(login("13800138222", "pass-123456"));
+        Long viewerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138221");
+        Long sellerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138222");
+
+        UserProfileResponse before = service.publicProfile(sellerId, viewerId);
+        service.followProfile(viewerId, sellerId);
+        UserProfileResponse after = service.publicProfile(sellerId, viewerId);
+        UserProfileResponse anonymous = service.publicProfile(sellerId);
+
+        assertEquals(false, before.isFollowedByMe());
+        assertEquals(true, after.isFollowedByMe());
+        assertEquals(false, anonymous.isFollowedByMe());
+        service.followProfile(viewerId, sellerId);
+        Integer duplicateRows = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_follow WHERE follower_id = ? AND followed_id = ?",
+                Integer.class,
+                viewerId,
+                sellerId
+        );
+        assertEquals(1, duplicateRows);
+    }
+
+    @Test
+    void followProfileShouldRejectSelfOrMissingUsers() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.login(login("13800138231", "pass-123456"));
+        Long viewerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138231");
+
+        assertThrows(IllegalArgumentException.class, () -> service.followProfile(viewerId, viewerId));
+        assertThrows(IllegalArgumentException.class, () -> service.followProfile(viewerId, 999_999L));
+    }
+
+    @Test
     void currentUserProfileShouldRejectMissingUser() {
         assertThrows(IllegalArgumentException.class, () -> service.currentUserProfile(999L));
         assertThrows(IllegalArgumentException.class, () -> service.publicProfile(999L));

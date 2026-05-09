@@ -37,7 +37,10 @@ const requiredMarkers = [
   'const validUserId = isValidBackendUserId(userId.value)',
   "const followed = computed(() => profile.followedByMe === true)",
   "followedByMe: false",
-  '关注接口暂未接通后端，未执行任何关注变更',
+  'followPublicProfile(userId.value)',
+  '关注没有提交成功，未执行本地关注变更',
+  '缺少真实用户ID，未执行任何关注变更',
+  '已关注状态来自后端，暂未接入取消关注',
   '缺少真实用户ID，未进入私信',
   '缺少真实用户ID，未进入送礼',
   '缺少真实用户ID，未进入举报'

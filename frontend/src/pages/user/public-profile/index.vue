@@ -53,7 +53,7 @@
 </template>
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { getPublicProfile, type UserProfileResponse } from '../../../api/modules/user'
+import { followPublicProfile, getPublicProfile, type UserProfileResponse } from '../../../api/modules/user'
 const userId = ref('')
 const loadError = ref('')
 const profile = reactive<UserProfileResponse>({ userId: 0, nickname: '小原圈用户', mainRole: 'UNVERIFIED', videoIdentityStatus: 'UNVERIFIED', videoVerified: false, followedByMe: false })
@@ -69,7 +69,12 @@ async function loadProfile(){
   try{const data=await getPublicProfile(userId.value); Object.assign(profile,data); loadError.value = ''}
   catch(e){loadError.value = '卖家数据暂时不可用，未展示本地卖家样例'; uni.showToast({title:'卖家资料暂时不可用',icon:'none'})}
 }
-function toggleFollow(){uni.showToast({title:'关注接口暂未接通后端，未执行任何关注变更',icon:'none'})}
+async function toggleFollow(){
+  if (!isValidBackendUserId(userId.value)) { uni.showToast({title:'缺少真实用户ID，未执行任何关注变更',icon:'none'}); return }
+  if (followed.value) { uni.showToast({title:'已关注状态来自后端，暂未接入取消关注',icon:'none'}); return }
+  try { const data = await followPublicProfile(userId.value); Object.assign(profile, data); uni.showToast({title:'关注状态已同步',icon:'none'}) }
+  catch { uni.showToast({title:'关注没有提交成功，未执行本地关注变更',icon:'none'}) }
+}
 function chat(){const validUserId = isValidBackendUserId(userId.value); if(!validUserId){uni.showToast({title:'缺少真实用户ID，未进入私信',icon:'none'});return} uni.navigateTo({url:`/pages/chat/conversation/index?receiverId=${userId.value}`})}
 function openGift(){const validUserId = isValidBackendUserId(userId.value); if(!validUserId){uni.showToast({title:'缺少真实用户ID，未进入送礼',icon:'none'});return} uni.navigateTo({url:`/pages/gift/index?mode=send&receiverId=${userId.value}&sceneType=PROFILE&sceneId=${userId.value}`})}
 function report(){const validUserId = isValidBackendUserId(userId.value); if(!validUserId){uni.showToast({title:'缺少真实用户ID，未进入举报',icon:'none'});return} uni.navigateTo({url:`/pages/report/submit/index?targetType=USER&targetId=${userId.value}`})}
