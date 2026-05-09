@@ -15,7 +15,22 @@ const forbiddenMarkers = [
   '蝴蝶结长袜三双装',
   '粉色腋下包 轻微使用',
   'products.value = demoProducts',
-  '换个分类或关键词试试。'
+  '换个分类或关键词试试。',
+  '同城近',
+  "value: 'near'",
+  'item.count }} 件',
+  'count: 28',
+  'count: 34',
+  'count: 18',
+  'count: 12',
+  'count: 16',
+  'count: 20',
+  'count: 22',
+  'count: 15',
+  'count: 19',
+  'count: 10',
+  'count: 21',
+  'count: 14'
 ]
 
 for (const marker of forbiddenMarkers) {

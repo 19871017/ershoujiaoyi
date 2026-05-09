@@ -44,7 +44,7 @@
         <view v-for="item in activeItems" :key="item.name" class="sub-item tapable" :class="{ active: subCategory === item.name }" @click="selectSubCategory(item.name)">
           <view class="sub-icon">{{ item.icon }}</view>
           <view class="sub-name">{{ item.name }}</view>
-          <view class="sub-count">{{ item.count }} 件</view>
+          <view class="sub-count">{{ subCategoryCount(item.name) }} 件</view>
         </view>
       </view>
     </view>
@@ -87,10 +87,10 @@ const groups = [
     icon: '👗',
     desc: '裙子、上衣、外套、套装',
     items: [
-      { name: '连衣裙', icon: '👗', count: 28 },
-      { name: '上衣', icon: '🎽', count: 34 },
-      { name: '外套', icon: '🧥', count: 18 },
-      { name: '套装', icon: '🧸', count: 12 }
+      { name: '连衣裙', icon: '👗' },
+      { name: '上衣', icon: '🎽' },
+      { name: '外套', icon: '🧥' },
+      { name: '套装', icon: '🧸' }
     ]
   },
   {
@@ -98,10 +98,10 @@ const groups = [
     icon: '👠',
     desc: '鞋子和袜子放一起，入口更少更直接',
     items: [
-      { name: '玛丽珍鞋', icon: '👠', count: 16 },
-      { name: '运动鞋', icon: '👟', count: 20 },
-      { name: '短袜', icon: '🧦', count: 22 },
-      { name: '长袜', icon: '🎀', count: 15 }
+      { name: '玛丽珍鞋', icon: '👠' },
+      { name: '运动鞋', icon: '👟' },
+      { name: '短袜', icon: '🧦' },
+      { name: '长袜', icon: '🎀' }
     ]
   },
   {
@@ -109,15 +109,15 @@ const groups = [
     icon: '👜',
     desc: '包包、帽子、饰品、女生小物',
     items: [
-      { name: '包包', icon: '👜', count: 19 },
-      { name: '帽子', icon: '👒', count: 10 },
-      { name: '饰品', icon: '💍', count: 21 },
-      { name: '小物', icon: '🪞', count: 14 }
+      { name: '包包', icon: '👜' },
+      { name: '帽子', icon: '👒' },
+      { name: '饰品', icon: '💍' },
+      { name: '小物', icon: '🪞' }
     ]
   }
 ]
 
-type SortBy = 'new' | 'priceLow' | 'near'
+type SortBy = 'new' | 'priceLow'
 
 const defaultGroup = groups[0]!
 const active = ref(defaultGroup.name)
@@ -129,8 +129,7 @@ const errorText = ref('')
 const products = ref<ProductListItemResponse[]>([])
 const sortOptions: Array<{ label: string; value: SortBy }> = [
   { label: '最新', value: 'new' },
-  { label: '低价', value: 'priceLow' },
-  { label: '同城近', value: 'near' }
+  { label: '低价', value: 'priceLow' }
 ]
 
 const currentGroup = computed(() => groups.find((item) => item.name === active.value) ?? defaultGroup)
@@ -146,10 +145,13 @@ const filteredProducts = computed(() => {
   })
   return [...list].sort((a, b) => {
     if (sortBy.value === 'priceLow') return Number(a.price) - Number(b.price)
-    if (sortBy.value === 'near') return a.productId - b.productId
     return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
   })
 })
+
+function subCategoryCount(name: string) {
+  return products.value.filter((item) => `${item.title}${item.productNo}${item.status}${item.auditState}`.toLowerCase().includes(name.toLowerCase())).length
+}
 
 function selectGroup(name: string) {
   active.value = name
