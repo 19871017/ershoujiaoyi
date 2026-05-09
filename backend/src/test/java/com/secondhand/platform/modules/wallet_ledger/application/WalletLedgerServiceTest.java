@@ -87,6 +87,21 @@ class WalletLedgerServiceTest {
     }
 
     @Test
+    void createWithdrawalShouldRejectClientSuppliedMaskedAccountNumber() {
+        service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        CreateWithdrawalRequest request = withdrawal("50.00");
+        request.setAccountNo("6222 **** **** 8088");
+
+        assertThrows(IllegalArgumentException.class, () -> service.createWithdrawal(1L, request, "AU-WD-1"));
+
+        WalletBalanceResponse balance = service.getBalance(1L);
+        assertMoney("80.00", balance.getWithdrawableBalance());
+        assertMoney("0.00", balance.getFrozenBalance());
+        assertEquals(1, service.listLedger(1L).size());
+        assertTrue(service.listWithdrawals(1L).isEmpty());
+    }
+
+    @Test
     void withdrawalResponsesShouldMaskAccountNumberForUserListsAndCreation() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
         CreateWithdrawalRequest request = withdrawal("50.00");

@@ -152,6 +152,7 @@ public class WalletLedgerService {
         String paymentMethod = requireText(request.getPaymentMethod(), "withdrawal paymentMethod required").toUpperCase(Locale.ROOT);
         String accountName = requireText(request.getAccountName(), "withdrawal accountName required");
         String accountNo = requireText(request.getAccountNo(), "withdrawal accountNo required");
+        rejectClientSuppliedMaskedAccountNo(accountNo);
         WalletAccount account = accountOf(userId);
         BigDecimal withdrawableBefore = money(account.getWithdrawableBalance());
         BigDecimal withdrawableAfter = withdrawableBefore.subtract(amount).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY);
@@ -505,6 +506,12 @@ public class WalletLedgerService {
             throw new IllegalArgumentException(message);
         }
         return safe;
+    }
+
+    private void rejectClientSuppliedMaskedAccountNo(String accountNo) {
+        if (accountNo.contains("*")) {
+            throw new IllegalArgumentException("withdrawal accountNo must be backend-owned raw account reference");
+        }
     }
 
     private String safeText(String value) {
