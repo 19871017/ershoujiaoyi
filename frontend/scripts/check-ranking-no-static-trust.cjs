@@ -24,8 +24,23 @@ if (source.includes("activeType.value === 'deal' ? 'deals'")) {
   failures.push('ranking page must not sort/display a static deal leaderboard as backend-derived transaction data')
 }
 
-if (!source.includes('榜单为开发预览数据') || !source.includes('实名、信用、成交等信任指标不在本页展示')) {
-  failures.push('ranking page must explicitly state that trust/identity/transaction metrics are not displayed without backend data')
+if (source.includes('const rankings = reactive<RankingUser[]>([') || source.includes("tags: ['") || source.includes('<view class="verify">预览用户</view>') || source.includes('榜单为开发预览数据')) {
+  failures.push('ranking page must not render static preview leaderboard users as a substitute for backend ranking data')
+}
+if (!source.includes('榜单接口尚未接入，未展示本地预览榜单') || !source.includes('没有后端榜单数据时，本页保持空态')) {
+  failures.push('ranking page must fail closed with an explicit empty state when backend ranking data is unavailable')
+}
+if (!source.includes('const rankings = ref<RankingUser[]>([])')) {
+  failures.push('ranking page must initialize leaderboard rows as an empty backend-derived ref')
+}
+if (!source.includes("loadError.value = '榜单接口尚未接入，未展示本地预览榜单'")) {
+  failures.push('ranking page must explicitly set fail-closed load error instead of static ranking rows')
+}
+if (!source.includes('const stats = computed(() => [') || !source.includes("{ value: '0', label: '后端上榜用户' }")) {
+  failures.push('ranking page stats must not aggregate static preview leaderboard metrics')
+}
+if (!source.includes('实名、信用、成交等信任指标必须由后端审计数据提供')) {
+  failures.push('ranking page must explicitly state that identity/credit/deal trust metrics require backend audit data')
 }
 
 const previewTrustCopyPatterns = [
