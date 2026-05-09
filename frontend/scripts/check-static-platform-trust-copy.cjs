@@ -134,6 +134,16 @@ const checks = [
     ]
   },
   {
+    file: 'src/pages/system/settings/index.vue',
+    forbidden: [
+      '平台担保',
+      '担保交易',
+      '同城推荐',
+      '同城可约',
+      '同城约看'
+    ]
+  },
+  {
     file: 'src/pages/after-sales/apply/index.vue',
     forbidden: [
       '平台介入',

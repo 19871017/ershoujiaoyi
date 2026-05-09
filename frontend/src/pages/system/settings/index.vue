@@ -35,7 +35,7 @@ const rows = reactive<Row[]>([
   { icon: '🔐', label: '账号安全', desc: '密码、手机号、登录设备', url: '/pages/system/account-security/index' },
   { icon: '🪪', label: '实名认证', desc: '保障交易和提现安全', url: '/pages/user/identity/index' },
   { icon: '💬', label: '消息通知', desc: '订单、私信、审核通知（需后端配置接口）', switch: true, on: false },
-  { icon: '📍', label: '定位权限', desc: '同城推荐需系统授权与后端定位配置', switch: true, on: false },
+  { icon: '📍', label: '位置权限', desc: '位置偏好需系统授权与后端定位配置，当前页不保存正式位置状态', switch: true, on: false },
   { icon: '🧪', label: '开发预览模式', desc: '仅展示当前构建环境，不能在页面内切换', switch: true, on: false },
   { icon: '📜', label: '用户协议与隐私', desc: '查看平台规则和隐私说明', url: '/pages/system/privacy/index' }
 ])
