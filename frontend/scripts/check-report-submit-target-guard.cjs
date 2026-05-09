@@ -39,7 +39,18 @@ if (!/submitReport\(\{[\s\S]*targetId:\s*targetId\.value/.test(reportContent)) {
   failures.push('report submission must still send only the validated backend targetId from page state')
 }
 
-for (const forbiddenCopy of ['平台担保', '平台会结合聊天记录', '你提交的凭证处理', '添加凭证截图', '已签发', '签发凭证中', '凭证 {{ index + 1 }}']) {
+for (const forbiddenCopy of [
+  '平台担保',
+  '平台会结合聊天记录',
+  '你提交的凭证处理',
+  '添加凭证截图',
+  '已签发',
+  '签发凭证中',
+  '凭证 {{ index + 1 }}',
+  '最多 6 张凭证',
+  '举报凭证票据签发失败',
+  '凭证票据'
+]) {
   if (reportContent.includes(forbiddenCopy)) {
     failures.push(`report submit page must not show static trust/business-success evidence copy: ${forbiddenCopy}`)
   }

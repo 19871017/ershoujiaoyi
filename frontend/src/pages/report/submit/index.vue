@@ -24,7 +24,7 @@
         <view class="upload-icon">＋</view>
         <view>
           <view class="upload-title">生成上传票据</view>
-          <view class="upload-desc">已生成 {{ evidence.length }} 张举报上传票据，最多 6 张</view>
+          <view class="upload-desc">已生成 {{ evidence.length }} 张举报上传票据，上限 6 张</view>
         </view>
       </view>
       <view v-if="evidence.length" class="evidence-list">
@@ -93,7 +93,7 @@ function isValidReportTargetId(value: string, type = targetType.value) {
 }
 function chooseEvidence() {
   const remaining = Math.max(0, 6 - evidence.value.length)
-  if (remaining <= 0) { uni.showToast({ title: '最多 6 张凭证', icon: 'none' }); return }
+  if (remaining <= 0) { uni.showToast({ title: '上传票据上限为 6 张', icon: 'none' }); return }
   uni.chooseImage({
     count: remaining,
     sizeType: ['compressed'],
@@ -110,7 +110,7 @@ function chooseEvidence() {
         }
         evidence.value = [...evidence.value, ...urls].slice(0, 6)
       } catch {
-        uni.showToast({ title: '举报凭证票据签发失败', icon: 'none' })
+        uni.showToast({ title: '举报上传票据生成失败', icon: 'none' })
       } finally {
         uni.hideLoading()
       }
