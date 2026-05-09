@@ -39,9 +39,24 @@ public class CommunityApplicationService {
     }
 
     public List<CommunityPostResponse> listPublishedPosts(int limit) {
+        return listPublishedPosts(limit, null);
+    }
+
+    public List<CommunityPostResponse> listPublishedPosts(int limit, Long currentUserId) {
         int capped = Math.max(1, Math.min(limit <= 0 ? 20 : limit, MAX_LIST_LIMIT));
-        return jdbcTemplate.query("SELECT * FROM community_post WHERE status = 'PUBLISHED' ORDER BY created_at DESC, id DESC LIMIT ?",
-                (rs, rowNum) -> mapPost(rs.getString("post_no"), rs.getLong("id"), rs.getLong("author_id"), rs.getString("title"), rs.getString("topic"), rs.getString("content"), rs.getString("image_urls"), rs.getString("status"), rs.getInt("like_count"), rs.getInt("comment_count"), rs.getTimestamp("created_at")), capped);
+        boolean hasViewer = currentUserId != null && currentUserId > 0;
+        return jdbcTemplate.query("""
+                        SELECT p.*,
+                               CASE WHEN ? = TRUE AND EXISTS (
+                                   SELECT 1 FROM community_like l WHERE l.post_id = p.id AND l.user_id = ?
+                               ) THEN TRUE ELSE FALSE END AS liked_by_me
+                        FROM community_post p
+                        WHERE p.status = 'PUBLISHED'
+                        ORDER BY p.created_at DESC, p.id DESC
+                        LIMIT ?
+                        """,
+                (rs, rowNum) -> mapPost(rs.getString("post_no"), rs.getLong("id"), rs.getLong("author_id"), rs.getString("title"), rs.getString("topic"), rs.getString("content"), rs.getString("image_urls"), rs.getString("status"), rs.getInt("like_count"), rs.getInt("comment_count"), rs.getTimestamp("created_at"), rs.getBoolean("liked_by_me")),
+                hasViewer, currentUserId, capped);
     }
 
     public CommunityPostDetailResponse detail(String postIdOrNo, Long currentUserId) {
@@ -132,7 +147,13 @@ public class CommunityApplicationService {
 
     private CommunityPostResponse mapPost(String postNo, Long postId, Long authorId, String title, String topic, String content,
                                           String imageUrls, String status, int likeCount, int commentCount, Timestamp createdAt) {
-        return new CommunityPostResponse(postNo, postId, authorId, title, topic, content, splitImages(imageUrls), status, likeCount, commentCount, toInstant(createdAt));
+        return mapPost(postNo, postId, authorId, title, topic, content, imageUrls, status, likeCount, commentCount, createdAt, false);
+    }
+
+    private CommunityPostResponse mapPost(String postNo, Long postId, Long authorId, String title, String topic, String content,
+                                          String imageUrls, String status, int likeCount, int commentCount, Timestamp createdAt,
+                                          boolean likedByMe) {
+        return new CommunityPostResponse(postNo, postId, authorId, title, topic, content, splitImages(imageUrls), status, likeCount, commentCount, toInstant(createdAt), likedByMe);
     }
 
     private static String requireText(String value, String field, int min, int max) {

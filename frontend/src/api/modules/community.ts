@@ -18,6 +18,7 @@ export interface CommunityPostResponse {
   status: string
   likeCount: number
   commentCount: number
+  likedByMe: boolean
   createdAt: string
   authorName?: string
   authorAvatar?: string

@@ -15,9 +15,16 @@ public class CommunityPostResponse {
     private final int likeCount;
     private final int commentCount;
     private final Instant createdAt;
+    private final boolean likedByMe;
 
     public CommunityPostResponse(String postNo, Long postId, Long authorId, String title, String topic, String content,
                                  List<String> imageUrls, String status, int likeCount, int commentCount, Instant createdAt) {
+        this(postNo, postId, authorId, title, topic, content, imageUrls, status, likeCount, commentCount, createdAt, false);
+    }
+
+    public CommunityPostResponse(String postNo, Long postId, Long authorId, String title, String topic, String content,
+                                 List<String> imageUrls, String status, int likeCount, int commentCount, Instant createdAt,
+                                 boolean likedByMe) {
         this.postNo = postNo;
         this.postId = postId;
         this.authorId = authorId;
@@ -29,6 +36,7 @@ public class CommunityPostResponse {
         this.likeCount = likeCount;
         this.commentCount = commentCount;
         this.createdAt = createdAt;
+        this.likedByMe = likedByMe;
     }
 
     public String getPostNo() { return postNo; }
@@ -42,4 +50,5 @@ public class CommunityPostResponse {
     public int getLikeCount() { return likeCount; }
     public int getCommentCount() { return commentCount; }
     public Instant getCreatedAt() { return createdAt; }
+    public boolean getLikedByMe() { return likedByMe; }
 }

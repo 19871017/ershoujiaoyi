@@ -31,8 +31,8 @@ public class CommunityController {
     }
 
     @GetMapping
-    public Result<List<CommunityPostResponse>> list(@RequestParam(defaultValue = "20") int limit) {
-        return Result.ok(communityApplicationService.listPublishedPosts(limit));
+    public Result<List<CommunityPostResponse>> list(@RequestParam(defaultValue = "20") int limit, HttpServletRequest request) {
+        return Result.ok(communityApplicationService.listPublishedPosts(limit, currentUserResolver.resolve(request)));
     }
 
     @GetMapping("/{postId}")

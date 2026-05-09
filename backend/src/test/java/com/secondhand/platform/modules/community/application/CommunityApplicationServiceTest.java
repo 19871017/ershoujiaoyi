@@ -65,7 +65,7 @@ class CommunityApplicationServiceTest {
 
     @Test
     void likeShouldBeIdempotentAndPersistedPerUser() {
-        CommunityPostResponse post = service.createPost(13L, post("同城约看提醒", "同城约看", "建议公共场所见面。", List.of()));
+        CommunityPostResponse post = service.createPost(13L, post("交易流程经验", "交易经验", "建议交付安排和沟通记录都以后端订单与聊天记录为准。", List.of()));
 
         CommunityPostDetailResponse liked = service.likePost(21L, post.getPostId());
         CommunityPostDetailResponse replay = service.likePost(21L, post.getPostId());
@@ -79,6 +79,19 @@ class CommunityApplicationServiceTest {
         CommunityPostDetailResponse detail = reloaded.detail(post.getPostId(), 21L);
         assertEquals(2, detail.getLikeCount());
         assertTrue(detail.getLikedByMe());
+    }
+
+    @Test
+    void listShouldReturnViewerScopedLikedByMeForFeedRows() {
+        CommunityPostResponse post = service.createPost(24L, post("社区点赞状态", "交易经验", "列表页点赞状态必须由后端按当前用户返回。", List.of()));
+        service.likePost(31L, post.getPostId());
+
+        CommunityPostResponse viewerListRow = service.listPublishedPosts(20, 31L).get(0);
+        CommunityPostResponse otherViewerListRow = service.listPublishedPosts(20, 32L).get(0);
+
+        assertTrue(viewerListRow.getLikedByMe());
+        assertFalse(otherViewerListRow.getLikedByMe());
+        assertEquals(1, viewerListRow.getLikeCount());
     }
 
     @Test

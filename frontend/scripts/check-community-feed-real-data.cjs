@@ -25,7 +25,7 @@ for (const marker of forbiddenMarkers) {
 }
 
 const requiredMarkers = [
-  "import { likeCommunityPost, listCommunityPosts, type CommunityPostResponse } from '../../../api/modules/community'",
+  "import { likeCommunityPost, listCommunityPosts, unlikeCommunityPost, type CommunityPostResponse } from '../../../api/modules/community'",
   'const feeds = ref<CommunityPostResponse[]>([])',
   'await listCommunityPosts(20)',
   '社区内容暂时不可用，未展示本地帖子样例',
@@ -35,9 +35,12 @@ const requiredMarkers = [
   'function openPost(item: CommunityPostResponse)',
   '缺少有效动态编号，未打开动态详情',
   'postId=${item.postId}',
-  'async function likeFeed(item: CommunityPostResponse)',
-  'const saved = await likeCommunityPost(item.postId)',
-  'item.likeCount = saved.likeCount'
+  'async function toggleLikeFeed(item: CommunityPostResponse)',
+  'const wasLiked = item.likedByMe',
+  'const saved = wasLiked ? await unlikeCommunityPost(item.postId) : await likeCommunityPost(item.postId)',
+  'item.likeCount = saved.likeCount',
+  'item.likedByMe = saved.likedByMe',
+  "{{ item.likedByMe ? '♥' : '♡' }} {{ item.likeCount }}"
 ]
 
 for (const marker of requiredMarkers) {

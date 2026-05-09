@@ -49,7 +49,7 @@
       </view>
       <view class="feed-text">{{ item.content }}</view>
       <view class="feed-actions">
-        <view class="tapable" @click="likeFeed(item)">♡ {{ item.likeCount }}</view>
+        <view class="tapable" @click="toggleLikeFeed(item)">{{ item.likedByMe ? '♥' : '♡' }} {{ item.likeCount }}</view>
         <view class="tapable" @click="openPost(item)">💬 {{ item.commentCount }}</view>
         <view class="tapable" @click="goSessions">私信</view>
       </view>
@@ -61,7 +61,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { likeCommunityPost, listCommunityPosts, type CommunityPostResponse } from '../../../api/modules/community'
+import { likeCommunityPost, listCommunityPosts, unlikeCommunityPost, type CommunityPostResponse } from '../../../api/modules/community'
 
 const filters = ['全部', '话题', '私信', '交易']
 const activeFilter = ref('全部')
@@ -103,14 +103,16 @@ function openPost(item: CommunityPostResponse) {
   uni.navigateTo({ url: `/pages/community/detail/index?postId=${item.postId}&topic=${encodeURIComponent(item.topic)}` })
 }
 function toggleFollow() { showToast('关注接口暂未接通后端，未执行任何关注变更') }
-async function likeFeed(item: CommunityPostResponse) {
+async function toggleLikeFeed(item: CommunityPostResponse) {
   if (!isValidCommunityPostId(item.postId)) {
     showToast('缺少有效动态编号，未执行点赞变更')
     return
   }
+  const wasLiked = item.likedByMe
   try {
-    const saved = await likeCommunityPost(item.postId)
+    const saved = wasLiked ? await unlikeCommunityPost(item.postId) : await likeCommunityPost(item.postId)
     item.likeCount = saved.likeCount
+    item.likedByMe = saved.likedByMe
   } catch {
     showToast('点赞没有提交成功，未执行本地点赞变更')
   }
