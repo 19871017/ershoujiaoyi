@@ -69,7 +69,7 @@ public class OrderApplicationService {
                 productSnapshot.getTitle(),
                 productSnapshot.getTradeRule(),
                 buyerId,
-                1L,
+                productSnapshot.getSellerId(),
                 productSnapshot.getPrice(),
                 STATUS_PENDING_PAY,
                 true

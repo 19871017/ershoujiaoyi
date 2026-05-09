@@ -169,7 +169,7 @@ public class ProductApplicationService {
         if (product.lockedOrderNo() != null) {
             throw new IllegalArgumentException("product-already-locked");
         }
-        return new ProductSnapshot(product.productId(), product.productNo(), product.title(), product.price(), product.tradeRule());
+        return new ProductSnapshot(product.productId(), product.productNo(), product.title(), product.price(), product.tradeRule(), product.sellerId());
     }
 
     @Transactional

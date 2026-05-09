@@ -45,14 +45,15 @@ class OrderApplicationServiceTest {
     }
 
     @Test
-    void createOrderShouldPersistPendingOrderAndLockProductAcrossServiceRecreation() {
-        CreateProductResponse product = approvedProduct("碎花连衣裙", "168.00");
+    void createOrderShouldPersistPendingOrderLockProductAndUseProductSeller() {
+        CreateProductResponse product = approvedProduct("碎花连衣裙", "168.00", 7001L);
 
         CreateOrderResponse order = orderService.createOrder(orderRequest(product.getProductId()), 2001L);
 
         assertEquals("PENDING_PAY", order.getStatus());
         assertNotNull(order.getOrderNo());
         assertEquals(1, jdbcTemplate.queryForObject("select count(*) from trade_order where order_no = ?", Integer.class, order.getOrderNo()));
+        assertEquals(7001L, jdbcTemplate.queryForObject("select seller_id from trade_order where order_no = ?", Long.class, order.getOrderNo()));
 
         OrderApplicationService reloaded = new OrderApplicationService(productService, walletService, jdbcTemplate);
         assertThrows(IllegalArgumentException.class, () -> reloaded.createOrder(orderRequest(product.getProductId()), 2002L));
@@ -206,6 +207,10 @@ class OrderApplicationServiceTest {
     }
 
     private CreateProductResponse approvedProduct(String title, String price) {
+        return approvedProduct(title, price, 1L);
+    }
+
+    private CreateProductResponse approvedProduct(String title, String price, Long sellerId) {
         CreateProductRequest request = new CreateProductRequest();
         request.setTitle(title);
         request.setDescription("订单测试商品");
@@ -215,6 +220,7 @@ class OrderApplicationServiceTest {
                 .storageUrl();
         request.setImageUrls(List.of(issued));
         CreateProductResponse response = productService.createProduct(request);
+        jdbcTemplate.update("update product_item set seller_id = ? where id = ?", sellerId, response.getProductId());
         productService.approveForSale(response.getProductId());
         return response;
     }
