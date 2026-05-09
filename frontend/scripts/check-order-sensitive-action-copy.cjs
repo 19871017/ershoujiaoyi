@@ -5,7 +5,8 @@ const root = path.resolve(__dirname, '..')
 const files = [
   'src/pages/order/detail/index.vue',
   'src/pages/order/list/index.vue',
-  'src/pages/order/confirm/index.vue'
+  'src/pages/order/confirm/index.vue',
+  'src/pages/order/logistics/index.vue'
 ]
 
 const forbiddenSuccessCopies = [
@@ -26,6 +27,11 @@ const forbiddenOrderDetailTrustCopies = [
   '资金先进入平台担保账户',
   '平台已担保资金',
   '平台会把担保资金结算给卖家'
+]
+
+const forbiddenOrderLogisticsTrustCopies = [
+  '同城交付',
+  '小原圈交易流程'
 ]
 
 const requiredOrderDetailNeutralMarkers = [
@@ -67,6 +73,20 @@ for (const file of files) {
     for (const marker of requiredOrderDetailNeutralMarkers) {
       if (!content.includes(marker)) {
         console.error(`${file}: missing neutral order-detail trust marker: ${marker}`)
+        failed = true
+      }
+    }
+  }
+  if (file === 'src/pages/order/logistics/index.vue') {
+    for (const copy of forbiddenOrderLogisticsTrustCopies) {
+      if (content.includes(copy)) {
+        console.error(`${file}: forbidden order-logistics static location/trust copy found: ${copy}`)
+        failed = true
+      }
+    }
+    for (const marker of ['配送/交付方式以服务端订单记录为准', '订单已创建，后续履约状态以服务端订单、支付和物流记录为准。']) {
+      if (!content.includes(marker)) {
+        console.error(`${file}: missing neutral logistics marker: ${marker}`)
         failed = true
       }
     }
