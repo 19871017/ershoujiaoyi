@@ -6,8 +6,8 @@
     "postinstall": "node scripts/clean-uni-console-output.cjs",
     "clean:uni-output": "node scripts/clean-uni-console-output.cjs",
     "dev:h5": "npm run clean:uni-output --silent && uni -p h5",
-    "build:h5": "npm run clean:uni-output --silent && VITE_ENABLE_MOCK_DATA=true VITE_ENABLE_DEV_HEADERS=true uni build -p h5",
-    "build:h5:prod": "npm run clean:uni-output --silent && VITE_ENABLE_MOCK_DATA=false VITE_ENABLE_DEV_HEADERS=false uni build -p h5",
+    "build:h5": "npm run clean:uni-output --silent && VITE_ENABLE_MOCK_DATA=true VITE_ENABLE_DEV_HEADERS=true VITE_ENABLE_LAN_API_FALLBACK=true uni build -p h5",
+    "build:h5:prod": "npm run clean:uni-output --silent && VITE_ENABLE_MOCK_DATA=false VITE_ENABLE_DEV_HEADERS=false VITE_ENABLE_LAN_API_FALLBACK=false uni build -p h5",
     "typecheck": "vue-tsc --noEmit",
     "check:order-copy": "node scripts/check-order-sensitive-action-copy.cjs",
     "check:community-comment": "node scripts/check-community-detail-real-comment.cjs",
@@ -41,7 +41,9 @@
     "check:location-city-fail-closed": "node scripts/check-location-city-fail-closed.cjs",
     "check:publish-form-no-static-defaults": "node scripts/check-publish-form-no-static-defaults.cjs",
     "check:static-platform-trust-copy": "node scripts/check-static-platform-trust-copy.cjs",
-    "check:community-compose-real-post": "node scripts/check-community-compose-real-post.cjs"
+    "check:community-compose-real-post": "node scripts/check-community-compose-real-post.cjs",
+    "check:community-detail-follow": "node scripts/check-community-detail-follow-real-flow.cjs",
+    "check:lan-api-base": "node scripts/check-lan-api-base.cjs"
   },
   "dependencies": {
     "@dcloudio/uni-app": "3.0.0-alpha-5000820260430001",

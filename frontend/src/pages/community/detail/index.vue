@@ -9,7 +9,7 @@
           <view class="name">{{ authorName }}</view>
           <view class="meta">{{ topic }} · {{ createdText }} · {{ cityText }}</view>
         </view>
-        <view class="follow tapable" @click="showFollowUnavailable">关注</view>
+        <view class="follow tapable" @click="toggleAuthorFollow">{{ authorFollowed ? '已关注' : '关注' }}</view>
       </view>
       <view class="title">{{ postTitle || '动态详情加载中' }}</view>
       <view class="content">{{ postContent }}</view>
@@ -53,6 +53,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createCommunityComment, getCommunityPostDetail, likeCommunityPost, unlikeCommunityPost } from '../../../api/modules/community'
+import { followPublicProfile, getPublicProfile, unfollowPublicProfile } from '../../../api/modules/user'
 
 interface CommentItem { id: string; avatar: string; name: string; text: string }
 
@@ -65,6 +66,8 @@ const commentSubmitting = ref(false)
 const postTitle = ref('')
 const postContent = ref('')
 const imageSlots = ref<string[]>([])
+const authorId = ref<number | null>(null)
+const authorFollowed = ref(false)
 const authorName = ref('平台用户')
 const authorAvatar = ref('用')
 const cityText = ref('城市未公开')
@@ -92,6 +95,7 @@ function readQuery() {
 function firstChar(value: string | undefined) { return value?.trim()?.slice(0, 1) || '用' }
 function formatDateTime(value: string | undefined) { return value ? value.replace('T', ' ').slice(0, 16) : '--' }
 function isValidCommunityPostId(value: string) { return /^[1-9]\d{0,18}$/.test(value) }
+function isValidBackendUserId(value: number | null) { return typeof value === 'number' && Number.isInteger(value) && value > 0 }
 async function loadDetail() {
   if (!isValidCommunityPostId(postId.value)) {
     errorText.value = '缺少有效动态编号，动态详情接口未加载，未展示本地样例'
@@ -106,6 +110,7 @@ async function loadDetail() {
     imageSlots.value = detail.imageUrls || []
     liked.value = Boolean(detail.likedByMe)
     likeCount.value = detail.likeCount || 0
+    authorId.value = detail.authorId || null
     authorName.value = detail.authorName || `用户 ${detail.authorId}`
     authorAvatar.value = detail.authorAvatar || firstChar(authorName.value)
     cityText.value = detail.city || '城市未公开'
@@ -119,8 +124,22 @@ async function loadDetail() {
       name: `用户 ${item.authorId}`,
       text: item.content
     })))
+    await hydrateAuthorFollowState()
   } catch {
     errorText.value = '动态详情加载失败，未展示静态作者、评论或关联商品样例'
+  }
+}
+async function hydrateAuthorFollowState() {
+  if (!isValidBackendUserId(authorId.value)) {
+    authorFollowed.value = false
+    return
+  }
+  const safeAuthorId = Number(authorId.value)
+  try {
+    const profile = await getPublicProfile(safeAuthorId)
+    authorFollowed.value = Boolean(profile.followedByMe)
+  } catch {
+    authorFollowed.value = false
   }
 }
 async function sendComment() {
@@ -149,7 +168,21 @@ function openProduct() {
   }
   uni.navigateTo({ url: `/pages/product/detail/index?productId=${productId.value}` })
 }
-function showFollowUnavailable() { uni.showToast({ title: '关注接口暂未接通后端，未执行任何关注变更', icon: 'none' }) }
+async function toggleAuthorFollow() {
+  if (!isValidBackendUserId(authorId.value)) {
+    uni.showToast({ title: '缺少后端作者ID，未执行任何关注变更', icon: 'none' })
+    return
+  }
+  const safeAuthorId = Number(authorId.value)
+  const wasFollowing = authorFollowed.value
+  try {
+    const updated = wasFollowing ? await unfollowPublicProfile(safeAuthorId) : await followPublicProfile(safeAuthorId)
+    authorFollowed.value = Boolean(updated.followedByMe)
+    uni.showToast({ title: wasFollowing ? '已按后端记录取消关注' : '关注状态已同步后端', icon: 'none' })
+  } catch {
+    uni.showToast({ title: '关注状态没有提交成功，未执行本地关注变更', icon: 'none' })
+  }
+}
 async function likePost() {
   if (!isValidCommunityPostId(postId.value)) {
     uni.showToast({ title: '缺少有效动态编号，不能点赞', icon: 'none' })

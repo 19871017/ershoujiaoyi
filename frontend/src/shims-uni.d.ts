@@ -28,8 +28,8 @@ declare global {
     readonly VITE_API_BASE_URL?: string
     readonly VITE_ENABLE_MOCK_DATA?: string
     readonly VITE_ENABLE_DEV_HEADERS?: string
+    readonly VITE_ENABLE_LAN_API_FALLBACK?: string
     readonly VITE_DEV_USER_ID?: string
-    readonly PROD?: boolean
   }
 
   interface ImportMeta {

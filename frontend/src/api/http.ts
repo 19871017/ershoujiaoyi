@@ -12,10 +12,20 @@ export interface ApiResult<T> {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
-const IS_PROD = import.meta.env.PROD
-const ENABLE_MOCK_DATA = import.meta.env.VITE_ENABLE_MOCK_DATA === 'true' && !IS_PROD
-const ENABLE_DEV_HEADERS = import.meta.env.VITE_ENABLE_DEV_HEADERS === 'true' && !IS_PROD
+const ENABLE_MOCK_DATA = import.meta.env.VITE_ENABLE_MOCK_DATA === 'true'
+const ENABLE_DEV_HEADERS = import.meta.env.VITE_ENABLE_DEV_HEADERS === 'true'
+const ENABLE_LAN_API_FALLBACK = import.meta.env.VITE_ENABLE_LAN_API_FALLBACK === 'true'
 const DEV_USER_ID = import.meta.env.VITE_DEV_USER_ID ?? '1'
+
+function resolveApiBaseUrl() {
+  if (API_BASE_URL.trim()) return API_BASE_URL.trim().replace(/\/$/, '')
+  if (!ENABLE_LAN_API_FALLBACK || typeof window === 'undefined' || !window.location?.hostname) return ''
+  const host = window.location.hostname
+  if (!host || host === 'localhost' || host === '127.0.0.1') return ''
+  return `http://${host}:18080`
+}
+
+const RESOLVED_API_BASE_URL = resolveApiBaseUrl()
 
 const DEV_HEADERS: Record<string, string> = ENABLE_DEV_HEADERS
   ? { 'X-User-Id': DEV_USER_ID, 'X-Dev-Mode': 'enabled' }
@@ -137,7 +147,7 @@ export function request<T = unknown>(options: HttpOptions): Promise<T> {
 
   return new Promise((resolve, reject) => {
     uni.request({
-      url: `${API_BASE_URL}${requestUrl}`,
+      url: `${RESOLVED_API_BASE_URL}${requestUrl}`,
       method,
       data: method === 'GET' ? {} : options.data ?? {},
       header: { ...DEV_HEADERS, ...(options.header ?? {}) },
