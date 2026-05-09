@@ -63,9 +63,7 @@ public class AuditApplicationService {
     public AuditRecordResponse submitReport(Long userId, String targetType, String targetId, String reason, String description, List<String> evidenceUrls) {
         String safeTargetType = requireText(targetType, "report targetType required").toUpperCase(Locale.ROOT);
         String safeTargetId = requireText(targetId, "report targetId required");
-        if ("UNKNOWN".equalsIgnoreCase(safeTargetId) || safeTargetId.toLowerCase(Locale.ROOT).startsWith("preview")) {
-            throw new IllegalArgumentException("report targetId invalid");
-        }
+        validateReportTargetId(safeTargetType, safeTargetId);
         String safeReason = requireText(reason, "report reason required");
         List<String> safeEvidenceUrls = normalizeReportEvidence(userId, evidenceUrls);
         String finalDescription = appendEvidenceUrls(safeText(description), safeEvidenceUrls);
@@ -215,6 +213,28 @@ public class AuditApplicationService {
         String lower = evidenceUrl.toLowerCase(Locale.ROOT);
         if (lower.startsWith("local://") || lower.contains("placeholder") || lower.contains("preview") || !lower.startsWith("/uploads/")) {
             throw new IllegalArgumentException("report evidence url invalid");
+        }
+    }
+
+    private void validateReportTargetId(String targetType, String targetId) {
+        String lower = targetId.toLowerCase(Locale.ROOT);
+        boolean validNumericId = targetId.matches("[1-9]\\d{0,18}");
+        boolean validTypedId = switch (targetType) {
+            case "PRODUCT", "GOODS" -> targetId.matches("(PRODUCT|GOODS)-[A-Za-z0-9][A-Za-z0-9_-]{5,63}");
+            case "ORDER" -> targetId.matches("ORDER-[A-Za-z0-9][A-Za-z0-9_-]{5,63}");
+            case "CHAT" -> targetId.matches("CHAT-[A-Za-z0-9][A-Za-z0-9_-]{5,63}");
+            case "USER" -> targetId.matches("USER-[A-Za-z0-9][A-Za-z0-9_-]{5,63}");
+            case "REPORT" -> targetId.matches("REPORT-[A-Za-z0-9][A-Za-z0-9_-]{5,63}");
+            default -> false;
+        };
+        if ("UNKNOWN".equalsIgnoreCase(targetId)
+                || lower.startsWith("preview")
+                || lower.contains("demo")
+                || lower.contains("sample")
+                || lower.contains("mock")
+                || lower.contains("placeholder")
+                || !(validNumericId || validTypedId)) {
+            throw new IllegalArgumentException("report targetId invalid");
         }
     }
 

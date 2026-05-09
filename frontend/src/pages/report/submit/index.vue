@@ -78,8 +78,18 @@ function filenameFromPath(path: string, index: number) {
   const raw = path.split('/').pop() || `report-evidence-${Date.now()}-${index}.jpg`
   return raw.includes('.') ? raw : `${raw}.jpg`
 }
-function isValidReportTargetId(value: string) {
-  return /^[1-9]\d{0,18}$/.test(value) || /^(GOODS|ORDER|CHAT|USER|REPORT)-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(value)
+function isValidReportTargetId(value: string, type = targetType.value) {
+  if (/^[1-9]\d{0,18}$/.test(value)) return true
+  const normalizedType = (type || '').toUpperCase()
+  const patterns: Record<string, RegExp> = {
+    GOODS: /^(GOODS|PRODUCT)-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
+    PRODUCT: /^(GOODS|PRODUCT)-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
+    ORDER: /^ORDER-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
+    CHAT: /^CHAT-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
+    USER: /^USER-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
+    REPORT: /^REPORT-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/
+  }
+  return patterns[normalizedType]?.test(value) === true
 }
 function chooseEvidence() {
   const remaining = Math.max(0, 6 - evidence.value.length)

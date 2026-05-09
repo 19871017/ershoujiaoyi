@@ -31,13 +31,13 @@ class AuditApplicationServiceTest {
     @Test
     void shouldCreateReportAuditRecordAsPending() {
         String evidenceUrl = serviceMedia().issue(1L, "REPORT_EVIDENCE", "image/png", 600_000L, "report-proof.png").storageUrl();
-        AuditRecordResponse response = service.submitReport(1L, "product", "P-1", "SPAM", "bad content", List.of(evidenceUrl));
+        AuditRecordResponse response = service.submitReport(1L, "product", "PRODUCT-100001", "SPAM", "bad content", List.of(evidenceUrl));
 
         assertNotNull(response.auditNo());
         assertEquals(AuditApplicationService.AUDIT_TYPE_REPORT, response.auditType());
         assertEquals(1L, response.userId());
         assertEquals("PRODUCT", response.targetType());
-        assertEquals("P-1", response.targetId());
+        assertEquals("PRODUCT-100001", response.targetId());
         assertEquals("SPAM", response.reason());
         assertTrue(response.description().contains("bad content"));
         assertTrue(response.description().contains(evidenceUrl));
@@ -106,13 +106,13 @@ class AuditApplicationServiceTest {
     @Test
     void getAdminAuditDetailShouldReturnSafePersistedRecordOnly() {
         String evidenceUrl = serviceMedia().issue(5L, "REPORT_EVIDENCE", "image/png", 600_000L, "report-admin-proof.png").storageUrl();
-        AuditRecordResponse created = service.submitReport(5L, "chat", "C-88", "HARASSMENT", "辱骂骚扰，凭证手机号 13800138000", List.of(evidenceUrl));
+        AuditRecordResponse created = service.submitReport(5L, "chat", "CHAT-100088", "HARASSMENT", "辱骂骚扰，凭证手机号 13800138000", List.of(evidenceUrl));
 
         AuditRecordResponse detail = service.getAdminDetail(created.auditNo());
 
         assertEquals(created.auditNo(), detail.auditNo());
         assertEquals("CHAT", detail.targetType());
-        assertEquals("C-88", detail.targetId());
+        assertEquals("CHAT-100088", detail.targetId());
         assertTrue(detail.description().contains("138****8000"));
         assertTrue(detail.description().contains(evidenceUrl));
         assertThrows(IllegalArgumentException.class, () -> service.getAdminDetail("AUDIT-GOODS-001"));
@@ -145,7 +145,7 @@ class AuditApplicationServiceTest {
 
     @Test
     void repeatedReviewShouldBeRejected() {
-        AuditRecordResponse created = service.submitReport(1L, "product", "P-1", "SPAM", "bad content");
+        AuditRecordResponse created = service.submitReport(1L, "product", "PRODUCT-100001", "SPAM", "bad content");
         service.approve(created.auditNo(), "approved");
 
         assertThrows(IllegalStateException.class, () -> service.approve(created.auditNo(), "again"));
@@ -159,16 +159,24 @@ class AuditApplicationServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", " ", "SPAM", null));
         assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "UNKNOWN", "SPAM", null));
         assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "preview-chat", "SPAM", null));
+        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "demo-product-1", "SPAM", null));
+        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "abc", "SPAM", null));
+        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "0", "SPAM", null));
+        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "P-1", "SPAM", null));
+        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "user", "USER-abc", "SPAM", null));
+        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "order", "ORDER-12", "SPAM", null));
+        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "chat", "CHAT-12", "SPAM", null));
+        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "report", "REPORT-12", "SPAM", null));
         assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "P-1", " ", null));
-        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "P-1", "SPAM", "bad", List.of("local://proof.png")));
-        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "P-1", "SPAM", "bad", List.of("https://cdn.example.com/proof.png")));
-        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "P-1", "SPAM", "bad", List.of("/uploads/evidence/report/2/free.png")));
+        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "PRODUCT-100001", "SPAM", "bad", List.of("local://proof.png")));
+        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "PRODUCT-100001", "SPAM", "bad", List.of("https://cdn.example.com/proof.png")));
+        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "PRODUCT-100001", "SPAM", "bad", List.of("/uploads/evidence/report/2/free.png")));
         assertThrows(IllegalArgumentException.class, () -> service.submitWithdrawal(null, "WD-1", "WITHDRAW", null));
     }
 
     @Test
     void recordsShouldSurviveServiceRecreationWithSameDatabase() {
-        AuditRecordResponse created = service.submitReport(9L, "chat", "C-900", "HARASSMENT", "bad chat");
+        AuditRecordResponse created = service.submitReport(9L, "chat", "CHAT-100900", "HARASSMENT", "bad chat");
 
         AuditApplicationService reloaded = new AuditApplicationService(new JdbcTemplate(database));
         AuditRecordResponse loaded = reloaded.get(created.auditNo());
@@ -176,7 +184,7 @@ class AuditApplicationServiceTest {
 
         assertEquals(created.auditNo(), loaded.auditNo());
         assertEquals("CHAT", loaded.targetType());
-        assertEquals("C-900", loaded.targetId());
+        assertEquals("CHAT-100900", loaded.targetId());
         assertTrue(all.stream().anyMatch(item -> created.auditNo().equals(item.auditNo())));
     }
 

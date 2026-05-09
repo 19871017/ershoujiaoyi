@@ -16,6 +16,14 @@ if (/targetId\.value\s*===\s*['"]UNKNOWN['"]/.test(reportContent) || /targetId\.
   failures.push('report target guard must not rely on narrow UNKNOWN/preview equality checks')
 }
 
+if (!reportContent.includes('/^[1-9]\\d{0,18}$/') || !reportContent.includes('GOODS: /^(GOODS|PRODUCT)-') || !reportContent.includes('ORDER: /^ORDER-')) {
+  failures.push('report target guard must allow only positive numeric IDs or canonical typed backend IDs')
+}
+
+if (/\|\|\s*\/\^\(GOODS\|ORDER\|CHAT\|USER\|REPORT\)-/.test(reportContent)) {
+  failures.push('report target guard must not accept every prefixed ID regardless of target type')
+}
+
 for (const forbidden of ['PREVIEW-', 'preview-', 'UNKNOWN', 'SAMPLE-', 'DEMO-']) {
   const displayOnly = `invalid route ids such as ${forbidden}`
   if (reportContent.includes(forbidden) && !reportContent.includes(displayOnly)) {
