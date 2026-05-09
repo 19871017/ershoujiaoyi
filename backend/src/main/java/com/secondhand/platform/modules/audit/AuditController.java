@@ -21,11 +21,6 @@ public class AuditController {
         this.currentUserResolver = currentUserResolver;
     }
 
-    @PostMapping("/submit")
-    public Result<String> submit() {
-        return Result.ok("audit-submitted");
-    }
-
     @PostMapping("/reports")
     public Result<AuditRecordResponse> submitReport(@RequestBody ReportRequest body, HttpServletRequest request) {
         Long userId = currentUserResolver.resolve(request);
