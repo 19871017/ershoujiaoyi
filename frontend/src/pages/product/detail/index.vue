@@ -78,7 +78,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { getProductDetail, type ProductDetailResponse } from '../../../api/modules/product'
+import { favoriteProduct, getProductDetail, unfavoriteProduct, type ProductDetailResponse } from '../../../api/modules/product'
 import { resolveProductSellerContactTarget } from '../../../api/modules/order-contact'
 
 const productId = ref<number>(0)
@@ -89,6 +89,7 @@ const orderMessage = ref('')
 const detail = ref<ProductDetailResponse | null>(null)
 const activeImageIndex = ref(0)
 const favorited = ref(false)
+const favoriteLoading = ref(false)
 const safeRules = [
   { icon: '🛡️', title: '平台交易', desc: '订单、支付和售后状态以服务端记录为准' },
   { icon: '💬', title: '聊天留痕', desc: '私下转账可直接举报' },
@@ -154,7 +155,30 @@ function reportProduct() {
   uni.navigateTo({ url: `/pages/report/submit/index?targetType=GOODS&targetId=${encodeURIComponent(String(reportTargetId))}` })
 }
 function shareProduct() { uni.showToast({ title: '已生成分享卡片预览', icon: 'none' }) }
-function toggleFavorite() { uni.showToast({ title: '收藏接口暂未接通后端，未执行任何收藏变更', icon: 'none' }) }
+async function toggleFavorite() {
+  if (!detail.value?.productId || detail.value.productId <= 0) {
+    uni.showToast({ title: '商品缺少后端 productId，未执行收藏变更', icon: 'none' })
+    return
+  }
+  if (favoriteLoading.value) return
+  favoriteLoading.value = true
+  const wasFavorited = favorited.value
+  try {
+    if (wasFavorited) {
+      await unfavoriteProduct(detail.value.productId)
+      favorited.value = false
+      uni.showToast({ title: '取消收藏已提交后端', icon: 'none' })
+    } else {
+      await favoriteProduct(detail.value.productId)
+      favorited.value = true
+      uni.showToast({ title: '收藏已提交后端', icon: 'none' })
+    }
+  } catch {
+    uni.showToast({ title: '收藏接口调用失败，未执行本地收藏变更', icon: 'none' })
+  } finally {
+    favoriteLoading.value = false
+  }
+}
 function compactPrice(price: string) { return Number(price).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
 function iconFor(title: string) { if (title.includes('裙')) return '👗'; if (title.includes('鞋')) return '👠'; if (title.includes('袜')) return '🧦'; return '👜' }
 function toneClass(id: number) { return `tone-${id % 4}` }

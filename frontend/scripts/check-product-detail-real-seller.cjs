@@ -54,8 +54,30 @@ const requiredMarkers = [
   '商品卖家信息以服务端返回为准',
   '暂无服务端信用/成交统计',
   '平台交易',
-  '订单、支付和售后状态以服务端记录为准'
+  '订单、支付和售后状态以服务端记录为准',
+  'favoriteProduct(detail.value.productId)',
+  'unfavoriteProduct(detail.value.productId)',
+  'favoriteLoading',
+  '收藏已提交后端',
+  '取消收藏已提交后端',
+  '收藏接口调用失败，未执行本地收藏变更',
+  '商品缺少后端 productId，未执行收藏变更'
 ]
+
+const forbiddenFavoritePatterns = [
+  {
+    pattern: /function\s+toggleFavorite\s*\(\)\s*\{\s*uni\.showToast\(\{\s*title:\s*['"]收藏接口暂未接通后端，未执行任何收藏变更['"]/,
+    message: 'product detail favorite action must call the existing backend favorite/unfavorite API instead of fail-closed stub copy'
+  },
+  {
+    pattern: /favorited\.value\s*=\s*!favorited\.value(?![\s\S]*await\s+(?:favoriteProduct|unfavoriteProduct))/,
+    message: 'product detail must not locally toggle favorite state without backend acknowledgement'
+  }
+]
+
+for (const { pattern, message } of forbiddenFavoritePatterns) {
+  if (pattern.test(source)) failures.push(`${file}: ${message}`)
+}
 
 for (const marker of requiredMarkers) {
   if (!source.includes(marker)) failures.push(`${file}: missing backend-derived/neutral seller marker: ${marker}`)
