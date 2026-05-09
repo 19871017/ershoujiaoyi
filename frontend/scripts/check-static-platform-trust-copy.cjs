@@ -111,6 +111,16 @@ const checks = [
     ]
   },
   {
+    file: 'src/pages/after-sales/detail/index.vue',
+    forbidden: [
+      '平台介入',
+      '进入人工仲裁',
+      '虚假凭证',
+      '影响账号信用',
+      '榜单权重'
+    ]
+  },
+  {
     file: 'src/api/http.ts',
     forbidden: [
       '平台担保',

@@ -82,7 +82,7 @@ async function loadDetail() {
 }
 function statusText(status: AfterSalesStatus) { const map: Record<AfterSalesStatus,string> = { PENDING_REVIEW:'平台处理中', APPROVED:'售后已通过', REJECTED:'售后已驳回', CANCELLED:'售后已取消' }; return map[status] || status }
 function statusDesc(status: AfterSalesStatus) { if (status === 'PENDING_REVIEW') return '平台会核对订单、聊天和物流记录，预计 24 小时内完成初审。'; if (status === 'APPROVED') return '平台已通过售后申请，请按处理结果继续操作。'; if (status === 'REJECTED') return '平台已驳回售后申请，可补充材料后再沟通。'; return '该售后单已取消。' }
-function typeText(type: string) { const map: Record<string,string> = { REFUND_ONLY:'仅退款', RETURN_REFUND:'退货退款', PLATFORM_ARBITRATION:'平台介入' }; return map[type] || type }
+function typeText(type: string) { const map: Record<string,string> = { REFUND_ONLY:'仅退款', RETURN_REFUND:'退货退款', PLATFORM_ARBITRATION:'售后协调' }; return map[type] || type }
 function contactSeller() {
   if (!detail.value) return
   const target = resolveSellerContactTarget(detail.value, '售后单缺少有效卖家账号，不能发起聊天')
