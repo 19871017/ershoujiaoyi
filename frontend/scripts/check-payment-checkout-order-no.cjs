@@ -73,9 +73,12 @@ for (const marker of forbiddenMethodMarkers) {
 const requiredMethodMarkers = [
   '订单号需返回安全收银台重新读取',
   '支付方式页不展示路由传入的订单号',
+  'import { getOrderDetail }',
   'function isValidBackendOrderNo(value: string)',
   'isValidBackendOrderNo(orderNo.value)',
   '订单号无效，已阻止返回收银台',
+  'await getOrderDetail(orderNo.value)',
+  'orderNo: detail.orderNo',
 ]
 for (const marker of requiredMethodMarkers) {
   if (!method.includes(marker)) failures.push(`${methodFile}: missing route-orderNo neutral/fail-closed marker: ${marker}`)
@@ -85,8 +88,8 @@ if (!method.includes('return /^[A-Z]{2,10}-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test
   failures.push(`${methodFile}: payment method return flow must require canonical backend order numbers before redirecting to checkout`)
 }
 
-if (!/function backToCheckout\(\)\{\s*if\s*\(\s*isValidBackendOrderNo\(orderNo\.value\)\s*\)/s.test(method)) {
-  failures.push(`${methodFile}: backToCheckout must validate route orderNo with isValidBackendOrderNo before redirecting`)
+if (!/async function backToCheckout\(\)\s*\{[\s\S]*isValidBackendOrderNo\(orderNo\.value\)[\s\S]*await getOrderDetail\(orderNo\.value\)[\s\S]*orderNo: detail\.orderNo[\s\S]*encodeURIComponent\(checkoutRoute\.orderNo\)/s.test(method)) {
+  failures.push(`${methodFile}: backToCheckout must rehydrate backend order detail and redirect with backend-derived detail.orderNo, not only route orderNo`)
 }
 
 const requiredLogisticsMarkers = [

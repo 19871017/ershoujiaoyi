@@ -31,6 +31,7 @@
 </template>
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { getOrderDetail } from '../../../api/modules/order'
 type Method='WECHAT'|'ALIPAY'
 const method=ref<Method>('WECHAT')
 const orderNo=ref('')
@@ -39,7 +40,16 @@ const icon=computed(()=>method.value==='WECHAT'?'💚':'💙')
 const steps=['后端创建支付单并保存幂等号','前端只拉起官方收银台，不接触密钥','支付平台回调必须验签并防重放','订单、钱包、账本状态统一事务更新','退款、提现和对账单独审计']
 function readQuery(){const pages=getCurrentPages(); const current=pages.length?pages[pages.length-1] as unknown as {options?:Record<string,string>}:undefined; const hash=typeof window!=='undefined'?new URLSearchParams(window.location.hash.split('?')[1]||''):undefined; const value=current?.options?.method||hash?.get('method'); method.value=value==='ALIPAY'?'ALIPAY':'WECHAT'; orderNo.value=current?.options?.orderNo||hash?.get('orderNo')||''}
 function isValidBackendOrderNo(value: string) { return /^[A-Z]{2,10}-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(value) }
-function backToCheckout(){ if(isValidBackendOrderNo(orderNo.value)) uni.redirectTo({url:`/pages/payment/checkout/index?orderNo=${encodeURIComponent(orderNo.value)}`}); else { uni.showToast({title:'订单号无效，已阻止返回收银台',icon:'none'}); uni.navigateBack({delta:1}) } }
+async function backToCheckout(){
+  if(!isValidBackendOrderNo(orderNo.value)){ uni.showToast({title:'订单号无效，已阻止返回收银台',icon:'none'}); uni.navigateBack({delta:1}); return }
+  try {
+    const detail = await getOrderDetail(orderNo.value)
+    const checkoutRoute = { orderNo: detail.orderNo }
+    uni.redirectTo({url:`/pages/payment/checkout/index?orderNo=${encodeURIComponent(checkoutRoute.orderNo)}`})
+  } catch {
+    uni.showToast({title:'订单读取失败，已阻止返回收银台',icon:'none'})
+  }
+}
 onMounted(readQuery)
 </script>
 <style scoped>
