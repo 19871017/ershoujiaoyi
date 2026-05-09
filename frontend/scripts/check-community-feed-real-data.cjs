@@ -25,14 +25,19 @@ for (const marker of forbiddenMarkers) {
 }
 
 const requiredMarkers = [
-  "import { listCommunityPosts, type CommunityPostResponse } from '../../../api/modules/community'",
+  "import { likeCommunityPost, listCommunityPosts, type CommunityPostResponse } from '../../../api/modules/community'",
   'const feeds = ref<CommunityPostResponse[]>([])',
   'await listCommunityPosts(20)',
   '社区内容暂时不可用，未展示本地帖子样例',
-  '点赞接口暂未接通后端，未执行任何点赞变更',
+  '点赞没有提交成功，未执行本地点赞变更',
   '关注接口暂未接通后端，未执行任何关注变更',
+  'function isValidCommunityPostId(value: number | string | null | undefined)',
   'function openPost(item: CommunityPostResponse)',
-  'postId=${item.postId}'
+  '缺少有效动态编号，未打开动态详情',
+  'postId=${item.postId}',
+  'async function likeFeed(item: CommunityPostResponse)',
+  'const saved = await likeCommunityPost(item.postId)',
+  'item.likeCount = saved.likeCount'
 ]
 
 for (const marker of requiredMarkers) {

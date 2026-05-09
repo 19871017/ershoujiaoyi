@@ -49,7 +49,7 @@
       </view>
       <view class="feed-text">{{ item.content }}</view>
       <view class="feed-actions">
-        <view class="tapable" @click="likeFeed">♡ {{ item.likeCount }}</view>
+        <view class="tapable" @click="likeFeed(item)">♡ {{ item.likeCount }}</view>
         <view class="tapable" @click="openPost(item)">💬 {{ item.commentCount }}</view>
         <view class="tapable" @click="goSessions">私信</view>
       </view>
@@ -61,7 +61,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { listCommunityPosts, type CommunityPostResponse } from '../../../api/modules/community'
+import { likeCommunityPost, listCommunityPosts, type CommunityPostResponse } from '../../../api/modules/community'
 
 const filters = ['全部', '话题', '私信', '交易']
 const activeFilter = ref('全部')
@@ -94,9 +94,27 @@ function openNotification() { uni.navigateTo({ url: '/pages/notification/index' 
 function openRanking(tab: 'goddess' | 'god') { uni.navigateTo({ url: `/pages/ranking/index?tab=${tab}` }) }
 function showToast(title: string) { uni.showToast({ title, icon: 'none' }) }
 function openComposer() { uni.navigateTo({ url: '/pages/community/compose/index' }) }
-function openPost(item: CommunityPostResponse) { uni.navigateTo({ url: `/pages/community/detail/index?postId=${item.postId}&topic=${encodeURIComponent(item.topic)}` }) }
+function isValidCommunityPostId(value: number | string | null | undefined) { return /^[1-9]\d{0,18}$/.test(String(value || '')) }
+function openPost(item: CommunityPostResponse) {
+  if (!isValidCommunityPostId(item.postId)) {
+    showToast('缺少有效动态编号，未打开动态详情')
+    return
+  }
+  uni.navigateTo({ url: `/pages/community/detail/index?postId=${item.postId}&topic=${encodeURIComponent(item.topic)}` })
+}
 function toggleFollow() { showToast('关注接口暂未接通后端，未执行任何关注变更') }
-function likeFeed() { showToast('点赞接口暂未接通后端，未执行任何点赞变更') }
+async function likeFeed(item: CommunityPostResponse) {
+  if (!isValidCommunityPostId(item.postId)) {
+    showToast('缺少有效动态编号，未执行点赞变更')
+    return
+  }
+  try {
+    const saved = await likeCommunityPost(item.postId)
+    item.likeCount = saved.likeCount
+  } catch {
+    showToast('点赞没有提交成功，未执行本地点赞变更')
+  }
+}
 function avatarOf(item: CommunityPostResponse) { return (item.title || item.topic || '原').slice(0, 1) }
 function formatTime(value: string) { return value ? value.slice(0, 16).replace('T', ' ') : '后端时间' }
 
