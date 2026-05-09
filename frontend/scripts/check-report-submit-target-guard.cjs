@@ -39,8 +39,14 @@ if (!/submitReport\(\{[\s\S]*targetId:\s*targetId\.value/.test(reportContent)) {
   failures.push('report submission must still send only the validated backend targetId from page state')
 }
 
-if (/平台担保/.test(reportContent)) {
-  failures.push('report submit page must not show static platform escrow/trust copy unless derived from backend order/payment state')
+for (const forbiddenCopy of ['平台担保', '平台会结合聊天记录', '你提交的凭证处理', '添加凭证截图', '已签发']) {
+  if (reportContent.includes(forbiddenCopy)) {
+    failures.push(`report submit page must not show static trust/business-success evidence copy: ${forbiddenCopy}`)
+  }
+}
+
+if (!reportContent.includes('生成上传票据') || !reportContent.includes('举报处理以服务端审核记录为准')) {
+  failures.push('report submit page must use neutral upload-ticket and backend-record copy')
 }
 
 if (!productDetailContent.includes('function isValidProductReportTargetId')) {

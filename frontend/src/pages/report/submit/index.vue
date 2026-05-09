@@ -23,8 +23,8 @@
       <view class="upload-box tapable" @click="chooseEvidence">
         <view class="upload-icon">＋</view>
         <view>
-          <view class="upload-title">添加凭证截图</view>
-          <view class="upload-desc">已签发 {{ evidence.length }} 张举报凭证票据，最多 6 张</view>
+          <view class="upload-title">生成上传票据</view>
+          <view class="upload-desc">已生成 {{ evidence.length }} 张举报上传票据，最多 6 张</view>
         </view>
       </view>
       <view v-if="evidence.length" class="evidence-list">
@@ -37,8 +37,8 @@
 
     <view class="safe-card ds-card">
       <view class="section-title">处理说明</view>
-      <view class="safe-line">平台会结合聊天记录、订单状态和你提交的凭证处理。</view>
-      <view class="safe-line">如涉及资金，请不要私下转账，请以平台订单、支付和售后状态为准。</view>
+      <view class="safe-line">举报处理以服务端审核记录为准，上传票据不代表举报已受理。</view>
+      <view class="safe-line">如涉及资金，请以服务端订单、支付和售后状态为准。</view>
     </view>
 
     <button class="submit-btn" :disabled="submitting" @click="submit">{{ submitting ? '提交中...' : '提交举报' }}</button>
