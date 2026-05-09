@@ -25,11 +25,30 @@ const walletRequiredMarkers = [
   "withdrawForm = reactive({ amount: ''",
   'maskedAccountNo',
   'wallet/accounts/index',
-  '请先到提现账户管理页完成脱敏账户预览或后端账户绑定',
+  '提现账户绑定接口尚未接入，当前未提交提现审核',
   '提现页不采集完整收款账号',
-  '收款账号明文只在账户管理页提交瞬间处理',
-  'accountNo: maskedAccountNo.value'
+  '收款账号明文只在账户管理页提交瞬间处理'
 ]
+
+const walletNewForbiddenMarkers = [
+  'accountNo: maskedAccountNo.value',
+  'createWithdrawal({ amount, paymentMethod: withdrawForm.paymentMethod',
+  '提现已提交审核：'
+]
+
+for (const marker of walletNewForbiddenMarkers) {
+  if (walletSource.includes(marker)) failures.push(`${walletFile}: forbidden withdrawal submission without backend-owned payout-account reference: ${marker}`)
+}
+
+const walletNewRequiredMarkers = [
+  '提现账户绑定接口尚未接入，当前未提交提现审核',
+  '提现账户接口未接入，未执行资金冻结',
+  'return'
+]
+
+for (const marker of walletNewRequiredMarkers) {
+  if (!walletSource.includes(marker)) failures.push(`${walletFile}: missing withdrawal fail-closed marker: ${marker}`)
+}
 
 for (const marker of walletRequiredMarkers) {
   if (!walletSource.includes(marker)) failures.push(`${walletFile}: missing fail-closed masked payout-account marker: ${marker}`)

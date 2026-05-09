@@ -101,7 +101,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createRecharge, isDevRuntimeEnabled, simulateRechargeSuccess, type RechargeResponse, type RechargeStatus } from '../../api/modules/payment'
-import { createWithdrawal, getWalletBalance, getWalletLedger, type WalletBalanceResponse, type WalletLedgerDirection, type WalletLedgerItemResponse } from '../../api/modules/wallet'
+import { getWalletBalance, getWalletLedger, type WalletBalanceResponse, type WalletLedgerDirection, type WalletLedgerItemResponse } from '../../api/modules/wallet'
 
 const emptyBalance: WalletBalanceResponse = { rechargeBalance: '--', incomeBalance: '--', frozenBalance: '--', withdrawableBalance: '--' }
 const tabs = [{ label: '充值', value: 'recharge' }, { label: '提现', value: 'withdraw' }] as const
@@ -177,18 +177,8 @@ async function handleCreateWithdrawal() {
   const amount = normalizeAmount(withdrawForm.amount)
   if (!isValidMoneyAmount(amount)) { withdrawMessage.value = '请输入有效提现金额'; return }
   if (!withdrawForm.accountName) { withdrawMessage.value = '请填写收款人姓名'; return }
-  if (!maskedAccountNo.value) {
-    withdrawMessage.value = '请先到提现账户管理页完成脱敏账户预览或后端账户绑定；当前未提交提现审核'
-    return
-  }
-  withdrawing.value = true
-  withdrawMessage.value = ''
-  try {
-    const result = await createWithdrawal({ amount, paymentMethod: withdrawForm.paymentMethod, accountName: withdrawForm.accountName, accountNo: maskedAccountNo.value, remark: withdrawForm.remark })
-    withdrawMessage.value = `提现已提交审核：${result.withdrawalNo}，已冻结 ¥${result.amount}`
-    await refreshAll()
-  } catch { withdrawMessage.value = '提现申请失败：余额不足、收款信息缺失或审核单创建异常时不会伪成功' }
-  finally { withdrawing.value = false }
+  withdrawMessage.value = '提现账户绑定接口尚未接入，当前未提交提现审核；提现账户接口未接入，未执行资金冻结'
+  return
 }
 onMounted(() => { void refreshAll() })
 </script>
