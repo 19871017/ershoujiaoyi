@@ -120,6 +120,31 @@ class ProductApplicationServiceTest {
         assertEquals(List.of(issued), detail.getImageUrls());
     }
 
+    @Test
+    void publicSellerProductsShouldReturnOnlyVisibleApprovedProductsOwnedBySeller() {
+        CreateProductResponse sellerProduct = service.createProduct(product("卖家公开商品", "109.00"));
+        service.approveForSale(sellerProduct.getProductId());
+        CreateProductResponse hiddenPendingProduct = service.createProduct(product("卖家待审商品", "89.00"));
+        jdbcTemplate().update("UPDATE product_item SET seller_id = ? WHERE id = ?", 2L, hiddenPendingProduct.getProductId());
+        CreateProductResponse otherSellerProduct = service.createProduct(product("其他卖家商品", "99.00"));
+        jdbcTemplate().update("UPDATE product_item SET seller_id = ? WHERE id = ?", 2L, otherSellerProduct.getProductId());
+        service.approveForSale(otherSellerProduct.getProductId());
+
+        var sellerProducts = service.listProductsBySeller(1L);
+        var otherSellerProducts = service.listProductsBySeller(2L);
+
+        assertEquals(1, sellerProducts.size());
+        assertEquals(sellerProduct.getProductId(), sellerProducts.get(0).getProductId());
+        assertEquals("卖家公开商品", sellerProducts.get(0).getTitle());
+        assertEquals(1, otherSellerProducts.size());
+        assertEquals(otherSellerProduct.getProductId(), otherSellerProducts.get(0).getProductId());
+        assertThrows(IllegalArgumentException.class, () -> service.listProductsBySeller(0L));
+    }
+
+    private JdbcTemplate jdbcTemplate() {
+        return new JdbcTemplate(database);
+    }
+
     private CreateProductRequest product(String title, String price) {
         CreateProductRequest request = new CreateProductRequest();
         request.setTitle(title);

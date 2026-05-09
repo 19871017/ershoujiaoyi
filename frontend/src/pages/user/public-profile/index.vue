@@ -42,7 +42,15 @@
 
     <view class="section-card ds-card">
       <view class="section-title">在售宝贝</view>
-      <view class="empty-row" @click="openProductUnavailable">卖家商品接口尚未接入，未展示本地商品样例</view>
+      <view v-if="productsError" class="empty-row">{{ productsError }}</view>
+      <view v-else-if="!products.length" class="empty-row">暂无后端公开在售商品，未展示本地商品样例</view>
+      <view v-for="item in products" :key="item.productId" class="product-row" @click="openProduct(item.productId)">
+        <view class="product-cover">{{ item.coverImageUrl ? '图' : '无图' }}</view>
+        <view class="product-main">
+          <view class="product-title">{{ item.title }}</view>
+          <view class="product-meta">¥{{ item.price }} · {{ item.createdAt }}</view>
+        </view>
+      </view>
     </view>
 
     <view class="safe-card ds-card">
@@ -54,20 +62,27 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { followPublicProfile, getPublicProfile, type UserProfileResponse } from '../../../api/modules/user'
+import { listSellerProducts, type ProductListItemResponse } from '../../../api/modules/product'
 const userId = ref('')
 const loadError = ref('')
+const productsError = ref('')
 const profile = reactive<UserProfileResponse>({ userId: 0, nickname: '小原圈用户', mainRole: 'UNVERIFIED', videoIdentityStatus: 'UNVERIFIED', videoVerified: false, followedByMe: false })
+const sellerProducts = ref<ProductListItemResponse[]>([])
 const followed = computed(() => profile.followedByMe === true)
 const avatarText = computed(() => (profile.nickname || '原').slice(-1))
 const stats = computed(() => [] as { label: string; value: string | number }[])
-const products = computed(() => [] as never[])
-void products
+const products = computed(() => sellerProducts.value)
 function readQuery(){const pages=getCurrentPages(); const current=pages.length?pages[pages.length-1] as unknown as {options?:Record<string,string>}:undefined; const hash=typeof window!=='undefined'?new URLSearchParams(window.location.hash.split('?')[1]||''):undefined; userId.value=current?.options?.userId||hash?.get('userId')||userId.value}
 function isValidBackendUserId(value: string) { return /^[1-9]\d*$/.test(value) }
 async function loadProfile(){
-  if (!isValidBackendUserId(userId.value)) { loadError.value = '卖家数据暂时不可用，未展示本地卖家样例'; return }
+  if (!isValidBackendUserId(userId.value)) { loadError.value = '卖家数据暂时不可用，未展示本地卖家样例'; sellerProducts.value = []; productsError.value = '缺少有效卖家编号，未展示本地商品样例'; return }
   try{const data=await getPublicProfile(userId.value); Object.assign(profile,data); loadError.value = ''}
   catch(e){loadError.value = '卖家数据暂时不可用，未展示本地卖家样例'; uni.showToast({title:'卖家资料暂时不可用',icon:'none'})}
+}
+async function loadSellerProducts(){
+  if (!isValidBackendUserId(userId.value)) { sellerProducts.value = []; productsError.value = '缺少有效卖家编号，未展示本地商品样例'; return }
+  try { sellerProducts.value = await listSellerProducts(userId.value); productsError.value = '' }
+  catch { sellerProducts.value = []; productsError.value = '卖家商品加载失败，未展示本地商品样例' }
 }
 async function toggleFollow(){
   if (!isValidBackendUserId(userId.value)) { uni.showToast({title:'缺少真实用户ID，未执行任何关注变更',icon:'none'}); return }
@@ -78,9 +93,9 @@ async function toggleFollow(){
 function chat(){const validUserId = isValidBackendUserId(userId.value); if(!validUserId){uni.showToast({title:'缺少真实用户ID，未进入私信',icon:'none'});return} uni.navigateTo({url:`/pages/chat/conversation/index?receiverId=${userId.value}`})}
 function openGift(){const validUserId = isValidBackendUserId(userId.value); if(!validUserId){uni.showToast({title:'缺少真实用户ID，未进入送礼',icon:'none'});return} uni.navigateTo({url:`/pages/gift/index?mode=send&receiverId=${userId.value}&sceneType=PROFILE&sceneId=${userId.value}`})}
 function report(){const validUserId = isValidBackendUserId(userId.value); if(!validUserId){uni.showToast({title:'缺少真实用户ID，未进入举报',icon:'none'});return} uni.navigateTo({url:`/pages/report/submit/index?targetType=USER&targetId=${userId.value}`})}
-function openProductUnavailable(){uni.showToast({title:'在售商品接口尚未接入，未打开本地样例商品',icon:'none'})}
-onMounted(()=>{readQuery(); loadProfile()})
+function openProduct(productId:number){ if(!productId || productId <= 0){uni.showToast({title:'缺少后端商品编号，未打开商品详情',icon:'none'});return} uni.navigateTo({url:`/pages/product/detail/index?productId=${productId}`}) }
+onMounted(()=>{readQuery(); loadProfile(); loadSellerProducts()})
 </script>
 <style scoped>
-.public-profile{background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%)}.video-verify-card{margin-top:18rpx;padding:22rpx;border-color:#ffb37c;background:linear-gradient(135deg,#fff2e4,#fffaf6);display:flex;align-items:center;justify-content:space-between;gap:16rpx;box-shadow:0 16rpx 34rpx rgba(255,122,69,.14)}.verify-left{display:flex;align-items:center;gap:16rpx;min-width:0}.video-icon{width:72rpx;height:72rpx;border-radius:50%;background:linear-gradient(135deg,#ff7a45,#ff3f8d);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26rpx;font-weight:950;box-shadow:0 10rpx 24rpx rgba(255,63,141,.18)}.video-title{color:#3a2a1f;font-size:30rpx;font-weight:950}.video-desc{margin-top:6rpx;color:#8a5f48;font-size:22rpx;line-height:1.45}.video-badge{flex-shrink:0;padding:9rpx 14rpx;border-radius:999rpx;background:#fff;color:#ff3f8d;font-size:20rpx;font-weight:950}.hero,.stat-card,.section-card,.safe-card{margin-top:18rpx;padding:22rpx;border-color:#ffd9bd}.hero{display:flex;gap:18rpx;align-items:center;background:linear-gradient(135deg,#fff,#fff3e7)}.avatar{width:104rpx;height:104rpx;border-radius:50%;background:linear-gradient(135deg,#ff7a45,#ffb08a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:42rpx;font-weight:950}.main{flex:1;min-width:0}.name-row{display:flex;align-items:center;gap:10rpx;flex-wrap:wrap}.name{color:#3a2a1f;font-size:33rpx;font-weight:950}.verify,.tag{padding:7rpx 12rpx;border-radius:999rpx;background:#fff;color:#ff7a45;font-size:19rpx;font-weight:900}.verify.video{background:#ff7a45;color:#fff}.bio{margin-top:8rpx;color:#7b5542;font-size:23rpx;line-height:1.45}.tag-row{margin-top:10rpx;display:flex;gap:8rpx;flex-wrap:wrap}.stat-grid{margin-top:16rpx;display:grid;grid-template-columns:repeat(3,1fr);gap:12rpx}.stat-card{text-align:center}.stat-value{color:#ff3f8d;font-size:31rpx;font-weight:950}.stat-label{margin-top:5rpx;color:#9b7560;font-size:21rpx}.action-row{margin-top:18rpx;display:grid;grid-template-columns:repeat(4,1fr);gap:10rpx}.primary-btn,.secondary-btn,.gift-btn,.report-btn{height:78rpx;border-radius:999rpx;border:0;font-size:26rpx;font-weight:950}.primary-btn{background:linear-gradient(135deg,#ff7a45,#ff9f7a);color:#fff}.secondary-btn{background:#fff2e8;color:#ff7a45}.gift-btn{background:#fff7ed;color:#f97316;border:1rpx solid #fed7aa}.report-btn{background:#fff;color:#9b7560;border:1rpx solid #ffd9bd}.section-title{color:#3a2a1f;font-size:28rpx;font-weight:950}.product-row{margin-top:16rpx;display:flex;align-items:center;gap:14rpx}.cover{width:82rpx;height:82rpx;border-radius:22rpx;background:#fff1e5;display:flex;align-items:center;justify-content:center;font-size:34rpx}.product-main{flex:1;min-width:0}.product-title{color:#3a2a1f;font-size:25rpx;font-weight:900}.product-meta,.desc{margin-top:6rpx;color:#8a5f48;font-size:22rpx;line-height:1.45}.price{color:#ff3f8d;font-size:27rpx;font-weight:950}
+.public-profile{background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%)}.video-verify-card{margin-top:18rpx;padding:22rpx;border-color:#ffb37c;background:linear-gradient(135deg,#fff2e4,#fffaf6);display:flex;align-items:center;justify-content:space-between;gap:16rpx;box-shadow:0 16rpx 34rpx rgba(255,122,69,.14)}.verify-left{display:flex;align-items:center;gap:16rpx;min-width:0}.video-icon{width:72rpx;height:72rpx;border-radius:50%;background:linear-gradient(135deg,#ff7a45,#ff3f8d);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26rpx;font-weight:950;box-shadow:0 10rpx 24rpx rgba(255,63,141,.18)}.video-title{color:#3a2a1f;font-size:30rpx;font-weight:950}.video-desc{margin-top:6rpx;color:#8a5f48;font-size:22rpx;line-height:1.45}.video-badge{flex-shrink:0;padding:9rpx 14rpx;border-radius:999rpx;background:#fff;color:#ff3f8d;font-size:20rpx;font-weight:950}.hero,.stat-card,.section-card,.safe-card{margin-top:18rpx;padding:22rpx;border-color:#ffd9bd}.hero{display:flex;gap:18rpx;align-items:center;background:linear-gradient(135deg,#fff,#fff3e7)}.avatar{width:104rpx;height:104rpx;border-radius:50%;background:linear-gradient(135deg,#ff7a45,#ffb08a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:42rpx;font-weight:950}.main{flex:1;min-width:0}.name-row{display:flex;align-items:center;gap:10rpx;flex-wrap:wrap}.name{color:#3a2a1f;font-size:33rpx;font-weight:950}.verify,.tag{padding:7rpx 12rpx;border-radius:999rpx;background:#fff;color:#ff7a45;font-size:19rpx;font-weight:900}.verify.video{background:#ff7a45;color:#fff}.bio{margin-top:8rpx;color:#7b5542;font-size:23rpx;line-height:1.45}.tag-row{margin-top:10rpx;display:flex;gap:8rpx;flex-wrap:wrap}.stat-grid{margin-top:16rpx;display:grid;grid-template-columns:repeat(3,1fr);gap:12rpx}.stat-card{text-align:center}.stat-value{color:#ff3f8d;font-size:31rpx;font-weight:950}.stat-label{margin-top:5rpx;color:#9b7560;font-size:21rpx}.action-row{margin-top:18rpx;display:grid;grid-template-columns:repeat(4,1fr);gap:10rpx}.primary-btn,.secondary-btn,.gift-btn,.report-btn{height:78rpx;border-radius:999rpx;border:0;font-size:26rpx;font-weight:950}.primary-btn{background:linear-gradient(135deg,#ff7a45,#ff9f7a);color:#fff}.secondary-btn{background:#fff2e8;color:#ff7a45}.gift-btn{background:#fff7ed;color:#f97316;border:1rpx solid #fed7aa}.report-btn{background:#fff;color:#9b7560;border:1rpx solid #ffd9bd}.section-title{color:#3a2a1f;font-size:28rpx;font-weight:950}.product-row{margin-top:16rpx;display:flex;align-items:center;gap:14rpx}.product-cover{width:82rpx;height:82rpx;border-radius:22rpx;background:#fff1e5;display:flex;align-items:center;justify-content:center;font-size:24rpx;color:#ff7a45;font-weight:900}.product-main{flex:1;min-width:0}.product-title{color:#3a2a1f;font-size:25rpx;font-weight:900}.product-meta,.desc{margin-top:6rpx;color:#8a5f48;font-size:22rpx;line-height:1.45}.price{color:#ff3f8d;font-size:27rpx;font-weight:950}
 </style>

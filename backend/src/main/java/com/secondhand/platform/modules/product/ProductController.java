@@ -30,6 +30,11 @@ public class ProductController {
         return Result.ok(productApplicationService.listProducts());
     }
 
+    @GetMapping("/seller/{sellerId}")
+    public Result<List<ProductListItemResponse>> listSellerProducts(@PathVariable Long sellerId) {
+        return Result.ok(productApplicationService.listProductsBySeller(sellerId));
+    }
+
     @GetMapping("/{productId}")
     public Result<ProductDetailResponse> detail(@PathVariable Long productId) {
         return Result.ok(productApplicationService.detailProduct(productId));

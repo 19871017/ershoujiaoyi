@@ -66,6 +66,10 @@ export function listProducts() {
   return get<ProductListItemResponse[]>('/api/products')
 }
 
+export function listSellerProducts(sellerId: number | string) {
+  return get<ProductListItemResponse[]>(`/api/products/seller/${encodeURIComponent(String(sellerId))}`)
+}
+
 export function getProductDetail(productId: number) {
   return get<ProductDetailResponse>(`/api/products/${productId}`)
 }

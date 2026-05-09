@@ -10,6 +10,8 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -69,17 +71,20 @@ public class ProductApplicationService {
     public List<ProductListItemResponse> listProducts() {
         return jdbcTemplate.query(
                 "select id,product_no,title,price,product_status,audit_status,visible,created_at,image_urls from product_item where visible = true and product_status = ? and audit_status = ? order by created_at desc, id desc",
-                (rs, rowNum) -> new ProductListItemResponse(
-                        rs.getLong("id"),
-                        rs.getString("product_no"),
-                        rs.getString("title"),
-                        rs.getBigDecimal("price"),
-                        firstImageUrl(decodeImageUrls(rs.getString("image_urls"))),
-                        rs.getString("product_status"),
-                        rs.getString("audit_status"),
-                        rs.getBoolean("visible"),
-                        timeText(rs.getTimestamp("created_at"))
-                ),
+                this::mapListItem,
+                STATUS_ACTIVE,
+                AUDIT_APPROVED
+        );
+    }
+
+    public List<ProductListItemResponse> listProductsBySeller(Long sellerId) {
+        if (sellerId == null || sellerId <= 0) {
+            throw new IllegalArgumentException("valid sellerId required");
+        }
+        return jdbcTemplate.query(
+                "select id,product_no,title,price,product_status,audit_status,visible,created_at,image_urls from product_item where seller_id = ? and visible = true and product_status = ? and audit_status = ? order by created_at desc, id desc",
+                this::mapListItem,
+                sellerId,
                 STATUS_ACTIVE,
                 AUDIT_APPROVED
         );
@@ -209,6 +214,20 @@ public class ProductApplicationService {
             throw new IllegalArgumentException("product-not-saleable");
         }
         return product;
+    }
+
+    private ProductListItemResponse mapListItem(ResultSet rs, int rowNum) throws SQLException {
+        return new ProductListItemResponse(
+                rs.getLong("id"),
+                rs.getString("product_no"),
+                rs.getString("title"),
+                rs.getBigDecimal("price"),
+                firstImageUrl(decodeImageUrls(rs.getString("image_urls"))),
+                rs.getString("product_status"),
+                rs.getString("audit_status"),
+                rs.getBoolean("visible"),
+                timeText(rs.getTimestamp("created_at"))
+        );
     }
 
     private ProductRecord getExistingProduct(Long productId) {
