@@ -26,7 +26,10 @@ const forbiddenOrderDetailTrustCopies = [
   '平台担保提示',
   '资金先进入平台担保账户',
   '平台已担保资金',
-  '平台会把担保资金结算给卖家'
+  '平台会把担保资金结算给卖家',
+  '资金已进入结算流程',
+  '平台会根据聊天、订单和凭证协助处理',
+  '凭证协助处理'
 ]
 
 const forbiddenOrderLogisticsTrustCopies = [

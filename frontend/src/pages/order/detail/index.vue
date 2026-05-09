@@ -63,8 +63,8 @@ const states: Record<OrderListStatus, { icon: string; label: string; desc: strin
   PENDING_PAY: { icon: '💳', label: '等待付款', desc: '请确认宝贝信息后完成支付。', index: 0 },
   PAID: { icon: '📦', label: '等待卖家发货', desc: '订单已付款，卖家需要尽快发货；支付状态以服务端记录为准。', index: 1 },
   SHIPPED: { icon: '🚚', label: '宝贝运输中', desc: '收到宝贝并确认无误后再确认收货。', index: 2 },
-  COMPLETED: { icon: '🌸', label: '交易完成', desc: '资金已进入结算流程，可以评价这次交易。', index: 3 },
-  REFUNDING: { icon: '🛟', label: '售后处理中', desc: '平台会根据聊天、订单和凭证协助处理。', index: 1 }
+  COMPLETED: { icon: '🌸', label: '交易完成', desc: '订单完成状态以服务端订单、支付和售后记录为准，可以评价这次交易。', index: 3 },
+  REFUNDING: { icon: '🛟', label: '售后处理中', desc: '售后处理以服务端订单、支付、物流、聊天记录和已提交票据为准。', index: 1 }
 }
 const displayStatus = computed<OrderListStatus>(() => order.value?.afterSalesNo ? 'REFUNDING' : (order.value?.status || 'PENDING_PAY'))
 const current = computed(() => states[displayStatus.value])
