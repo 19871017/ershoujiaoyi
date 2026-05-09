@@ -56,7 +56,7 @@ function mockResponse<T>(url: string): T | undefined {
       status: 'ACTIVE',
       auditState: 'APPROVED',
       visible: true,
-      tradeRule: '平台担保 · 当面验货 · 24小时内发货',
+      tradeRule: '交易状态以服务端订单、支付和售后记录为准',
       createdAt: '2026-05-07T10:00:00'
     },
     {
@@ -70,7 +70,7 @@ function mockResponse<T>(url: string): T | undefined {
       status: 'ACTIVE',
       auditState: 'APPROVED',
       visible: true,
-      tradeRule: '同城面交 · 支持试穿沟通 · 平台担保',
+      tradeRule: '交付偏好以服务端商品与订单记录为准',
       createdAt: '2026-05-07T09:30:00'
     },
     {
@@ -84,7 +84,7 @@ function mockResponse<T>(url: string): T | undefined {
       status: 'ACTIVE',
       auditState: 'APPROVED',
       visible: true,
-      tradeRule: '平台担保 · 干净包装 · 七天内确认',
+      tradeRule: '发货、收货和售后状态以服务端记录为准',
       createdAt: '2026-05-06T21:10:00'
     },
     {
@@ -98,7 +98,7 @@ function mockResponse<T>(url: string): T | undefined {
       status: 'ACTIVE',
       auditState: 'APPROVED',
       visible: true,
-      tradeRule: '平台担保 · 可私信看细节',
+      tradeRule: '聊天记录以服务端会话为准',
       createdAt: '2026-05-06T18:30:00'
     }
   ]
