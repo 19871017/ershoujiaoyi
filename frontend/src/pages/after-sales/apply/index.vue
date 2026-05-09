@@ -2,9 +2,9 @@
   <view class="page-shell after-page">
     <view class="hero ds-card">
       <view>
-        <view class="kicker">♡ 平台售后</view>
+        <view class="kicker">♡ 订单售后</view>
         <view class="page-title">申请售后/退款</view>
-        <view class="page-desc">衣物鞋袜类交易请保留照片、聊天记录和物流凭证。</view>
+        <view class="page-desc">交易请保留照片、聊天记录和物流材料；售后处理以服务端订单、支付、物流、聊天记录和已提交票据为准。</view>
       </view>
       <view class="hero-icon">🛟</view>
     </view>
@@ -46,11 +46,15 @@ const reasons = ['成色不符', '尺码不符', '未收到货', '物流异常',
 const reason = ref('成色不符')
 const desc = ref('')
 const images = ref<string[]>([])
+function isValidBackendOrderNo(value: string) {
+  return /^[A-Z]{2,10}-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(value)
+}
 function readQuery() {
   const pages = getCurrentPages()
   const current = pages.length ? pages[pages.length - 1] as unknown as { options?: Record<string, string> } : undefined
   const hashParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.hash.split('?')[1] || '') : undefined
-  orderNo.value = current?.options?.orderNo || hashParams?.get('orderNo') || ''
+  const routeOrderNo = current?.options?.orderNo ?? hashParams?.get('orderNo') ?? ''
+  orderNo.value = isValidBackendOrderNo(routeOrderNo) ? routeOrderNo : ''
 }
 function chooseEvidence() {
   const remain = Math.max(1, 6 - images.value.length)
@@ -62,16 +66,16 @@ function chooseEvidence() {
         images.value.push(ticket.storageUrl)
       }
       images.value = images.value.slice(0, 6)
-      uni.showToast({ title: `已生成上传票据 ${images.value.length} 张，提交后才会进入售后审核`, icon: 'none' })
+      uni.showToast({ title: `已生成上传票据 ${images.value.length} 张，提交后才会进入售后处理`, icon: 'none' })
     } catch (error) {
       uni.showToast({ title: error instanceof Error ? error.message : '上传票据创建失败', icon: 'none' })
     }
-  }, fail() { uni.showToast({ title: '请在手机端选择凭证图片', icon: 'none' }) } })
+  }, fail() { uni.showToast({ title: '请在手机端选择票据图片', icon: 'none' }) } })
 }
 function fileNameFromPath(path: string) { const clean = path.split('?')[0] || ''; const last = clean.split('/').pop() || 'after-sales-evidence.jpg'; return last.includes('.') ? last : `${last}.jpg` }
 function imageContentType(path: string) { const lower = path.toLowerCase(); if (lower.endsWith('.png')) return 'image/png'; if (lower.endsWith('.webp')) return 'image/webp'; return 'image/jpeg' }
 function validate() {
-  if (!orderNo.value) return '缺少订单号，请从订单详情发起售后'
+  if (!isValidBackendOrderNo(orderNo.value)) return '缺少有效订单号，请从订单详情发起售后'
   if (!amount.value || Number(amount.value) <= 0) return '请填写退款金额'
   if (!desc.value || desc.value.length < 8) return '请补充至少8个字的问题说明'
   if (!images.value.length) return '请至少生成一张售后上传票据'
@@ -81,10 +85,11 @@ function validate() {
 async function submitApply() {
   const message = validate()
   if (message) return uni.showToast({ title: message, icon: 'none' })
+  const validatedOrderNo = orderNo.value
   submitting.value = true
   try {
-    const response = await createAfterSales({ orderNo: orderNo.value, afterSalesType: type.value, refundAmount: amount.value, reason: reason.value, description: desc.value, evidenceUrls: images.value })
-    uni.showModal({ title: '售后申请已提交', content: `售后单 ${response.afterSalesNo} 已进入平台审核。`, showCancel: false, success: () => uni.redirectTo({ url: `/pages/after-sales/detail/index?afterSalesNo=${encodeURIComponent(response.afterSalesNo)}&orderNo=${encodeURIComponent(orderNo.value)}` }) })
+    const response = await createAfterSales({ orderNo: validatedOrderNo, afterSalesType: type.value, refundAmount: amount.value, reason: reason.value, description: desc.value, evidenceUrls: images.value })
+    uni.showModal({ title: '售后申请已提交', content: `售后单 ${response.afterSalesNo} 已创建。售后申请已提交，处理进度以后端记录为准。`, showCancel: false, success: () => uni.redirectTo({ url: `/pages/after-sales/detail/index?afterSalesNo=${encodeURIComponent(response.afterSalesNo)}&orderNo=${encodeURIComponent(validatedOrderNo)}` }) })
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '售后申请提交失败', icon: 'none' })
   } finally {

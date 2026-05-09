@@ -43,6 +43,7 @@
     "check:static-platform-trust-copy": "node scripts/check-static-platform-trust-copy.cjs",
     "check:community-compose-real-post": "node scripts/check-community-compose-real-post.cjs",
     "check:community-detail-follow": "node scripts/check-community-detail-follow-real-flow.cjs",
+    "check:after-sales-route-guard": "node scripts/check-after-sales-route-guard.cjs",
     "check:lan-api-base": "node scripts/check-lan-api-base.cjs"
   },
   "dependencies": {
