@@ -36,10 +36,13 @@ if (!afterSalesApply.includes('请至少生成一张售后上传票据')) {
 }
 
 const uploadEvidence = contents['src/pages/upload/evidence/index.vue']
-for (const canonical of ['AFTER_SALES_EVIDENCE', 'REPORT_EVIDENCE', 'VIDEO_IDENTITY', 'PRODUCT_IMAGE', 'CHAT_IMAGE']) {
+for (const canonical of ['AFTER_SALES_EVIDENCE', 'REPORT_EVIDENCE', 'VIDEO_IDENTITY', 'PRODUCT_IMAGE', 'COMMUNITY_IMAGE', 'CHAT_IMAGE']) {
   if (!uploadEvidence.includes(canonical)) {
     failures.push(`upload evidence page must understand canonical media scene ${canonical}`)
   }
+}
+if (!uploadEvidence.includes("{label:'社区',value:'COMMUNITY_IMAGE' as const}")) {
+  failures.push('upload evidence scene picker must expose COMMUNITY_IMAGE so community image tickets can be generated without legacy aliases')
 }
 
 if (uploadEvidence.includes("type Scene='AFTER_SALES'|'REPORT'|'IDENTITY'|'PRODUCT'|'CHAT'")) {

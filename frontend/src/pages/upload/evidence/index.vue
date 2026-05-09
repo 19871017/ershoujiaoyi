@@ -20,7 +20,7 @@ const scene=ref<Scene>('AFTER_SALES_EVIDENCE')
 const saving=ref(false)
 const remark=ref('')
 const images=ref<string[]>([])
-const types=[{label:'售后',value:'AFTER_SALES_EVIDENCE' as const},{label:'举报',value:'REPORT_EVIDENCE' as const},{label:'实名视频',value:'VIDEO_IDENTITY' as const},{label:'商品',value:'PRODUCT_IMAGE' as const},{label:'聊天',value:'CHAT_IMAGE' as const}]
+const types=[{label:'售后',value:'AFTER_SALES_EVIDENCE' as const},{label:'举报',value:'REPORT_EVIDENCE' as const},{label:'实名视频',value:'VIDEO_IDENTITY' as const},{label:'商品',value:'PRODUCT_IMAGE' as const},{label:'社区',value:'COMMUNITY_IMAGE' as const},{label:'聊天',value:'CHAT_IMAGE' as const}]
 const supportedScenes: Scene[] = ['AFTER_SALES_EVIDENCE','REPORT_EVIDENCE','VIDEO_IDENTITY','PRODUCT_IMAGE','COMMUNITY_IMAGE','CHAT_IMAGE']
 const legacySceneMap: Record<string, Scene> = {
   AFTER_SALES: 'AFTER_SALES_EVIDENCE',
