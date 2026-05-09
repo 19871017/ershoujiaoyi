@@ -64,6 +64,18 @@ if (!reportContent.includes('校验票据中') || !reportContent.includes('票�
   failures.push('report submit page must consistently call generated media records upload tickets, not accepted evidence credentials')
 }
 
+if (!/path\.startsWith\(['"]local:\/\/['"]\)/.test(reportContent) || !/path\.includes\(['"]placeholder['"]\)/.test(reportContent)) {
+  failures.push('report evidence picker must reject local placeholder media paths before requesting REPORT_EVIDENCE upload tickets')
+}
+
+if (!/evidence\.value\.some\(url =>[\s\S]*!url\.startsWith\(['"]\/uploads\/report-evidence\/['"]\)/.test(reportContent)) {
+  failures.push('report submit must fail closed unless every evidence URL is a server-issued REPORT_EVIDENCE storage URL')
+}
+
+if (!reportContent.includes('举报上传票据需先完成服务端校验')) {
+  failures.push('report submit should explain that invalid report evidence URLs were not submitted')
+}
+
 if (!productDetailContent.includes('function isValidProductReportTargetId')) {
   failures.push('product detail report entry must validate productId with a positive backend-id guard before navigation')
 }

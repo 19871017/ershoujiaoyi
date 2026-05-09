@@ -105,6 +105,9 @@ function chooseEvidence() {
         const urls: string[] = []
         for (let i = 0; i < paths.length; i += 1) {
           const path = paths[i] || ''
+          if (path.startsWith('local://') || path.includes('placeholder')) {
+            throw new Error('invalid report media path')
+          }
           const ticket = await createMediaUploadTicket({ scene: 'REPORT_EVIDENCE', contentType: guessContentType(path), fileSize: 600_000, filename: filenameFromPath(path, i) })
           urls.push(ticket.storageUrl)
         }
@@ -121,6 +124,9 @@ async function submit() {
   if (!reason.value) return uni.showToast({ title: '请选择举报原因', icon: 'none' })
   if (description.value.trim().length < 6) return uni.showToast({ title: '请补充至少 6 个字说明', icon: 'none' })
   if (!isValidReportTargetId(targetId.value)) return uni.showToast({ title: '缺少有效举报对象，未提交举报', icon: 'none' })
+  if (evidence.value.some(url => url.startsWith('local://') || url.includes('placeholder') || !url.startsWith('/uploads/report-evidence/'))) {
+    return uni.showToast({ title: '举报上传票据需先完成服务端校验', icon: 'none' })
+  }
   submitting.value = true
   try {
     await submitReport({ targetType: targetType.value, targetId: targetId.value, reason: reason.value, description: description.value.trim(), evidenceUrls: evidence.value })
