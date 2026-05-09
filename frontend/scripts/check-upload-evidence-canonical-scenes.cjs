@@ -23,8 +23,16 @@ const afterSalesApply = contents['src/pages/after-sales/apply/index.vue']
 if (afterSalesApply.includes("uni.showToast({ title: `已保存 ${images.value.length} 张凭证`, icon: 'none' })")) {
   failures.push('after-sales apply picker must not claim evidence is saved after upload ticket creation only')
 }
+for (const forbiddenAfterSalesCopy of ['上传凭证', '>凭证<', '售后凭证', '凭证图片无效', '请至少上传一张售后凭证', '凭证需先完成平台上传票据校验', '凭证上传票据创建失败']) {
+  if (afterSalesApply.includes(forbiddenAfterSalesCopy)) {
+    failures.push(`after-sales apply must describe picker records as upload tickets, not accepted evidence/credentials before final business submission: ${forbiddenAfterSalesCopy}`)
+  }
+}
 if (!afterSalesApply.includes('已生成上传票据')) {
   failures.push('after-sales apply picker should say only that upload tickets were generated')
+}
+if (!afterSalesApply.includes('请至少生成一张售后上传票据')) {
+  failures.push('after-sales apply validation should ask for upload tickets before final after-sales submission')
 }
 
 const uploadEvidence = contents['src/pages/upload/evidence/index.vue']

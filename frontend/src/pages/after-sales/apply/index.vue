@@ -20,8 +20,8 @@
         <view v-for="item in reasons" :key="item" class="reason-chip tapable" :class="{ active: reason === item }" @click="reason = item">{{ item }}</view>
       </view>
       <textarea v-model.trim="desc" class="textarea" maxlength="180" placeholder="请说明商品问题、协商过程和期望处理方式" />
-      <view class="upload tapable" @click="chooseEvidence">＋ 上传凭证 {{ images.length }}/6</view>
-      <view v-if="images.length" class="image-row"><view v-for="img in images" :key="img" class="image-chip">凭证</view></view>
+      <view class="upload tapable" @click="chooseEvidence">＋ 生成上传票据 {{ images.length }}/6</view>
+      <view v-if="images.length" class="image-row"><view v-for="img in images" :key="img" class="image-chip">上传票据</view></view>
       <button class="primary-btn" :disabled="submitting" @click="submitApply">{{ submitting ? '提交中...' : '提交售后申请' }}</button>
     </view>
 
@@ -57,14 +57,14 @@ function chooseEvidence() {
   uni.chooseImage({ count: remain, sizeType: ['compressed'], sourceType: ['album', 'camera'], async success(res) {
     try {
       for (const path of res.tempFilePaths.slice(0, remain)) {
-        if (path.startsWith('local://') || path.includes('placeholder')) throw new Error('凭证图片无效，请重新选择')
+        if (path.startsWith('local://') || path.includes('placeholder')) throw new Error('票据图片无效，请重新选择')
         const ticket = await createMediaUploadTicket({ scene: 'AFTER_SALES_EVIDENCE', contentType: imageContentType(path), fileSize: 300_000, filename: fileNameFromPath(path) })
         images.value.push(ticket.storageUrl)
       }
       images.value = images.value.slice(0, 6)
       uni.showToast({ title: `已生成上传票据 ${images.value.length} 张，提交后才会进入售后审核`, icon: 'none' })
     } catch (error) {
-      uni.showToast({ title: error instanceof Error ? error.message : '凭证上传票据创建失败', icon: 'none' })
+      uni.showToast({ title: error instanceof Error ? error.message : '上传票据创建失败', icon: 'none' })
     }
   }, fail() { uni.showToast({ title: '请在手机端选择凭证图片', icon: 'none' }) } })
 }
@@ -74,8 +74,8 @@ function validate() {
   if (!orderNo.value) return '缺少订单号，请从订单详情发起售后'
   if (!amount.value || Number(amount.value) <= 0) return '请填写退款金额'
   if (!desc.value || desc.value.length < 8) return '请补充至少8个字的问题说明'
-  if (!images.value.length) return '请至少上传一张售后凭证'
-  if (images.value.some(url => url.startsWith('local://') || url.includes('placeholder') || !url.startsWith('/uploads/evidence/after-sales/'))) return '凭证需先完成平台上传票据校验'
+  if (!images.value.length) return '请至少生成一张售后上传票据'
+  if (images.value.some(url => url.startsWith('local://') || url.includes('placeholder') || !url.startsWith('/uploads/evidence/after-sales/'))) return '售后票据需先完成服务端上传票据校验'
   return ''
 }
 async function submitApply() {
