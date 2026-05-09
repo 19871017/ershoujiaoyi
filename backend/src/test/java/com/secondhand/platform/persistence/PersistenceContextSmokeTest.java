@@ -37,6 +37,7 @@ class PersistenceContextSmokeTest {
             assertTrue(tables.contains("WALLET_ACCOUNT"), () -> "missing WALLET_ACCOUNT in " + tables);
             assertTrue(tables.contains("IM_MESSAGE"), () -> "missing IM_MESSAGE in " + tables);
             assertTrue(tables.contains("REPORT_RECORD"), () -> "missing REPORT_RECORD in " + tables);
+            assertTrue(tables.contains("NOTIFICATION_RECORD"), () -> "missing NOTIFICATION_RECORD in " + tables);
             assertEquals("女装", jdbcTemplate.queryForObject(
                     "select config_value from system_config where config_key = 'platform.category.primary'",
                     String.class

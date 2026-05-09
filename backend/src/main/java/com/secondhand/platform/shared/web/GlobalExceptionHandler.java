@@ -61,7 +61,10 @@ public class GlobalExceptionHandler {
             "order-not-found",
             "order-not-payable",
             "order-payment-inconsistent",
-            "order-buyer-mismatch"
+            "order-buyer-mismatch",
+            "notification type invalid",
+            "notificationNo invalid",
+            "notification not found"
     );
 
     @ExceptionHandler(SecurityException.class)

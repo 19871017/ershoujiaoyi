@@ -10,8 +10,10 @@ const forbidden = [
   'ORDER-20260507-001',
   'receiverId=102',
   'item.read=true',
+  'notice.read = true',
   '已完成担保支付',
-  '举报已受理'
+  '举报已受理',
+  '通知接口暂未接入'
 ]
 
 let failed = false
@@ -23,11 +25,12 @@ for (const marker of forbidden) {
 }
 
 const required = [
-  'const notices = ref<NoticeItem[]>([])',
-  'const loadError = ref',
-  'const loading = ref',
-  '通知接口暂未接入，未展示任何本地样例消息',
-  '未调用后端已读接口，未执行任何通知状态变更'
+  "import { listNotifications, markNotificationRead",
+  'const notices = ref<NotificationItemResponse[]>([])',
+  'await listNotifications(active.value)',
+  'await markNotificationRead(item.notificationNo)',
+  '后端已读接口调用失败，未执行本地已读变更',
+  '通知接口加载失败，未展示任何本地样例消息'
 ]
 
 for (const marker of required) {
