@@ -31,6 +31,8 @@ const checks = [
     forbidden: [
       '同城交易',
       '同城约看',
+      '同城',
+      'nearby',
       '离开平台聊天和支付'
     ]
   },

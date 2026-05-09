@@ -46,7 +46,7 @@ function saveCity() {
   }
   uni.showModal({
     title: '城市偏好接口尚未接入',
-    content: '城市偏好接口尚未接入，未保存为正式同城位置，当前未执行任何位置变更。请返回首页继续使用后端默认城市。',
+    content: '城市偏好接口尚未接入，未保存为正式位置偏好，当前未执行任何位置变更。请返回首页继续使用后端默认城市。',
     showCancel: false,
     success: () => uni.switchTab({ url: '/pages/tabbar/home/index' })
   })

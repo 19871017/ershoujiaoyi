@@ -22,7 +22,7 @@ const requiredMarkers = [
   '@click="selectCity(city)"',
   'function selectCity(city: string)',
   'function saveCity()',
-  '城市偏好接口尚未接入，未保存为正式同城位置',
+  '城市偏好接口尚未接入，未保存为正式位置偏好',
   '当前未执行任何位置变更',
   'const canConfirm = computed(() => Boolean(selected.value))',
   ':disabled="!canConfirm"'
