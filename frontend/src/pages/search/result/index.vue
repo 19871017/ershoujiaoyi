@@ -63,7 +63,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
 
-type Sort = 'latest' | 'priceAsc' | 'priceDesc' | 'nearby'
+type Sort = 'latest' | 'priceAsc' | 'priceDesc'
 
 const keyword = ref('')
 const category = ref('全部')
@@ -72,7 +72,7 @@ const loading = ref(false)
 const loadMessage = ref('')
 const products = ref<ProductListItemResponse[]>([])
 const categories = ['全部', '衣物', '鞋袜', '小用品']
-const sorts = [{ label: '最新', value: 'latest' as const }, { label: '低价', value: 'priceAsc' as const }, { label: '高价', value: 'priceDesc' as const }, { label: '同城', value: 'nearby' as const }]
+const sorts = [{ label: '最新', value: 'latest' as const }, { label: '低价', value: 'priceAsc' as const }, { label: '高价', value: 'priceDesc' as const }]
 
 const filtered = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
@@ -83,7 +83,6 @@ const filtered = computed(() => {
   })
   if (sort.value === 'priceAsc') list = [...list].sort((a, b) => Number(a.price) - Number(b.price))
   if (sort.value === 'priceDesc') list = [...list].sort((a, b) => Number(b.price) - Number(a.price))
-  if (sort.value === 'nearby') list = [...list].sort((a, b) => a.productId - b.productId)
   if (sort.value === 'latest') list = [...list].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
   return list
 })

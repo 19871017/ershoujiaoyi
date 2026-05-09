@@ -13,6 +13,9 @@ const forbiddenMarkers = [
   '蝴蝶结长袜三双装',
   '粉色腋下包 轻微使用',
   '担保交易',
+  "label: '同城'",
+  "'nearby'",
+  "sort.value === 'nearby'",
   '搜索 ${keyword.value}',
   '展示全部宝贝',
   'openProduct(id:number)'
