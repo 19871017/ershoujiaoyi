@@ -49,7 +49,11 @@ for (const forbiddenCopy of [
   '凭证 {{ index + 1 }}',
   '最多 6 张凭证',
   '举报凭证票据签发失败',
-  '凭证票据'
+  '凭证票据',
+  '平台处理私下交易',
+  '便于平台审核处理',
+  '平台会尽快审核处理',
+  '处理结果会在消息中心同步'
 ]) {
   if (reportContent.includes(forbiddenCopy)) {
     failures.push(`report submit page must not show static trust/business-success evidence copy: ${forbiddenCopy}`)
