@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 小原圈广场</view>
         <view class="page-title">社区</view>
-        <view class="page-desc">穿搭话题、同城约看、避坑分享和私信会话，都在小原圈里。</view>
+        <view class="page-desc">穿搭话题、交易经验、避坑分享和私信会话，都在小原圈里。</view>
       </view>
       <view class="post-btn tapable" @click="openComposer">发帖</view>
     </view>
@@ -69,7 +69,7 @@ const activeTopic = ref('穿搭交流')
 const topics = [
   { icon: '🎀', title: '穿搭交流' },
   { icon: '🧺', title: '闲置避坑' },
-  { icon: '💗', title: '同城约看' }
+  { icon: '💗', title: '交易经验' }
 ]
 const feeds = ref<CommunityPostResponse[]>([])
 const loading = ref(false)

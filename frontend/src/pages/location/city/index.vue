@@ -2,9 +2,9 @@
   <view class="page-shell city-page">
     <view class="hero ds-card">
       <view>
-        <view class="kicker">♡ 同城交易</view>
+        <view class="kicker">♡ 城市偏好</view>
         <view class="page-title">选择城市</view>
-        <view class="page-desc">定位失败时可手动选择城市，用于同城约看和附近宝贝筛选。</view>
+        <view class="page-desc">定位失败时可先筛选城市偏好；正式位置状态以后端或系统定位记录为准。</view>
       </view>
       <view class="hero-icon">📍</view>
     </view>
@@ -22,8 +22,8 @@
     </view>
 
     <view class="safe-card ds-card">
-      <view class="section-title">同城安全提醒</view>
-      <view class="desc">约看建议选择商场、地铁站等公共场所；不要离开平台聊天和支付。</view>
+      <view class="section-title">位置使用提醒</view>
+      <view class="desc">城市偏好只影响本次页面筛选；订单、支付、发货和售后状态以服务端记录为准。</view>
     </view>
 
     <button class="primary-btn" :disabled="!canConfirm" @click="saveCity">确认城市</button>

@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 发布圈内动态</view>
         <view class="page-title">发一条穿搭/避坑分享</view>
-        <view class="page-desc">可以聊穿搭、同城约看、交易避坑，也可以挂一个想找的宝贝。</view>
+        <view class="page-desc">可以聊穿搭、交易经验、求购心愿；订单、支付和售后状态以服务端记录为准。</view>
       </view>
       <view class="hero-icon">✎</view>
     </view>
@@ -50,7 +50,7 @@ import { reactive, ref } from 'vue'
 import { createCommunityPost } from '../../../api/modules/community'
 import { createMediaUploadTicket } from '../../../api/modules/media'
 
-const topics = ['穿搭交流', '闲置避坑', '同城约看', '求购心愿']
+const topics = ['穿搭交流', '闲置避坑', '交易经验', '求购心愿']
 const submitting = ref(false)
 const form = reactive({ topic: '穿搭交流', title: '', content: '', images: [] as string[] })
 function chooseImages() {

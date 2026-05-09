@@ -27,6 +27,26 @@ const checks = [
     ]
   },
   {
+    file: 'src/pages/location/city/index.vue',
+    forbidden: [
+      '同城交易',
+      '同城约看',
+      '离开平台聊天和支付'
+    ]
+  },
+  {
+    file: 'src/pages/community/compose/index.vue',
+    forbidden: [
+      '同城约看'
+    ]
+  },
+  {
+    file: 'src/pages/tabbar/message/index.vue',
+    forbidden: [
+      '同城约看'
+    ]
+  },
+  {
     file: 'src/pages/tabbar/home/index.vue',
     forbidden: [
       '平台担保',
