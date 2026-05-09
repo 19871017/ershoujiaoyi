@@ -19,7 +19,7 @@
 const icon = '🧺'
 const title = '这里还没有内容'
 const desc = '可以先去首页看看推荐宝贝，或者把闲置衣物、鞋袜、小用品发布出来。'
-const tips = ['完善个人资料，提升交易信任', '使用平台担保，降低交易风险', '遇到异常沟通，可从聊天页举报']
+const tips = ['完善个人资料，便于服务端记录同步', '交易相关状态以订单、支付和售后记录为准', '遇到异常沟通，请保留服务端聊天记录并走正式举报入口']
 function goHome() { uni.switchTab({ url: '/pages/tabbar/home/index' }) }
 function goPublish() { uni.switchTab({ url: '/pages/tabbar/publish/index' }) }
 </script>

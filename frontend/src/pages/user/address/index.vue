@@ -1,7 +1,7 @@
 <template>
   <view class="page-shell address-page">
     <view class="page-title">地址管理</view>
-    <view class="page-desc">用于平台担保交易发货、同城约看和售后联系。</view>
+    <view class="page-desc">用于订单发货、售后联系等正式服务端地址记录。</view>
 
     <view class="form-card ds-card">
       <view class="form-title">新增 / 编辑地址</view>
