@@ -87,7 +87,7 @@ public class CommunityApplicationService {
     }
 
     @Transactional
-    public CommunityPostResponse likePost(Long userId, Long postId) {
+    public CommunityPostDetailResponse likePost(Long userId, Long postId) {
         if (userId == null || userId <= 0) {
             throw new IllegalArgumentException("invalid user");
         }
@@ -97,11 +97,11 @@ public class CommunityApplicationService {
         if (inserted > 0) {
             jdbcTemplate.update("UPDATE community_post SET like_count = like_count + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?", postId);
         }
-        return loadPublishedPostById(postId);
+        return detail(postId, userId);
     }
 
     @Transactional
-    public CommunityPostResponse unlikePost(Long userId, Long postId) {
+    public CommunityPostDetailResponse unlikePost(Long userId, Long postId) {
         if (userId == null || userId <= 0) {
             throw new IllegalArgumentException("invalid user");
         }
@@ -110,7 +110,7 @@ public class CommunityApplicationService {
         if (deleted > 0) {
             jdbcTemplate.update("UPDATE community_post SET like_count = CASE WHEN like_count > 0 THEN like_count - 1 ELSE 0 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?", postId);
         }
-        return loadPublishedPostById(postId);
+        return detail(postId, userId);
     }
 
     private CommunityPostResponse loadPostById(Long postId) {

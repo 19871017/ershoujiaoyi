@@ -56,9 +56,9 @@ export function createCommunityComment(postId: number, content: string) {
 }
 
 export function likeCommunityPost(postId: number) {
-  return post<CommunityPostResponse>(`/api/community/posts/${postId}/likes`, {})
+  return post<CommunityPostDetailResponse>(`/api/community/posts/${postId}/likes`, {})
 }
 
 export function unlikeCommunityPost(postId: number) {
-  return del<CommunityPostResponse>(`/api/community/posts/${postId}/likes`)
+  return del<CommunityPostDetailResponse>(`/api/community/posts/${postId}/likes`)
 }

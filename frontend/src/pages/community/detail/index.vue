@@ -191,7 +191,7 @@ async function likePost() {
   const numericPostId = Number(postId.value)
   try {
     const saved = liked.value ? await unlikeCommunityPost(numericPostId) : await likeCommunityPost(numericPostId)
-    liked.value = !liked.value
+    liked.value = Boolean(saved.likedByMe)
     likeCount.value = saved.likeCount
   } catch {
     uni.showModal({ title: '点赞失败', content: '点赞没有提交成功，请检查网络或稍后重试。', showCancel: false })

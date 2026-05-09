@@ -67,10 +67,12 @@ class CommunityApplicationServiceTest {
     void likeShouldBeIdempotentAndPersistedPerUser() {
         CommunityPostResponse post = service.createPost(13L, post("同城约看提醒", "同城约看", "建议公共场所见面。", List.of()));
 
-        CommunityPostResponse liked = service.likePost(21L, post.getPostId());
-        CommunityPostResponse replay = service.likePost(21L, post.getPostId());
+        CommunityPostDetailResponse liked = service.likePost(21L, post.getPostId());
+        CommunityPostDetailResponse replay = service.likePost(21L, post.getPostId());
         assertEquals(1, liked.getLikeCount());
+        assertTrue(liked.getLikedByMe());
         assertEquals(1, replay.getLikeCount());
+        assertTrue(replay.getLikedByMe());
 
         service.likePost(22L, post.getPostId());
         CommunityApplicationService reloaded = new CommunityApplicationService(new JdbcTemplate(database), new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database)));
@@ -85,11 +87,13 @@ class CommunityApplicationServiceTest {
         service.likePost(31L, post.getPostId());
         service.likePost(32L, post.getPostId());
 
-        CommunityPostResponse unliked = service.unlikePost(31L, post.getPostId());
-        CommunityPostResponse replay = service.unlikePost(31L, post.getPostId());
+        CommunityPostDetailResponse unliked = service.unlikePost(31L, post.getPostId());
+        CommunityPostDetailResponse replay = service.unlikePost(31L, post.getPostId());
 
         assertEquals(1, unliked.getLikeCount());
+        assertFalse(unliked.getLikedByMe());
         assertEquals(1, replay.getLikeCount());
+        assertFalse(replay.getLikedByMe());
         assertFalse(service.detail(post.getPostId(), 31L).getLikedByMe());
         assertTrue(service.detail(post.getPostId(), 32L).getLikedByMe());
         assertThrows(IllegalArgumentException.class, () -> service.unlikePost(0L, post.getPostId()));

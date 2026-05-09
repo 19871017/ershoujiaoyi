@@ -81,6 +81,12 @@ if (!likeMatch || !likeMatch[0].includes('await unlikeCommunityPost') || !likeMa
 if (/liked\.value\s*=\s*!liked\.value[\s\S]{0,120}await (?:un)?likeCommunityPost/.test(source)) {
   failures.push('community detail must not flip liked state before the backend like/unlike request succeeds')
 }
+if (!source.includes('liked.value = Boolean(saved.likedByMe)')) {
+  failures.push('community detail must render liked state from backend response likedByMe instead of locally inverting current state')
+}
+if (!source.includes('likeCount.value = saved.likeCount')) {
+  failures.push('community detail must render like count from backend response after like/unlike')
+}
 
 if (failures.length) {
   console.error(failures.join('\n'))
