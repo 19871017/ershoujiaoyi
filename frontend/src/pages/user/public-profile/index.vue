@@ -61,7 +61,7 @@
 </template>
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { followPublicProfile, getPublicProfile, type UserProfileResponse } from '../../../api/modules/user'
+import { followPublicProfile, getPublicProfile, unfollowPublicProfile, type UserProfileResponse } from '../../../api/modules/user'
 import { listSellerProducts, type ProductListItemResponse } from '../../../api/modules/product'
 const userId = ref('')
 const loadError = ref('')
@@ -86,9 +86,15 @@ async function loadSellerProducts(){
 }
 async function toggleFollow(){
   if (!isValidBackendUserId(userId.value)) { uni.showToast({title:'缺少真实用户ID，未执行任何关注变更',icon:'none'}); return }
-  if (followed.value) { uni.showToast({title:'已关注状态来自后端，暂未接入取消关注',icon:'none'}); return }
-  try { const data = await followPublicProfile(userId.value); Object.assign(profile, data); uni.showToast({title:'关注状态已同步',icon:'none'}) }
-  catch { uni.showToast({title:'关注没有提交成功，未执行本地关注变更',icon:'none'}) }
+  const wasFollowing = followed.value
+  try {
+    const data = wasFollowing
+      ? await unfollowPublicProfile(userId.value)
+      : await followPublicProfile(userId.value)
+    Object.assign(profile, data)
+    uni.showToast({title: wasFollowing ? '已取消关注' : '关注状态已同步',icon:'none'})
+  }
+  catch { uni.showToast({title: wasFollowing ? '取消关注没有提交成功，未执行本地关注变更' : '关注没有提交成功，未执行本地关注变更',icon:'none'}) }
 }
 function chat(){const validUserId = isValidBackendUserId(userId.value); if(!validUserId){uni.showToast({title:'缺少真实用户ID，未进入私信',icon:'none'});return} uni.navigateTo({url:`/pages/chat/conversation/index?receiverId=${userId.value}`})}
 function openGift(){const validUserId = isValidBackendUserId(userId.value); if(!validUserId){uni.showToast({title:'缺少真实用户ID，未进入送礼',icon:'none'});return} uni.navigateTo({url:`/pages/gift/index?mode=send&receiverId=${userId.value}&sceneType=PROFILE&sceneId=${userId.value}`})}

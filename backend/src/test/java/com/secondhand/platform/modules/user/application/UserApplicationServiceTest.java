@@ -103,6 +103,32 @@ class UserApplicationServiceTest {
     }
 
     @Test
+    void unfollowProfileShouldRemoveOnlyViewerScopedRelationshipIdempotently() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.login(login("13800138241", "pass-123456"));
+        auth.login(login("13800138242", "pass-123456"));
+        auth.login(login("13800138243", "pass-123456"));
+        Long viewerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138241");
+        Long sellerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138242");
+        Long otherViewerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138243");
+        service.followProfile(viewerId, sellerId);
+        service.followProfile(otherViewerId, sellerId);
+
+        UserProfileResponse afterUnfollow = service.unfollowProfile(viewerId, sellerId);
+        UserProfileResponse repeated = service.unfollowProfile(viewerId, sellerId);
+        Integer remainingRows = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_follow WHERE followed_id = ?",
+                Integer.class,
+                sellerId
+        );
+
+        assertEquals(false, afterUnfollow.isFollowedByMe());
+        assertEquals(false, repeated.isFollowedByMe());
+        assertEquals(1, remainingRows);
+        assertEquals(true, service.publicProfile(sellerId, otherViewerId).isFollowedByMe());
+    }
+
+    @Test
     void followProfileShouldRejectSelfOrMissingUsers() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
         auth.login(login("13800138231", "pass-123456"));
@@ -110,6 +136,8 @@ class UserApplicationServiceTest {
 
         assertThrows(IllegalArgumentException.class, () -> service.followProfile(viewerId, viewerId));
         assertThrows(IllegalArgumentException.class, () -> service.followProfile(viewerId, 999_999L));
+        assertThrows(IllegalArgumentException.class, () -> service.unfollowProfile(viewerId, viewerId));
+        assertThrows(IllegalArgumentException.class, () -> service.unfollowProfile(viewerId, 999_999L));
     }
 
     @Test

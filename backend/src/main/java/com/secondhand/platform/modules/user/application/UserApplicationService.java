@@ -27,14 +27,7 @@ public class UserApplicationService {
     }
 
     public UserProfileResponse followProfile(Long followerId, Long followedId) {
-        if (followerId == null || followerId <= 0 || followedId == null || followedId <= 0) {
-            throw new IllegalArgumentException("valid follower and followed users required");
-        }
-        if (followerId.equals(followedId)) {
-            throw new IllegalArgumentException("cannot follow self");
-        }
-        ensureActiveUser(followerId);
-        ensureActiveUser(followedId);
+        validateFollowActors(followerId, followedId);
         try {
             jdbcTemplate.update("""
                     INSERT INTO user_follow (follower_id, followed_id)
@@ -43,6 +36,12 @@ public class UserApplicationService {
         } catch (DuplicateKeyException ignored) {
             // Idempotent follow: repeat requests keep the persisted relationship unchanged.
         }
+        return publicProfile(followedId, followerId);
+    }
+
+    public UserProfileResponse unfollowProfile(Long followerId, Long followedId) {
+        validateFollowActors(followerId, followedId);
+        jdbcTemplate.update("DELETE FROM user_follow WHERE follower_id = ? AND followed_id = ?", followerId, followedId);
         return publicProfile(followedId, followerId);
     }
 
@@ -75,6 +74,17 @@ public class UserApplicationService {
             throw new IllegalArgumentException("user not found");
         }
         return rows.get(0);
+    }
+
+    private void validateFollowActors(Long followerId, Long followedId) {
+        if (followerId == null || followerId <= 0 || followedId == null || followedId <= 0) {
+            throw new IllegalArgumentException("valid follower and followed users required");
+        }
+        if (followerId.equals(followedId)) {
+            throw new IllegalArgumentException("cannot follow self");
+        }
+        ensureActiveUser(followerId);
+        ensureActiveUser(followedId);
     }
 
     private void ensureActiveUser(Long userId) {

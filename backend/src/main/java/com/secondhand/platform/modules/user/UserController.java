@@ -4,6 +4,7 @@ import com.secondhand.platform.modules.user.application.UserApplicationService;
 import com.secondhand.platform.shared.kernel.Result;
 import com.secondhand.platform.shared.web.CurrentUserResolver;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,6 +38,12 @@ public class UserController {
     public Result<UserProfileResponse> follow(@PathVariable Long userId, HttpServletRequest request) {
         long followerId = currentUserResolver.resolve(request);
         return Result.ok(userApplicationService.followProfile(followerId, userId));
+    }
+
+    @DeleteMapping("/{userId}/follow")
+    public Result<UserProfileResponse> unfollow(@PathVariable Long userId, HttpServletRequest request) {
+        long followerId = currentUserResolver.resolve(request);
+        return Result.ok(userApplicationService.unfollowProfile(followerId, userId));
     }
 
     private Long resolveOptionalViewer(HttpServletRequest request) {

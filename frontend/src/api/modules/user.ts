@@ -1,4 +1,4 @@
-import { get, post } from '../http'
+import { del, get, post } from '../http'
 
 export interface UserProfileResponse {
   userId: number
@@ -24,6 +24,10 @@ export function getPublicProfile(userId: number | string) {
 
 export function followPublicProfile(userId: number | string) {
   return post<UserProfileResponse>(`/api/user/${encodeURIComponent(String(userId))}/follow`, {})
+}
+
+export function unfollowPublicProfile(userId: number | string) {
+  return del<UserProfileResponse>(`/api/user/${encodeURIComponent(String(userId))}/follow`)
 }
 
 export function submitVideoIdentity(data: SubmitVideoIdentityRequest) {
