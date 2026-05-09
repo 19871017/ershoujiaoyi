@@ -27,8 +27,8 @@
 
     <view class="safe-card ds-card">
       <view class="section-title">处理规则</view>
-      <view class="safe-line">平台会综合订单、聊天、物流和凭证判断，必要时进入人工仲裁。</view>
-      <view class="safe-line">恶意退款、调包、虚假凭证会影响账号信用和榜单权重。</view>
+      <view class="safe-line">售后处理以服务端订单、支付、物流、聊天记录和已提交票据为准。</view>
+      <view class="safe-line">当前页面只提交售后申请；审核结论和公开展示状态以后端记录为准。</view>
     </view>
   </view>
 </template>
@@ -39,7 +39,7 @@ import { createAfterSales } from '../../../api/modules/after-sales'
 import { createMediaUploadTicket } from '../../../api/modules/media'
 const orderNo = ref('')
 const submitting = ref(false)
-const types = ['仅退款', '退货退款', '平台介入']
+const types = ['仅退款', '退货退款', '协商处理']
 const type = ref('仅退款')
 const amount = ref('')
 const reasons = ['成色不符', '尺码不符', '未收到货', '物流异常', '其他']

@@ -51,7 +51,7 @@ async function unfav(productId: number) {
   try {
     await unfavoriteProduct(productId)
     favorites.value = favorites.value.filter((item) => item.productId !== productId)
-    uni.showToast({ title: '已取消收藏', icon: 'none' })
+    uni.showToast({ title: '后端已确认取消收藏', icon: 'none' })
   } catch {
     uni.showToast({ title: '后端取消收藏失败，未执行本地收藏变更', icon: 'none' })
   }
