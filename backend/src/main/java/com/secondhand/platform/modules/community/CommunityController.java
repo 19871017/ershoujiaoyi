@@ -10,6 +10,7 @@ import com.secondhand.platform.shared.kernel.Result;
 import com.secondhand.platform.shared.web.CurrentUserResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -54,5 +55,10 @@ public class CommunityController {
     @PostMapping("/{postId}/likes")
     public Result<CommunityPostResponse> like(@PathVariable Long postId, HttpServletRequest request) {
         return Result.ok(communityApplicationService.likePost(currentUserResolver.resolve(request), postId));
+    }
+
+    @DeleteMapping("/{postId}/likes")
+    public Result<CommunityPostResponse> unlike(@PathVariable Long postId, HttpServletRequest request) {
+        return Result.ok(communityApplicationService.unlikePost(currentUserResolver.resolve(request), postId));
     }
 }

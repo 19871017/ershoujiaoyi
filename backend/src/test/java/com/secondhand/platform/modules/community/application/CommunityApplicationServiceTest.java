@@ -80,6 +80,22 @@ class CommunityApplicationServiceTest {
     }
 
     @Test
+    void unlikeShouldOnlyRemoveCurrentUsersLikeAndStayIdempotent() {
+        CommunityPostResponse post = service.createPost(23L, post("点赞撤回", "穿搭交流", "测试点赞撤回只影响当前用户。", List.of()));
+        service.likePost(31L, post.getPostId());
+        service.likePost(32L, post.getPostId());
+
+        CommunityPostResponse unliked = service.unlikePost(31L, post.getPostId());
+        CommunityPostResponse replay = service.unlikePost(31L, post.getPostId());
+
+        assertEquals(1, unliked.getLikeCount());
+        assertEquals(1, replay.getLikeCount());
+        assertFalse(service.detail(post.getPostId(), 31L).getLikedByMe());
+        assertTrue(service.detail(post.getPostId(), 32L).getLikedByMe());
+        assertThrows(IllegalArgumentException.class, () -> service.unlikePost(0L, post.getPostId()));
+    }
+
+    @Test
     void listShouldHideNonPublishedPostsAndCapLimit() {
         CommunityPostResponse post = service.createPost(14L, post("袜子护理", "穿搭交流", "清洗收纳经验不要暴晒，收纳前保持干燥。", List.of()));
         JdbcTemplate jdbc = new JdbcTemplate(database);

@@ -52,7 +52,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { createCommunityComment, getCommunityPostDetail, likeCommunityPost } from '../../../api/modules/community'
+import { createCommunityComment, getCommunityPostDetail, likeCommunityPost, unlikeCommunityPost } from '../../../api/modules/community'
 
 interface CommentItem { id: string; avatar: string; name: string; text: string }
 
@@ -157,8 +157,8 @@ async function likePost() {
   }
   const numericPostId = Number(postId.value)
   try {
-    const saved = await likeCommunityPost(numericPostId)
-    liked.value = true
+    const saved = liked.value ? await unlikeCommunityPost(numericPostId) : await likeCommunityPost(numericPostId)
+    liked.value = !liked.value
     likeCount.value = saved.likeCount
   } catch {
     uni.showModal({ title: '点赞失败', content: '点赞没有提交成功，请检查网络或稍后重试。', showCancel: false })

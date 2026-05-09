@@ -1,4 +1,4 @@
-import { get, post } from '../http'
+import { del, get, post } from '../http'
 
 export interface CreateCommunityPostRequest {
   title: string
@@ -57,4 +57,8 @@ export function createCommunityComment(postId: number, content: string) {
 
 export function likeCommunityPost(postId: number) {
   return post<CommunityPostResponse>(`/api/community/posts/${postId}/likes`, {})
+}
+
+export function unlikeCommunityPost(postId: number) {
+  return del<CommunityPostResponse>(`/api/community/posts/${postId}/likes`)
 }

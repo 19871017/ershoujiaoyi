@@ -100,6 +100,19 @@ public class CommunityApplicationService {
         return loadPublishedPostById(postId);
     }
 
+    @Transactional
+    public CommunityPostResponse unlikePost(Long userId, Long postId) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("invalid user");
+        }
+        loadPublishedPostById(postId);
+        int deleted = jdbcTemplate.update("DELETE FROM community_like WHERE post_id = ? AND user_id = ?", postId, userId);
+        if (deleted > 0) {
+            jdbcTemplate.update("UPDATE community_post SET like_count = CASE WHEN like_count > 0 THEN like_count - 1 ELSE 0 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?", postId);
+        }
+        return loadPublishedPostById(postId);
+    }
+
     private CommunityPostResponse loadPostById(Long postId) {
         List<CommunityPostResponse> posts = jdbcTemplate.query("SELECT * FROM community_post WHERE id = ?",
                 (rs, rowNum) -> mapPost(rs.getString("post_no"), rs.getLong("id"), rs.getLong("author_id"), rs.getString("title"), rs.getString("topic"), rs.getString("content"), rs.getString("image_urls"), rs.getString("status"), rs.getInt("like_count"), rs.getInt("comment_count"), rs.getTimestamp("created_at")), postId);

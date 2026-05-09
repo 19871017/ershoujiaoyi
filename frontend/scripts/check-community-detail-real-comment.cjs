@@ -11,6 +11,10 @@ if (!source.includes('createCommunityComment')) {
   failures.push('community detail must call createCommunityComment instead of local-only comment append')
 }
 
+if (!source.includes('unlikeCommunityPost')) {
+  failures.push('community detail must call unlikeCommunityPost for persisted unlike instead of local-only liked=false toggles')
+}
+
 const createCallIndex = source.indexOf('createCommunityComment(')
 const pushIndex = source.indexOf('comments.push(')
 if (pushIndex === -1 || (createCallIndex !== -1 && pushIndex < createCallIndex)) {
@@ -68,6 +72,14 @@ for (const functionName of ['sendComment', 'likePost', 'reportPost']) {
   if (!match || !match[0].includes('isValidCommunityPostId(postId.value)')) {
     failures.push(`community detail ${functionName} must validate the route-derived postId with isValidCommunityPostId before the sensitive action`)
   }
+}
+
+const likeMatch = source.match(/async function likePost\([\s\S]*?\n}/)
+if (!likeMatch || !likeMatch[0].includes('await unlikeCommunityPost') || !likeMatch[0].includes('await likeCommunityPost')) {
+  failures.push('community detail likePost must use backend like/unlike APIs for both state changes')
+}
+if (/liked\.value\s*=\s*!liked\.value[\s\S]{0,120}await (?:un)?likeCommunityPost/.test(source)) {
+  failures.push('community detail must not flip liked state before the backend like/unlike request succeeds')
 }
 
 if (failures.length) {
