@@ -30,7 +30,7 @@
 
       <view class="form-section">
         <view class="field-label">宝贝描述</view>
-        <textarea v-model.trim="form.description" class="field-textarea" maxlength="240" placeholder="写清楚成色、尺码、穿着次数、是否可同城约看" />
+        <textarea v-model.trim="form.description" class="field-textarea" maxlength="240" placeholder="写清楚成色、尺码、穿着次数和公开售卖说明" />
         <view class="field-hint">{{ form.description.length }}/240</view>
       </view>
 

@@ -54,6 +54,24 @@ const checks = [
       '同城可约',
       '同城约看'
     ]
+  },
+  {
+    file: 'src/pages/tabbar/publish/index.vue',
+    forbidden: [
+      '平台担保',
+      '担保交易',
+      '同城可约',
+      '同城约看'
+    ]
+  },
+  {
+    file: 'src/pages/order/confirm/index.vue',
+    forbidden: [
+      '平台担保',
+      '担保交易',
+      '同城可约',
+      '同城约看'
+    ]
   }
 ]
 

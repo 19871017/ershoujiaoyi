@@ -44,7 +44,7 @@
         </template>
         <template v-else>
           <view class="address-empty">请选择收货信息</view>
-          <view class="address-text">快递邮寄需要收货人、手机号和详细地址；同城约看请在留言中写明约看方式。</view>
+          <view class="address-text">快递邮寄需要收货人、手机号和详细地址；正式配送状态以后端订单记录为准。</view>
         </template>
       </view>
 
@@ -56,7 +56,7 @@
             <text>{{ item.desc }}</text>
           </view>
         </view>
-        <textarea v-model.trim="buyerRemark" class="textarea" maxlength="80" placeholder="给卖家留言，可填写尺码确认、发货提醒或同城约看地点" />
+        <textarea v-model.trim="buyerRemark" class="textarea" maxlength="80" placeholder="给卖家留言，可填写尺码确认、发货提醒或配送偏好" />
       </view>
 
       <view class="safe-card ds-card">
@@ -103,7 +103,7 @@ const deliveryType = ref<DeliveryType>('EXPRESS')
 const buyerRemark = ref('')
 const deliveryTypes = [
   { value: 'EXPRESS' as const, label: '快递邮寄', desc: '卖家发货后可看物流' },
-  { value: 'LOCAL_MEET' as const, label: '同城约看', desc: '建议公共场所当面验货' }
+  { value: 'LOCAL_MEET' as const, label: '线下交付', desc: '交付状态以后端订单记录为准' }
 ]
 const confirmItems = reactive([
   { text: '我已确认商品成色、尺码和瑕疵说明', checked: true },
