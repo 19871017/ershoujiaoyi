@@ -43,6 +43,25 @@ if (!/if \(!isValidAuditNo\(auditNo\.value\)\)/.test(withdrawDetail)) {
   failures.push(`${withdrawDetailFile}: requireAuditNo must fail closed unless auditNo passes isValidAuditNo(auditNo.value)`)
 }
 
+const riskDetailFile = 'src/pages/admin/risk/detail/index.vue'
+const riskDetail = read(riskDetailFile)
+
+if (!riskDetail.includes('function isValidAuditNo')) {
+  failures.push(`${riskDetailFile}: must use the same positive audit number allowlist guard named isValidAuditNo before redirecting to audit detail`)
+}
+if (/auditNo\.value=current\?\.options\?\.auditNo \|\| ''/.test(riskDetail) || /if\(!auditNo\.value\)/.test(riskDetail)) {
+  failures.push(`${riskDetailFile}: must not trust raw route auditNo or only check non-empty before admin risk navigation`)
+}
+if (!/const rawAuditNo = current\?\.options\?\.auditNo \|\| ''/.test(riskDetail) || !/auditNo\.value = isValidAuditNo\(rawAuditNo\) \? rawAuditNo : ''/.test(riskDetail)) {
+  failures.push(`${riskDetailFile}: readQuery must clear invalid route auditNo instead of retaining preview/sample/malformed IDs`)
+}
+if (!/if \(!isValidAuditNo\(auditNo\.value\)\)/.test(riskDetail)) {
+  failures.push(`${riskDetailFile}: goAuditDetail must fail closed unless auditNo.value passes isValidAuditNo`)
+}
+if (/startsWith\(['"]preview['"]\)/i.test(riskDetail) || /['"](?:UNKNOWN|PREVIEW|sample|demo)['"]/i.test(riskDetail)) {
+  failures.push(`${riskDetailFile}: must not rely on preview/sample/demo blocklists in admin risk route validation`)
+}
+
 if (failures.length) {
   console.error(failures.join('\n'))
   process.exit(1)
