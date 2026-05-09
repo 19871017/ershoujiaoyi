@@ -69,6 +69,17 @@ const checks = [
     forbidden: [
       '平台担保',
       '担保交易',
+      '担保规则',
+      '同城可约',
+      '同城约看'
+    ]
+  },
+  {
+    file: 'src/pages/order/list/index.vue',
+    forbidden: [
+      '平台担保',
+      '担保交易',
+      '担保资金',
       '同城可约',
       '同城约看'
     ]

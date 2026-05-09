@@ -154,7 +154,7 @@ async function confirmFromList(item: OrderListItemResponse) {
   if (confirmingOrderNo.value) return
   uni.showModal({
     title: '确认收货',
-    content: '确认收到宝贝且无争议后，平台会把担保资金结算给卖家。',
+    content: '确认收到宝贝且无争议后，结算与售后状态以服务端订单、支付和物流记录为准。',
     success: async (res) => {
       if (!res.confirm) return
       confirmingOrderNo.value = item.orderNo

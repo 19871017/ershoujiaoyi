@@ -152,7 +152,7 @@ async function submitOrder() {
   if (!product.value || !productId.value) return uni.showToast({ title: '商品信息未就绪', icon: 'none' })
   if (deliveryType.value === 'EXPRESS' && !address.value) return uni.showToast({ title: '请先选择收货信息', icon: 'none' })
   const missing = confirmItems.find((item) => !item.checked)
-  if (missing) return uni.showToast({ title: '请先确认担保规则', icon: 'none' })
+  if (missing) return uni.showToast({ title: '请先确认订单、支付和售后记录规则', icon: 'none' })
   submitting.value = true
   try {
     const order = await createOrder({ goodsId: productId.value, acceptedTradeRule: true })
