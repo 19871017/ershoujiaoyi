@@ -68,7 +68,7 @@ const detail = ref<AfterSalesResponse | null>(null)
 const steps = computed(() => {
   if (!detail.value) return []
   return [
-    { title: '售后申请已提交', desc: '系统已记录退款原因、金额和平台凭证。', time: detail.value.createdAt || '已提交' },
+    { title: '售后申请已提交', desc: '系统已记录退款原因、金额和已提交票据；售后处理以服务端订单、支付、物流、聊天记录和票据记录为准。', time: detail.value.createdAt || '已提交' },
     { title: statusText(detail.value.status), desc: statusDesc(detail.value.status), time: detail.value.status === 'PENDING_REVIEW' ? '处理中' : '已处理' }
   ]
 })
@@ -80,8 +80,8 @@ async function loadDetail() {
   catch (error) { errorText.value = error instanceof Error ? error.message : '售后详情读取失败' }
   finally { loading.value = false }
 }
-function statusText(status: AfterSalesStatus) { const map: Record<AfterSalesStatus,string> = { PENDING_REVIEW:'平台处理中', APPROVED:'售后已通过', REJECTED:'售后已驳回', CANCELLED:'售后已取消' }; return map[status] || status }
-function statusDesc(status: AfterSalesStatus) { if (status === 'PENDING_REVIEW') return '平台会核对订单、聊天和物流记录，预计 24 小时内完成初审。'; if (status === 'APPROVED') return '平台已通过售后申请，请按处理结果继续操作。'; if (status === 'REJECTED') return '平台已驳回售后申请，可补充材料后再沟通。'; return '该售后单已取消。' }
+function statusText(status: AfterSalesStatus) { const map: Record<AfterSalesStatus,string> = { PENDING_REVIEW:'售后处理中', APPROVED:'售后已通过', REJECTED:'售后已驳回', CANCELLED:'售后已取消' }; return map[status] || status }
+function statusDesc(status: AfterSalesStatus) { if (status === 'PENDING_REVIEW') return '处理进度以服务端订单、支付、物流、聊天记录和已提交票据为准，预计 24 小时内完成初审。'; if (status === 'APPROVED') return '售后申请已通过，请按服务端处理结果继续操作。'; if (status === 'REJECTED') return '售后申请已驳回，可补充材料后再沟通。'; return '该售后单已取消。' }
 function typeText(type: string) { const map: Record<string,string> = { REFUND_ONLY:'仅退款', RETURN_REFUND:'退货退款', PLATFORM_ARBITRATION:'售后协调' }; return map[type] || type }
 function contactSeller() {
   if (!detail.value) return
