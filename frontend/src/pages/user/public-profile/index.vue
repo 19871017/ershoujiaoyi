@@ -22,7 +22,7 @@
         <view class="bio">{{ profile.videoVerified ? '已通过真人视频核验的小原圈卖家' : '小原圈用户，交易请以平台订单、支付和售后状态为准。' }}</view>
         <view class="tag-row">
           <text v-if="profile.videoVerified" class="tag">视频认证卖家</text>
-          <text class="tag neutral">交易请以平台订单与聊天留痕为准</text>
+          <text class="tag neutral">交易请以服务端订单、支付和售后记录为准</text>
         </view>
       </view>
     </view>

@@ -103,6 +103,16 @@ const checks = [
     ]
   },
   {
+    file: 'src/pages/user/public-profile/index.vue',
+    forbidden: [
+      '平台担保',
+      '担保交易',
+      '同城可约',
+      '同城约看',
+      '聊天留痕'
+    ]
+  },
+  {
     file: 'src/pages/tabbar/me/index.vue',
     forbidden: [
       '平台担保',
