@@ -41,7 +41,8 @@ public class ProductApplicationService {
     }
 
     @Transactional
-    public CreateProductResponse createProduct(CreateProductRequest request) {
+    public CreateProductResponse createProduct(Long sellerId, CreateProductRequest request) {
+        requirePositiveId(sellerId, "valid sellerId required");
         if (request == null || request.getTitle() == null || request.getTitle().isBlank()) {
             throw new IllegalArgumentException("product title required");
         }
@@ -54,7 +55,7 @@ public class ProductApplicationService {
         jdbcTemplate.update(
                 "insert into product_item (product_no,seller_id,title,category,price,product_status,audit_status,visible,trade_rule,description,image_urls,created_at,updated_at) values (?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
                 productNo,
-                1L,
+                sellerId,
                 title,
                 "女装",
                 price,
@@ -63,7 +64,7 @@ public class ProductApplicationService {
                 false,
                 DEFAULT_TRADE_RULE,
                 safeText(request.getDescription()),
-                encodeImageUrls(safeImageUrls(1L, request.getImageUrls()))
+                encodeImageUrls(safeImageUrls(sellerId, request.getImageUrls()))
         );
         return toCreateResponse(findByProductNo(productNo));
     }
@@ -85,6 +86,15 @@ public class ProductApplicationService {
                 sellerId,
                 STATUS_ACTIVE,
                 AUDIT_APPROVED
+        );
+    }
+
+    public List<ProductListItemResponse> listMyProducts(Long sellerId) {
+        requirePositiveId(sellerId, "valid sellerId required");
+        return jdbcTemplate.query(
+                "select id,product_no,title,price,product_status,audit_status,visible,created_at,image_urls from product_item where seller_id = ? order by created_at desc, id desc",
+                this::mapListItem,
+                sellerId
         );
     }
 

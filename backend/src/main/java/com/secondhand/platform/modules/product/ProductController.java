@@ -36,6 +36,12 @@ public class ProductController {
         return Result.ok(productApplicationService.listProductsBySeller(sellerId));
     }
 
+    @GetMapping("/mine")
+    public Result<List<ProductListItemResponse>> listMine(HttpServletRequest request) {
+        long sellerId = currentUserResolver.resolve(request);
+        return Result.ok(productApplicationService.listMyProducts(sellerId));
+    }
+
     @GetMapping("/favorites")
     public Result<List<ProductListItemResponse>> listFavorites(HttpServletRequest request) {
         long userId = currentUserResolver.resolve(request);
@@ -62,8 +68,9 @@ public class ProductController {
     }
 
     @PostMapping
-    public Result<CreateProductResponse> create(@RequestBody CreateProductRequest request) {
-        return Result.ok(productApplicationService.createProduct(request));
+    public Result<CreateProductResponse> create(@RequestBody CreateProductRequest request, HttpServletRequest httpRequest) {
+        long sellerId = currentUserResolver.resolve(httpRequest);
+        return Result.ok(productApplicationService.createProduct(sellerId, request));
     }
 
     @PutMapping("/{productId}")

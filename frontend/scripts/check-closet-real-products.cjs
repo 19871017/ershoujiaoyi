@@ -32,12 +32,11 @@ for (const marker of forbiddenMarkers) {
 
 const requiredMarkers = [
   'import { computed, onMounted, ref } from',
-  'listProducts',
+  'listMyProducts',
   'ProductListItemResponse',
   'const products = ref<ProductListItemResponse[]>([])',
-  'await listProducts()',
-  'sellerProductListUnavailable',
-  '无法加载后端商品列表，未展示本地商品样例',
+  'await listMyProducts()',
+  '无法加载后端卖家商品列表，未展示本地商品样例',
   '商品列表为空或暂未接入卖家专属筛选',
   '商品缺少后端 productId，未打开本地商品详情',
   '商品缺少后端 productId，未进入本地编辑页',

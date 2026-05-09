@@ -15,7 +15,7 @@
 
     <view v-if="loadError" class="empty-card ds-card">
       <view class="empty-title">卖家商品列表加载失败</view>
-      <view class="empty-desc">无法加载后端商品列表，未展示本地商品样例。{{ sellerProductListUnavailable }}</view>
+      <view class="empty-desc">无法加载后端卖家商品列表，未展示本地商品样例。</view>
       <button class="retry-btn" @click="loadProducts">重试加载</button>
     </view>
 
@@ -43,7 +43,7 @@
 </template>
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { listProducts, type ProductListItemResponse, type ProductAuditState, type ProductCreateStatus } from '../../api/modules/product'
+import { listMyProducts, type ProductListItemResponse, type ProductAuditState, type ProductCreateStatus } from '../../api/modules/product'
 
 type TabValue = 'ALL' | ProductCreateStatus
 const tabs: Array<{ label: string; value: TabValue }> = [
@@ -55,7 +55,6 @@ const tabs: Array<{ label: string; value: TabValue }> = [
 const activeTab = ref<TabValue>('ALL')
 const products = ref<ProductListItemResponse[]>([])
 const loadError = ref(false)
-const sellerProductListUnavailable = '卖家专属商品列表接口尚未独立接入，仅展示后端商品接口结果。'
 const filtered = computed(() => activeTab.value === 'ALL' ? products.value : products.value.filter((item) => item.status === activeTab.value))
 
 onMounted(() => { void loadProducts() })
@@ -63,7 +62,7 @@ onMounted(() => { void loadProducts() })
 async function loadProducts() {
   loadError.value = false
   try {
-    products.value = await listProducts()
+    products.value = await listMyProducts()
   } catch {
     products.value = []
     loadError.value = true

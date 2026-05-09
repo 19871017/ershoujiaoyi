@@ -107,7 +107,7 @@ class AfterSalesApplicationServiceTest {
         request.setDescription("售后测试商品");
         request.setPrice(new BigDecimal(price));
         request.setImageUrls(List.of(mediaUploadTicketService.issue(1L, "PRODUCT_IMAGE", "image/jpeg", 300_000L, title + ".jpg").storageUrl()));
-        CreateProductResponse response = productService.createProduct(request);
+        CreateProductResponse response = productService.createProduct(1L, request);
         productService.approveForSale(response.getProductId());
         return response;
     }

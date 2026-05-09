@@ -216,11 +216,10 @@ class OrderApplicationServiceTest {
         request.setDescription("订单测试商品");
         request.setPrice(new BigDecimal(price));
         String issued = new com.secondhand.platform.modules.media.application.MediaUploadTicketService(jdbcTemplate)
-                .issue(1L, "PRODUCT_IMAGE", "image/jpeg", 300_000L, title + ".jpg")
+                .issue(sellerId, "PRODUCT_IMAGE", "image/jpeg", 300_000L, title + ".jpg")
                 .storageUrl();
         request.setImageUrls(List.of(issued));
-        CreateProductResponse response = productService.createProduct(request);
-        jdbcTemplate.update("update product_item set seller_id = ? where id = ?", sellerId, response.getProductId());
+        CreateProductResponse response = productService.createProduct(sellerId, request);
         productService.approveForSale(response.getProductId());
         return response;
     }

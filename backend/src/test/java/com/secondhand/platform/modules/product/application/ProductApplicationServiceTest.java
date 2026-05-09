@@ -31,19 +31,25 @@ class ProductApplicationServiceTest {
     }
 
     @Test
-    void createdProductShouldBePendingAuditAndHidden() {
-        CreateProductResponse response = service.createProduct(product("奶油色针织开衫", "79.00"));
+    void createdProductShouldUseServerDerivedSellerAndAppearInSellerManagementList() {
+        CreateProductResponse response = service.createProduct(7L, product(7L, "奶油色针织开衫", "79.00"));
 
         assertEquals("PENDING_AUDIT", response.getStatus());
         assertEquals("PENDING", response.getAuditState());
         assertFalse(response.getVisible());
         assertThrows(IllegalArgumentException.class, () -> service.detailProduct(response.getProductId()));
         assertTrue(service.listProducts().isEmpty());
+        var mine = service.listMyProducts(7L);
+        assertEquals(1, mine.size());
+        assertEquals(response.getProductId(), mine.get(0).getProductId());
+        assertEquals("奶油色针织开衫", mine.get(0).getTitle());
+        assertTrue(service.listMyProducts(8L).isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> service.listMyProducts(0L));
     }
 
     @Test
     void approvedProductShouldSurviveServiceRecreationAndBeSaleable() {
-        CreateProductResponse response = service.createProduct(product("粉色低跟鞋", "129.00"));
+        CreateProductResponse response = service.createProduct(1L, product("粉色低跟鞋", "129.00"));
         service.approveForSale(response.getProductId());
 
         ProductApplicationService reloaded = new ProductApplicationService(new JdbcTemplate(database), new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database)));
@@ -60,7 +66,7 @@ class ProductApplicationServiceTest {
 
     @Test
     void reserveAndSoldStateShouldBePersisted() {
-        CreateProductResponse response = service.createProduct(product("蝴蝶结小包", "56.00"));
+        CreateProductResponse response = service.createProduct(1L, product("蝴蝶结小包", "56.00"));
         service.approveForSale(response.getProductId());
 
         service.reserveForOrder(response.getProductId(), "OD-1");
@@ -75,7 +81,7 @@ class ProductApplicationServiceTest {
 
     @Test
     void sellerCanUpdateEditableProductAndResetAuditState() {
-        CreateProductResponse response = service.createProduct(product("待改商品", "88.00"));
+        CreateProductResponse response = service.createProduct(1L, product("待改商品", "88.00"));
         service.approveForSale(response.getProductId());
 
         CreateProductRequest update = product("改后商品标题", "66.00");
@@ -90,7 +96,7 @@ class ProductApplicationServiceTest {
 
     @Test
     void updateShouldRejectNonOwnerLockedAndUnissuedImages() {
-        CreateProductResponse response = service.createProduct(product("编辑安全商品", "88.00"));
+        CreateProductResponse response = service.createProduct(1L, product("编辑安全商品", "88.00"));
         assertThrows(IllegalArgumentException.class, () -> service.updateProduct(2L, response.getProductId(), product("越权修改", "77.00")));
 
         CreateProductRequest unsafe = product("非法图片", "77.00");
@@ -106,14 +112,14 @@ class ProductApplicationServiceTest {
     void productImagesShouldRequireIssuedProductImageTickets() {
         CreateProductRequest unsafe = product("带图测试", "99.00");
         unsafe.setImageUrls(List.of("https://img.example.com/unissued.jpg"));
-        assertThrows(IllegalArgumentException.class, () -> service.createProduct(unsafe));
+        assertThrows(IllegalArgumentException.class, () -> service.createProduct(1L, unsafe));
 
         String issued = new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database))
                 .issue(1L, "PRODUCT_IMAGE", "image/jpeg", 300_000L, "dress.jpg")
                 .storageUrl();
         CreateProductRequest request = product("带图测试", "99.00");
         request.setImageUrls(List.of(issued));
-        CreateProductResponse response = service.createProduct(request);
+        CreateProductResponse response = service.createProduct(1L, request);
         service.approveForSale(response.getProductId());
 
         ProductDetailResponse detail = service.detailProduct(response.getProductId());
@@ -122,11 +128,11 @@ class ProductApplicationServiceTest {
 
     @Test
     void publicSellerProductsShouldReturnOnlyVisibleApprovedProductsOwnedBySeller() {
-        CreateProductResponse sellerProduct = service.createProduct(product("卖家公开商品", "109.00"));
+        CreateProductResponse sellerProduct = service.createProduct(1L, product("卖家公开商品", "109.00"));
         service.approveForSale(sellerProduct.getProductId());
-        CreateProductResponse hiddenPendingProduct = service.createProduct(product("卖家待审商品", "89.00"));
+        CreateProductResponse hiddenPendingProduct = service.createProduct(1L, product("卖家待审商品", "89.00"));
         jdbcTemplate().update("UPDATE product_item SET seller_id = ? WHERE id = ?", 2L, hiddenPendingProduct.getProductId());
-        CreateProductResponse otherSellerProduct = service.createProduct(product("其他卖家商品", "99.00"));
+        CreateProductResponse otherSellerProduct = service.createProduct(1L, product("其他卖家商品", "99.00"));
         jdbcTemplate().update("UPDATE product_item SET seller_id = ? WHERE id = ?", 2L, otherSellerProduct.getProductId());
         service.approveForSale(otherSellerProduct.getProductId());
 
@@ -143,9 +149,9 @@ class ProductApplicationServiceTest {
 
     @Test
     void userFavoritesShouldPersistOnlyVisibleApprovedProductsAndRemoveIdempotently() {
-        CreateProductResponse visible = service.createProduct(product("可收藏商品", "108.00"));
+        CreateProductResponse visible = service.createProduct(1L, product("可收藏商品", "108.00"));
         service.approveForSale(visible.getProductId());
-        CreateProductResponse pending = service.createProduct(product("待审不可收藏", "78.00"));
+        CreateProductResponse pending = service.createProduct(1L, product("待审不可收藏", "78.00"));
 
         service.favoriteProduct(8L, visible.getProductId());
         service.favoriteProduct(8L, visible.getProductId());
@@ -169,15 +175,19 @@ class ProductApplicationServiceTest {
     }
 
     private CreateProductRequest product(String title, String price) {
+        return product(1L, title, price);
+    }
+
+    private CreateProductRequest product(Long sellerId, String title, String price) {
         CreateProductRequest request = new CreateProductRequest();
         request.setTitle(title);
         request.setDescription("女生闲置测试商品");
         request.setPrice(new BigDecimal(price));
         String image1 = new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database))
-                .issue(1L, "PRODUCT_IMAGE", "image/jpeg", 300_000L, title + "-1.jpg")
+                .issue(sellerId, "PRODUCT_IMAGE", "image/jpeg", 300_000L, title + "-1.jpg")
                 .storageUrl();
         String image2 = new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database))
-                .issue(1L, "PRODUCT_IMAGE", "image/jpeg", 320_000L, title + "-2.jpg")
+                .issue(sellerId, "PRODUCT_IMAGE", "image/jpeg", 320_000L, title + "-2.jpg")
                 .storageUrl();
         request.setImageUrls(List.of(image1, image2));
         return request;
