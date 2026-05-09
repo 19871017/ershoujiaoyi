@@ -116,7 +116,7 @@ const menus = [
   { icon: '🏦', label: '提现审核', desc: '查看提现进度', url: '/pages/wallet/index?tab=withdraw' },
   { icon: '💳', label: '收款账户', desc: '提现银行卡和支付宝账户', url: '/pages/wallet/accounts/index' },
   { icon: '🪪', label: '视频认证', desc: '通过后主页展示视频认证卖家', url: '/pages/user/identity/index?tab=video' },
-  { icon: '📍', label: '地址管理', desc: '收货、发货和同城约看地址', url: '/pages/user/address/index' },
+  { icon: '📍', label: '地址管理', desc: '收货与发货信息以服务端记录为准', url: '/pages/user/address/index' },
   { icon: '🎁', label: '收到的礼物', desc: '礼物分账和收入记录', url: '/pages/gift/index' },
   { icon: '🛡️', label: '举报与风控', desc: '处理交易纠纷和举报', url: '/pages/risk/index' },
   { icon: '⚙️', label: '设置', desc: '账号安全、隐私和开发预览', url: '/pages/system/settings/index' },
