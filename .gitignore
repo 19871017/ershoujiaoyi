@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+frontend/dist/
+admin/dist/
+backend/target/
+dist/
+build/
+out/
+
+# Local tools and downloaded SDKs/JDKs
+.tools/
+*.tar.gz
+*.zip
+*.7z
+*.rar
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+secrets.*
+credentials.*
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Runtime/temp
+.tmp/
+tmp/
+temp/
+.cache/
+coverage/
+
+# Java
+*.class
+
+# HBuilderX / uni-app local artifacts
+unpackage/
+.hbuilderx/

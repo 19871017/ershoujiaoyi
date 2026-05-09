@@ -1,0 +1,18 @@
+@import '../uni.scss';
+
+.page-shell {
+  min-height: 100vh;
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+
+.page-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.page-desc {
+  color: $text-secondary;
+  line-height: 1.6;
+}

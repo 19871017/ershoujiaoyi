@@ -1,0 +1,332 @@
+{
+  "pages": [
+    {
+      "path": "pages/tabbar/home/index",
+      "style": {
+        "navigationBarTitleText": ""
+      }
+    },
+    {
+      "path": "pages/tabbar/category/index",
+      "style": {
+        "navigationBarTitleText": ""
+      }
+    },
+    {
+      "path": "pages/tabbar/publish/index",
+      "style": {
+        "navigationBarTitleText": ""
+      }
+    },
+    {
+      "path": "pages/tabbar/message/index",
+      "style": {
+        "navigationBarTitleText": ""
+      }
+    },
+    {
+      "path": "pages/tabbar/me/index",
+      "style": {
+        "navigationBarTitleText": ""
+      }
+    },
+    {
+      "path": "pages/ranking/index",
+      "style": {
+        "navigationBarTitleText": "男神女神榜"
+      }
+    },
+    {
+      "path": "pages/community/compose/index",
+      "style": {
+        "navigationBarTitleText": "发布动态"
+      }
+    },
+    {
+      "path": "pages/community/detail/index",
+      "style": {
+        "navigationBarTitleText": "帖子详情"
+      }
+    },
+    {
+      "path": "pages/product/detail/index",
+      "style": {
+        "navigationBarTitleText": "宝贝详情"
+      }
+    },
+    {
+      "path": "pages/chat/session-list/index",
+      "style": {
+        "navigationBarTitleText": "会话列表"
+      }
+    },
+    {
+      "path": "pages/chat/conversation/index",
+      "style": {
+        "navigationBarTitleText": "聊天"
+      }
+    },
+    {
+      "path": "pages/order/list/index",
+      "style": {
+        "navigationBarTitleText": "订单列表"
+      }
+    },
+    {
+      "path": "pages/order/detail/index",
+      "style": {
+        "navigationBarTitleText": "订单详情"
+      }
+    },
+    {
+      "path": "pages/wallet/index",
+      "style": {
+        "navigationBarTitleText": "钱包"
+      }
+    },
+    {
+      "path": "pages/gift/index",
+      "style": {
+        "navigationBarTitleText": "礼物中心"
+      }
+    },
+    {
+      "path": "pages/risk/index",
+      "style": {
+        "navigationBarTitleText": "举报与风控"
+      }
+    },
+    {
+      "path": "pages/auth/login/index",
+      "style": {
+        "navigationBarTitleText": "登录"
+      }
+    },
+    {
+      "path": "pages/user/profile/index",
+      "style": {
+        "navigationBarTitleText": "个人资料"
+      }
+    },
+    {
+      "path": "pages/user/address/index",
+      "style": {
+        "navigationBarTitleText": "地址管理"
+      }
+    },
+    {
+      "path": "pages/system/settings/index",
+      "style": {
+        "navigationBarTitleText": "设置"
+      }
+    },
+    {
+      "path": "pages/admin/entry/index",
+      "style": {
+        "navigationBarTitleText": "后台入口"
+      }
+    },
+    {
+      "path": "pages/admin/home/index",
+      "style": {
+        "navigationBarTitleText": "后台首页"
+      }
+    },
+    {
+      "path": "pages/report/submit/index",
+      "style": {
+        "navigationBarTitleText": "提交举报"
+      }
+    },
+    {
+      "path": "pages/system/empty/index",
+      "style": {
+        "navigationBarTitleText": "空状态"
+      }
+    },
+    {
+      "path": "pages/order/confirm/index",
+      "style": {
+        "navigationBarTitleText": "确认订单"
+      }
+    },
+    {
+      "path": "pages/payment/checkout/index",
+      "style": {
+        "navigationBarTitleText": "确认支付"
+      }
+    },
+    {
+      "path": "pages/order/ship/index",
+      "style": {
+        "navigationBarTitleText": "填写发货信息"
+      }
+    },
+    {
+      "path": "pages/order/logistics/index",
+      "style": {
+        "navigationBarTitleText": "物流详情"
+      }
+    },
+    {
+      "path": "pages/after-sales/apply/index",
+      "style": {
+        "navigationBarTitleText": "申请售后"
+      }
+    },
+    {
+      "path": "pages/after-sales/detail/index",
+      "style": {
+        "navigationBarTitleText": "售后详情"
+      }
+    },
+    {
+      "path": "pages/closet/index",
+      "style": {
+        "navigationBarTitleText": "我的小原圈"
+      }
+    },
+    {
+      "path": "pages/favorite/index",
+      "style": {
+        "navigationBarTitleText": "我的收藏"
+      }
+    },
+    {
+      "path": "pages/wallet/ledger/index",
+      "style": {
+        "navigationBarTitleText": "全部流水"
+      }
+    },
+    {
+      "path": "pages/wallet/ledger/detail/index",
+      "style": {
+        "navigationBarTitleText": "流水详情"
+      }
+    },
+    {
+      "path": "pages/review/submit/index",
+      "style": {
+        "navigationBarTitleText": "交易评价"
+      }
+    },
+    {
+      "path": "pages/system/account-security/index",
+      "style": {
+        "navigationBarTitleText": "账号安全"
+      }
+    },
+    {
+      "path": "pages/user/identity/index",
+      "style": {
+        "navigationBarTitleText": "实名认证"
+      }
+    },
+    {
+      "path": "pages/wallet/accounts/index",
+      "style": {
+        "navigationBarTitleText": "收款账户"
+      }
+    },
+    {
+      "path": "pages/system/privacy/index",
+      "style": {
+        "navigationBarTitleText": "协议与隐私"
+      }
+    },
+    {
+      "path": "pages/location/city/index",
+      "style": {
+        "navigationBarTitleText": "选择城市"
+      }
+    },
+    {
+      "path": "pages/user/public-profile/index",
+      "style": {
+        "navigationBarTitleText": "用户主页"
+      }
+    },
+    {
+      "path": "pages/search/result/index",
+      "style": {
+        "navigationBarTitleText": "搜索结果"
+      }
+    },
+    {
+      "path": "pages/product/edit/index",
+      "style": {
+        "navigationBarTitleText": "编辑宝贝"
+      }
+    },
+    {
+      "path": "pages/notification/index",
+      "style": {
+        "navigationBarTitleText": "通知中心"
+      }
+    },
+    {
+      "path": "pages/admin/audit/detail/index",
+      "style": {
+        "navigationBarTitleText": "审核详情"
+      }
+    },
+    {
+      "path": "pages/upload/evidence/index",
+      "style": {
+        "navigationBarTitleText": "上传凭证"
+      }
+    },
+    {
+      "path": "pages/payment/method/index",
+      "style": {
+        "navigationBarTitleText": "支付方式"
+      }
+    },
+    {
+      "path": "pages/admin/risk/detail/index",
+      "style": {
+        "navigationBarTitleText": "风控详情"
+      }
+    },
+    {
+      "path": "pages/admin/withdraw/detail/index",
+      "style": {
+        "navigationBarTitleText": "提现审核详情"
+      }
+    }
+  ],
+  "tabBar": {
+    "color": "#b9856a",
+    "selectedColor": "#ff7a45",
+    "backgroundColor": "#fffaf6",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/tabbar/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/tabbar/category/index",
+        "text": "宝贝"
+      },
+      {
+        "pagePath": "pages/tabbar/publish/index",
+        "text": "上新"
+      },
+      {
+        "pagePath": "pages/tabbar/message/index",
+        "text": "社区"
+      },
+      {
+        "pagePath": "pages/tabbar/me/index",
+        "text": "我的"
+      }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "小原圈",
+    "navigationBarBackgroundColor": "#fffaf6",
+    "backgroundColor": "#fff7ed"
+  }
+}
