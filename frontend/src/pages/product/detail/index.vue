@@ -97,7 +97,7 @@ const safeRules = [
 const confirmItems = reactive([
   { key: 'rule', label: '已阅读订单、支付和售后状态以服务端记录为准', checked: true },
   { key: 'condition', label: '已确认商品成色和瑕疵说明', checked: false },
-  { key: 'address', label: '已确认收货/同城约看信息', checked: false }
+  { key: 'address', label: '已确认收货信息；正式交付状态以后端订单记录为准', checked: false }
 ])
 const displayImages = computed(() => detail.value?.imageUrls?.length ? detail.value.imageUrls : ['', '', ''])
 const activeImage = computed(() => displayImages.value[activeImageIndex.value] || '')
