@@ -39,7 +39,7 @@ if (!/submitReport\(\{[\s\S]*targetId:\s*targetId\.value/.test(reportContent)) {
   failures.push('report submission must still send only the validated backend targetId from page state')
 }
 
-for (const forbiddenCopy of ['平台担保', '平台会结合聊天记录', '你提交的凭证处理', '添加凭证截图', '已签发']) {
+for (const forbiddenCopy of ['平台担保', '平台会结合聊天记录', '你提交的凭证处理', '添加凭证截图', '已签发', '签发凭证中', '凭证 {{ index + 1 }}']) {
   if (reportContent.includes(forbiddenCopy)) {
     failures.push(`report submit page must not show static trust/business-success evidence copy: ${forbiddenCopy}`)
   }
@@ -47,6 +47,10 @@ for (const forbiddenCopy of ['平台担保', '平台会结合聊天记录', '你
 
 if (!reportContent.includes('生成上传票据') || !reportContent.includes('举报处理以服务端审核记录为准')) {
   failures.push('report submit page must use neutral upload-ticket and backend-record copy')
+}
+
+if (!reportContent.includes('校验票据中') || !reportContent.includes('票据 {{ index + 1 }}')) {
+  failures.push('report submit page must consistently call generated media records upload tickets, not accepted evidence credentials')
 }
 
 if (!productDetailContent.includes('function isValidProductReportTargetId')) {

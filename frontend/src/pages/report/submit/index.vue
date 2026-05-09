@@ -29,7 +29,7 @@
       </view>
       <view v-if="evidence.length" class="evidence-list">
         <view v-for="(url, index) in evidence" :key="url" class="evidence-item">
-          <text>凭证 {{ index + 1 }}</text>
+          <text>票据 {{ index + 1 }}</text>
           <text>{{ url }}</text>
         </view>
       </view>
@@ -100,7 +100,7 @@ function chooseEvidence() {
     sourceType: ['album', 'camera'],
     success: async (res) => {
       const paths = res.tempFilePaths.slice(0, remaining)
-      uni.showLoading({ title: '签发凭证中' })
+      uni.showLoading({ title: '校验票据中' })
       try {
         const urls: string[] = []
         for (let i = 0; i < paths.length; i += 1) {
