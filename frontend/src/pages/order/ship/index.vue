@@ -16,14 +16,14 @@
       </view>
       <input v-if="shipType === 'EXPRESS'" v-model.trim="company" class="field" maxlength="24" placeholder="快递公司，例如顺丰/圆通" />
       <input v-if="shipType === 'EXPRESS'" v-model.trim="trackingNo" class="field" maxlength="40" placeholder="运单号" />
-      <textarea v-model.trim="remark" class="textarea" maxlength="80" :placeholder="shipType === 'MEETUP' ? '请填写同城交付地点/时间，方便平台留痕' : '发货备注，可说明包装、清洁、凭证等'" />
+      <textarea v-model.trim="remark" class="textarea" maxlength="80" :placeholder="shipType === 'MEETUP' ? '请填写线下交付地点/时间，正式履约状态以后端订单记录为准' : '发货备注，可说明包装、清洁、凭证等'" />
       <button class="primary-btn" :disabled="submitting" @click="submitShip">{{ submitting ? '提交中...' : '确认发货' }}</button>
     </view>
 
     <view class="safe-card ds-card">
       <view class="section-title">发货安全提醒</view>
       <view class="safe-line">请保留发货凭证，避免使用无法追踪的物流方式。</view>
-      <view class="safe-line">同城约看/当面交付建议选择公共地点，并在平台聊天中留痕。</view>
+      <view class="safe-line">线下交付建议选择公共地点；订单、发货和售后状态以服务端记录为准。</view>
     </view>
   </view>
 </template>
