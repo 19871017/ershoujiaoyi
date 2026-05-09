@@ -21,7 +21,7 @@
           {{ item.label }}
         </view>
       </view>
-      <button class="primary-btn" @click="saveProfile">保存资料</button>
+      <button class="primary-btn" :disabled="saving" @click="saveProfile">{{ saving ? '保存中...' : '保存资料' }}</button>
       <view v-if="message" class="status-text">{{ message }}</view>
     </view>
 
@@ -41,12 +41,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { getMyProfile } from '../../../api/modules/user'
+import { getMyProfile, updateMyProfile } from '../../../api/modules/user'
 
 interface VerifyItem { label: string; desc: string; done: boolean }
 const roles = [{ label: '买家', value: 'BUYER' }, { label: '卖家', value: 'SELLER' }, { label: '买卖都做', value: 'BOTH' }]
 const form = reactive({ userId: 0, nickname: '', mainRole: 'UNVERIFIED', city: '', bio: '' })
 const message = ref('')
+const saving = ref(false)
 const loadMessage = ref('资料接口加载中，仅展示服务端返回的个人资料')
 const avatarText = computed(() => (form.nickname || '衣').slice(0, 1))
 const displayNickname = computed(() => form.nickname || '个人资料暂不可用')
@@ -54,11 +55,30 @@ const verifies = computed<VerifyItem[]>(() => [])
 function roleLabel(role: string) { return ({ BUYER: '买家', SELLER: '卖家', BOTH: '买卖都做', UNVERIFIED: '未加载' } as Record<string, string>)[role] ?? '未加载' }
 function chooseRole(role: string) {
   if (role === form.mainRole) return
-  message.value = '角色修改需通过资料保存接口持久化，当前未执行任何角色修改'
+  if (!roles.some((item) => item.value === role)) { message.value = '角色值无效，未执行任何角色修改'; return }
+  form.mainRole = role
+  message.value = '角色已暂存，需点击保存后才会同步服务端'
 }
-function saveProfile() {
+async function saveProfile() {
+  if (saving.value) return
   if (!form.nickname) { message.value = '昵称不能为空'; return }
-  message.value = '资料保存接口尚未接入，未执行任何资料修改'
+  if (!roles.some((item) => item.value === form.mainRole)) { message.value = '角色值无效，未提交资料修改'; return }
+  saving.value = true
+  try {
+    const profile = await updateMyProfile({ nickname: form.nickname, mainRole: form.mainRole, city: form.city, bio: form.bio })
+    form.userId = profile.userId
+    form.nickname = profile.nickname || ''
+    form.mainRole = profile.mainRole || 'UNVERIFIED'
+    form.city = profile.city || ''
+    form.bio = profile.bio || ''
+    message.value = '资料已按服务端返回结果保存'
+    uni.showToast({ title: '资料已保存', icon: 'success' })
+  } catch {
+    message.value = '资料保存失败，未展示本地成功状态'
+    uni.showToast({ title: '保存失败，未修改服务端资料', icon: 'none' })
+  } finally {
+    saving.value = false
+  }
 }
 async function loadProfile() {
   try {
@@ -66,7 +86,9 @@ async function loadProfile() {
     form.userId = profile.userId
     form.nickname = profile.nickname || ''
     form.mainRole = profile.mainRole || 'UNVERIFIED'
-    loadMessage.value = '已加载服务端个人资料；保存修改需等待后端接口接入'
+    form.city = profile.city || ''
+    form.bio = profile.bio || ''
+    loadMessage.value = '已加载服务端个人资料；保存修改将提交到后端资料接口'
   } catch {
     form.userId = 0
     form.nickname = ''

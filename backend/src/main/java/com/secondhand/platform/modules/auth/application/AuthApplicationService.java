@@ -47,8 +47,8 @@ public class AuthApplicationService {
                 """, userNo, mobile, passwordHash, nickname);
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, mobile);
         jdbcTemplate.update("""
-                INSERT INTO user_profile (user_id, gender, city, bio, identity_status, video_identity_status, video_verified, created_at, updated_at)
-                VALUES (?, NULL, NULL, NULL, 'UNVERIFIED', 'UNVERIFIED', FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                INSERT INTO user_profile (user_id, gender, city, bio, identity_status, main_role, video_identity_status, video_verified, created_at, updated_at)
+                VALUES (?, NULL, NULL, NULL, 'UNVERIFIED', 'BUYER', 'UNVERIFIED', FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """, userId);
         return new UserAuthRow(userId, userNo, mobile, passwordHash, nickname, "ACTIVE");
     }

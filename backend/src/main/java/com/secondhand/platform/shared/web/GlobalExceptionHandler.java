@@ -64,7 +64,12 @@ public class GlobalExceptionHandler {
             "order-buyer-mismatch",
             "notification type invalid",
             "notificationNo invalid",
-            "notification not found"
+            "notification not found",
+            "profile request required",
+            "nickname invalid",
+            "mainRole invalid",
+            "city invalid",
+            "bio invalid"
     );
 
     @ExceptionHandler(SecurityException.class)

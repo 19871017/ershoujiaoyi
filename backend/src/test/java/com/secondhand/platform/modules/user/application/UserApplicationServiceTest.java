@@ -34,13 +34,51 @@ class UserApplicationServiceTest {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
         auth.login(login("13800138002", "pass-123456"));
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138002");
-        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, city = ? WHERE user_id = ?", "VERIFIED", "广州", userId);
+        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, city = ? WHERE user_id = ?", "VERIFIED", "SELLER", "广州", userId);
 
         UserProfileResponse profile = service.currentUserProfile(userId);
 
         assertEquals(userId, profile.getUserId());
         assertEquals("小原圈用户8002", profile.getNickname());
-        assertEquals("VERIFIED", profile.getMainRole());
+        assertEquals("SELLER", profile.getMainRole());
+    }
+
+    @Test
+    void updateProfileShouldPersistAllowedFieldsAndReturnServerState() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.login(login("13800138077", "pass-123456"));
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138077");
+        com.secondhand.platform.modules.user.UpdateUserProfileRequest request = new com.secondhand.platform.modules.user.UpdateUserProfileRequest();
+        request.setNickname("雨哥生产化小店");
+        request.setMainRole("SELLER");
+        request.setCity("杭州");
+        request.setBio("只展示真实后端资料");
+
+        UserProfileResponse updated = service.updateProfile(userId, request);
+
+        assertEquals("雨哥生产化小店", updated.getNickname());
+        assertEquals("SELLER", updated.getMainRole());
+        assertEquals("杭州", updated.getCity());
+        assertEquals("只展示真实后端资料", updated.getBio());
+        assertEquals("雨哥生产化小店", jdbcTemplate.queryForObject("SELECT nickname FROM user_account WHERE id = ?", String.class, userId));
+    }
+
+    @Test
+    void updateProfileShouldValidateInputAndKeepPersistedStateUnchanged() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.login(login("13800138078", "pass-123456"));
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138078");
+        com.secondhand.platform.modules.user.UpdateUserProfileRequest request = new com.secondhand.platform.modules.user.UpdateUserProfileRequest();
+        request.setNickname("   ");
+        request.setMainRole("ADMIN");
+        request.setCity("城市名称超过长度城市名称超过长度城市名称超过长度城市名称超过长度");
+        request.setBio("bio");
+
+        assertThrows(IllegalArgumentException.class, () -> service.updateProfile(userId, request));
+
+        UserProfileResponse profile = service.currentUserProfile(userId);
+        assertEquals("小原圈用户8078", profile.getNickname());
+        assertEquals("BUYER", profile.getMainRole());
     }
 
     @Test
@@ -52,7 +90,7 @@ class UserApplicationServiceTest {
 
         UserProfileResponse profile = service.currentUserProfile(userId);
 
-        assertEquals("VERIFIED", profile.getMainRole());
+        assertEquals("BUYER", profile.getMainRole());
         assertEquals("APPROVED", profile.getVideoIdentityStatus());
         assertEquals(true, profile.isVideoVerified());
     }

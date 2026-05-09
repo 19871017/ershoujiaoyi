@@ -34,6 +34,12 @@ public class UserController {
         return Result.ok(userApplicationService.publicProfile(userId, viewerId));
     }
 
+    @PostMapping("/me/profile")
+    public Result<UserProfileResponse> updateProfile(@org.springframework.web.bind.annotation.RequestBody UpdateUserProfileRequest body, HttpServletRequest request) {
+        long userId = currentUserResolver.resolve(request);
+        return Result.ok(userApplicationService.updateProfile(userId, body));
+    }
+
     @PostMapping("/{userId}/follow")
     public Result<UserProfileResponse> follow(@PathVariable Long userId, HttpServletRequest request) {
         long followerId = currentUserResolver.resolve(request);
