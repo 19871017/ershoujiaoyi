@@ -134,6 +134,13 @@ export function canReviewAudit(session: AdminSession | null): boolean {
   return sessionAllowsPermission(session, 'audit:review')
 }
 
+export function canReviewAuditRecord(session: AdminSession | null, auditType?: string | null): boolean {
+  if (auditType === 'WITHDRAWAL') {
+    return sessionAllowsPermission(session, 'finance:review')
+  }
+  return canReviewAudit(session)
+}
+
 export function canReviewFinance(session: AdminSession | null): boolean {
   return sessionAllowsPermission(session, 'finance:review')
 }

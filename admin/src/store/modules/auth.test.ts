@@ -4,6 +4,7 @@ import {
   buildAdminHeaders,
   canReviewAfterSales,
   canReviewAudit,
+  canReviewAuditRecord,
   canReviewFinance,
   createAdminAuthToken,
   dashboardActionsForSession,
@@ -223,6 +224,28 @@ describe('admin auth helpers', () => {
     expect(session).toBeNull()
     expect(shouldRedirectToLogin('/dashboard', session)).toBe(true)
     expect(menuAllowsSession({ path: '/dashboard', label: '仪表盘', permission: 'audit:read' }, session)).toBe(false)
+  })
+
+  it('requires withdrawal audit records to use finance review permission instead of generic audit review', () => {
+    const auditReviewer = normalizeAdminSession({
+      username: 'audit-reviewer',
+      userId: '17',
+      permissions: ['audit:read', 'audit:review'],
+      sessionId: 'adm_12121212121212121212121212121212',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+    const financeReviewer = normalizeAdminSession({
+      username: 'finance-reviewer',
+      userId: '18',
+      permissions: ['finance:read', 'finance:review'],
+      sessionId: 'adm_34343434343434343434343434343434',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+
+    expect(canReviewAuditRecord(auditReviewer, 'REPORT')).toBe(true)
+    expect(canReviewAuditRecord(auditReviewer, 'WITHDRAWAL')).toBe(false)
+    expect(canReviewAuditRecord(financeReviewer, 'WITHDRAWAL')).toBe(true)
+    expect(canReviewAuditRecord(null, 'WITHDRAWAL')).toBe(false)
   })
 
   it('fails closed for expired persisted admin sessions before building headers', () => {
