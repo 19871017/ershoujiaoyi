@@ -73,6 +73,26 @@ describe('admin auth helpers', () => {
     expect(shouldRedirectToLogin('/finance/withdrawals', null)).toBe(true)
   })
 
+  it('requires explicit user-read permission for user detail deep links', () => {
+    const auditOnly = normalizeAdminSession({
+      username: 'audit-only',
+      userId: '8',
+      devAdminEnabled: true,
+      permissions: ['audit:read']
+    })
+    const userOnly = normalizeAdminSession({
+      username: 'user-admin',
+      userId: '9',
+      devAdminEnabled: true,
+      permissions: ['user:read']
+    })
+
+    expect(shouldRedirectToLogin('/users', auditOnly)).toBe(true)
+    expect(shouldRedirectToLogin('/users/8331', auditOnly)).toBe(true)
+    expect(shouldRedirectToLogin('/users', userOnly)).toBe(false)
+    expect(shouldRedirectToLogin('/users/8331', userOnly)).toBe(false)
+  })
+
   it('requires module-specific read permissions for order and after-sales deep links', () => {
     const auditOnly = normalizeAdminSession({
       username: 'audit-only',
