@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   buildAdminHeaders,
   canReviewAfterSales,
+  canReviewAudit,
   loginAdminSession,
   logoutAdminSession,
   menuAllowsSession,
@@ -263,5 +264,26 @@ describe('admin auth helpers', () => {
     expect(canReviewAfterSales(readOnly)).toBe(false)
     expect(canReviewAfterSales(reviewer)).toBe(true)
     expect(canReviewAfterSales(null)).toBe(false)
+  })
+
+  it('requires audit review permission before enabling admin audit approval actions', () => {
+    const readOnly = normalizeAdminSession({
+      username: 'audit-reader',
+      userId: '17',
+      permissions: ['audit:read'],
+      sessionId: 'adm_12121212121212121212121212121212',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+    const reviewer = normalizeAdminSession({
+      username: 'audit-reviewer',
+      userId: '18',
+      permissions: ['audit:read', 'audit:review'],
+      sessionId: 'adm_34343434343434343434343434343434',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+
+    expect(canReviewAudit(readOnly)).toBe(false)
+    expect(canReviewAudit(reviewer)).toBe(true)
+    expect(canReviewAudit(null)).toBe(false)
   })
 })

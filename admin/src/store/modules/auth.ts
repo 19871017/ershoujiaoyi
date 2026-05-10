@@ -119,6 +119,10 @@ export function canReviewAfterSales(session: AdminSession | null): boolean {
   return sessionAllowsPermission(session, 'after-sales:review')
 }
 
+export function canReviewAudit(session: AdminSession | null): boolean {
+  return sessionAllowsPermission(session, 'audit:review')
+}
+
 export function buildAdminHeaders(session: AdminSession | null): Record<string, string> {
   if (!session) return {}
   return {

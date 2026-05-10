@@ -18,10 +18,11 @@
       </div>
       <div class="audit-side">
         <b :class="['status', item.status.toLowerCase()]">{{ item.status }}</b>
-        <div class="actions" v-if="item.status === 'PENDING'">
+        <div class="actions" v-if="item.status === 'PENDING' && canSubmitAuditReview">
           <button :disabled="reviewingAuditNo === item.auditNo" @click="review(item, 'approve')">{{ reviewingAuditNo === item.auditNo ? '提交中...' : '通过' }}</button>
           <button class="danger" :disabled="reviewingAuditNo === item.auditNo" @click="review(item, 'reject')">拒绝</button>
         </div>
+        <div class="permission-note" v-else-if="item.status === 'PENDING'">仅拥有 audit:review 权限的管理员可提交审核动作。</div>
       </div>
     </article>
   </section>
@@ -31,12 +32,15 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { approveAdminAudit, approveAdminProduct, getAdminAuditList, rejectAdminAudit, type AuditRecordResponse } from '../../api'
+import { canReviewAudit, useAuthStore } from '../../store/modules/auth'
 
 const audits = ref<AuditRecordResponse[]>([])
+const auth = useAuthStore()
 const loading = ref(false)
 const error = ref('')
 const reviewingAuditNo = ref('')
 const pendingCount = computed(() => audits.value.filter((item) => item.status === 'PENDING').length)
+const canSubmitAuditReview = computed(() => canReviewAudit(auth.session))
 
 async function load() {
   loading.value = true
@@ -53,6 +57,10 @@ async function load() {
 
 async function review(item: AuditRecordResponse, action: 'approve' | 'reject') {
   if (reviewingAuditNo.value) return
+  if (!canReviewAudit(auth.session)) {
+    error.value = '审核操作已阻止：当前管理员缺少 audit:review 权限。'
+    return
+  }
   error.value = ''
   reviewingAuditNo.value = item.auditNo
   try {
