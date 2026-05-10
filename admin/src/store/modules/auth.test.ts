@@ -4,6 +4,8 @@ import {
   canReviewAfterSales,
   canReviewAudit,
   canReviewFinance,
+  createAdminAuthToken,
+  isAdminAuthenticated,
   loginAdminSession,
   logoutAdminSession,
   menuAllowsSession,
@@ -286,6 +288,20 @@ describe('admin auth helpers', () => {
     expect(canReviewAudit(readOnly)).toBe(false)
     expect(canReviewAudit(reviewer)).toBe(true)
     expect(canReviewAudit(null)).toBe(false)
+  })
+
+  it('uses only the server-issued admin session for authenticated state without minting a local pseudo token', () => {
+    const session = normalizeAdminSession({
+      username: 'session-only-admin',
+      userId: '22',
+      permissions: ['audit:read'],
+      sessionId: 'adm_01010101010101010101010101010101',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+
+    expect(isAdminAuthenticated({ token: '', username: 'legacy-name', session })).toBe(true)
+    expect(createAdminAuthToken(session!)).toBe('adm_01010101010101010101010101010101')
+    expect(createAdminAuthToken(null)).toBe('')
   })
 
   it('requires finance review permission before enabling withdrawal approval actions', () => {

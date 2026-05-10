@@ -135,6 +135,14 @@ export function buildAdminHeaders(session: AdminSession | null): Record<string, 
   }
 }
 
+export function createAdminAuthToken(session: AdminSession | null): string {
+  return session?.sessionId ?? ''
+}
+
+export function isAdminAuthenticated(state: Pick<AuthState, 'session'>): boolean {
+  return Boolean(state.session)
+}
+
 export async function logoutAdminSession(session: AdminSession | null): Promise<void> {
   if (session) {
     await postAdminSessionLogout(session)
@@ -177,7 +185,7 @@ function persistState(state: AuthState) {
 export const useAuthStore = defineStore('admin-auth', {
   state: (): AuthState => readInitialState(),
   getters: {
-    isAuthenticated: (state) => Boolean(state.token && state.username && state.session),
+    isAuthenticated: (state) => isAdminAuthenticated(state),
     headers: (state) => buildAdminHeaders(state.session)
   },
   actions: {
@@ -185,7 +193,7 @@ export const useAuthStore = defineStore('admin-auth', {
       const session = await loginAdminSession(username, accessKey)
       this.username = session.username
       this.session = session
-      this.token = `admin-session-${session.userId}-${Date.now()}`
+      this.token = createAdminAuthToken(session)
       persistState({ token: this.token, username: this.username, session: this.session })
     },
     setToken(token: string) {
