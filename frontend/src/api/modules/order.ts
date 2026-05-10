@@ -102,6 +102,25 @@ export interface ShipOrderResponse {
   shippedAt: string
 }
 
+export interface SubmitOrderReviewRequest {
+  descriptionScore: number
+  serviceScore: number
+  shippingScore: number
+  content: string
+}
+
+export interface OrderReviewResponse {
+  reviewNo: string
+  orderNo: string
+  reviewerId: number
+  revieweeId: number
+  descriptionScore: number
+  serviceScore: number
+  shippingScore: number
+  content: string
+  createdAt: string
+}
+
 export function createOrder(data: CreateOrderRequest) {
   return post<CreateOrderResponse>('/api/orders', data)
 }
@@ -124,4 +143,8 @@ export function shipOrder(orderNo: string, data: ShipOrderRequest) {
 
 export function confirmReceipt(orderNo: string) {
   return post<OrderDetailResponse>(`/api/orders/${encodeURIComponent(orderNo)}/confirm-receipt`, {})
+}
+
+export function submitOrderReview(orderNo: string, data: SubmitOrderReviewRequest) {
+  return post<OrderReviewResponse>(`/api/orders/${encodeURIComponent(orderNo)}/review`, data)
 }

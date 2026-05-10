@@ -198,6 +198,30 @@ public class OrderApplicationService {
         return detailOrder(safeOrderNo, buyerId);
     }
 
+    @Transactional
+    public OrderReviewResponse submitReview(String orderNo, Long reviewerId, OrderReviewRequest request) {
+        if (reviewerId == null || reviewerId <= 0) throw new IllegalArgumentException("reviewerId required");
+        if (request == null) throw new IllegalArgumentException("review request required");
+        String safeOrderNo = requireText(orderNo, "orderNo required");
+        OrderRecord order = findByOrderNoRequired(safeOrderNo);
+        assertBuyer(order, reviewerId);
+        if (!STATUS_COMPLETED.equals(order.status())) throw new IllegalStateException("order-not-reviewable");
+        int descriptionScore = validateScore(request.getDescriptionScore(), "descriptionScore invalid");
+        int serviceScore = validateScore(request.getServiceScore(), "serviceScore invalid");
+        int shippingScore = validateScore(request.getShippingScore(), "shippingScore invalid");
+        String content = validateReviewContent(request.getContent());
+        String reviewNo = generateNo("RV", safeOrderNo, reviewerId, order.sellerId());
+        try {
+            jdbcTemplate.update("""
+                    insert into order_review (review_no,order_no,reviewer_id,reviewee_id,description_score,service_score,shipping_score,content,created_at)
+                    values (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+                    """, reviewNo, safeOrderNo, reviewerId, order.sellerId(), descriptionScore, serviceScore, shippingScore, content);
+        } catch (org.springframework.dao.DuplicateKeyException duplicate) {
+            throw new IllegalStateException("order-review-already-submitted");
+        }
+        return findReviewByNo(reviewNo);
+    }
+
     public OrderDetailResponse detailOrder(String orderNo, Long userId) {
         if (userId == null || userId <= 0) throw new IllegalArgumentException("userId required");
         String safeOrderNo = requireText(orderNo, "orderNo required");
@@ -351,6 +375,34 @@ public class OrderApplicationService {
         if (!Objects.equals(order.buyerId(), userId)) {
             throw new IllegalArgumentException("order-buyer-mismatch");
         }
+    }
+
+    private OrderReviewResponse findReviewByNo(String reviewNo) {
+        return jdbcTemplate.queryForObject("""
+                select * from order_review where review_no = ?
+                """, (rs, rowNum) -> new OrderReviewResponse(
+                rs.getString("review_no"),
+                rs.getString("order_no"),
+                rs.getLong("reviewer_id"),
+                rs.getLong("reviewee_id"),
+                rs.getInt("description_score"),
+                rs.getInt("service_score"),
+                rs.getInt("shipping_score"),
+                rs.getString("content"),
+                timeText(rs.getTimestamp("created_at"))
+        ), reviewNo);
+    }
+
+    private int validateScore(Integer score, String message) {
+        if (score == null || score < 1 || score > 5) throw new IllegalArgumentException(message);
+        return score;
+    }
+
+    private String validateReviewContent(String content) {
+        String safe = requireText(content, "review content required");
+        if (safe.length() < 6 || safe.length() > 160) throw new IllegalArgumentException("review content invalid");
+        if (safe.contains("\n") || safe.contains("\r")) throw new IllegalArgumentException("review content invalid");
+        return safe;
     }
 
     private boolean hasActiveAfterSales(String orderNo, Long buyerId) {

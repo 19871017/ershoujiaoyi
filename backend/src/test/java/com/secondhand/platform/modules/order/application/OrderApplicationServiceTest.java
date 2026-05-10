@@ -157,6 +157,49 @@ class OrderApplicationServiceTest {
     }
 
     @Test
+    void submitReviewShouldPersistBuyerReviewForCompletedOrderOnlyOnce() {
+        CreateProductResponse product = approvedProduct("评价闭环裙子", "119.00");
+        CreateOrderResponse order = orderService.createOrder(orderRequest(product.getProductId()), 5701L);
+        recharge(5701L, "200.00");
+        orderService.payOrder(order.getOrderNo(), 5701L);
+        ShipOrderRequest ship = new ShipOrderRequest();
+        ship.setShippingType("EXPRESS");
+        ship.setShippingCompany("申通快递");
+        ship.setTrackingNo("ST57010001");
+        orderService.shipOrder(order.getOrderNo(), 1L, ship);
+        orderService.confirmReceipt(order.getOrderNo(), 5701L);
+
+        OrderReviewResponse review = orderService.submitReview(order.getOrderNo(), 5701L, reviewRequest(5, 4, 5, "裙子和描述一致，沟通也很顺畅"));
+
+        assertEquals(order.getOrderNo(), review.orderNo());
+        assertEquals(5701L, review.reviewerId());
+        assertEquals(1L, review.revieweeId());
+        assertEquals(5, review.descriptionScore());
+        assertNotNull(review.reviewNo());
+        assertEquals(1, jdbcTemplate.queryForObject("select count(*) from order_review where order_no = ? and reviewer_id = ?", Integer.class, order.getOrderNo(), 5701L));
+        assertThrows(IllegalStateException.class, () -> orderService.submitReview(order.getOrderNo(), 5701L, reviewRequest(5, 5, 5, "重复评价应该失败")));
+    }
+
+    @Test
+    void submitReviewShouldRejectUncompletedOrderWrongBuyerAndInvalidContent() {
+        CreateProductResponse product = approvedProduct("评价拒绝裙子", "89.00");
+        CreateOrderResponse order = orderService.createOrder(orderRequest(product.getProductId()), 5801L);
+        recharge(5801L, "200.00");
+        orderService.payOrder(order.getOrderNo(), 5801L);
+
+        assertThrows(IllegalStateException.class, () -> orderService.submitReview(order.getOrderNo(), 5801L, reviewRequest(5, 5, 5, "还没完成不能评价")));
+        assertThrows(IllegalArgumentException.class, () -> orderService.submitReview(order.getOrderNo(), 5802L, reviewRequest(5, 5, 5, "不是买家不能评价")));
+        ShipOrderRequest ship = new ShipOrderRequest();
+        ship.setShippingType("EXPRESS");
+        ship.setShippingCompany("韵达快递");
+        ship.setTrackingNo("YD58010001");
+        orderService.shipOrder(order.getOrderNo(), 1L, ship);
+        orderService.confirmReceipt(order.getOrderNo(), 5801L);
+        assertThrows(IllegalArgumentException.class, () -> orderService.submitReview(order.getOrderNo(), 5801L, reviewRequest(6, 5, 5, "评分越界不能提交")));
+        assertThrows(IllegalArgumentException.class, () -> orderService.submitReview(order.getOrderNo(), 5801L, reviewRequest(5, 5, 5, "太短")));
+    }
+
+    @Test
     void detailOrderShouldReturnOnlyParticipantOrderAndAfterSalesNo() {
         CreateProductResponse product = approvedProduct("订单详情裙子", "69.00");
         CreateOrderResponse order = orderService.createOrder(orderRequest(product.getProductId()), 5201L);
@@ -276,6 +319,15 @@ class OrderApplicationServiceTest {
         CreateOrderRequest request = new CreateOrderRequest();
         request.setGoodsId(productId);
         request.setAcceptedTradeRule(true);
+        return request;
+    }
+
+    private OrderReviewRequest reviewRequest(int descriptionScore, int serviceScore, int shippingScore, String content) {
+        OrderReviewRequest request = new OrderReviewRequest();
+        request.setDescriptionScore(descriptionScore);
+        request.setServiceScore(serviceScore);
+        request.setShippingScore(shippingScore);
+        request.setContent(content);
         return request;
     }
 

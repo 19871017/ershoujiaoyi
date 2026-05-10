@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 交易评价</view>
         <view class="page-title">评价这次交易</view>
-        <view class="page-desc">评价接口尚未接入，当前仅允许本地编辑草稿。</view>
+        <view class="page-desc">评价提交后以后端订单评价记录为准。</view>
       </view>
       <view class="hero-icon">⭐</view>
     </view>
@@ -15,15 +15,48 @@
         <view><text v-for="star in 5" :key="star" class="star tapable" :class="{ active: star <= item.value }" @click="item.value = star">★</text></view>
       </view>
       <textarea v-model.trim="content" class="textarea" maxlength="160" placeholder="说说成色、沟通、发货和整体体验" />
-      <view class="fail-closed-tip">评价接口尚未接入：提交不会更新信用分或榜单热度，也不会展示为真实交易评价。</view>
-      <button class="primary-btn" @click="submitReview">校验评价草稿</button>
+      <view class="fail-closed-tip">仅订单完成后的买家可提交一次评价；提交结果以服务端订单评价记录为准。</view>
+      <button class="primary-btn" :disabled="submitting" @click="submitReview">{{ submitting ? '提交中...' : '提交评价' }}</button>
     </view>
   </view>
 </template>
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { submitOrderReview } from '../../../api/modules/order'
+
 const scores = reactive([{ key: 'desc', label: '描述相符', value: 5 }, { key: 'service', label: '沟通服务', value: 5 }, { key: 'ship', label: '发货速度', value: 5 }])
 const content = ref('')
-function submitReview(){ if(content.value.length < 6) return uni.showToast({title:'请补充至少6个字评价',icon:'none'}); uni.showModal({title:'评价接口尚未接入',content:'评价草稿已通过本地校验，但不会更新信用分或榜单热度。请等待后端评价接口接入后再提交正式评价。',showCancel:true,confirmText:'返回订单',cancelText:'继续编辑',success:(res)=>{ if(res.confirm) uni.navigateTo({ url: '/pages/order/list/index' }) }}) }
+const orderNo = ref('')
+const submitting = ref(false)
+
+function isValidOrderNo(value: string) {
+  return /^OD-[A-Z0-9]{4,}$/.test(value)
+}
+
+onLoad((query) => {
+  const rawOrderNo = typeof query?.orderNo === 'string' ? decodeURIComponent(query.orderNo) : ''
+  orderNo.value = isValidOrderNo(rawOrderNo) ? rawOrderNo : ''
+})
+
+async function submitReview() {
+  if (!isValidOrderNo(orderNo.value)) return uni.showToast({ title: '缺少有效订单编号，评价未提交', icon: 'none' })
+  if (content.value.length < 6) return uni.showToast({ title: '请补充至少6个字评价', icon: 'none' })
+  if (submitting.value) return
+  submitting.value = true
+  try {
+    await submitOrderReview(orderNo.value, {
+      descriptionScore: scores[0].value,
+      serviceScore: scores[1].value,
+      shippingScore: scores[2].value,
+      content: content.value
+    })
+    uni.showModal({ title: '评价已提交', content: '评价已写入服务端订单评价记录。', showCancel: false, success: () => uni.navigateTo({ url: '/pages/order/list/index' }) })
+  } catch {
+    uni.showToast({ title: '评价提交失败，请确认订单已完成且未重复评价', icon: 'none' })
+  } finally {
+    submitting.value = false
+  }
+}
 </script>
-<style scoped>.review-page{background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%)}.hero,.form-card{margin-top:18rpx;padding:22rpx;border-color:#ffd9bd}.hero{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#fff,#fff3e7)}.kicker{color:#ff7a45;font-size:22rpx;font-weight:950}.hero-icon{width:82rpx;height:82rpx;border-radius:28rpx;background:#ff7a45;color:#fff;display:flex;align-items:center;justify-content:center;font-size:38rpx}.section-title{color:#3a2a1f;font-size:29rpx;font-weight:950}.score-row{min-height:74rpx;display:flex;align-items:center;justify-content:space-between;color:#3a2a1f;font-size:25rpx;font-weight:900;border-bottom:1rpx solid #ffe5ef}.star{font-size:34rpx;color:#ffd9bd;margin-left:6rpx}.star.active{color:#ffb000}.textarea{box-sizing:border-box;width:100%;height:150rpx;margin-top:18rpx;padding:18rpx;border-radius:24rpx;background:#fffaf6;border:1rpx solid #ffd9bd;color:#3a2a1f;font-size:24rpx}.fail-closed-tip{margin-top:14rpx;padding:14rpx 16rpx;border-radius:20rpx;background:#fff3e7;color:#8a4a1f;font-size:23rpx;line-height:1.55}.primary-btn{margin-top:18rpx}</style>
+<style scoped>.review-page{background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%)}.hero,.form-card{margin-top:18rpx;padding:22rpx;border-color:#ffd9bd}.hero{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#fff,#fff3e7)}.kicker{color:#ff7a45;font-size:22rpx;font-weight:950}.hero-icon{width:82rpx;height:82rpx;border-radius:28rpx;background:#ff7a45;color:#fff;display:flex;align-items:center;justify-content:center;font-size:38rpx}.section-title{font-weight:950;margin-bottom:16rpx}.score-row{display:flex;align-items:center;justify-content:space-between;padding:16rpx 0;border-bottom:1rpx solid #fff0e5}.star{font-size:36rpx;color:#f0d0bd;margin-left:8rpx}.star.active{color:#ff9f43}.textarea{width:100%;min-height:180rpx;margin-top:18rpx;padding:18rpx;border-radius:22rpx;background:#fff8f0;box-sizing:border-box}.fail-closed-tip{margin-top:14rpx;color:#9b6a4d;font-size:23rpx}.primary-btn{margin-top:20rpx}</style>

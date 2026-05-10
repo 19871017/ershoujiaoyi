@@ -2,6 +2,8 @@ package com.secondhand.platform.modules.order;
 
 import com.secondhand.platform.modules.order.application.CreateOrderRequest;
 import com.secondhand.platform.modules.order.application.OrderApplicationService;
+import com.secondhand.platform.modules.order.application.OrderReviewRequest;
+import com.secondhand.platform.modules.order.application.OrderReviewResponse;
 import com.secondhand.platform.modules.order.application.ShipOrderRequest;
 import com.secondhand.platform.shared.kernel.Result;
 import com.secondhand.platform.shared.web.CurrentUserResolver;
@@ -62,5 +64,11 @@ public class OrderController {
     public Result<OrderDetailResponse> confirmReceipt(@PathVariable String orderNo, HttpServletRequest request) {
         long buyerId = currentUserResolver.resolve(request);
         return Result.ok(orderApplicationService.confirmReceipt(orderNo, buyerId));
+    }
+
+    @PostMapping("/{orderNo}/review")
+    public Result<OrderReviewResponse> submitReview(@PathVariable String orderNo, @RequestBody OrderReviewRequest body, HttpServletRequest request) {
+        long reviewerId = currentUserResolver.resolve(request);
+        return Result.ok(orderApplicationService.submitReview(orderNo, reviewerId, body));
     }
 }
