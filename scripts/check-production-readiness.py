@@ -53,6 +53,8 @@ if smoke_py.exists():
         issues.append('smoke-api still sends legacy dev/admin authorization headers')
     if '/api/admin/session/login' not in s:
         issues.append('smoke-api must obtain an admin session through persisted RBAC login')
+    if 'X-Admin-Session' not in s:
+        issues.append('smoke-api must send server-issued X-Admin-Session on admin smoke calls')
 else:
     issues.append('scripts/smoke-api.py missing')
 

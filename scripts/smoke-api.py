@@ -49,6 +49,10 @@ def admin_login():
     if not user_id or 'audit:read' not in permissions:
         raise SystemExit('admin session missing explicit audit:read permission')
     ADMIN_HEADERS['X-User-Id'] = user_id
+    session_id = str(session.get('sessionId') or '').strip()
+    if not session_id.startswith('adm_'):
+        raise SystemExit('admin session missing server-issued sessionId')
+    ADMIN_HEADERS['X-Admin-Session'] = session_id
 
 health = call('health', 'GET', '/actuator/health', headers=JSON_HEADERS)
 if not isinstance(health, dict) or health.get('status') != 'UP':

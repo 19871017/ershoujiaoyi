@@ -96,17 +96,28 @@ scripts/final-regression.sh
 SMOKE_PASS
 ```
 
-## 6. 开发态请求头
+## 6. 开发态身份与管理后台会话
 
-当前 MVP 联调阶段使用开发态请求头：
+用户端联调仍可按环境开关使用开发态用户身份请求头：
 
 ```text
 X-User-Id: 1
-X-Dev-Mode: enabled
-X-Admin-Mode: enabled
 ```
 
-注意：这些只能用于开发/联调。生产前必须替换为真实登录态、权限体系，并禁用模拟充值接口。
+管理后台接口不再接受 `X-Dev-Mode` / `X-Admin-Mode` 作为授权。后台烟测和管理端页面必须先调用：
+
+```text
+POST /api/admin/session/login
+```
+
+随后仅携带服务端返回的会话头访问 `/api/admin/*`：
+
+```text
+X-User-Id: <login response userId>
+X-Admin-Session: <login response sessionId>
+```
+
+注意：开发态用户请求头只能用于联调；生产前仍需关闭用户端 dev header、禁用模拟充值接口，并使用真实登录态与权限体系。
 
 ## 7. 当前限制
 
