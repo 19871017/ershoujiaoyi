@@ -27,6 +27,7 @@ public class AdminSessionController {
             "audit:read",
             "audit:review",
             "finance:read",
+            "finance:review",
             "user:read",
             "order:read",
             "after-sales:read",

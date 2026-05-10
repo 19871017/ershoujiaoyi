@@ -191,7 +191,7 @@ public class AdminController {
     public Result<AuditRecordResponse> approveAudit(@PathVariable String auditNo,
                                                     @RequestBody(required = false) AuditReviewRequest body,
                                                     HttpServletRequest request) {
-        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
+        long adminUserId = requireReviewPermissionForAudit(auditNo, request);
         AuditRecordResponse response = auditApplicationService.approve(auditNo, body == null ? null : body.getRemark(), adminUserId);
         syncWithdrawalStatus(response, "APPROVED", adminUserId);
         return Result.ok(response);
@@ -201,10 +201,18 @@ public class AdminController {
     public Result<AuditRecordResponse> rejectAudit(@PathVariable String auditNo,
                                                    @RequestBody(required = false) AuditReviewRequest body,
                                                    HttpServletRequest request) {
-        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
+        long adminUserId = requireReviewPermissionForAudit(auditNo, request);
         AuditRecordResponse response = auditApplicationService.reject(auditNo, body == null ? null : body.getRemark(), adminUserId);
         syncWithdrawalStatus(response, "REJECTED", adminUserId);
         return Result.ok(response);
+    }
+
+    private long requireReviewPermissionForAudit(String auditNo, HttpServletRequest request) {
+        AuditRecordResponse detail = auditApplicationService.getAdminDetail(auditNo);
+        if (AuditApplicationService.AUDIT_TYPE_WITHDRAWAL.equals(detail.auditType())) {
+            return adminAccessGuard.requireAdmin(request, "finance:review");
+        }
+        return adminAccessGuard.requireAdmin(request, "audit:review");
     }
 
     private void syncWithdrawalStatus(AuditRecordResponse response, String status, long adminUserId) {

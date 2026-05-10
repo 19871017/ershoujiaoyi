@@ -187,6 +187,7 @@ class AdminControllerRbacTest {
     void adminWithdrawalAuditApprovalPersistsWithdrawalOperationAuditLog() throws Exception {
         createActiveUser(31L);
         grantPermission(31L, "audit:review");
+        grantPermission(31L, "finance:review");
         createActiveUser(41L);
         walletLedgerService.credit(credit(41L, "withdraw-seed", "WITHDRAWABLE", "90.00"));
         WithdrawalResponse withdrawal = walletLedgerService.createWithdrawal(41L, withdrawal("40.00"), "AU-WD-REVIEW-1");
@@ -213,6 +214,36 @@ class AdminControllerRbacTest {
                   and summary not like '%6222020202020208088%'
                 """, Integer.class, withdrawal.withdrawalNo());
         org.junit.jupiter.api.Assertions.assertEquals(1, count);
+    }
+
+    @Test
+    void adminWithdrawalAuditApprovalRequiresFinanceReviewPermission() throws Exception {
+        createActiveUser(32L);
+        grantPermission(32L, "audit:review");
+        grantPermission(32L, "finance:read");
+        createActiveUser(42L);
+        walletLedgerService.credit(credit(42L, "withdraw-finance-seed", "WITHDRAWABLE", "90.00"));
+        WithdrawalResponse withdrawal = walletLedgerService.createWithdrawal(42L, withdrawalForUser(42L, "40.00"), "AU-WD-FINANCE-1");
+        jdbcTemplate.update("""
+                insert into audit_record (audit_no,audit_type,user_id,target_type,target_id,reason,description,status,created_at)
+                values (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+                """, "AU-WD-FINANCE-1", AuditApplicationService.AUDIT_TYPE_WITHDRAWAL, 42L, "WITHDRAWAL", withdrawal.withdrawalNo(), "提现审核", "提现复核", AuditApplicationService.STATUS_PENDING);
+
+        mvc.perform(post("/api/admin/audit/AU-WD-FINANCE-1/approve")
+                        .header("X-User-Id", "32")
+                        .header("X-Admin-Session", issueAdminSession(32L))
+                        .contentType("application/json")
+                        .content("{\"remark\":\"audit reviewer should not approve withdrawals\"}"))
+                .andExpect(status().isForbidden());
+
+        grantPermission(32L, "finance:review");
+
+        mvc.perform(post("/api/admin/audit/AU-WD-FINANCE-1/approve")
+                        .header("X-User-Id", "32")
+                        .header("X-Admin-Session", issueAdminSession(32L))
+                        .contentType("application/json")
+                        .content("{\"remark\":\"finance ok\"}"))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -299,7 +330,11 @@ class AdminControllerRbacTest {
     }
 
     private CreateWithdrawalRequest withdrawal(String amount) {
-        Long payoutAccountId = walletLedgerService.bindPayoutAccount(41L, payoutAccount("ALIPAY", "Alice", "6222020202020208088"));
+        return withdrawalForUser(41L, amount);
+    }
+
+    private CreateWithdrawalRequest withdrawalForUser(Long userId, String amount) {
+        Long payoutAccountId = walletLedgerService.bindPayoutAccount(userId, payoutAccount("ALIPAY", "Alice", "6222020202020208088"));
         CreateWithdrawalRequest request = new CreateWithdrawalRequest();
         request.setAmount(new BigDecimal(amount));
         request.setPayoutAccountId(payoutAccountId);

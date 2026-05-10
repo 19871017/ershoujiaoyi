@@ -39,6 +39,8 @@ const requiredPatterns = [
   { file: 'src/pages/audit/index.vue', pattern: /approveAdminProduct/, message: 'product audit records must call the backend product approval endpoint, not only generic audit status' },
   { file: 'src/pages/finance/withdrawals/index.vue', pattern: /getAdminWithdrawalList/, message: 'withdrawal page must load backend admin withdrawal list' },
   { file: 'src/pages/finance/withdrawals/index.vue', pattern: /reviewAdminWithdrawal/, message: 'withdrawal page must submit reviews through backend audit API helper' },
+  { file: 'src/pages/finance/withdrawals/index.vue', pattern: /canReviewFinance/, message: 'withdrawal review actions must require explicit finance:review permission' },
+  { file: 'src/pages/finance/withdrawals/index.vue', pattern: /finance:review/, message: 'withdrawal page must fail closed for read-only finance sessions' },
   { file: 'src/pages/after-sales/index.vue', pattern: /getAdminAfterSalesList/, message: 'after-sales page must load backend admin after-sales list' },
   { file: 'src/pages/after-sales/index.vue', pattern: /reviewAdminAfterSales/, message: 'after-sales page must submit reviews through backend after-sales review API helper' },
   { file: 'src/pages/after-sales/index.vue', pattern: /canReviewAfterSales/, message: 'after-sales review actions must require explicit after-sales:review permission' },

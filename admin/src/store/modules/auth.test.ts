@@ -3,6 +3,7 @@ import {
   buildAdminHeaders,
   canReviewAfterSales,
   canReviewAudit,
+  canReviewFinance,
   loginAdminSession,
   logoutAdminSession,
   menuAllowsSession,
@@ -285,5 +286,34 @@ describe('admin auth helpers', () => {
     expect(canReviewAudit(readOnly)).toBe(false)
     expect(canReviewAudit(reviewer)).toBe(true)
     expect(canReviewAudit(null)).toBe(false)
+  })
+
+  it('requires finance review permission before enabling withdrawal approval actions', () => {
+    const readOnly = normalizeAdminSession({
+      username: 'finance-reader',
+      userId: '19',
+      permissions: ['finance:read'],
+      sessionId: 'adm_56565656565656565656565656565656',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+    const auditReviewer = normalizeAdminSession({
+      username: 'audit-reviewer',
+      userId: '20',
+      permissions: ['finance:read', 'audit:review'],
+      sessionId: 'adm_78787878787878787878787878787878',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+    const financeReviewer = normalizeAdminSession({
+      username: 'finance-reviewer',
+      userId: '21',
+      permissions: ['finance:read', 'finance:review'],
+      sessionId: 'adm_90909090909090909090909090909090',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+
+    expect(canReviewFinance(readOnly)).toBe(false)
+    expect(canReviewFinance(auditReviewer)).toBe(false)
+    expect(canReviewFinance(financeReviewer)).toBe(true)
+    expect(canReviewFinance(null)).toBe(false)
   })
 })

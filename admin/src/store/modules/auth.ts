@@ -36,7 +36,7 @@ export interface AdminSessionInput {
   expiresAt?: string
 }
 
-export type AdminPermission = 'audit:read' | 'audit:review' | 'finance:read' | 'user:read' | 'order:read' | 'after-sales:read' | 'after-sales:review' | 'system:config' | 'audit:log'
+export type AdminPermission = 'audit:read' | 'audit:review' | 'finance:read' | 'finance:review' | 'user:read' | 'order:read' | 'after-sales:read' | 'after-sales:review' | 'system:config' | 'audit:log'
 
 interface RoutePermissionRule {
   pattern: RegExp
@@ -76,7 +76,7 @@ interface AuthState {
 
 const STORAGE_KEY = 'xiaoyuanquan_admin_session'
 const USER_ID_PATTERN = /^[1-9]\d*$/
-const DEFAULT_DEV_ADMIN_PERMISSIONS: AdminPermission[] = ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log']
+const DEFAULT_DEV_ADMIN_PERMISSIONS: AdminPermission[] = ['audit:read', 'audit:review', 'finance:read', 'finance:review', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log']
 const PERMISSION_SET = new Set<AdminPermission>(DEFAULT_DEV_ADMIN_PERMISSIONS)
 
 function normalizePermissions(permissions?: string[]): AdminPermission[] {
@@ -121,6 +121,10 @@ export function canReviewAfterSales(session: AdminSession | null): boolean {
 
 export function canReviewAudit(session: AdminSession | null): boolean {
   return sessionAllowsPermission(session, 'audit:review')
+}
+
+export function canReviewFinance(session: AdminSession | null): boolean {
+  return sessionAllowsPermission(session, 'finance:review')
 }
 
 export function buildAdminHeaders(session: AdminSession | null): Record<string, string> {
