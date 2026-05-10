@@ -93,6 +93,19 @@ describe('admin auth helpers', () => {
     expect(shouldRedirectToLogin('/users/8331', userOnly)).toBe(false)
   })
 
+  it('fails closed when a persisted/admin API session has no explicit permissions', () => {
+    const session = normalizeAdminSession({
+      username: 'no-permission-admin',
+      userId: '12',
+      devAdminEnabled: true,
+      permissions: []
+    })
+
+    expect(session).toBeNull()
+    expect(shouldRedirectToLogin('/dashboard', session)).toBe(true)
+    expect(menuAllowsSession({ path: '/dashboard', label: '仪表盘', permission: 'audit:read' }, session)).toBe(false)
+  })
+
   it('requires module-specific read permissions for order and after-sales deep links', () => {
     const auditOnly = normalizeAdminSession({
       username: 'audit-only',
