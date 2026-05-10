@@ -149,6 +149,16 @@ class AdminControllerRbacTest {
     }
 
     @Test
+    void adminDashboardRejectsSessionWhenOperatorAccountIsNotActive() throws Exception {
+        createInactiveUser(14L);
+
+        mvc.perform(get("/api/admin/dashboard")
+                        .header("X-User-Id", "14")
+                        .header("X-Admin-Session", issueAdminSession(14L)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void adminLocationConfigUpdatePersistsOperatorAuditLog() throws Exception {
         createActiveUser(21L);
         grantPermission(21L, "system:config");
@@ -259,6 +269,13 @@ class AdminControllerRbacTest {
                 insert into user_account (id, user_no, phone, password_hash, nickname, status, created_at, updated_at)
                 values (?, ?, ?, ?, ?, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """, userId, "U-ADMIN-" + userId, "1390000" + userId, "hash", "管理员" + userId);
+    }
+
+    private void createInactiveUser(Long userId) {
+        jdbcTemplate.update("""
+                insert into user_account (id, user_no, phone, password_hash, nickname, status, created_at, updated_at)
+                values (?, ?, ?, ?, ?, 'DISABLED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, userId, "U-ADMIN-INACTIVE-" + userId, "1391000" + userId, "hash", "停用管理员" + userId);
     }
 
     private String issueAdminSession(Long userId) {

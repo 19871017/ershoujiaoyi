@@ -57,8 +57,9 @@ public class AdminAccessGuard {
         }
         Integer count = jdbcTemplate.queryForObject("""
                 SELECT COUNT(1)
-                FROM admin_session
-                WHERE user_id = ? AND session_id = ? AND revoked = FALSE AND expires_at > CURRENT_TIMESTAMP
+                FROM admin_session s
+                INNER JOIN user_account u ON u.id = s.user_id AND u.status = 'ACTIVE'
+                WHERE s.user_id = ? AND s.session_id = ? AND s.revoked = FALSE AND s.expires_at > CURRENT_TIMESTAMP
                 """, Integer.class, adminUserId, normalizedSessionId);
         return count != null && count > 0;
     }
