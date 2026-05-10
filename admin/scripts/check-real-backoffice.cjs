@@ -34,6 +34,7 @@ const requiredPatterns = [
   { file: 'src/layouts/AdminLayout.vue', pattern: /permission: 'user:read'/, message: 'user menu must require user:read rather than broad audit permission' },
   { file: 'src/layouts/AdminLayout.vue', pattern: /permission: 'order:read'/, message: 'order menu must require order:read rather than broad audit permission' },
   { file: 'src/layouts/AdminLayout.vue', pattern: /permission: 'after-sales:read'/, message: 'after-sales menu must require after-sales:read rather than broad audit permission' },
+  { file: 'src/pages/audit/index.vue', pattern: /reviewingAuditNo/, message: 'audit workbench must lock duplicate backend review submissions' },
   { file: 'src/pages/finance/withdrawals/index.vue', pattern: /getAdminWithdrawalList/, message: 'withdrawal page must load backend admin withdrawal list' },
   { file: 'src/pages/finance/withdrawals/index.vue', pattern: /reviewAdminWithdrawal/, message: 'withdrawal page must submit reviews through backend audit API helper' },
   { file: 'src/pages/after-sales/index.vue', pattern: /getAdminAfterSalesList/, message: 'after-sales page must load backend admin after-sales list' },

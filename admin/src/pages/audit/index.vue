@@ -19,8 +19,8 @@
       <div class="audit-side">
         <b :class="['status', item.status.toLowerCase()]">{{ item.status }}</b>
         <div class="actions" v-if="item.status === 'PENDING'">
-          <button @click="review(item.auditNo, 'approve')">通过</button>
-          <button class="danger" @click="review(item.auditNo, 'reject')">拒绝</button>
+          <button :disabled="reviewingAuditNo === item.auditNo" @click="review(item.auditNo, 'approve')">{{ reviewingAuditNo === item.auditNo ? '提交中...' : '通过' }}</button>
+          <button class="danger" :disabled="reviewingAuditNo === item.auditNo" @click="review(item.auditNo, 'reject')">拒绝</button>
         </div>
       </div>
     </article>
@@ -35,6 +35,7 @@ import { approveAdminAudit, getAdminAuditList, rejectAdminAudit, type AuditRecor
 const audits = ref<AuditRecordResponse[]>([])
 const loading = ref(false)
 const error = ref('')
+const reviewingAuditNo = ref('')
 const pendingCount = computed(() => audits.value.filter((item) => item.status === 'PENDING').length)
 
 async function load() {
@@ -51,13 +52,17 @@ async function load() {
 }
 
 async function review(auditNo: string, action: 'approve' | 'reject') {
+  if (reviewingAuditNo.value) return
   error.value = ''
+  reviewingAuditNo.value = auditNo
   try {
     const remark = action === 'approve' ? '后台审核通过' : '后台审核拒绝'
     const updated = action === 'approve' ? await approveAdminAudit(auditNo, remark) : await rejectAdminAudit(auditNo, remark)
     audits.value = audits.value.map((item) => item.auditNo === auditNo ? updated : item)
   } catch {
     error.value = '审核操作失败：未做本地假成功，请检查后端审核接口。'
+  } finally {
+    reviewingAuditNo.value = ''
   }
 }
 
