@@ -175,6 +175,7 @@ public class WalletLedgerService {
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("withdrawal amount invalid", ex);
         }
+        rejectLegacyClientWithdrawalAccountFields(request);
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("withdrawal amount must be positive");
         }
@@ -573,6 +574,13 @@ public class WalletLedgerService {
     private void rejectClientSuppliedMaskedAccountNo(String accountNo) {
         if (accountNo.contains("*")) {
             throw new IllegalArgumentException("withdrawal accountNo must be backend-owned raw account reference");
+        }
+    }
+
+    private void rejectLegacyClientWithdrawalAccountFields(CreateWithdrawalRequest request) {
+        String accountNo = safeText(request.getAccountNo());
+        if (accountNo != null && accountNo.contains("*")) {
+            throw new IllegalArgumentException("withdrawal accountNo must not be client-supplied masked value");
         }
     }
 
