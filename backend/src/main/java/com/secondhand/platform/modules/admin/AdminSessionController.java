@@ -6,8 +6,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
+import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
+import java.util.UUID;
 import java.util.Set;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
@@ -52,7 +54,18 @@ public class AdminSessionController {
         if (permissions.isEmpty()) {
             throw new SecurityException("admin access required");
         }
-        return Result.ok(new AdminSessionResponse(row.nickname(), String.valueOf(row.userId()), permissions));
+        LocalDateTime expiresAt = LocalDateTime.now().plusHours(8);
+        String sessionId = issueSession(row.userId(), expiresAt);
+        return Result.ok(new AdminSessionResponse(row.nickname(), String.valueOf(row.userId()), permissions, sessionId, expiresAt.toString()));
+    }
+
+    private String issueSession(Long userId, LocalDateTime expiresAt) {
+        String sessionId = "adm_" + UUID.randomUUID().toString().replace("-", "");
+        jdbcTemplate.update("""
+                INSERT INTO admin_session (session_id, user_id, expires_at, revoked, created_at)
+                VALUES (?, ?, ?, FALSE, CURRENT_TIMESTAMP)
+                """, sessionId, userId, expiresAt);
+        return sessionId;
     }
 
     private AdminLoginRow findActiveUser(String mobile) {
@@ -111,6 +124,6 @@ public class AdminSessionController {
     private record AdminLoginRow(Long userId, String passwordHash, String nickname) {
     }
 
-    public record AdminSessionResponse(String username, String userId, List<String> permissions) {
+    public record AdminSessionResponse(String username, String userId, List<String> permissions, String sessionId, String expiresAt) {
     }
 }

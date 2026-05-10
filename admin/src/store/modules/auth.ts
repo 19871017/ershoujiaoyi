@@ -20,6 +20,8 @@ export interface AdminSessionInput {
   username?: string
   userId?: string
   permissions?: string[]
+  sessionId?: string
+  expiresAt?: string
 }
 
 export type AdminPermission = 'audit:read' | 'audit:review' | 'finance:read' | 'user:read' | 'order:read' | 'after-sales:read' | 'after-sales:review' | 'system:config' | 'audit:log'
@@ -50,6 +52,8 @@ export interface AdminSession {
   username: string
   userId: string
   permissions: AdminPermission[]
+  sessionId: string
+  expiresAt: string
 }
 
 interface AuthState {
@@ -70,18 +74,22 @@ function normalizePermissions(permissions?: string[]): AdminPermission[] {
 
 function hasOnlyExpectedSessionKeys(input: AdminSessionInput | null | undefined): boolean {
   if (!input || typeof input !== 'object') return false
-  return Object.keys(input).every((key) => key === 'username' || key === 'userId' || key === 'permissions')
+  return Object.keys(input).every((key) => key === 'username' || key === 'userId' || key === 'permissions' || key === 'sessionId' || key === 'expiresAt')
 }
 
 export function normalizeAdminSession(input: AdminSessionInput | null | undefined): AdminSession | null {
   if (!hasOnlyExpectedSessionKeys(input)) return null
   const username = input?.username?.trim()
   const userId = input?.userId?.trim()
+  const sessionId = input?.sessionId?.trim()
+  const expiresAt = input?.expiresAt?.trim()
   if (!username || !userId) return null
   if (!USER_ID_PATTERN.test(userId)) return null
+  if (!sessionId || !/^adm_[a-f0-9]{32}$/i.test(sessionId)) return null
+  if (!expiresAt || Number.isNaN(Date.parse(expiresAt))) return null
   const permissions = normalizePermissions(input.permissions)
   if (permissions.length === 0) return null
-  return { username, userId, permissions }
+  return { username, userId, permissions, sessionId, expiresAt }
 }
 
 export function sessionAllowsPermission(session: AdminSession | null, permission: AdminPermission): boolean {
@@ -95,7 +103,8 @@ export function menuAllowsSession(item: AdminMenuItem, session: AdminSession | n
 export function buildAdminHeaders(session: AdminSession | null): Record<string, string> {
   if (!session) return {}
   return {
-    'X-User-Id': session.userId
+    'X-User-Id': session.userId,
+    'X-Admin-Session': session.sessionId
   }
 }
 

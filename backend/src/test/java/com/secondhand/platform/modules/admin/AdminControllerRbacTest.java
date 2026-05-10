@@ -72,16 +72,26 @@ class AdminControllerRbacTest {
         mvc.perform(get("/api/admin/dashboard")
                         .header("X-Admin-Mode", "enabled")
                         .header("X-User-Id", "7"))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(get("/api/admin/dashboard")
+                        .header("X-User-Id", "7")
+                        .header("X-Admin-Session", issueAdminSession(7L)))
                 .andExpect(status().isOk());
     }
 
     @Test
-    void adminDashboardAcceptsPersistedAuditReadPermissionWithoutAdminModeHeader() throws Exception {
+    void adminDashboardRequiresServerIssuedAdminSessionWithPersistedAuditReadPermission() throws Exception {
         createActiveUser(9L);
         grantPermission(9L, "audit:read");
 
         mvc.perform(get("/api/admin/dashboard")
                         .header("X-User-Id", "9"))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(get("/api/admin/dashboard")
+                        .header("X-User-Id", "9")
+                        .header("X-Admin-Session", issueAdminSession(9L)))
                 .andExpect(status().isOk());
     }
 
@@ -96,7 +106,8 @@ class AdminControllerRbacTest {
         createActiveUser(11L);
 
         mvc.perform(get("/api/admin/dashboard")
-                        .header("X-User-Id", "11"))
+                        .header("X-User-Id", "11")
+                        .header("X-Admin-Session", issueAdminSession(11L)))
                 .andExpect(status().isOk());
     }
 
@@ -107,6 +118,7 @@ class AdminControllerRbacTest {
 
         mvc.perform(post("/api/admin/location/config")
                         .header("X-User-Id", "21")
+                        .header("X-Admin-Session", issueAdminSession(21L))
                         .contentType("application/json")
                         .content("{\"defaultCity\":\"杭州\",\"coordinateType\":\"gcj02ll\"}"))
                 .andExpect(status().isOk());
@@ -138,6 +150,7 @@ class AdminControllerRbacTest {
 
         mvc.perform(post("/api/admin/audit/AU-WD-REVIEW-1/approve")
                         .header("X-User-Id", "31")
+                        .header("X-Admin-Session", issueAdminSession(31L))
                         .contentType("application/json")
                         .content("{\"remark\":\"finance ok\"}"))
                 .andExpect(status().isOk());
@@ -162,6 +175,7 @@ class AdminControllerRbacTest {
 
         mvc.perform(get("/api/admin/after-sales")
                         .header("X-User-Id", "51")
+                        .header("X-Admin-Session", issueAdminSession(51L))
                         .param("status", "PENDING_REVIEW")
                         .param("limit", "20"))
                 .andExpect(status().isForbidden());
@@ -170,6 +184,7 @@ class AdminControllerRbacTest {
 
         mvc.perform(get("/api/admin/after-sales")
                         .header("X-User-Id", "51")
+                        .header("X-Admin-Session", issueAdminSession(51L))
                         .param("status", "PENDING_REVIEW")
                         .param("limit", "20"))
                 .andExpect(status().isOk());
@@ -187,6 +202,15 @@ class AdminControllerRbacTest {
                 insert into user_account (id, user_no, phone, password_hash, nickname, status, created_at, updated_at)
                 values (?, ?, ?, ?, ?, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """, userId, "U-ADMIN-" + userId, "1390000" + userId, "hash", "管理员" + userId);
+    }
+
+    private String issueAdminSession(Long userId) {
+        String sessionId = "test-session-" + userId + '-' + System.nanoTime();
+        jdbcTemplate.update("""
+                insert into admin_session (session_id, user_id, expires_at, revoked, created_at)
+                values (?, ?, DATEADD('HOUR', 1, CURRENT_TIMESTAMP), false, CURRENT_TIMESTAMP)
+                """, sessionId, userId);
+        return sessionId;
     }
 
     private CreditCommand credit(Long userId, String key, String balanceType, String amount) {

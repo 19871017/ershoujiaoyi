@@ -10,7 +10,12 @@ describe('admin http client', () => {
   it('adds only the resolved operator identity from the auth provider', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: 'ok' }) })
     vi.stubGlobal('fetch', fetchMock)
-    setAdminHeaderProvider(() => ({ 'X-Admin-Mode': 'enabled', 'X-User-Id': '7', 'X-Dev-Mode': 'enabled' }))
+    setAdminHeaderProvider(() => ({
+      'X-Admin-Mode': 'enabled',
+      'X-User-Id': '7',
+      'X-Admin-Session': 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      'X-Dev-Mode': 'enabled'
+    }))
 
     const result = await request<string>({ url: '/api/admin/dashboard' })
 
@@ -18,7 +23,8 @@ describe('admin http client', () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/dashboard'), expect.objectContaining({
       headers: expect.objectContaining({
         'Content-Type': 'application/json',
-        'X-User-Id': '7'
+        'X-User-Id': '7',
+        'X-Admin-Session': 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
       })
     }))
     const [, init] = fetchMock.mock.calls[0]
@@ -29,12 +35,13 @@ describe('admin http client', () => {
   it('does not allow per-request headers to override the resolved operator identity', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: 'ok' }) })
     vi.stubGlobal('fetch', fetchMock)
-    setAdminHeaderProvider(() => ({ 'X-User-Id': '7' }))
+    setAdminHeaderProvider(() => ({ 'X-User-Id': '7', 'X-Admin-Session': 'adm_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' }))
 
     await request<string>({
       url: '/api/admin/users',
       headers: {
         'X-User-Id': '999',
+        'X-Admin-Session': 'adm_badbadbadbadbadbadbadbadbadbadba',
         'X-Admin-Mode': 'enabled',
         'X-Dev-Mode': 'enabled'
       }
@@ -43,10 +50,12 @@ describe('admin http client', () => {
     const [, init] = fetchMock.mock.calls[0]
     expect(init.headers).toMatchObject({
       'Content-Type': 'application/json',
-      'X-User-Id': '7'
+      'X-User-Id': '7',
+      'X-Admin-Session': 'adm_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
     })
     expect(init.headers).not.toHaveProperty('X-Admin-Mode')
     expect(init.headers).not.toHaveProperty('X-Dev-Mode')
+    expect(init.headers).not.toMatchObject({ 'X-Admin-Session': 'adm_badbadbadbadbadbadbadbadbadbadba' })
   })
 
   it('fails closed before fetch when no admin headers are available', async () => {

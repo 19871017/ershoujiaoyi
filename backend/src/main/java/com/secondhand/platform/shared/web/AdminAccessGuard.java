@@ -27,10 +27,25 @@ public class AdminAccessGuard {
             throw new SecurityException("admin access required");
         }
         long adminUserId = currentUserResolver.resolve(request);
+        if (!hasActiveSession(adminUserId, request.getHeader("X-Admin-Session"))) {
+            throw new SecurityException("admin session required");
+        }
         if (!hasPermission(adminUserId, permissionCode)) {
             throw new SecurityException("admin permission required");
         }
         return adminUserId;
+    }
+
+    private boolean hasActiveSession(long adminUserId, String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return false;
+        }
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(1)
+                FROM admin_session
+                WHERE user_id = ? AND session_id = ? AND revoked = FALSE AND expires_at > CURRENT_TIMESTAMP
+                """, Integer.class, adminUserId, sessionId.trim());
+        return count != null && count > 0;
     }
 
     private boolean hasPermission(long adminUserId, String permissionCode) {

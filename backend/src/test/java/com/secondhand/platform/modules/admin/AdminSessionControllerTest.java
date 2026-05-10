@@ -69,6 +69,24 @@ class AdminSessionControllerTest {
     }
 
     @Test
+    void adminLoginPersistsServerIssuedSessionAndGuardRequiresIt() throws Exception {
+        createUserThroughPasswordLogin("13900000074", "admin-pass-74");
+        Long userId = jdbcTemplate.queryForObject("select id from user_account where phone = ?", Long.class, "13900000074");
+        grantPermission(userId, "audit:read");
+
+        mvc.perform(post("/api/admin/session/login")
+                        .contentType("application/json")
+                        .content("{\"mobile\":\"13900000074\",\"password\":\"admin-pass-74\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sessionId").isString())
+                .andExpect(jsonPath("$.data.sessionId").value(not(containsString("13900000074"))))
+                .andExpect(jsonPath("$.data.expiresAt").isString());
+
+        String sessionId = jdbcTemplate.queryForObject("select session_id from admin_session where user_id = ?", String.class, userId);
+        org.junit.jupiter.api.Assertions.assertNotNull(sessionId);
+    }
+
+    @Test
     void adminLoginRejectsWrongPasswordAndInactiveOperator() throws Exception {
         createUserThroughPasswordLogin("13900000073", "admin-pass-73");
         Long userId = jdbcTemplate.queryForObject("select id from user_account where phone = ?", Long.class, "13900000073");

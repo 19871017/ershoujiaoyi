@@ -30,17 +30,21 @@ export function setAdminHeaderProvider(provider: AdminHeaderProvider | null) {
 function resolveAdminHeaders(): Record<string, string> {
   const headers = adminHeaderProvider?.() ?? {}
   const userId = headers['X-User-Id'] || ''
+  const sessionId = headers['X-Admin-Session'] || ''
   if (!/^[1-9]\d*$/.test(userId)) {
     throw new HttpError('管理员会话无效，请重新登录', 401)
   }
-  return { 'X-User-Id': userId }
+  if (!/^adm_[a-f0-9]{32}$/i.test(sessionId)) {
+    throw new HttpError('管理员会话无效，请重新登录', 401)
+  }
+  return { 'X-User-Id': userId, 'X-Admin-Session': sessionId }
 }
 
 function filterRequestHeaders(headers?: Record<string, string>): Record<string, string> {
   const filtered: Record<string, string> = {}
   for (const [key, value] of Object.entries(headers || {})) {
     const normalized = key.toLowerCase()
-    if (normalized === 'x-user-id' || normalized === 'x-admin-mode' || normalized === 'x-dev-mode') continue
+    if (normalized === 'x-user-id' || normalized === 'x-admin-session' || normalized === 'x-admin-mode' || normalized === 'x-dev-mode') continue
     filtered[key] = value
   }
   return filtered

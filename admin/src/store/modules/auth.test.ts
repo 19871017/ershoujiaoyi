@@ -16,7 +16,9 @@ describe('admin auth helpers', () => {
         data: {
           username: 'ops',
           userId: '7',
-          permissions: ['audit:read', 'finance:read']
+          permissions: ['audit:read', 'finance:read'],
+          sessionId: 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          expiresAt: '2026-05-11T03:00:00'
         }
       })
     })
@@ -46,11 +48,12 @@ describe('admin auth helpers', () => {
   })
 
   it('normalizes a persisted admin session into non-sensitive request headers', () => {
-    const session = normalizeAdminSession({ username: ' ops ', userId: '7', permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'] })
+    const session = normalizeAdminSession({ username: ' ops ', userId: '7', permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'], sessionId: 'adm_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', expiresAt: '2026-05-11T03:00:00' })
 
-    expect(session).toEqual({ username: 'ops', userId: '7', permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'] })
+    expect(session).toEqual({ username: 'ops', userId: '7', permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'], sessionId: 'adm_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', expiresAt: '2026-05-11T03:00:00' })
     expect(buildAdminHeaders(session)).toEqual({
-      'X-User-Id': '7'
+      'X-User-Id': '7',
+      'X-Admin-Session': 'adm_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
     })
   })
 
@@ -68,7 +71,9 @@ describe('admin auth helpers', () => {
     const session = normalizeAdminSession({
       username: 'audit-only',
       userId: '8',
-      permissions: ['audit:read', 'unknown:root']
+      permissions: ['audit:read', 'unknown:root'],
+      sessionId: 'adm_cccccccccccccccccccccccccccccccc',
+      expiresAt: '2026-05-11T03:00:00'
     })
 
     expect(session?.permissions).toEqual(['audit:read'])
@@ -82,7 +87,9 @@ describe('admin auth helpers', () => {
     const auditOnly = normalizeAdminSession({
       username: 'audit-only',
       userId: '8',
-      permissions: ['audit:read']
+      permissions: ['audit:read'],
+      sessionId: 'adm_dddddddddddddddddddddddddddddddd',
+      expiresAt: '2026-05-11T03:00:00'
     })
 
     expect(menuAllowsSession({ path: '/audit', label: '审核工作台', permission: 'audit:read' }, auditOnly)).toBe(true)
@@ -94,13 +101,15 @@ describe('admin auth helpers', () => {
     const auditOnly = normalizeAdminSession({
       username: 'audit-only',
       userId: '8',
-      permissions: ['audit:read']
+      permissions: ['audit:read'],
+      sessionId: 'adm_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+      expiresAt: '2026-05-11T03:00:00'
     })
 
     expect(shouldRedirectToLogin('/audit/AU-20260510-0001', auditOnly)).toBe(false)
     expect(shouldRedirectToLogin('/users', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/users/8331', auditOnly)).toBe(true)
-    expect(shouldRedirectToLogin('/users', normalizeAdminSession({ username: 'user-admin', userId: '9', permissions: ['user:read'] }))).toBe(false)
+    expect(shouldRedirectToLogin('/users', normalizeAdminSession({ username: 'user-admin', userId: '9', permissions: ['user:read'], sessionId: 'adm_ffffffffffffffffffffffffffffffff', expiresAt: '2026-05-11T03:00:00' }))).toBe(false)
     expect(shouldRedirectToLogin('/finance/withdrawals', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/system/location', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/audit-logs', auditOnly)).toBe(true)
@@ -111,12 +120,16 @@ describe('admin auth helpers', () => {
     const auditOnly = normalizeAdminSession({
       username: 'audit-only',
       userId: '8',
-      permissions: ['audit:read']
+      permissions: ['audit:read'],
+      sessionId: 'adm_11111111111111111111111111111111',
+      expiresAt: '2026-05-11T03:00:00'
     })
     const userOnly = normalizeAdminSession({
       username: 'user-admin',
       userId: '9',
-      permissions: ['user:read']
+      permissions: ['user:read'],
+      sessionId: 'adm_22222222222222222222222222222222',
+      expiresAt: '2026-05-11T03:00:00'
     })
 
     expect(shouldRedirectToLogin('/users', auditOnly)).toBe(true)
@@ -129,7 +142,9 @@ describe('admin auth helpers', () => {
     const session = normalizeAdminSession({
       username: 'no-permission-admin',
       userId: '12',
-      permissions: []
+      permissions: [],
+      sessionId: 'adm_33333333333333333333333333333333',
+      expiresAt: '2026-05-11T03:00:00'
     })
 
     expect(session).toBeNull()
@@ -141,17 +156,23 @@ describe('admin auth helpers', () => {
     const auditOnly = normalizeAdminSession({
       username: 'audit-only',
       userId: '8',
-      permissions: ['audit:read']
+      permissions: ['audit:read'],
+      sessionId: 'adm_44444444444444444444444444444444',
+      expiresAt: '2026-05-11T03:00:00'
     })
     const orderOnly = normalizeAdminSession({
       username: 'order-admin',
       userId: '10',
-      permissions: ['order:read']
+      permissions: ['order:read'],
+      sessionId: 'adm_55555555555555555555555555555555',
+      expiresAt: '2026-05-11T03:00:00'
     })
     const afterSalesOnly = normalizeAdminSession({
       username: 'after-sales-admin',
       userId: '11',
-      permissions: ['after-sales:read']
+      permissions: ['after-sales:read'],
+      sessionId: 'adm_66666666666666666666666666666666',
+      expiresAt: '2026-05-11T03:00:00'
     })
 
     expect(shouldRedirectToLogin('/orders', auditOnly)).toBe(true)
