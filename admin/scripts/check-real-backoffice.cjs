@@ -40,6 +40,7 @@ const requiredPatterns = [
   { file: 'src/pages/finance/withdrawals/index.vue', pattern: /reviewAdminWithdrawal/, message: 'withdrawal page must submit reviews through backend audit API helper' },
   { file: 'src/pages/after-sales/index.vue', pattern: /getAdminAfterSalesList/, message: 'after-sales page must load backend admin after-sales list' },
   { file: 'src/pages/after-sales/index.vue', pattern: /reviewAdminAfterSales/, message: 'after-sales page must submit reviews through backend after-sales review API helper' },
+  { file: 'src/pages/after-sales/index.vue', pattern: /canReviewAfterSales/, message: 'after-sales review actions must require explicit after-sales:review permission' },
   { file: 'src/pages/after-sales/index.vue', pattern: /afterSalesReviewing/, message: 'after-sales page must lock duplicate backend review submissions' },
   { file: 'src/pages/orders/index.vue', pattern: /getAdminOrderDetail/, message: 'order page must load backend admin order detail' },
   { file: 'src/pages/users/index.vue', pattern: /getAdminUserDetail/, message: 'user page must load backend admin user detail' },

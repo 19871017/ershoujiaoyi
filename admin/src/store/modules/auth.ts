@@ -115,6 +115,10 @@ export function menuAllowsSession(item: AdminMenuItem, session: AdminSession | n
   return sessionAllowsPermission(session, item.permission)
 }
 
+export function canReviewAfterSales(session: AdminSession | null): boolean {
+  return sessionAllowsPermission(session, 'after-sales:review')
+}
+
 export function buildAdminHeaders(session: AdminSession | null): Record<string, string> {
   if (!session) return {}
   return {

@@ -87,6 +87,7 @@
             拒绝售后
           </button>
         </div>
+        <p v-if="!canReviewAfterSales(auth.session)" class="safe-note">当前管理员仅可查看售后记录；缺少 after-sales:review 权限时不会提交通过/拒绝操作。</p>
         <p class="safe-note">审核结果只以后端 /api/admin/after-sales 审核响应为准；失败时不会本地改写售后状态。</p>
       </div>
     </article>
@@ -103,7 +104,9 @@ import {
   type AdminAfterSalesDetail,
   type AdminAfterSalesListQuery
 } from '../../api'
+import { canReviewAfterSales, useAuthStore } from '../../store/modules/auth'
 
+const auth = useAuthStore()
 const afterSalesNo = ref('')
 const statusFilter = ref<NonNullable<AdminAfterSalesListQuery['status']>>('PENDING_REVIEW')
 const loadingList = ref(false)
@@ -114,7 +117,7 @@ const reviewRemark = ref('')
 const afterSalesReviewing = ref(false)
 const rows = ref<AdminAfterSalesDetail[]>([])
 const detail = ref<AdminAfterSalesDetail | null>(null)
-const canReviewDetail = computed(() => detail.value?.status === 'PENDING_REVIEW')
+const canReviewDetail = computed(() => canReviewAfterSales(auth.session) && detail.value?.status === 'PENDING_REVIEW')
 
 async function loadList() {
   loadingList.value = true
@@ -159,6 +162,10 @@ async function submitReview(action: 'approve' | 'reject') {
   if (afterSalesReviewing.value) return
   if (!isValidAdminAfterSalesNo(safeNo) || !detail.value) {
     detailError.value = '售后编号无效：已阻止本地审核提交。'
+    return
+  }
+  if (!canReviewAfterSales(auth.session)) {
+    detailError.value = '当前管理员缺少售后审核权限：未执行任何本地变更。'
     return
   }
   if (!canReviewDetail.value) {

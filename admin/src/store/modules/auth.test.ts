@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   buildAdminHeaders,
+  canReviewAfterSales,
   loginAdminSession,
   logoutAdminSession,
   menuAllowsSession,
@@ -8,6 +9,8 @@ import {
   shouldRedirectToLogin,
   sessionAllowsPermission
 } from './auth'
+
+const FUTURE_EXPIRES_AT = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 
 describe('admin auth helpers', () => {
   it('logs in through backend admin session endpoint and persists returned permissions only', async () => {
@@ -19,7 +22,7 @@ describe('admin auth helpers', () => {
           userId: '7',
           permissions: ['audit:read', 'finance:read'],
           sessionId: 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-          expiresAt: '2026-05-11T03:00:00'
+          expiresAt: FUTURE_EXPIRES_AT
         }
       })
     })
@@ -37,7 +40,7 @@ describe('admin auth helpers', () => {
   it('logs out by revoking the server-issued admin session header pair only', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true })
     vi.stubGlobal('fetch', fetchMock)
-    const session = normalizeAdminSession({ username: 'ops', userId: '7', permissions: ['audit:read'], sessionId: 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', expiresAt: '2026-05-11T03:00:00' })
+    const session = normalizeAdminSession({ username: 'ops', userId: '7', permissions: ['audit:read'], sessionId: 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', expiresAt: FUTURE_EXPIRES_AT })
 
     await logoutAdminSession(session)
 
@@ -65,9 +68,9 @@ describe('admin auth helpers', () => {
   })
 
   it('normalizes a persisted admin session into non-sensitive request headers', () => {
-    const session = normalizeAdminSession({ username: ' ops ', userId: '7', permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'], sessionId: 'adm_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', expiresAt: '2026-05-11T03:00:00' })
+    const session = normalizeAdminSession({ username: ' ops ', userId: '7', permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'], sessionId: 'adm_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', expiresAt: FUTURE_EXPIRES_AT })
 
-    expect(session).toEqual({ username: 'ops', userId: '7', permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'], sessionId: 'adm_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', expiresAt: '2026-05-11T03:00:00' })
+    expect(session).toEqual({ username: 'ops', userId: '7', permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'], sessionId: 'adm_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', expiresAt: FUTURE_EXPIRES_AT })
     expect(buildAdminHeaders(session)).toEqual({
       'X-User-Id': '7',
       'X-Admin-Session': 'adm_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -90,7 +93,7 @@ describe('admin auth helpers', () => {
       userId: '8',
       permissions: ['audit:read', 'unknown:root'],
       sessionId: 'adm_cccccccccccccccccccccccccccccccc',
-      expiresAt: '2026-05-11T03:00:00'
+      expiresAt: FUTURE_EXPIRES_AT
     })
 
     expect(session?.permissions).toEqual(['audit:read'])
@@ -106,7 +109,7 @@ describe('admin auth helpers', () => {
       userId: '8',
       permissions: ['audit:read'],
       sessionId: 'adm_dddddddddddddddddddddddddddddddd',
-      expiresAt: '2026-05-11T03:00:00'
+      expiresAt: FUTURE_EXPIRES_AT
     })
 
     expect(menuAllowsSession({ path: '/audit', label: '审核工作台', permission: 'audit:read' }, auditOnly)).toBe(true)
@@ -120,13 +123,13 @@ describe('admin auth helpers', () => {
       userId: '8',
       permissions: ['audit:read'],
       sessionId: 'adm_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
-      expiresAt: '2026-05-11T03:00:00'
+      expiresAt: FUTURE_EXPIRES_AT
     })
 
     expect(shouldRedirectToLogin('/audit/AU-20260510-0001', auditOnly)).toBe(false)
     expect(shouldRedirectToLogin('/users', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/users/8331', auditOnly)).toBe(true)
-    expect(shouldRedirectToLogin('/users', normalizeAdminSession({ username: 'user-admin', userId: '9', permissions: ['user:read'], sessionId: 'adm_ffffffffffffffffffffffffffffffff', expiresAt: '2026-05-11T03:00:00' }))).toBe(false)
+    expect(shouldRedirectToLogin('/users', normalizeAdminSession({ username: 'user-admin', userId: '9', permissions: ['user:read'], sessionId: 'adm_ffffffffffffffffffffffffffffffff', expiresAt: FUTURE_EXPIRES_AT }))).toBe(false)
     expect(shouldRedirectToLogin('/finance/withdrawals', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/system/location', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/audit-logs', auditOnly)).toBe(true)
@@ -139,14 +142,14 @@ describe('admin auth helpers', () => {
       userId: '8',
       permissions: ['audit:read'],
       sessionId: 'adm_11111111111111111111111111111111',
-      expiresAt: '2026-05-11T03:00:00'
+      expiresAt: FUTURE_EXPIRES_AT
     })
     const userOnly = normalizeAdminSession({
       username: 'user-admin',
       userId: '9',
       permissions: ['user:read'],
       sessionId: 'adm_22222222222222222222222222222222',
-      expiresAt: '2026-05-11T03:00:00'
+      expiresAt: FUTURE_EXPIRES_AT
     })
 
     expect(shouldRedirectToLogin('/users', auditOnly)).toBe(true)
@@ -161,7 +164,7 @@ describe('admin auth helpers', () => {
       userId: '14',
       permissions: ['finance:read'],
       sessionId: 'adm_88888888888888888888888888888888',
-      expiresAt: '2026-05-11T03:00:00'
+      expiresAt: FUTURE_EXPIRES_AT
     })
 
     expect(shouldRedirectToLogin('/dashboard', financeOnly)).toBe(false)
@@ -173,7 +176,7 @@ describe('admin auth helpers', () => {
       userId: '14',
       permissions: ['finance:read'],
       sessionId: 'adm_99999999999999999999999999999999',
-      expiresAt: '2026-05-11T03:00:00'
+      expiresAt: FUTURE_EXPIRES_AT
     })
 
     expect(menuAllowsSession({ path: '/dashboard', label: '仪表盘', permission: null }, financeOnly)).toBe(true)
@@ -186,7 +189,7 @@ describe('admin auth helpers', () => {
       userId: '12',
       permissions: [],
       sessionId: 'adm_33333333333333333333333333333333',
-      expiresAt: '2026-05-11T03:00:00'
+      expiresAt: FUTURE_EXPIRES_AT
     })
 
     expect(session).toBeNull()
@@ -214,21 +217,21 @@ describe('admin auth helpers', () => {
       userId: '8',
       permissions: ['audit:read'],
       sessionId: 'adm_44444444444444444444444444444444',
-      expiresAt: '2026-05-11T03:00:00'
+      expiresAt: FUTURE_EXPIRES_AT
     })
     const orderOnly = normalizeAdminSession({
       username: 'order-admin',
       userId: '10',
       permissions: ['order:read'],
       sessionId: 'adm_55555555555555555555555555555555',
-      expiresAt: '2026-05-11T03:00:00'
+      expiresAt: FUTURE_EXPIRES_AT
     })
     const afterSalesOnly = normalizeAdminSession({
       username: 'after-sales-admin',
       userId: '11',
       permissions: ['after-sales:read'],
       sessionId: 'adm_66666666666666666666666666666666',
-      expiresAt: '2026-05-11T03:00:00'
+      expiresAt: FUTURE_EXPIRES_AT
     })
 
     expect(shouldRedirectToLogin('/orders', auditOnly)).toBe(true)
@@ -239,5 +242,26 @@ describe('admin auth helpers', () => {
     expect(shouldRedirectToLogin('/after-sales', afterSalesOnly)).toBe(false)
     expect(menuAllowsSession({ path: '/orders', label: '订单管理', permission: 'order:read' }, auditOnly)).toBe(false)
     expect(menuAllowsSession({ path: '/after-sales', label: '售后管理', permission: 'after-sales:read' }, auditOnly)).toBe(false)
+  })
+
+  it('requires after-sales review permission before enabling admin after-sales approval actions', () => {
+    const readOnly = normalizeAdminSession({
+      username: 'after-sales-reader',
+      userId: '15',
+      permissions: ['after-sales:read'],
+      sessionId: 'adm_abababababababababababababababab',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+    const reviewer = normalizeAdminSession({
+      username: 'after-sales-reviewer',
+      userId: '16',
+      permissions: ['after-sales:read', 'after-sales:review'],
+      sessionId: 'adm_cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+
+    expect(canReviewAfterSales(readOnly)).toBe(false)
+    expect(canReviewAfterSales(reviewer)).toBe(true)
+    expect(canReviewAfterSales(null)).toBe(false)
   })
 })
