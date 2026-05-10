@@ -48,6 +48,8 @@ const requiredPatterns = [
   { file: 'src/pages/after-sales/index.vue', pattern: /canReviewAfterSales/, message: 'after-sales review actions must require explicit after-sales:review permission' },
   { file: 'src/pages/after-sales/index.vue', pattern: /afterSalesReviewing/, message: 'after-sales page must lock duplicate backend review submissions' },
   { file: 'src/pages/orders/index.vue', pattern: /getAdminOrderDetail/, message: 'order page must load backend admin order detail' },
+  { file: 'src/pages/orders/index.vue', pattern: /getAdminOrderList/, message: 'order page must load backend admin order list' },
+  { file: 'src/pages/orders/index.vue', pattern: /listLoading/, message: 'order page must expose backend list loading/fail-closed state' },
   { file: 'src/pages/users/index.vue', pattern: /getAdminUserDetail/, message: 'user page must load backend admin user detail' },
   { file: 'src/pages/users/index.vue', pattern: /searchAdminUsers/, message: 'user page must search backend admin users without local sample lists' },
   { file: 'src/pages/audit-logs/index.vue', pattern: /getAdminAuditLogs/, message: 'audit log page must load backend admin audit logs' }
