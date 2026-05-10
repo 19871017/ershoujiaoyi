@@ -96,6 +96,21 @@ class AdminControllerRbacTest {
     }
 
     @Test
+    void adminDashboardRejectsPersistedLegacyNonOpaqueSessionIds() throws Exception {
+        createActiveUser(10L);
+        grantPermission(10L, "audit:read");
+        jdbcTemplate.update("""
+                insert into admin_session (session_id, user_id, expires_at, revoked, created_at)
+                values (?, ?, DATEADD('HOUR', 1, CURRENT_TIMESTAMP), false, CURRENT_TIMESTAMP)
+                """, "test-session-legacy-10", 10L);
+
+        mvc.perform(get("/api/admin/dashboard")
+                        .header("X-User-Id", "10")
+                        .header("X-Admin-Session", "test-session-legacy-10"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void adminDashboardRequiresActivePersistedAdminAccountWithPermission() throws Exception {
         grantPermission(11L, "audit:read");
 
@@ -205,7 +220,7 @@ class AdminControllerRbacTest {
     }
 
     private String issueAdminSession(Long userId) {
-        String sessionId = "test-session-" + userId + '-' + System.nanoTime();
+        String sessionId = "adm_" + String.format("%032x", Math.abs((userId + ":" + System.nanoTime()).hashCode()));
         jdbcTemplate.update("""
                 insert into admin_session (session_id, user_id, expires_at, revoked, created_at)
                 values (?, ?, DATEADD('HOUR', 1, CURRENT_TIMESTAMP), false, CURRENT_TIMESTAMP)

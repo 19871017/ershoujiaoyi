@@ -40,11 +40,15 @@ public class AdminAccessGuard {
         if (sessionId == null || sessionId.isBlank()) {
             return false;
         }
+        String normalizedSessionId = sessionId.trim();
+        if (!normalizedSessionId.matches("^adm_[a-fA-F0-9]{32}$")) {
+            return false;
+        }
         Integer count = jdbcTemplate.queryForObject("""
                 SELECT COUNT(1)
                 FROM admin_session
                 WHERE user_id = ? AND session_id = ? AND revoked = FALSE AND expires_at > CURRENT_TIMESTAMP
-                """, Integer.class, adminUserId, sessionId.trim());
+                """, Integer.class, adminUserId, normalizedSessionId);
         return count != null && count > 0;
     }
 
