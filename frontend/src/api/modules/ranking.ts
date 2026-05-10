@@ -11,6 +11,9 @@ export interface UserRankingResponse {
   bio?: string
   mainRole?: string
   followerCount: number
+  popularityScore: number
+  safetyScore: number
+  guardianScore: number
   followedByMe: boolean
 }
 

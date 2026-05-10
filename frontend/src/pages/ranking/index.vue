@@ -176,8 +176,8 @@ function toRankingUser(item: UserRankingResponse): RankingUser {
     bio: item.bio || '个人介绍以后端资料为准',
     city: item.city || '全部',
     tags: item.mainRole ? [`角色 ${item.mainRole}`] : [],
-    popularity: item.followerCount,
-    guardian: item.followerCount,
+    popularity: item.popularityScore,
+    guardian: activeType.value === 'deal' ? item.safetyScore : item.guardianScore,
     viewerFollows: item.followedByMe
   }
 }

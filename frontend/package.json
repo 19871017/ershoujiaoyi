@@ -24,6 +24,7 @@
     "check:upload-evidence": "node scripts/check-upload-evidence-canonical-scenes.cjs",
     "check:notification-real-data": "node scripts/check-notification-real-data.cjs",
     "check:ranking-no-static-trust": "node scripts/check-ranking-no-static-trust.cjs",
+    "check:ranking-backend-metrics": "node scripts/check-ranking-backend-metrics.cjs",
     "check:community-feed-real-data": "node scripts/check-community-feed-real-data.cjs",
     "check:pages": "node scripts/check-pages-consistency.cjs",
     "check:gift-module": "node scripts/check-gift-module-real-flow.cjs",

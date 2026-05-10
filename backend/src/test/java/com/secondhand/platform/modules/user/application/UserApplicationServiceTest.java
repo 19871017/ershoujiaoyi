@@ -241,6 +241,29 @@ class UserApplicationServiceTest {
     }
 
     @Test
+    void listRankingsShouldExposeBackendSocialMetricsWithoutTrustMetricSubstitution() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.login(login("13800138551", "pass-123456"));
+        auth.login(login("13800138552", "pass-123456"));
+        auth.login(login("13800138553", "pass-123456"));
+        Long viewerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138551");
+        Long sellerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138552");
+        Long followerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138553");
+        jdbcTemplate.update("UPDATE user_profile SET gender = ?, main_role = ?, city = ?, bio = ? WHERE user_id = ?", "goddess", "SELLER", "成都", "后端榜单资料", sellerId);
+        service.followProfile(viewerId, sellerId);
+        service.followProfile(followerId, sellerId);
+
+        java.util.List<com.secondhand.platform.modules.user.UserRankingResponse> rows = service.listRankings("goddess", 20, viewerId);
+
+        com.secondhand.platform.modules.user.UserRankingResponse row = rows.stream().filter(item -> item.getUserId().equals(sellerId)).findFirst().orElseThrow();
+        assertEquals(2, row.getFollowerCount());
+        assertEquals(2, row.getPopularityScore());
+        assertEquals(0, row.getSafetyScore());
+        assertEquals(0, row.getGuardianScore());
+        assertEquals(true, row.isFollowedByMe());
+    }
+
+    @Test
     void adminUserSearchShouldReturnMaskedActiveUsersByKeywordWithoutRawPhone() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
         auth.login(login("13800138441", "pass-123456"));

@@ -184,6 +184,9 @@ public class UserApplicationService {
                        p.bio,
                        p.main_role,
                        COUNT(f.id) AS follower_count,
+                       COUNT(f.id) AS popularity_score,
+                       0 AS safety_score,
+                       0 AS guardian_score,
                        CASE WHEN ? = TRUE AND EXISTS (
                            SELECT 1 FROM user_follow vf WHERE vf.follower_id = ? AND vf.followed_id = a.id
                        ) THEN TRUE ELSE FALSE END AS followed_by_me
@@ -203,6 +206,9 @@ public class UserApplicationService {
                         rs.getString("bio"),
                         rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role"),
                         rs.getInt("follower_count"),
+                        rs.getInt("popularity_score"),
+                        rs.getInt("safety_score"),
+                        rs.getInt("guardian_score"),
                         rs.getBoolean("followed_by_me")
                 ), hasViewer, hasViewer ? viewerId : -1L, profileGender, limit);
         return List.copyOf(rows);
