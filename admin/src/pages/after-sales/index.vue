@@ -1,7 +1,7 @@
 <template>
   <section class="page-shell after-sales-page">
     <div class="page-title">售后管理</div>
-    <div class="page-desc">默认从后端读取待处理售后列表；详情按后端售后编号查询，无有效编号或接口失败时不展示本地样例，也不执行本地处理成功态。</div>
+    <div class="page-desc">默认从后端读取待处理售后列表；详情与审核按后端售后编号执行，无有效编号或接口失败时不展示本地样例，也不执行本地处理成功态。</div>
 
     <div class="lookup-card">
       <label>
@@ -73,17 +73,33 @@
         <div><dt>上传票据数量</dt><dd>{{ detail.evidenceUrls?.length || 0 }}</dd></div>
       </dl>
       <p class="safe-note">{{ detail.description || '暂无补充说明' }}</p>
-      <p class="safe-note">售后处理以服务端订单、支付、物流、聊天记录和已提交票据为准；本页当前仅查询详情，不做本地审核成功。</p>
+      <p class="safe-note">售后处理以服务端订单、支付、物流、聊天记录和已提交票据为准；审核成功只以后端响应为准。</p>
+      <div class="review-panel">
+        <label>
+          <span>审核备注</span>
+          <textarea v-model.trim="reviewRemark" maxlength="200" placeholder="选填，仅提交给后端售后审核接口"></textarea>
+        </label>
+        <div class="review-actions">
+          <button class="primary-btn" :disabled="afterSalesReviewing || !canReviewDetail" @click="submitReview('approve')">
+            {{ afterSalesReviewing ? '提交中...' : '通过售后' }}
+          </button>
+          <button class="danger-btn" :disabled="afterSalesReviewing || !canReviewDetail" @click="submitReview('reject')">
+            拒绝售后
+          </button>
+        </div>
+        <p class="safe-note">审核结果只以后端 /api/admin/after-sales 审核响应为准；失败时不会本地改写售后状态。</p>
+      </div>
     </article>
   </section>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import {
   getAdminAfterSalesDetail,
   getAdminAfterSalesList,
   isValidAdminAfterSalesNo,
+  reviewAdminAfterSales,
   type AdminAfterSalesDetail,
   type AdminAfterSalesListQuery
 } from '../../api'
@@ -94,8 +110,11 @@ const loadingList = ref(false)
 const loadingDetail = ref(false)
 const listError = ref('')
 const detailError = ref('')
+const reviewRemark = ref('')
+const afterSalesReviewing = ref(false)
 const rows = ref<AdminAfterSalesDetail[]>([])
 const detail = ref<AdminAfterSalesDetail | null>(null)
+const canReviewDetail = computed(() => detail.value?.status === 'PENDING_REVIEW')
 
 async function loadList() {
   loadingList.value = true
@@ -131,6 +150,31 @@ async function loadDetail() {
     detailError.value = '售后详情加载失败：未展示本地样例，请确认管理员权限、后端服务与 /api/admin/after-sales/{afterSalesNo} 可用。'
   } finally {
     loadingDetail.value = false
+  }
+}
+
+async function submitReview(action: 'approve' | 'reject') {
+  const safeNo = detail.value?.afterSalesNo || afterSalesNo.value.trim()
+  detailError.value = ''
+  if (afterSalesReviewing.value) return
+  if (!isValidAdminAfterSalesNo(safeNo) || !detail.value) {
+    detailError.value = '售后编号无效：已阻止本地审核提交。'
+    return
+  }
+  if (!canReviewDetail.value) {
+    detailError.value = '当前售后状态不可审核：未执行任何本地变更。'
+    return
+  }
+  afterSalesReviewing.value = true
+  try {
+    const reviewed = await reviewAdminAfterSales(safeNo, action, reviewRemark.value)
+    detail.value = reviewed
+    rows.value = rows.value.map((row) => row.afterSalesNo === safeNo ? reviewed : row)
+    reviewRemark.value = ''
+  } catch {
+    detailError.value = '售后审核提交失败：未执行任何本地状态变更，请确认权限、编号与后端接口。'
+  } finally {
+    afterSalesReviewing.value = false
   }
 }
 
