@@ -19,7 +19,6 @@ async function postAdminSessionLogin(mobile: string, password: string): Promise<
 export interface AdminSessionInput {
   username?: string
   userId?: string
-  devAdminEnabled?: boolean
   permissions?: string[]
 }
 
@@ -50,7 +49,6 @@ export interface AdminMenuItem {
 export interface AdminSession {
   username: string
   userId: string
-  devAdminEnabled: true
   permissions: AdminPermission[]
 }
 
@@ -70,14 +68,20 @@ function normalizePermissions(permissions?: string[]): AdminPermission[] {
   return permissions.filter((permission): permission is AdminPermission => PERMISSION_SET.has(permission as AdminPermission))
 }
 
+function hasOnlyExpectedSessionKeys(input: AdminSessionInput | null | undefined): boolean {
+  if (!input || typeof input !== 'object') return false
+  return Object.keys(input).every((key) => key === 'username' || key === 'userId' || key === 'permissions')
+}
+
 export function normalizeAdminSession(input: AdminSessionInput | null | undefined): AdminSession | null {
+  if (!hasOnlyExpectedSessionKeys(input)) return null
   const username = input?.username?.trim()
   const userId = input?.userId?.trim()
-  if (!username || !userId || input?.devAdminEnabled !== true) return null
+  if (!username || !userId) return null
   if (!USER_ID_PATTERN.test(userId)) return null
   const permissions = normalizePermissions(input.permissions)
   if (permissions.length === 0) return null
-  return { username, userId, devAdminEnabled: true, permissions }
+  return { username, userId, permissions }
 }
 
 export function sessionAllowsPermission(session: AdminSession | null, permission: AdminPermission): boolean {

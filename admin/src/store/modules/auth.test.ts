@@ -16,7 +16,6 @@ describe('admin auth helpers', () => {
         data: {
           username: 'ops',
           userId: '7',
-          devAdminEnabled: true,
           permissions: ['audit:read', 'finance:read']
         }
       })
@@ -39,10 +38,17 @@ describe('admin auth helpers', () => {
     expect(buildAdminHeaders(session)).toEqual({})
   })
 
-  it('normalizes a dev admin session into non-sensitive request headers', () => {
-    const session = normalizeAdminSession({ username: ' ops ', userId: '7', devAdminEnabled: true, permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'] })
+  it('rejects backend admin sessions that still depend on the dev-admin compatibility flag', () => {
+    const session = normalizeAdminSession({ username: 'legacy-dev-admin', userId: '7', devAdminEnabled: true, permissions: ['audit:read'] })
 
-    expect(session).toEqual({ username: 'ops', userId: '7', devAdminEnabled: true, permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'] })
+    expect(session).toBeNull()
+    expect(buildAdminHeaders(session)).toEqual({})
+  })
+
+  it('normalizes a persisted admin session into non-sensitive request headers', () => {
+    const session = normalizeAdminSession({ username: ' ops ', userId: '7', permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'] })
+
+    expect(session).toEqual({ username: 'ops', userId: '7', permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'] })
     expect(buildAdminHeaders(session)).toEqual({
       'X-User-Id': '7'
     })
@@ -62,7 +68,6 @@ describe('admin auth helpers', () => {
     const session = normalizeAdminSession({
       username: 'audit-only',
       userId: '8',
-      devAdminEnabled: true,
       permissions: ['audit:read', 'unknown:root']
     })
 
@@ -77,7 +82,6 @@ describe('admin auth helpers', () => {
     const auditOnly = normalizeAdminSession({
       username: 'audit-only',
       userId: '8',
-      devAdminEnabled: true,
       permissions: ['audit:read']
     })
 
@@ -90,14 +94,13 @@ describe('admin auth helpers', () => {
     const auditOnly = normalizeAdminSession({
       username: 'audit-only',
       userId: '8',
-      devAdminEnabled: true,
       permissions: ['audit:read']
     })
 
     expect(shouldRedirectToLogin('/audit/AU-20260510-0001', auditOnly)).toBe(false)
     expect(shouldRedirectToLogin('/users', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/users/8331', auditOnly)).toBe(true)
-    expect(shouldRedirectToLogin('/users', normalizeAdminSession({ username: 'user-admin', userId: '9', devAdminEnabled: true, permissions: ['user:read'] }))).toBe(false)
+    expect(shouldRedirectToLogin('/users', normalizeAdminSession({ username: 'user-admin', userId: '9', permissions: ['user:read'] }))).toBe(false)
     expect(shouldRedirectToLogin('/finance/withdrawals', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/system/location', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/audit-logs', auditOnly)).toBe(true)
@@ -108,13 +111,11 @@ describe('admin auth helpers', () => {
     const auditOnly = normalizeAdminSession({
       username: 'audit-only',
       userId: '8',
-      devAdminEnabled: true,
       permissions: ['audit:read']
     })
     const userOnly = normalizeAdminSession({
       username: 'user-admin',
       userId: '9',
-      devAdminEnabled: true,
       permissions: ['user:read']
     })
 
@@ -128,7 +129,6 @@ describe('admin auth helpers', () => {
     const session = normalizeAdminSession({
       username: 'no-permission-admin',
       userId: '12',
-      devAdminEnabled: true,
       permissions: []
     })
 
@@ -141,19 +141,16 @@ describe('admin auth helpers', () => {
     const auditOnly = normalizeAdminSession({
       username: 'audit-only',
       userId: '8',
-      devAdminEnabled: true,
       permissions: ['audit:read']
     })
     const orderOnly = normalizeAdminSession({
       username: 'order-admin',
       userId: '10',
-      devAdminEnabled: true,
       permissions: ['order:read']
     })
     const afterSalesOnly = normalizeAdminSession({
       username: 'after-sales-admin',
       userId: '11',
-      devAdminEnabled: true,
       permissions: ['after-sales:read']
     })
 

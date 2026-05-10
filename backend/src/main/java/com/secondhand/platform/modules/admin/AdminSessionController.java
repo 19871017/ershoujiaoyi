@@ -52,7 +52,7 @@ public class AdminSessionController {
         if (permissions.isEmpty()) {
             throw new SecurityException("admin access required");
         }
-        return Result.ok(new AdminSessionResponse(row.nickname(), String.valueOf(row.userId()), true, permissions));
+        return Result.ok(new AdminSessionResponse(row.nickname(), String.valueOf(row.userId()), permissions));
     }
 
     private AdminLoginRow findActiveUser(String mobile) {
@@ -111,6 +111,6 @@ public class AdminSessionController {
     private record AdminLoginRow(Long userId, String passwordHash, String nickname) {
     }
 
-    public record AdminSessionResponse(String username, String userId, boolean devAdminEnabled, List<String> permissions) {
+    public record AdminSessionResponse(String username, String userId, List<String> permissions) {
     }
 }

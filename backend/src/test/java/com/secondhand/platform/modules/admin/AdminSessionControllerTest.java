@@ -51,8 +51,8 @@ class AdminSessionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.userId").value(String.valueOf(userId)))
                 .andExpect(jsonPath("$.data.username").value("小原圈用户0071"))
-                .andExpect(jsonPath("$.data.devAdminEnabled").value(true))
                 .andExpect(jsonPath("$.data.permissions", containsInAnyOrder("audit:read", "finance:read")))
+                .andExpect(jsonPath("$.data.devAdminEnabled").doesNotExist())
                 .andExpect(jsonPath("$.data.password").doesNotExist())
                 .andExpect(jsonPath("$.data.accessKey").doesNotExist());
     }

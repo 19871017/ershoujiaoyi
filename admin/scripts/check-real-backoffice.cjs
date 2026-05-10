@@ -15,7 +15,7 @@ const requiredFiles = [
 const forbidden = [
   { file: 'src/api/http.ts', pattern: /Promise\.resolve\(\{\}\s+as\s+T\)/, message: 'http request must not be empty mock resolver' },
   { file: 'src/api/http.ts', pattern: /X-Admin-Mode|X-Dev-Mode/, message: 'admin HTTP client must not send legacy dev-mode authorization headers' },
-  { file: 'src/store/modules/auth.ts', pattern: /X-Admin-Mode|X-Dev-Mode/, message: 'admin auth must not build legacy dev-mode authorization headers' },
+  { file: 'src/store/modules/auth.ts', pattern: /X-Admin-Mode|X-Dev-Mode|devAdminEnabled/, message: 'admin auth must not build or accept legacy dev-mode authorization/session flags' },
   { file: 'src/pages/login/index.vue', pattern: /登录页占位|TODO/i, message: 'login page must not be placeholder' },
   { file: 'src/pages/dashboard/index.vue', pattern: /仪表盘占位|TODO|placeholder/i, message: 'dashboard must not be placeholder or derive fake local metrics' },
   { file: 'src/router/index.ts', pattern: /system\/empty/, message: 'router must not route core admin flow to empty placeholder' },
