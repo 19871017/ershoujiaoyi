@@ -361,7 +361,9 @@ public class AuditApplicationService {
         if (!enabled || description == null) {
             return description;
         }
-        return description.replaceAll("(?<!\\d)(1[3-9]\\d)\\d{4}(\\d{4})(?!\\d)", "$1****$2");
+        return description
+                .replaceAll("(?<!\\d)(1[3-9]\\d)\\d{4}(\\d{4})(?!\\d)", "$1****$2")
+                .replaceAll("(?<!\\d)(\\d{6})\\d{6,9}(\\d{4})(?!\\d)", "$1********$2");
     }
 
     private void validateUserId(Long userId) {

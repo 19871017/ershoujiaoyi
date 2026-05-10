@@ -243,6 +243,17 @@ class AuditApplicationServiceTest {
     }
 
     @Test
+    void adminAuditLogsShouldMaskBankCardLikeAccountNumbersInSummaries() {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        jdbcTemplate.update("insert into admin_audit_log (action,operator_id,target_type,target_id,result,summary,created_at) values (?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+                "WITHDRAWAL_REVIEW", 8L, "WITHDRAWAL", "WD-20260510-9901", "APPROVED", "提现账号 6222020202020208088 已复核，手机号 13800138000");
+
+        AdminAuditLogResponse log = service.listAdminAuditLogs(null, 10).get(0);
+
+        assertEquals("提现账号 622202********8088 已复核，手机号 138****8000", log.summary());
+    }
+
+    @Test
     void adminDashboardSummaryShouldAggregatePersistedBackofficeCountsOnly() {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
         jdbcTemplate.update("insert into audit_record (audit_no,audit_type,user_id,target_type,target_id,reason,description,status,created_at) values (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
