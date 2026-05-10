@@ -36,6 +36,9 @@ public class AuditController {
 
     @PostMapping("/video-identity")
     public Result<AuditRecordResponse> submitVideoIdentity(@RequestBody VideoIdentityRequest body, HttpServletRequest request) {
+        if (body != null && body.hasClientDerivedIdentityFields()) {
+            throw new IllegalArgumentException("identity fields must be server-derived");
+        }
         Long userId = currentUserResolver.resolve(request);
         return Result.ok(auditApplicationService.submitVideoIdentity(
                 userId,

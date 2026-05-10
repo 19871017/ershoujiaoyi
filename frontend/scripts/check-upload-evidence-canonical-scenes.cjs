@@ -155,6 +155,12 @@ if (identityPage.includes("profile.videoIdentityStatus = 'PENDING'") || identity
 if (!identityPage.includes('await loadProfile()')) {
   failures.push('identity video submit should refresh server-derived profile state after backend accepts the audit submission')
 }
+if (!identityPage.includes('submitVideoIdentity({ videoUrl: videoUrl.value, description:')) {
+  failures.push('identity video submit should send only the server-issued videoUrl plus description, not client identity/trust fields')
+}
+if (/submitVideoIdentity\(\{[^}]*\b(userId|senderId|buyerId|sellerId|admin|role|identityStatus|videoIdentityStatus|videoVerified)\b/s.test(identityPage)) {
+  failures.push('identity video submit must not include client-supplied identity/trust fields in the audit request body')
+}
 
 if (failures.length) {
   console.error(failures.join('\n'))

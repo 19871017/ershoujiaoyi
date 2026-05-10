@@ -79,7 +79,8 @@ public class GlobalExceptionHandler {
             "nickname invalid",
             "mainRole invalid",
             "city invalid",
-            "bio invalid"
+            "bio invalid",
+            "identity fields must be server-derived"
     );
 
     @ExceptionHandler(SecurityException.class)
