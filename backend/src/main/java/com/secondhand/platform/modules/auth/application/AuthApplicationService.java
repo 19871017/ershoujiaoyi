@@ -9,6 +9,7 @@ import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -43,7 +44,7 @@ public class AuthApplicationService {
         } else if (!verifyPassword(request.getPassword(), user.passwordHash())) {
             throw new IllegalArgumentException("mobile or password invalid");
         }
-        return new AuthTokenResponse(buildToken("dev-access", user.userNo()), buildToken("dev-refresh", user.userNo()));
+        return issueSession(user.id());
     }
 
     private UserAuthRow createUser(String mobile, String passwordHash) {
@@ -95,10 +96,20 @@ public class AuthApplicationService {
         }
     }
 
-    private String buildToken(String tokenType, String userNo) {
-        // SECURITY PLACEHOLDER: deterministic dev token for API wiring only.
-        // Replace with signed JWT/session issuance and server-side token storage before production.
-        return tokenType + '-' + sha256(tokenType + ':' + userNo).substring(0, 40);
+    private AuthTokenResponse issueSession(Long userId) {
+        String accessToken = opaqueToken();
+        String refreshToken = opaqueToken();
+        jdbcTemplate.update("""
+                INSERT INTO user_session (access_token, refresh_token, user_id, expires_at, revoked)
+                VALUES (?, ?, ?, ?, FALSE)
+                """, accessToken, refreshToken, userId, LocalDateTime.now().plusDays(30));
+        return new AuthTokenResponse(accessToken, refreshToken);
+    }
+
+    private String opaqueToken() {
+        byte[] bytes = new byte[16];
+        SECURE_RANDOM.nextBytes(bytes);
+        return "usr_" + HexFormat.of().formatHex(bytes);
     }
 
     private String passwordHash(String password) {

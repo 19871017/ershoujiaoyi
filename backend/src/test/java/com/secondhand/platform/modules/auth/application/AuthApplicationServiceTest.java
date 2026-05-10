@@ -34,8 +34,8 @@ class AuthApplicationServiceTest {
     void loginShouldCreateUserAccountAndProfileWhenMobileIsNew() {
         AuthTokenResponse response = service.login(login("13800138000", "pass-123456"));
 
-        assertTrue(response.getAccessToken().startsWith("dev-access-"));
-        assertTrue(response.getRefreshToken().startsWith("dev-refresh-"));
+        assertTrue(response.getAccessToken().startsWith("usr_"));
+        assertTrue(response.getRefreshToken().startsWith("usr_"));
         assertFalse(response.getAccessToken().contains("13800138000"));
         assertEquals(1, count("user_account"));
         assertEquals(1, count("user_profile"));
@@ -61,11 +61,25 @@ class AuthApplicationServiceTest {
     }
 
     @Test
+    void loginShouldIssuePersistedOpaqueSessionTokensInsteadOfDeterministicDevTokens() {
+        AuthTokenResponse first = service.login(login("13800138004", "pass-123456"));
+        AuthTokenResponse second = service.login(login("13800138004", "pass-123456"));
+
+        assertTrue(first.getAccessToken().matches("^usr_[a-f0-9]{32}$"));
+        assertTrue(first.getRefreshToken().matches("^usr_[a-f0-9]{32}$"));
+        assertFalse(first.getAccessToken().startsWith("dev-access-"));
+        assertFalse(first.getRefreshToken().startsWith("dev-refresh-"));
+        assertFalse(first.getAccessToken().equals(second.getAccessToken()));
+        assertFalse(first.getRefreshToken().equals(second.getRefreshToken()));
+        assertEquals(2, count("user_session"));
+    }
+
+    @Test
     void repeatedLoginShouldReuseExistingUserWithoutDuplicatingRows() {
         AuthTokenResponse first = service.login(login("13800138001", "pass-123456"));
         AuthTokenResponse second = service.login(login("13800138001", "pass-123456"));
 
-        assertEquals(first.getAccessToken(), second.getAccessToken());
+        assertFalse(first.getAccessToken().equals(second.getAccessToken()));
         assertEquals(1, count("user_account"));
         assertEquals(1, count("user_profile"));
     }
