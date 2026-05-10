@@ -7,7 +7,7 @@ export interface AdminSessionInput {
   permissions?: string[]
 }
 
-export type AdminPermission = 'audit:read' | 'audit:review' | 'finance:read' | 'user:read' | 'order:read' | 'after-sales:read' | 'system:config' | 'audit:log'
+export type AdminPermission = 'audit:read' | 'audit:review' | 'finance:read' | 'user:read' | 'order:read' | 'after-sales:read' | 'after-sales:review' | 'system:config' | 'audit:log'
 
 interface RoutePermissionRule {
   pattern: RegExp
@@ -47,7 +47,7 @@ interface AuthState {
 const STORAGE_KEY = 'xiaoyuanquan_admin_session'
 const DEFAULT_DEV_ADMIN_USER_ID = '1'
 const USER_ID_PATTERN = /^[1-9]\d*$/
-const DEFAULT_DEV_ADMIN_PERMISSIONS: AdminPermission[] = ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'system:config', 'audit:log']
+const DEFAULT_DEV_ADMIN_PERMISSIONS: AdminPermission[] = ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log']
 const PERMISSION_SET = new Set<AdminPermission>(DEFAULT_DEV_ADMIN_PERMISSIONS)
 
 function normalizePermissions(permissions?: string[]): AdminPermission[] {

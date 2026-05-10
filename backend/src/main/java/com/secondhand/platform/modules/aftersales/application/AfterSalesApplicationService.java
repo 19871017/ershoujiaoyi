@@ -70,11 +70,7 @@ public class AfterSalesApplicationService {
     }
 
     public AfterSalesResponse getAdminDetail(String afterSalesNo) {
-        String safeAfterSalesNo = requireText(afterSalesNo, "afterSalesNo required");
-        if (!safeAfterSalesNo.matches("AS-[A-Z]+-\\d{8}-\\d{4,}")) {
-            throw new IllegalArgumentException("after-sales record not found");
-        }
-        return findByAfterSalesNo(safeAfterSalesNo);
+        return findByAfterSalesNo(requireAdminAfterSalesNo(afterSalesNo));
     }
 
     public List<AfterSalesResponse> listAdminAfterSales(String status, Integer limit) {
@@ -93,6 +89,26 @@ public class AfterSalesApplicationService {
                 rs.getBigDecimal("refund_amount"), rs.getString("reason"), rs.getString("description"), decode(rs.getString("evidence_urls")),
                 rs.getString("after_sales_status"), timeText(rs.getTimestamp("created_at"))
         ), args);
+    }
+
+    @Transactional
+    public AfterSalesResponse adminReview(String afterSalesNo, String status, Long operatorId, String remark) {
+        String safeAfterSalesNo = requireAdminAfterSalesNo(afterSalesNo);
+        String safeStatus = normalizeReviewStatus(status);
+        long safeOperatorId = validateOperatorId(operatorId);
+        int updated = jdbcTemplate.update("""
+                update after_sales_record
+                set after_sales_status = ?, reviewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                where after_sales_no = ? and after_sales_status = ?
+                """, safeStatus, safeAfterSalesNo, STATUS_PENDING_REVIEW);
+        if (updated != 1) {
+            throw new IllegalStateException("after-sales already reviewed");
+        }
+        jdbcTemplate.update("""
+                insert into admin_audit_log (action,operator_id,target_type,target_id,result,summary,created_at)
+                values (?,?,?,?,?,?,CURRENT_TIMESTAMP)
+                """, "AFTER_SALES_REVIEW", safeOperatorId, "AFTER_SALES", safeAfterSalesNo, safeStatus, sanitizeReviewSummary(remark, safeStatus));
+        return findByAfterSalesNo(safeAfterSalesNo);
     }
 
     private List<String> sanitizeEvidence(Long applicantId, List<String> evidenceUrls) {
@@ -140,6 +156,35 @@ public class AfterSalesApplicationService {
             case "平台介入", "PLATFORM_ARBITRATION" -> "PLATFORM_ARBITRATION";
             default -> throw new IllegalArgumentException("after-sales type invalid");
         };
+    }
+
+    private String requireAdminAfterSalesNo(String afterSalesNo) {
+        String safeAfterSalesNo = requireText(afterSalesNo, "afterSalesNo required");
+        if (!safeAfterSalesNo.matches("AS-[A-Z]+-\\d{8}-\\d{4,}")) {
+            throw new IllegalArgumentException("after-sales record not found");
+        }
+        return safeAfterSalesNo;
+    }
+
+    private String normalizeReviewStatus(String status) {
+        String safeStatus = requireText(status, "after-sales status required").toUpperCase(Locale.ROOT);
+        if (!"APPROVED".equals(safeStatus) && !"REJECTED".equals(safeStatus)) {
+            throw new IllegalArgumentException("after-sales status invalid");
+        }
+        return safeStatus;
+    }
+
+    private long validateOperatorId(Long operatorId) {
+        if (operatorId == null || operatorId <= 0) throw new IllegalArgumentException("operatorId required");
+        return operatorId;
+    }
+
+    private String sanitizeReviewSummary(String remark, String status) {
+        String normalized = remark == null ? "" : remark.trim();
+        if (normalized.length() > 80) normalized = normalized.substring(0, 80);
+        normalized = normalized.replaceAll("\\d{3,}", "[REDACTED]");
+        if (normalized.isBlank()) return "售后审核状态已更新：" + status;
+        return "售后审核状态已更新：" + status + "，备注=" + normalized;
     }
 
     private String requireText(String value, String message) {

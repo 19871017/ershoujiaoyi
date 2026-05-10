@@ -72,6 +72,43 @@ class AdminAfterSalesApplicationServiceTest {
         assertThrows(IllegalArgumentException.class, () -> afterSalesService.getAdminDetail("AS-ADMIN-20260510-0002/../raw"));
     }
 
+    @Test
+    void adminReviewShouldPersistStatusAndOperatorAuditLogWithoutChangingAlreadyReviewedRows() {
+        insertAfterSales("AS-ADMIN-20260510-0004", "ORDER-ADMIN-20260510-0004", 8804L,
+                "售后等待人工复核", "/uploads/evidence/after-sales/8804/proof.jpg");
+
+        AfterSalesResponse approved = afterSalesService.adminReview("AS-ADMIN-20260510-0004", "APPROVED", 9901L, "同意退款协调");
+
+        assertEquals("APPROVED", approved.getStatus());
+        assertEquals("APPROVED", jdbcTemplate.queryForObject("select after_sales_status from after_sales_record where after_sales_no = ?", String.class, "AS-ADMIN-20260510-0004"));
+        Integer logCount = jdbcTemplate.queryForObject("""
+                select count(1)
+                from admin_audit_log
+                where action = 'AFTER_SALES_REVIEW'
+                  and operator_id = 9901
+                  and target_type = 'AFTER_SALES'
+                  and target_id = 'AS-ADMIN-20260510-0004'
+                  and result = 'APPROVED'
+                  and summary not like '%13800138000%'
+                """, Integer.class);
+        assertEquals(1, logCount);
+
+        assertThrows(IllegalStateException.class, () -> afterSalesService.adminReview("AS-ADMIN-20260510-0004", "REJECTED", 9901L, "重复处理"));
+        Integer unchangedLogCount = jdbcTemplate.queryForObject("select count(1) from admin_audit_log where action = 'AFTER_SALES_REVIEW' and target_id = 'AS-ADMIN-20260510-0004'", Integer.class);
+        assertEquals(1, unchangedLogCount);
+    }
+
+    @Test
+    void adminReviewShouldFailClosedForMalformedStatusOrOperator() {
+        insertAfterSales("AS-ADMIN-20260510-0005", "ORDER-ADMIN-20260510-0005", 8805L,
+                "售后等待复核", "/uploads/evidence/after-sales/8805/proof.jpg");
+
+        assertThrows(IllegalArgumentException.class, () -> afterSalesService.adminReview("preview-after-sales", "APPROVED", 9901L, "ok"));
+        assertThrows(IllegalArgumentException.class, () -> afterSalesService.adminReview("AS-ADMIN-20260510-0005", "PREVIEW", 9901L, "ok"));
+        assertThrows(IllegalArgumentException.class, () -> afterSalesService.adminReview("AS-ADMIN-20260510-0005", "APPROVED", 0L, "ok"));
+        assertEquals("PENDING_REVIEW", jdbcTemplate.queryForObject("select after_sales_status from after_sales_record where after_sales_no = ?", String.class, "AS-ADMIN-20260510-0005"));
+    }
+
     private void insertAfterSales(String afterSalesNo, String orderNo, Long applicantId, String description, String evidenceUrls) {
         insertAfterSalesWithStatus(afterSalesNo, orderNo, applicantId, description, evidenceUrls, "PENDING_REVIEW");
     }

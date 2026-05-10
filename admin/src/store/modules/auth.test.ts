@@ -11,7 +11,7 @@ describe('admin auth helpers', () => {
   it('normalizes a dev admin session into non-sensitive request headers', () => {
     const session = normalizeAdminSession({ username: ' ops ', userId: '7', devAdminEnabled: true })
 
-    expect(session).toEqual({ username: 'ops', userId: '7', devAdminEnabled: true, permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'system:config', 'audit:log'] })
+    expect(session).toEqual({ username: 'ops', userId: '7', devAdminEnabled: true, permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'] })
     expect(buildAdminHeaders(session)).toEqual({
       'X-User-Id': '7'
     })

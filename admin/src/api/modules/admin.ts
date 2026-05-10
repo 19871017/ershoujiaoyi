@@ -41,6 +41,10 @@ export interface AdminAfterSalesListQuery {
   limit?: number
 }
 
+export interface AdminAfterSalesReviewRequest {
+  remark?: string
+}
+
 export interface AdminOrderDetail {
   orderNo: string
   buyerId: number
@@ -259,6 +263,20 @@ export async function getAdminAfterSalesList(query: AdminAfterSalesListQuery = {
   }
   params.set('limit', String(limit))
   return request<AdminAfterSalesDetail[]>({ url: `/api/admin/after-sales?${params.toString()}` })
+}
+
+export async function reviewAdminAfterSales(afterSalesNo: string, action: 'approve' | 'reject', remark: string = '') {
+  if (!isValidAdminAfterSalesNo(afterSalesNo)) {
+    throw new Error('售后编号无效')
+  }
+  if (!['approve', 'reject'].includes(action)) {
+    throw new Error('售后审核动作无效')
+  }
+  return request<AdminAfterSalesDetail>({
+    url: `/api/admin/after-sales/${encodeURIComponent(afterSalesNo)}/${action}`,
+    method: 'POST',
+    data: { remark }
+  })
 }
 
 export async function getAdminOrderDetail(orderNo: string) {

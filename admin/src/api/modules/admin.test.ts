@@ -20,6 +20,7 @@ import {
   isValidAdminUserId,
   isValidAdminWithdrawalNo,
   rejectAdminAudit,
+  reviewAdminAfterSales,
   reviewAdminWithdrawal,
   updateAdminLocationConfig
 } from './admin'
@@ -343,6 +344,40 @@ describe('admin finance api', () => {
     expect(rows[0].afterSalesNo).toBe('AS-ADMIN-20260510-0001')
     await expect(getAdminAfterSalesList({ status: 'preview' as never, limit: 20 })).rejects.toThrow('售后状态筛选无效')
     await expect(getAdminAfterSalesList({ status: 'ALL', limit: 101 })).rejects.toThrow('售后列表条数无效')
+  })
+
+  it('reviews after-sales through backend endpoint and fails closed for malformed ids/actions', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          afterSalesNo: 'AS-ADMIN-20260510-0001',
+          orderNo: 'ORDER-ADMIN-20260510-0001',
+          applicantId: 8801,
+          afterSalesType: 'REFUND_ONLY',
+          refundAmount: 30,
+          reason: '尺码不合适',
+          description: '售后描述已脱敏',
+          evidenceUrls: ['/uploads/evidence/after-sales/8801/proof.jpg'],
+          status: 'APPROVED',
+          createdAt: '2026-05-10T12:00:00'
+        }
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const detail = await reviewAdminAfterSales('AS-ADMIN-20260510-0001', 'approve', '同意协调')
+
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/after-sales/AS-ADMIN-20260510-0001/approve'), expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ remark: '同意协调' })
+    }))
+    expect(detail.status).toBe('APPROVED')
+
+    vi.clearAllMocks()
+    await expect(reviewAdminAfterSales('preview-after-sales', 'approve', 'ok')).rejects.toThrow('售后编号无效')
+    await expect(reviewAdminAfterSales('AS-ADMIN-20260510-0001', 'preview' as never, 'ok')).rejects.toThrow('售后审核动作无效')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('loads order detail only for backend order numbers without fake success', async () => {

@@ -159,6 +159,22 @@ public class AdminController {
         return Result.ok(afterSalesApplicationService.getAdminDetail(afterSalesNo));
     }
 
+    @PostMapping("/after-sales/{afterSalesNo}/approve")
+    public Result<AfterSalesResponse> approveAfterSales(@PathVariable String afterSalesNo,
+                                                        @RequestBody(required = false) AdminAfterSalesReviewRequest body,
+                                                        HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "after-sales:review");
+        return Result.ok(afterSalesApplicationService.adminReview(afterSalesNo, "APPROVED", adminUserId, body == null ? null : body.getRemark()));
+    }
+
+    @PostMapping("/after-sales/{afterSalesNo}/reject")
+    public Result<AfterSalesResponse> rejectAfterSales(@PathVariable String afterSalesNo,
+                                                       @RequestBody(required = false) AdminAfterSalesReviewRequest body,
+                                                       HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "after-sales:review");
+        return Result.ok(afterSalesApplicationService.adminReview(afterSalesNo, "REJECTED", adminUserId, body == null ? null : body.getRemark()));
+    }
+
     @PostMapping("/audit/{auditNo}/approve")
     public Result<AuditRecordResponse> approveAudit(@PathVariable String auditNo,
                                                     @RequestBody(required = false) AuditReviewRequest body,
