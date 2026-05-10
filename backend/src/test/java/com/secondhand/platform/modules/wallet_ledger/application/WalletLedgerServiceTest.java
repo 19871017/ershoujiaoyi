@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.secondhand.platform.modules.wallet_ledger.CreateWithdrawalRequest;
+import com.secondhand.platform.modules.wallet_ledger.PayoutAccountRequest;
+import com.secondhand.platform.modules.wallet_ledger.PayoutAccountResponse;
 import com.secondhand.platform.modules.wallet_ledger.WalletBalanceResponse;
 import com.secondhand.platform.modules.wallet_ledger.WithdrawalResponse;
 import java.math.BigDecimal;
@@ -88,10 +90,20 @@ class WalletLedgerServiceTest {
     }
 
     @Test
-    void createWithdrawalShouldRejectClientSuppliedMaskedAccountNumber() {
+    void bindPayoutAccountShouldRejectClientSuppliedMaskedAccountNumber() {
+        PayoutAccountRequest request = payoutAccount("ALIPAY", "Alice", "6222 **** **** 8088");
+
+        assertThrows(IllegalArgumentException.class, () -> service.bindPayoutAccount(1L, request));
+
+        assertTrue(service.listWithdrawals(1L).isEmpty());
+    }
+
+    @Test
+    void createWithdrawalShouldRequireBackendOwnedPayoutAccountBindingReference() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
         CreateWithdrawalRequest request = withdrawal("50.00");
-        request.setAccountNo("6222 **** **** 8088");
+        request.setAccountNo("6222020202020208088");
+        request.setPayoutAccountId(null);
 
         assertThrows(IllegalArgumentException.class, () -> service.createWithdrawal(1L, request, "AU-WD-1"));
 
@@ -103,10 +115,56 @@ class WalletLedgerServiceTest {
     }
 
     @Test
+    void createWithdrawalShouldUseVerifiedOwnerPayoutAccountAndIgnoreClientRawAccountNumber() {
+        service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        Long accountId = service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "6222020202020208088"));
+        CreateWithdrawalRequest request = withdrawal("50.00");
+        request.setPayoutAccountId(accountId);
+        request.setAccountNo("client-supplied-raw-should-not-persist");
+        request.setAccountName("Mallory");
+
+        WithdrawalResponse withdrawal = service.createWithdrawal(1L, request, "AU-WD-1");
+
+        assertEquals("Alice", withdrawal.accountName());
+        assertEquals("6222 **** **** 8088", withdrawal.maskedAccountNo());
+        assertFalse(withdrawal.maskedAccountNo().contains("client-supplied"));
+        String storedAccount = new JdbcTemplate(database).queryForObject("select account_no from withdrawal_record where withdrawal_no = ?", String.class, withdrawal.withdrawalNo());
+        assertEquals("6222020202020208088", storedAccount);
+    }
+
+    @Test
+    void createWithdrawalShouldRejectPayoutAccountOwnedByAnotherUser() {
+        service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        Long otherAccountId = service.bindPayoutAccount(2L, payoutAccount("ALIPAY", "Bob", "bob@example.com"));
+        CreateWithdrawalRequest request = withdrawal("50.00");
+        request.setPayoutAccountId(otherAccountId);
+
+        assertThrows(IllegalArgumentException.class, () -> service.createWithdrawal(1L, request, "AU-WD-1"));
+
+        assertMoney("80.00", service.getBalance(1L).getWithdrawableBalance());
+        assertTrue(service.listWithdrawals(1L).isEmpty());
+    }
+
+    @Test
+    void bindPayoutAccountShouldPersistMaskedOwnerScopedAccountWithoutExposingRawValue() {
+        Long accountId = service.bindPayoutAccount(1L, payoutAccount("BANK_CARD", "Alice", "6222020202020208088"));
+
+        PayoutAccountResponse bound = service.getActivePayoutAccount(1L);
+
+        assertEquals(accountId, bound.payoutAccountId());
+        assertEquals("BANK_CARD", bound.paymentMethod());
+        assertEquals("Alice", bound.accountName());
+        assertEquals("6222 **** **** 8088", bound.maskedAccountNo());
+        assertEquals("VERIFIED", bound.verifyStatus());
+        assertFalse(bound.maskedAccountNo().contains("020202020"));
+    }
+
+    @Test
     void withdrawalResponsesShouldMaskAccountNumberForUserListsAndCreation() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        Long accountId = service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "6222020202020208088"));
         CreateWithdrawalRequest request = withdrawal("50.00");
-        request.setAccountNo("6222020202020208088");
+        request.setPayoutAccountId(accountId);
 
         WithdrawalResponse created = service.createWithdrawal(1L, request, "AU-WD-1");
         WithdrawalResponse listed = service.listWithdrawals(1L).get(0);
@@ -121,8 +179,9 @@ class WalletLedgerServiceTest {
     @Test
     void withdrawalResponsesShouldNotExposeRawAccountNumberField() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        Long accountId = service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "6222020202020208088"));
         CreateWithdrawalRequest request = withdrawal("50.00");
-        request.setAccountNo("6222020202020208088");
+        request.setPayoutAccountId(accountId);
 
         WithdrawalResponse created = service.createWithdrawal(1L, request, "AU-WD-1");
         WithdrawalResponse listed = service.listWithdrawals(1L).get(0);
@@ -134,8 +193,9 @@ class WalletLedgerServiceTest {
     @Test
     void adminWithdrawalDetailShouldExposeOnlyMaskedAccountNumberAndReviewHints() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        Long accountId = service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "alice@example.com"));
         CreateWithdrawalRequest request = withdrawal("50.00");
-        request.setAccountNo("alice@example.com");
+        request.setPayoutAccountId(accountId);
         WithdrawalResponse withdrawal = service.createWithdrawal(1L, request, "AU-WD-1");
 
         WithdrawalResponse adminDetail = service.getAdminWithdrawal(withdrawal.withdrawalNo());
@@ -150,7 +210,7 @@ class WalletLedgerServiceTest {
         service.credit(credit(1L, "income-1", "WITHDRAWABLE", "80.00"));
         service.credit(credit(2L, "income-2", "WITHDRAWABLE", "80.00"));
         WithdrawalResponse pending = service.createWithdrawal(1L, withdrawal("20.00"), "AU-WD-1");
-        WithdrawalResponse approved = service.createWithdrawal(2L, withdrawal("30.00"), "AU-WD-2");
+        WithdrawalResponse approved = service.createWithdrawal(2L, withdrawal(2L, "30.00"), "AU-WD-2");
         service.markWithdrawalReviewed(approved.withdrawalNo(), "APPROVED");
 
         List<WithdrawalResponse> pendingRows = service.listAdminWithdrawals("PENDING", 20);
@@ -211,7 +271,7 @@ class WalletLedgerServiceTest {
     @Test
     void walletDataShouldSurviveServiceRecreationWithSameDatabase() {
         service.credit(credit(7L, "income", "WITHDRAWABLE", "120.00"));
-        WithdrawalResponse withdrawal = service.createWithdrawal(7L, withdrawal("40.00"), "AU-WD-DB");
+        WithdrawalResponse withdrawal = service.createWithdrawal(7L, withdrawal(7L, "40.00"), "AU-WD-DB");
 
         WalletLedgerService reloaded = new WalletLedgerService(new JdbcTemplate(database));
 
@@ -253,13 +313,27 @@ class WalletLedgerServiceTest {
         return command;
     }
 
-    private CreateWithdrawalRequest withdrawal(String amount) {
+    private CreateWithdrawalRequest withdrawal(Long userId, String amount) {
         CreateWithdrawalRequest request = new CreateWithdrawalRequest();
+        Long accountId = service.bindPayoutAccount(userId, payoutAccount("ALIPAY", "Alice", "alice@example.com"));
         request.setAmount(new BigDecimal(amount));
+        request.setPayoutAccountId(accountId);
         request.setPaymentMethod("alipay");
         request.setAccountName("Alice");
         request.setAccountNo("alice@example.com");
         request.setRemark("test withdrawal");
+        return request;
+    }
+
+    private CreateWithdrawalRequest withdrawal(String amount) {
+        return withdrawal(1L, amount);
+    }
+
+    private PayoutAccountRequest payoutAccount(String paymentMethod, String accountName, String accountNo) {
+        PayoutAccountRequest request = new PayoutAccountRequest();
+        request.setPaymentMethod(paymentMethod);
+        request.setAccountName(accountName);
+        request.setAccountNo(accountNo);
         return request;
     }
 

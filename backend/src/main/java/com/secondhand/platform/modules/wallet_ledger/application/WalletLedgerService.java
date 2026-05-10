@@ -1,6 +1,8 @@
 package com.secondhand.platform.modules.wallet_ledger.application;
 
 import com.secondhand.platform.modules.wallet_ledger.CreateWithdrawalRequest;
+import com.secondhand.platform.modules.wallet_ledger.PayoutAccountRequest;
+import com.secondhand.platform.modules.wallet_ledger.PayoutAccountResponse;
 import com.secondhand.platform.modules.wallet_ledger.WalletBalanceResponse;
 import com.secondhand.platform.modules.wallet_ledger.WalletLedgerItemResponse;
 import com.secondhand.platform.modules.wallet_ledger.WithdrawalResponse;
@@ -32,6 +34,33 @@ public class WalletLedgerService {
 
     public WalletLedgerService(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+    }
+
+    @Transactional
+    public Long bindPayoutAccount(Long userId, PayoutAccountRequest request) {
+        validateUserId(userId, "payout account");
+        if (request == null) {
+            throw new IllegalArgumentException("payout account request required");
+        }
+        String paymentMethod = requireText(request.getPaymentMethod(), "payout account paymentMethod required").toUpperCase(Locale.ROOT);
+        String accountName = requireText(request.getAccountName(), "payout account accountName required");
+        String accountNo = requireText(request.getAccountNo(), "payout account accountNo required");
+        rejectClientSuppliedMaskedAccountNo(accountNo);
+        jdbcTemplate.update("update payout_account set is_default = false, updated_at = CURRENT_TIMESTAMP where user_id = ?", userId);
+        jdbcTemplate.update(
+                "insert into payout_account (user_id,payment_method,account_name,account_no,masked_account_no,verify_status,is_default,created_at,updated_at) values (?,?,?,?,?,'VERIFIED',true,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                userId,
+                paymentMethod,
+                accountName,
+                accountNo,
+                maskAccountNo(accountNo)
+        );
+        return jdbcTemplate.queryForObject("select id from payout_account where user_id = ? and is_default = true order by id desc limit 1", Long.class, userId);
+    }
+
+    public PayoutAccountResponse getActivePayoutAccount(Long userId) {
+        validateUserId(userId, "payout account");
+        return findActivePayoutAccount(userId);
     }
 
     public WalletBalanceResponse getBalance(Long userId) {
@@ -149,10 +178,10 @@ public class WalletLedgerService {
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("withdrawal amount must be positive");
         }
-        String paymentMethod = requireText(request.getPaymentMethod(), "withdrawal paymentMethod required").toUpperCase(Locale.ROOT);
-        String accountName = requireText(request.getAccountName(), "withdrawal accountName required");
-        String accountNo = requireText(request.getAccountNo(), "withdrawal accountNo required");
-        rejectClientSuppliedMaskedAccountNo(accountNo);
+        PayoutAccountRecord payoutAccount = requirePayoutAccount(userId, request.getPayoutAccountId());
+        String paymentMethod = payoutAccount.paymentMethod();
+        String accountName = payoutAccount.accountName();
+        String accountNo = payoutAccount.accountNo();
         WalletAccount account = accountOf(userId);
         BigDecimal withdrawableBefore = money(account.getWithdrawableBalance());
         BigDecimal withdrawableAfter = withdrawableBefore.subtract(amount).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY);
@@ -585,6 +614,59 @@ public class WalletLedgerService {
             return compact.substring(0, 4) + " **** **** " + compact.substring(compact.length() - 4);
         }
         return "****" + compact.substring(compact.length() - 4);
+    }
+
+    private PayoutAccountRecord requirePayoutAccount(Long userId, Long payoutAccountId) {
+        if (payoutAccountId == null || payoutAccountId <= 0) {
+            throw new IllegalArgumentException("payout account binding required");
+        }
+        try {
+            return jdbcTemplate.queryForObject(
+                    "select id,user_id,payment_method,account_name,account_no,masked_account_no,verify_status from payout_account where id = ? and user_id = ? and verify_status = 'VERIFIED'",
+                    (rs, rowNum) -> new PayoutAccountRecord(
+                            rs.getLong("id"),
+                            rs.getLong("user_id"),
+                            rs.getString("payment_method"),
+                            rs.getString("account_name"),
+                            rs.getString("account_no"),
+                            rs.getString("masked_account_no"),
+                            rs.getString("verify_status")
+                    ),
+                    payoutAccountId,
+                    userId
+            );
+        } catch (EmptyResultDataAccessException ex) {
+            throw new IllegalArgumentException("payout account binding invalid", ex);
+        }
+    }
+
+    private PayoutAccountResponse findActivePayoutAccount(Long userId) {
+        try {
+            return jdbcTemplate.queryForObject(
+                    "select id,payment_method,account_name,masked_account_no,verify_status from payout_account where user_id = ? and is_default = true order by id desc limit 1",
+                    (rs, rowNum) -> new PayoutAccountResponse(
+                            rs.getLong("id"),
+                            rs.getString("payment_method"),
+                            rs.getString("account_name"),
+                            rs.getString("masked_account_no"),
+                            rs.getString("verify_status")
+                    ),
+                    userId
+            );
+        } catch (EmptyResultDataAccessException ex) {
+            return null;
+        }
+    }
+
+    private record PayoutAccountRecord(
+            Long id,
+            Long userId,
+            String paymentMethod,
+            String accountName,
+            String accountNo,
+            String maskedAccountNo,
+            String verifyStatus
+    ) {
     }
 
     private String sha256(String value) {

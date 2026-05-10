@@ -49,14 +49,12 @@
       <view class="section-title">提现申请</view>
       <view class="section-desc">提交后立即冻结可提现余额；审核通过会从冻结资金出款，拒绝会原路解冻。</view>
       <view class="dev-guard">资金动作均以后端账本为准：冻结、出款、解冻都会写入幂等流水。</view>
-      <view class="dev-guard danger">提现页不采集完整收款账号；收款账号明文只在账户管理页提交瞬间处理。</view>
+      <view class="dev-guard danger">提现页不采集完整收款账号；仅使用后端返回的提现账户引用提交审核。</view>
       <input v-model.trim="withdrawForm.amount" class="field" type="digit" placeholder="提现金额" />
-      <view class="method-row">
-        <view v-for="item in withdrawMethods" :key="item" class="method-chip tapable" :class="{ active: withdrawForm.paymentMethod === item }" @click="withdrawForm.paymentMethod = item">{{ methodLabel(item) }}</view>
-      </view>
-      <input v-model.trim="withdrawForm.accountName" class="field" maxlength="24" placeholder="收款人姓名，需与实名一致" />
       <button class="secondary-btn" @click="openPayoutAccount">管理提现账户</button>
       <view v-if="maskedAccountNo" class="result-box">
+        <view class="result-row"><text>收款方式</text><text>{{ methodLabel(activePayoutAccount?.paymentMethod || '') }}</text></view>
+        <view class="result-row"><text>收款人</text><text>{{ activePayoutAccount?.accountName }}</text></view>
         <view class="result-row"><text>脱敏账户</text><text>{{ maskedAccountNo }}</text></view>
       </view>
       <input v-model.trim="withdrawForm.remark" class="field" maxlength="80" placeholder="备注，可不填" />
@@ -101,7 +99,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createRecharge, isDevRuntimeEnabled, simulateRechargeSuccess, type RechargeResponse, type RechargeStatus } from '../../api/modules/payment'
-import { getWalletBalance, getWalletLedger, type WalletBalanceResponse, type WalletLedgerDirection, type WalletLedgerItemResponse } from '../../api/modules/wallet'
+import { createWithdrawal, getPayoutAccount, getWalletBalance, getWalletLedger, type PayoutAccountResponse, type WalletBalanceResponse, type WalletLedgerDirection, type WalletLedgerItemResponse } from '../../api/modules/wallet'
 
 const emptyBalance: WalletBalanceResponse = { rechargeBalance: '--', incomeBalance: '--', frozenBalance: '--', withdrawableBalance: '--' }
 const tabs = [{ label: '充值', value: 'recharge' }, { label: '提现', value: 'withdraw' }] as const
@@ -115,9 +113,9 @@ const recharging = ref(false)
 const simulating = ref(false)
 const rechargeMessage = ref('')
 const lastRecharge = ref<RechargeResponse | null>(null)
-const withdrawMethods = ['ALIPAY', 'BANK_CARD']
-const withdrawForm = reactive({ amount: '', paymentMethod: 'ALIPAY', accountName: '', remark: '' })
+const withdrawForm = reactive({ amount: '', remark: '' })
 const maskedAccountNo = ref('')
+const activePayoutAccount = ref<PayoutAccountResponse | null>(null)
 const withdrawing = ref(false)
 const withdrawMessage = ref('')
 const ledgerList = ref<WalletLedgerItemResponse[]>([])
@@ -128,7 +126,7 @@ const totalAvailable = computed(() => money(Number(balance.rechargeBalance || 0)
 const rechargeDesc = computed(() => isDevMode ? '开发预览：充值单创建后可通过受保护接口模拟入账。' : '生产构建：充值单只会进入待支付，必须等待真实支付网关回调入账。')
 const devManualRechargeLabel = computed(() => ['开发', '手动', '入账'].join(''))
 
-async function refreshAll() { await Promise.all([loadBalance(), loadLedger()]) }
+async function refreshAll() { await Promise.all([loadBalance(), loadLedger(), loadPayoutAccount()]) }
 async function loadBalance() {
   loading.value = true
   statusText.value = ''
@@ -155,6 +153,15 @@ function normalizeAmount(amount: string) { return amount.trim() }
 function isValidMoneyAmount(amount: string) { return /^\d+(\.\d{1,2})?$/.test(amount) && Number(amount) > 0 }
 function methodLabel(method: string) { return method === 'ALIPAY' ? '支付宝' : '银行卡' }
 function openPayoutAccount() { uni.navigateTo({ url: '/pages/wallet/accounts/index' }) }
+async function loadPayoutAccount() {
+  try {
+    activePayoutAccount.value = await getPayoutAccount()
+    maskedAccountNo.value = activePayoutAccount.value?.maskedAccountNo || ''
+  } catch {
+    activePayoutAccount.value = null
+    maskedAccountNo.value = ''
+  }
+}
 async function handleCreateRecharge() {
   const amount = normalizeAmount(rechargeForm.amount)
   if (!isValidMoneyAmount(amount)) { rechargeMessage.value = '请输入有效充值金额，最多两位小数'; return }
@@ -176,9 +183,15 @@ async function handleSimulateSuccess() {
 async function handleCreateWithdrawal() {
   const amount = normalizeAmount(withdrawForm.amount)
   if (!isValidMoneyAmount(amount)) { withdrawMessage.value = '请输入有效提现金额'; return }
-  if (!withdrawForm.accountName) { withdrawMessage.value = '请填写收款人姓名'; return }
-  withdrawMessage.value = '提现账户绑定接口尚未接入，当前未提交提现审核；提现账户接口未接入，未执行资金冻结'
-  return
+  if (!activePayoutAccount.value?.payoutAccountId) { withdrawMessage.value = '请先在账户管理页完成后端提现账户绑定；未执行资金冻结'; return }
+  withdrawing.value = true
+  withdrawMessage.value = ''
+  try {
+    const withdrawal = await createWithdrawal({ amount, payoutAccountId: activePayoutAccount.value.payoutAccountId, remark: withdrawForm.remark })
+    withdrawMessage.value = `提现已提交审核：${withdrawal.withdrawalNo}，冻结状态以后端账本为准`
+    await refreshAll()
+  } catch { withdrawMessage.value = '提现提交失败：未执行本地资金状态变更，请确认账户绑定、余额和后端审核接口。' }
+  finally { withdrawing.value = false }
 }
 onMounted(() => { void refreshAll() })
 </script>

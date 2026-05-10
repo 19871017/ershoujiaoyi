@@ -26,15 +26,14 @@ const walletRequiredMarkers = [
   "withdrawForm = reactive({ amount: ''",
   'maskedAccountNo',
   'wallet/accounts/index',
-  '提现账户绑定接口尚未接入，当前未提交提现审核',
-  '提现页不采集完整收款账号',
-  '收款账号明文只在账户管理页提交瞬间处理'
+  'getPayoutAccount',
+  'payoutAccountId',
+  '仅使用后端返回的提现账户引用提交审核'
 ]
 
 const walletNewForbiddenMarkers = [
   'accountNo: maskedAccountNo.value',
   'createWithdrawal({ amount, paymentMethod: withdrawForm.paymentMethod',
-  '提现已提交审核：',
   'withdrawal.value?.accountNo'
 ]
 
@@ -63,9 +62,9 @@ for (const marker of walletNewForbiddenMarkers) {
 }
 
 const walletNewRequiredMarkers = [
-  '提现账户绑定接口尚未接入，当前未提交提现审核',
-  '提现账户接口未接入，未执行资金冻结',
-  'return'
+  '请先在账户管理页完成后端提现账户绑定；未执行资金冻结',
+  'createWithdrawal({ amount, payoutAccountId: activePayoutAccount.value.payoutAccountId',
+  '提现提交失败：未执行本地资金状态变更'
 ]
 
 for (const marker of walletNewRequiredMarkers) {
@@ -80,7 +79,6 @@ const accountForbiddenMarkers = [
   'v-model.trim="form.no"',
   "no: ''",
   '账号/银行卡号，提交后页面仅显示脱敏尾号',
-  '收款账号明文只在提交瞬间发往后端',
   'maskAccountNo(form.no)',
   'form.no)'
 ]
@@ -90,11 +88,11 @@ for (const marker of accountForbiddenMarkers) {
 }
 
 const accountRequiredMarkers = [
-  '提现账户后端绑定尚未接入，当前页面不采集完整账号',
-  '未保存账号，也未生成可用于提现的账户引用',
-  'openBackendBindingUnavailable',
-  '后端提现账户绑定接口尚未接入，未提交完整账号',
-  '不在前端生成脱敏账户引用'
+  'bindPayoutAccount',
+  'getPayoutAccount',
+  'form.accountNo = \'\'',
+  '不能提交脱敏账号',
+  '提现账户绑定失败：未保存本地账号'
 ]
 
 for (const marker of accountRequiredMarkers) {

@@ -38,6 +38,19 @@ public class WalletLedgerController {
         return Result.ok(walletLedgerService.listLedger(currentUserResolver.resolve(request)));
     }
 
+    @GetMapping("/payout-account")
+    public Result<PayoutAccountResponse> payoutAccount(HttpServletRequest request) {
+        return Result.ok(walletLedgerService.getActivePayoutAccount(currentUserResolver.resolve(request)));
+    }
+
+    @PostMapping("/payout-account")
+    public Result<PayoutAccountResponse> bindPayoutAccount(@RequestBody PayoutAccountRequest body,
+                                                           HttpServletRequest request) {
+        Long userId = currentUserResolver.resolve(request);
+        walletLedgerService.bindPayoutAccount(userId, body);
+        return Result.ok(walletLedgerService.getActivePayoutAccount(userId));
+    }
+
     @PostMapping("/withdrawals")
     public Result<WithdrawalResponse> createWithdrawal(@RequestBody CreateWithdrawalRequest body,
                                                        HttpServletRequest request) {

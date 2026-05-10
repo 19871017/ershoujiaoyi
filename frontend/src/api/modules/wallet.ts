@@ -28,10 +28,22 @@ export interface WalletLedgerItemResponse {
 
 export interface CreateWithdrawalRequest {
   amount: WalletMoneyAmount
+  payoutAccountId: number
+  remark?: string
+}
+
+export interface PayoutAccountRequest {
   paymentMethod: string
   accountName: string
   accountNo: string
-  remark?: string
+}
+
+export interface PayoutAccountResponse {
+  payoutAccountId: number
+  paymentMethod: string
+  accountName: string
+  maskedAccountNo: string
+  verifyStatus: string
 }
 
 export type WithdrawalStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
@@ -65,6 +77,14 @@ export function getWalletLedgerDetail(ledgerNo: string) {
 
 export function createWithdrawal(data: CreateWithdrawalRequest) {
   return post<WithdrawalResponse>('/api/wallet/withdrawals', data)
+}
+
+export function getPayoutAccount() {
+  return get<PayoutAccountResponse | null>('/api/wallet/payout-account')
+}
+
+export function bindPayoutAccount(data: PayoutAccountRequest) {
+  return post<PayoutAccountResponse>('/api/wallet/payout-account', data)
 }
 
 export function getWithdrawals() {

@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.secondhand.platform.modules.aftersales.application.AfterSalesApplicationService;
 import com.secondhand.platform.modules.audit.application.AuditApplicationService;
 import com.secondhand.platform.modules.wallet_ledger.CreateWithdrawalRequest;
+import com.secondhand.platform.modules.wallet_ledger.PayoutAccountRequest;
 import com.secondhand.platform.modules.wallet_ledger.WithdrawalResponse;
 import com.secondhand.platform.modules.wallet_ledger.application.CreditCommand;
 import com.secondhand.platform.modules.location.LocationApplicationService;
@@ -254,12 +255,19 @@ class AdminControllerRbacTest {
     }
 
     private CreateWithdrawalRequest withdrawal(String amount) {
+        Long payoutAccountId = walletLedgerService.bindPayoutAccount(41L, payoutAccount("ALIPAY", "Alice", "6222020202020208088"));
         CreateWithdrawalRequest request = new CreateWithdrawalRequest();
         request.setAmount(new BigDecimal(amount));
-        request.setPaymentMethod("alipay");
-        request.setAccountName("Alice");
-        request.setAccountNo("6222020202020208088");
+        request.setPayoutAccountId(payoutAccountId);
         request.setRemark("提现申请");
+        return request;
+    }
+
+    private PayoutAccountRequest payoutAccount(String paymentMethod, String accountName, String accountNo) {
+        PayoutAccountRequest request = new PayoutAccountRequest();
+        request.setPaymentMethod(paymentMethod);
+        request.setAccountName(accountName);
+        request.setAccountNo(accountNo);
         return request;
     }
 }
