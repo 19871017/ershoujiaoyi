@@ -295,6 +295,26 @@ describe('admin auth helpers', () => {
     expect(menuAllowsSession({ path: '/after-sales', label: '售后管理', permission: 'after-sales:read' }, auditOnly)).toBe(false)
   })
 
+  it('requires finance read permission for withdrawal detail deep links', () => {
+    const auditOnly = normalizeAdminSession({
+      username: 'audit-only',
+      userId: '19',
+      permissions: ['audit:read'],
+      sessionId: 'adm_cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+    const financeOnly = normalizeAdminSession({
+      username: 'finance-admin',
+      userId: '20',
+      permissions: ['finance:read'],
+      sessionId: 'adm_efefefefefefefefefefefefefefefef',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+
+    expect(shouldRedirectToLogin('/finance/withdrawals/WD-20260510-0001', auditOnly)).toBe(true)
+    expect(shouldRedirectToLogin('/finance/withdrawals/WD-20260510-0001', financeOnly)).toBe(false)
+  })
+
   it('requires after-sales review permission before enabling admin after-sales approval actions', () => {
     const readOnly = normalizeAdminSession({
       username: 'after-sales-reader',

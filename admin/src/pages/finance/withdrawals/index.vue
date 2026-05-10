@@ -84,10 +84,12 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { getAdminWithdrawalDetail, getAdminWithdrawalList, isValidAdminWithdrawalNo, reviewAdminWithdrawal, type AdminWithdrawalDetail, type WithdrawalStatus } from '../../../api'
 import { canReviewFinance, useAuthStore } from '../../../store/modules/auth'
 
 const auth = useAuthStore()
+const route = useRoute()
 const withdrawalNo = ref('')
 const loading = ref(false)
 const listLoading = ref(false)
@@ -161,5 +163,12 @@ async function submitReview(action: 'approve' | 'reject') {
   }
 }
 
-onMounted(loadList)
+onMounted(() => {
+  const routeWithdrawalNo = String(route.params.withdrawalNo || '').trim()
+  if (routeWithdrawalNo) {
+    withdrawalNo.value = routeWithdrawalNo
+    loadDetail()
+  }
+  loadList()
+})
 </script>
