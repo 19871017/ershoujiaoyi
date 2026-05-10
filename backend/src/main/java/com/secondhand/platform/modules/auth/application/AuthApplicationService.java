@@ -5,10 +5,15 @@ import com.secondhand.platform.modules.auth.LoginRequest;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.spec.InvalidKeySpecException;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthApplicationService {
     private static final String MOBILE_PATTERN = "^1[3-9]\\d{9}$";
     private static final int MIN_PASSWORD_LENGTH = 6;
+    private static final int PBKDF2_ITERATIONS = 120_000;
+    private static final int PBKDF2_KEY_LENGTH = 256;
+    private static final int PASSWORD_SALT_BYTES = 16;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -28,11 +37,10 @@ public class AuthApplicationService {
     public AuthTokenResponse login(LoginRequest request) {
         validateLoginRequest(request);
         String normalizedMobile = request.getMobile().trim();
-        String passwordHash = passwordHash(request.getPassword());
         UserAuthRow user = findByMobile(normalizedMobile);
         if (user == null) {
-            user = createUser(normalizedMobile, passwordHash);
-        } else if (!Objects.equals(user.passwordHash(), passwordHash)) {
+            user = createUser(normalizedMobile, passwordHash(request.getPassword()));
+        } else if (!verifyPassword(request.getPassword(), user.passwordHash())) {
             throw new IllegalArgumentException("mobile or password invalid");
         }
         return new AuthTokenResponse(buildToken("dev-access", user.userNo()), buildToken("dev-refresh", user.userNo()));
@@ -94,9 +102,38 @@ public class AuthApplicationService {
     }
 
     private String passwordHash(String password) {
-        // SECURITY PLACEHOLDER: unsalted SHA-256 is only an MVP dev fallback.
-        // Replace with BCrypt/Argon2 and password policy before production.
-        return "sha256$" + sha256("小原圈:" + password.trim());
+        byte[] salt = new byte[PASSWORD_SALT_BYTES];
+        SECURE_RANDOM.nextBytes(salt);
+        String encodedSalt = Base64.getEncoder().encodeToString(salt);
+        return "pbkdf2$" + PBKDF2_ITERATIONS + "$" + encodedSalt + "$" + pbkdf2(password.trim(), salt, PBKDF2_ITERATIONS);
+    }
+
+    private boolean verifyPassword(String password, String storedHash) {
+        if (storedHash == null || !storedHash.startsWith("pbkdf2$")) {
+            return false;
+        }
+        String[] parts = storedHash.split("\\$", 4);
+        if (parts.length != 4) {
+            return false;
+        }
+        try {
+            int iterations = Integer.parseInt(parts[1]);
+            byte[] salt = Base64.getDecoder().decode(parts[2]);
+            String candidate = pbkdf2(password.trim(), salt, iterations);
+            return MessageDigest.isEqual(candidate.getBytes(StandardCharsets.UTF_8), parts[3].getBytes(StandardCharsets.UTF_8));
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
+    }
+
+    private String pbkdf2(String password, byte[] salt, int iterations) {
+        try {
+            PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), salt, iterations, PBKDF2_KEY_LENGTH);
+            byte[] encoded = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded();
+            return Base64.getEncoder().encodeToString(encoded);
+        } catch (NoSuchAlgorithmException | InvalidKeySpecException ex) {
+            throw new IllegalStateException("PBKDF2 not available", ex);
+        }
     }
 
     private String sha256(String value) {

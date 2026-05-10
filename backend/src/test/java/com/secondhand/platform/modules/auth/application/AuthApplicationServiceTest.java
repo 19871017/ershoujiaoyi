@@ -44,6 +44,23 @@ class AuthApplicationServiceTest {
     }
 
     @Test
+    void loginShouldStorePasswordWithPerUserSaltNotDeterministicSha256() {
+        service.login(login("13800138002", "pass-123456"));
+        service.login(login("13800138003", "pass-123456"));
+
+        String firstHash = jdbcTemplate.queryForObject(
+                "SELECT password_hash FROM user_account WHERE phone = ?", String.class, "13800138002");
+        String secondHash = jdbcTemplate.queryForObject(
+                "SELECT password_hash FROM user_account WHERE phone = ?", String.class, "13800138003");
+
+        assertTrue(firstHash.startsWith("pbkdf2$"));
+        assertTrue(secondHash.startsWith("pbkdf2$"));
+        assertFalse(firstHash.contains("pass-123456"));
+        assertFalse(secondHash.contains("pass-123456"));
+        assertFalse(firstHash.equals(secondHash));
+    }
+
+    @Test
     void repeatedLoginShouldReuseExistingUserWithoutDuplicatingRows() {
         AuthTokenResponse first = service.login(login("13800138001", "pass-123456"));
         AuthTokenResponse second = service.login(login("13800138001", "pass-123456"));
