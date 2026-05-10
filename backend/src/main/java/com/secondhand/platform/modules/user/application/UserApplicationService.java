@@ -2,6 +2,7 @@ package com.secondhand.platform.modules.user.application;
 
 import com.secondhand.platform.modules.user.UpdateUserProfileRequest;
 import com.secondhand.platform.modules.user.UserProfileResponse;
+import com.secondhand.platform.modules.user.UserRankingResponse;
 import java.util.List;
 import java.util.Set;
 import org.springframework.dao.DuplicateKeyException;
@@ -70,6 +71,48 @@ public class UserApplicationService {
         validateFollowActors(followerId, followedId);
         jdbcTemplate.update("DELETE FROM user_follow WHERE follower_id = ? AND followed_id = ?", followerId, followedId);
         return publicProfile(followedId, followerId);
+    }
+
+    public List<UserRankingResponse> listRankings(String gender, int limit, Long viewerId) {
+        String normalizedGender = normalizeRequired(gender, 1, 16, "gender invalid").toLowerCase();
+        if (!Set.of("goddess", "god").contains(normalizedGender)) {
+            throw new IllegalArgumentException("gender invalid");
+        }
+        if (limit <= 0 || limit > 50) {
+            throw new IllegalArgumentException("limit invalid");
+        }
+        String profileGender = "goddess".equals(normalizedGender) ? "goddess" : "god";
+        boolean hasViewer = viewerId != null && viewerId > 0;
+        List<UserRankingResponse> rows = jdbcTemplate.query("""
+                SELECT a.id,
+                       a.nickname,
+                       p.gender,
+                       p.city,
+                       p.bio,
+                       p.main_role,
+                       COUNT(f.id) AS follower_count,
+                       CASE WHEN ? = TRUE AND EXISTS (
+                           SELECT 1 FROM user_follow vf WHERE vf.follower_id = ? AND vf.followed_id = a.id
+                       ) THEN TRUE ELSE FALSE END AS followed_by_me
+                FROM user_account a
+                JOIN user_profile p ON p.user_id = a.id
+                LEFT JOIN user_follow f ON f.followed_id = a.id
+                WHERE a.status = 'ACTIVE' AND LOWER(p.gender) = ?
+                GROUP BY a.id, a.nickname, p.gender, p.city, p.bio, p.main_role
+                ORDER BY follower_count DESC, a.id ASC
+                LIMIT ?
+                """, (rs, rowNum) -> new UserRankingResponse(
+                        rs.getLong("id"),
+                        rowNum + 1,
+                        rs.getString("nickname"),
+                        rs.getString("gender"),
+                        rs.getString("city"),
+                        rs.getString("bio"),
+                        rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role"),
+                        rs.getInt("follower_count"),
+                        rs.getBoolean("followed_by_me")
+                ), hasViewer, hasViewer ? viewerId : -1L, profileGender, limit);
+        return List.copyOf(rows);
     }
 
     private UserProfileResponse loadProfile(Long userId) {

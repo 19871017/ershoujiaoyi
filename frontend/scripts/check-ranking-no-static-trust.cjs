@@ -27,17 +27,17 @@ if (source.includes("activeType.value === 'deal' ? 'deals'")) {
 if (source.includes('const rankings = reactive<RankingUser[]>([') || source.includes("tags: ['") || source.includes('<view class="verify">预览用户</view>') || source.includes('榜单为开发预览数据')) {
   failures.push('ranking page must not render static preview leaderboard users as a substitute for backend ranking data')
 }
-if (!source.includes('榜单接口尚未接入，未展示本地预览榜单') || !source.includes('没有后端榜单数据时，本页保持空态')) {
+if (!source.includes('未展示本地预览榜单') || !source.includes('没有后端榜单数据时，本页保持空态')) {
   failures.push('ranking page must fail closed with an explicit empty state when backend ranking data is unavailable')
 }
 if (!source.includes('const rankings = ref<RankingUser[]>([])')) {
   failures.push('ranking page must initialize leaderboard rows as an empty backend-derived ref')
 }
-if (!source.includes("loadError.value = '榜单接口尚未接入，未展示本地预览榜单'")) {
-  failures.push('ranking page must explicitly set fail-closed load error instead of static ranking rows')
+if (!source.includes('listUserRankings(activeGender.value, 20)') || !source.includes("loadError.value = '榜单接口加载失败，未展示本地预览榜单'")) {
+  failures.push('ranking page must load backend rankings and fail closed instead of static ranking rows')
 }
-if (!source.includes('const stats = computed(() => [') || !source.includes("{ value: '0', label: '后端上榜用户' }")) {
-  failures.push('ranking page stats must not aggregate static preview leaderboard metrics')
+if (!source.includes('const stats = computed(() => [') || !source.includes("{ value: `${rankings.value.length}`, label: '后端上榜用户' }")) {
+  failures.push('ranking page stats must aggregate backend-loaded leaderboard rows only')
 }
 if (!source.includes('实名、信用、成交等信任指标必须由后端审计数据提供')) {
   failures.push('ranking page must explicitly state that identity/credit/deal trust metrics require backend audit data')
@@ -57,30 +57,34 @@ if (!source.includes('交易请以平台订单、支付和售后状态为准')) 
 
 const forbiddenLocalFollowMarkers = [
   'followed: boolean',
-  'item.followed',
   'followed: true',
   'followed: false'
 ]
 for (const marker of forbiddenLocalFollowMarkers) {
   if (source.includes(marker)) failures.push(`ranking page must not render local/static follow state: ${marker}`)
 }
-if (!source.includes('关注接口暂未接通后端，未执行任何关注变更')) {
+if (!source.includes('榜单页不执行本地关注变更，请进入真实主页操作')) {
   failures.push('ranking page follow action must fail closed with explicit no-change copy')
 }
 
 const navigationRiskMarkers = [
-  "uni.navigateTo({ url: `/pages/chat/conversation/index?receiverId=${item.id}` })",
-  "uni.navigateTo({ url: `/pages/user/public-profile/index?userId=${item.id}` })"
+  "receiverId=21",
+  "userId=21",
+  "PREVIEW-RANKING",
+  "SAMPLE-RANKING"
 ]
 for (const marker of navigationRiskMarkers) {
   if (source.includes(marker)) failures.push(`ranking preview users must not be used as real sensitive navigation ids: ${marker}`)
 }
 
-if (!source.includes('榜单预览用户不能作为真实私信对象，未进入会话')) {
-  failures.push('ranking chat action must fail closed instead of routing preview ids into IM')
+if (!source.includes("if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少后端用户编号，未进入会话'")) {
+  failures.push('ranking chat action must validate backend user ids before routing into IM')
 }
-if (!source.includes('榜单预览用户不能作为真实主页对象，未打开主页')) {
-  failures.push('ranking profile action must fail closed instead of routing preview ids into public profile')
+if (!source.includes("if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少后端用户编号，未打开主页'")) {
+  failures.push('ranking profile action must validate backend user ids before routing into public profile')
+}
+if (!source.includes('/pages/chat/conversation/index?receiverId=${item.id}') || !source.includes('/pages/user/public-profile/index?userId=${item.id}')) {
+  failures.push('ranking backend-derived rows should link to real chat/profile routes only after id validation')
 }
 
 if (failures.length > 0) {

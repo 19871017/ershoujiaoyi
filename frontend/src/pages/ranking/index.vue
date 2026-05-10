@@ -57,9 +57,6 @@
         </view>
         <view class="city-chip">{{ cityFilter }}</view>
       </view>
-      <view class="city-row">
-        <view v-for="city in cities" :key="city" class="city tapable" :class="{ active: cityFilter === city }" @click="cityFilter = city">{{ city }}</view>
-      </view>
     </view>
 
     <view v-if="loadError" class="empty ds-card">
@@ -86,12 +83,12 @@
           </view>
           <view class="metric-row">
             <text>人气 {{ item.popularity }}</text>
-            <text>守护 {{ item.guardian }}</text>
-            <text>预览数据</text>
+            <text>关注者 {{ item.guardian }}</text>
+            <text>后端数据</text>
           </view>
         </view>
         <view class="user-actions">
-          <button class="follow-btn" @click="toggleFollow">关注</button>
+          <button class="follow-btn" @click="toggleFollow">{{ item.viewerFollows ? '已关注' : '关注' }}</button>
           <button class="chat-btn" @click="chat(item)">私信</button>
         </view>
       </view>
@@ -109,8 +106,9 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { listUserRankings, type RankingGender, type UserRankingResponse } from '../../api/modules/ranking'
 
-type Gender = 'goddess' | 'god'
+type Gender = RankingGender
 type RankType = 'popular' | 'deal' | 'guardian'
 interface RankingUser {
   id: number
@@ -123,6 +121,7 @@ interface RankingUser {
   tags: string[]
   popularity: number
   guardian: number
+  viewerFollows: boolean
 }
 
 const activeGender = ref<Gender>('goddess')
@@ -139,9 +138,8 @@ const rankTypes = [
   { value: 'deal' as const, label: '安全榜' },
   { value: 'guardian' as const, label: '守护榜' }
 ]
-const cities = ['全部']
 const stats = computed(() => [
-  { value: '0', label: '后端上榜用户' },
+  { value: `${rankings.value.length}`, label: '后端上榜用户' },
   { value: `${filteredRankings.value.length}`, label: '已加载条目' },
   { value: '0', label: '信任指标' }
 ])
@@ -166,13 +164,41 @@ function scoreText(item: RankingUser) {
   if (activeType.value === 'deal') return `${item.guardian} 安全热度`
   return `${item.guardian} 守护`
 }
-function toggleFollow() { uni.showToast({ title: '关注接口暂未接通后端，未执行任何关注变更', icon: 'none' }) }
-function chat(_item: RankingUser) { uni.showToast({ title: '榜单预览用户不能作为真实私信对象，未进入会话', icon: 'none' }) }
-function openProfile(_item: RankingUser) { uni.showToast({ title: '榜单预览用户不能作为真实主页对象，未打开主页', icon: 'none' }) }
-function showRule() { uni.showModal({ title: '榜单规则', content: '榜单接口接入前保持空态；实名、信用分、成交数必须由后端审计数据提供，当前不在本页展示。', showCancel: false }) }
-function loadRankings() {
-  rankings.value = []
-  loadError.value = '榜单接口尚未接入，未展示本地预览榜单'
+function toRankingUser(item: UserRankingResponse): RankingUser {
+  return {
+    id: item.userId,
+    rank: item.rank,
+    gender: item.gender === 'god' ? 'god' : 'goddess',
+    avatar: (item.nickname || '圈').slice(0, 1),
+    name: item.nickname || '后端用户',
+    bio: item.bio || '个人介绍以后端资料为准',
+    city: item.city || '全部',
+    tags: item.mainRole ? [`角色 ${item.mainRole}`] : [],
+    popularity: item.followerCount,
+    guardian: item.followerCount,
+    viewerFollows: item.followedByMe
+  }
+}
+function toggleFollow() { uni.showToast({ title: '榜单页不执行本地关注变更，请进入真实主页操作', icon: 'none' }) }
+function chat(item: RankingUser) {
+  if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少后端用户编号，未进入会话', icon: 'none' })
+  uni.navigateTo({ url: `/pages/chat/conversation/index?receiverId=${item.id}` })
+}
+function openProfile(item: RankingUser) {
+  if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少后端用户编号，未打开主页', icon: 'none' })
+  uni.navigateTo({ url: `/pages/user/public-profile/index?userId=${item.id}` })
+}
+function showRule() { uni.showModal({ title: '榜单规则', content: '榜单只展示后端用户资料和关注计数；实名、信用分、成交数必须由后端审计数据提供，当前不在本页展示。', showCancel: false }) }
+async function loadRankings() {
+  try {
+    loadError.value = ''
+    const rows = await listUserRankings(activeGender.value, 20)
+    rankings.value = rows.map(toRankingUser)
+    if (rankings.value.length === 0) loadError.value = '后端榜单暂无上榜用户，未展示本地预览榜单'
+  } catch {
+    rankings.value = []
+    loadError.value = '榜单接口加载失败，未展示本地预览榜单'
+  }
 }
 function readQuery() {
   const pages = getCurrentPages()

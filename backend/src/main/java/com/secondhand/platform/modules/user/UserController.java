@@ -4,6 +4,7 @@ import com.secondhand.platform.modules.user.application.UserApplicationService;
 import com.secondhand.platform.shared.kernel.Result;
 import com.secondhand.platform.shared.web.CurrentUserResolver;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,6 +33,14 @@ public class UserController {
     public Result<UserProfileResponse> publicProfile(@PathVariable Long userId, HttpServletRequest request) {
         Long viewerId = resolveOptionalViewer(request);
         return Result.ok(userApplicationService.publicProfile(userId, viewerId));
+    }
+
+    @GetMapping("/rankings")
+    public Result<List<UserRankingResponse>> rankings(@org.springframework.web.bind.annotation.RequestParam(defaultValue = "goddess") String gender,
+                                                      @org.springframework.web.bind.annotation.RequestParam(defaultValue = "20") Integer limit,
+                                                      HttpServletRequest request) {
+        Long viewerId = resolveOptionalViewer(request);
+        return Result.ok(userApplicationService.listRankings(gender, limit == null ? 20 : limit, viewerId));
     }
 
     @PostMapping("/me/profile")
