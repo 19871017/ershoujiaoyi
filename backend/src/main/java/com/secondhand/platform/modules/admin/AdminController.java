@@ -57,7 +57,7 @@ public class AdminController {
 
     @GetMapping("/dashboard")
     public Result<AdminDashboardSummary> dashboard(HttpServletRequest request) {
-        adminAccessGuard.requireAdmin(request, "audit:read");
+        adminAccessGuard.requireAdminSession(request);
         return Result.ok(auditApplicationService.getAdminDashboardSummary());
     }
 

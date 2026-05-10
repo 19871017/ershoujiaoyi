@@ -127,6 +127,20 @@ class AdminControllerRbacTest {
     }
 
     @Test
+    void adminDashboardRequiresOnlyValidServerIssuedAdminSessionBecauseMetricsArePermissionFiltered() throws Exception {
+        createActiveUser(13L);
+
+        mvc.perform(get("/api/admin/dashboard")
+                        .header("X-User-Id", "13"))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(get("/api/admin/dashboard")
+                        .header("X-User-Id", "13")
+                        .header("X-Admin-Session", issueAdminSession(13L)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void adminLocationConfigUpdatePersistsOperatorAuditLog() throws Exception {
         createActiveUser(21L);
         grantPermission(21L, "system:config");

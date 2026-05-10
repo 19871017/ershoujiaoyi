@@ -22,6 +22,17 @@ public class AdminAccessGuard {
         return requireAdmin(request, "audit:read");
     }
 
+    public long requireAdminSession(HttpServletRequest request) {
+        if (request == null) {
+            throw new SecurityException("admin access required");
+        }
+        long adminUserId = currentUserResolver.resolve(request);
+        if (!hasActiveSession(adminUserId, request.getHeader("X-Admin-Session"))) {
+            throw new SecurityException("admin session required");
+        }
+        return adminUserId;
+    }
+
     public long requireAdmin(HttpServletRequest request, String permissionCode) {
         if (request == null) {
             throw new SecurityException("admin access required");
