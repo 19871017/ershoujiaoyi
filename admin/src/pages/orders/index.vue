@@ -71,9 +71,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { getAdminOrderDetail, getAdminOrderList, isValidAdminOrderNo, type AdminOrderDetail } from '../../api'
 
+const route = useRoute()
 const orderNo = ref('')
 const statusFilter = ref<'ALL' | 'PENDING_PAY' | 'PAID' | 'SHIPPED' | 'COMPLETED' | 'REFUNDING'>('ALL')
 const loading = ref(false)
@@ -118,4 +120,12 @@ async function loadDetail() {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  const routeOrderNo = String(route.params.orderNo || '').trim()
+  if (routeOrderNo) {
+    orderNo.value = routeOrderNo
+    loadDetail()
+  }
+})
 </script>

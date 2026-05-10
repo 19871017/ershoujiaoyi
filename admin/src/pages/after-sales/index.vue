@@ -96,6 +96,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   getAdminAfterSalesDetail,
   getAdminAfterSalesList,
@@ -107,6 +108,7 @@ import {
 import { canReviewAfterSales, useAuthStore } from '../../store/modules/auth'
 
 const auth = useAuthStore()
+const route = useRoute()
 const afterSalesNo = ref('')
 const statusFilter = ref<NonNullable<AdminAfterSalesListQuery['status']>>('PENDING_REVIEW')
 const loadingList = ref(false)
@@ -185,5 +187,12 @@ async function submitReview(action: 'approve' | 'reject') {
   }
 }
 
-onMounted(loadList)
+onMounted(() => {
+  const routeAfterSalesNo = String(route.params.afterSalesNo || '').trim()
+  loadList()
+  if (routeAfterSalesNo) {
+    afterSalesNo.value = routeAfterSalesNo
+    loadDetail()
+  }
+})
 </script>

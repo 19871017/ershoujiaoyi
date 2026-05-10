@@ -54,9 +54,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { getAdminUserDetail, isValidAdminUserId, searchAdminUsers, type AdminUserDetailResponse } from '../../api/modules/admin'
 
+const route = useRoute()
 const userId = ref('')
 const keyword = ref('')
 const users = ref<AdminUserDetailResponse[]>([])
@@ -105,4 +107,12 @@ function selectUser(item: AdminUserDetailResponse) {
   userId.value = String(item.userId)
   detail.value = item
 }
+
+onMounted(() => {
+  const routeUserId = String(route.params.userId || '').trim()
+  if (routeUserId) {
+    userId.value = routeUserId
+    loadDetail()
+  }
+})
 </script>
