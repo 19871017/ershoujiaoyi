@@ -16,6 +16,7 @@ def read(path: Path) -> str:
 http_ts = FRONTEND_SRC / 'api' / 'http.ts'
 payment_ts = FRONTEND_SRC / 'api' / 'modules' / 'payment.ts'
 payment_java = BACKEND_SRC / 'com' / 'secondhand' / 'platform' / 'modules' / 'payment' / 'PaymentController.java'
+smoke_py = ROOT / 'scripts' / 'smoke-api.py'
 
 if not http_ts.exists():
     issues.append('frontend api/http.ts missing')
@@ -45,6 +46,15 @@ if payment_java.exists():
         issues.append('backend simulate recharge guard does not inspect active profiles')
 else:
     issues.append('backend PaymentController missing')
+
+if smoke_py.exists():
+    s = read(smoke_py)
+    if 'X-Admin-Mode' in s or 'X-Dev-Mode' in s:
+        issues.append('smoke-api still sends legacy dev/admin authorization headers')
+    if '/api/admin/session/login' not in s:
+        issues.append('smoke-api must obtain an admin session through persisted RBAC login')
+else:
+    issues.append('scripts/smoke-api.py missing')
 
 for path in FRONTEND_SRC.rglob('*'):
     if not path.is_file() or path.suffix not in {'.ts', '.vue'}:

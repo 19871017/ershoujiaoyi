@@ -7,16 +7,13 @@ import urllib.request
 
 BASE = 'http://127.0.0.1:18080'
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-HEADERS = {
-    'Content-Type': 'application/json',
-    'X-User-Id': '1',
-    'X-Dev-Mode': 'enabled',
-    'X-Admin-Mode': 'enabled',
-}
+JSON_HEADERS = {'Content-Type': 'application/json'}
+USER_HEADERS = {**JSON_HEADERS, 'X-User-Id': '1'}
+ADMIN_HEADERS = dict(JSON_HEADERS)
 
-def call(name, method, path, body=None, expected=200):
+def call(name, method, path, body=None, expected=200, headers=None):
     data = None if body is None else json.dumps(body, ensure_ascii=False).encode('utf-8')
-    req = urllib.request.Request(BASE + path, data=data, headers=HEADERS, method=method)
+    req = urllib.request.Request(BASE + path, data=data, headers=headers or USER_HEADERS, method=method)
     try:
         with OPENER.open(req, timeout=15) as resp:
             raw = resp.read().decode('utf-8')
@@ -39,11 +36,26 @@ def require_api(result, name):
         raise SystemExit(f'{name} not success: {result}')
     return result.get('data')
 
-health = call('health', 'GET', '/actuator/health')
+def admin_login():
+    session = require_api(call(
+        'admin session login',
+        'POST',
+        '/api/admin/session/login',
+        {'mobile': '13800138000', 'password': 'dev-password'},
+        headers=JSON_HEADERS
+    ), 'admin session login')
+    user_id = str(session.get('userId') or '').strip()
+    permissions = session.get('permissions') or []
+    if not user_id or 'audit:read' not in permissions:
+        raise SystemExit('admin session missing explicit audit:read permission')
+    ADMIN_HEADERS['X-User-Id'] = user_id
+
+health = call('health', 'GET', '/actuator/health', headers=JSON_HEADERS)
 if not isinstance(health, dict) or health.get('status') != 'UP':
     raise SystemExit('health not UP')
 
-require_api(call('login', 'POST', '/api/auth/login', {'mobile': '13800138000', 'password': 'dev-password'}), 'login')
+require_api(call('login', 'POST', '/api/auth/login', {'mobile': '13800138000', 'password': 'dev-password'}, headers=JSON_HEADERS), 'login')
+admin_login()
 product = require_api(call('create product', 'POST', '/api/products', {
     'title': 'Phase5测试商品',
     'description': 'full smoke product',
@@ -65,5 +77,5 @@ if not cid:
 call('chat conversations', 'GET', '/api/chat/conversations')
 call('chat sync', 'GET', f'/api/chat/conversations/{cid}/messages?afterSeq=0&limit=20')
 call('chat read', 'POST', f'/api/chat/conversations/{cid}/read', {'readSeq': ack.get('serverSeq', 1)})
-call('admin dashboard', 'GET', '/api/admin/dashboard')
+call('admin dashboard', 'GET', '/api/admin/dashboard', headers=ADMIN_HEADERS)
 print('SMOKE_PASS')
