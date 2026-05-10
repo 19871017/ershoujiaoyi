@@ -1,12 +1,11 @@
 package com.secondhand.platform.modules.admin;
 
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.secondhand.platform.modules.aftersales.application.AfterSalesApplicationService;
-import com.secondhand.platform.modules.audit.application.AdminDashboardSummary;
 import com.secondhand.platform.modules.audit.application.AuditApplicationService;
 import com.secondhand.platform.modules.location.LocationApplicationService;
 import com.secondhand.platform.modules.order.application.OrderApplicationService;
@@ -15,8 +14,6 @@ import com.secondhand.platform.modules.wallet_ledger.application.WalletLedgerSer
 import com.secondhand.platform.shared.web.AdminAccessGuard;
 import com.secondhand.platform.shared.web.CurrentUserResolver;
 import com.secondhand.platform.shared.web.GlobalExceptionHandler;
-import java.math.BigDecimal;
-import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -39,14 +36,12 @@ class AdminControllerRbacTest {
                 .build();
         jdbcTemplate = new JdbcTemplate(database);
 
-        AuditApplicationService auditApplicationService = mock(AuditApplicationService.class);
-        when(auditApplicationService.getAdminDashboardSummary()).thenReturn(new AdminDashboardSummary("ok", 0, 0, 0, 0, 0, 0, 0, BigDecimal.ZERO));
-        when(auditApplicationService.listAll()).thenReturn(List.of());
+        AuditApplicationService auditApplicationService = new AuditApplicationService(jdbcTemplate);
 
         AdminController controller = new AdminController(
                 auditApplicationService,
                 mock(WalletLedgerService.class),
-                mock(LocationApplicationService.class),
+                new LocationApplicationService(new com.secondhand.platform.modules.location.BaiduReverseGeocodeClient(), "", jdbcTemplate),
                 mock(AfterSalesApplicationService.class),
                 mock(OrderApplicationService.class),
                 mock(UserApplicationService.class),
@@ -96,6 +91,30 @@ class AdminControllerRbacTest {
         mvc.perform(get("/api/admin/dashboard")
                         .header("X-User-Id", "11"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void adminLocationConfigUpdatePersistsOperatorAuditLog() throws Exception {
+        createActiveUser(21L);
+        grantPermission(21L, "system:config");
+
+        mvc.perform(post("/api/admin/location/config")
+                        .header("X-User-Id", "21")
+                        .contentType("application/json")
+                        .content("{\"defaultCity\":\"杭州\",\"coordinateType\":\"gcj02ll\"}"))
+                .andExpect(status().isOk());
+
+        Integer count = jdbcTemplate.queryForObject("""
+                select count(1)
+                from admin_audit_log
+                where action = 'LOCATION_CONFIG_UPDATE'
+                  and operator_id = 21
+                  and target_type = 'SYSTEM_CONFIG'
+                  and target_id = 'location'
+                  and result = 'SUCCESS'
+                  and summary not like '%SECRET%'
+                """, Integer.class);
+        org.junit.jupiter.api.Assertions.assertEquals(1, count);
     }
 
     private void grantPermission(Long userId, String permission) {

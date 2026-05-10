@@ -118,8 +118,17 @@ public class AdminController {
     @PostMapping("/location/config")
     public Result<LocationConfigResponse> updateLocationConfig(@RequestBody(required = false) AdminUpdateLocationConfigRequest body,
                                                                HttpServletRequest request) {
-        adminAccessGuard.requireAdmin(request, "system:config");
-        return Result.ok(locationApplicationService.adminUpdateConfig(body));
+        long adminUserId = adminAccessGuard.requireAdmin(request, "system:config");
+        LocationConfigResponse response = locationApplicationService.adminUpdateConfig(body);
+        auditApplicationService.recordAdminOperation(
+                "LOCATION_CONFIG_UPDATE",
+                adminUserId,
+                "SYSTEM_CONFIG",
+                "location",
+                "SUCCESS",
+                "位置配置已更新：provider=" + response.provider() + ", enabled=" + response.enabled()
+        );
+        return Result.ok(response);
     }
 
     @GetMapping("/withdrawals")

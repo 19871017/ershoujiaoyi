@@ -185,6 +185,25 @@ public class AuditApplicationService {
         );
     }
 
+    public void recordAdminOperation(String action, Long operatorId, String targetType, String targetId, String result, String summary) {
+        String safeAction = requireText(action, "admin operation action required");
+        String safeTargetType = requireText(targetType, "admin operation targetType required");
+        String safeTargetId = requireText(targetId, "admin operation targetId required");
+        String safeResult = requireText(result, "admin operation result required");
+        long safeOperatorId = validateOperatorId(operatorId);
+        jdbcTemplate.update("""
+                insert into admin_audit_log (action,operator_id,target_type,target_id,result,summary,created_at)
+                values (?,?,?,?,?,?,CURRENT_TIMESTAMP)
+                """,
+                safeAction,
+                safeOperatorId,
+                safeTargetType,
+                safeTargetId,
+                safeResult,
+                maskSensitiveDescription(safeText(summary), true)
+        );
+    }
+
     @Transactional
     protected AuditRecordResponse create(String auditType, Long userId, String targetType, String targetId, String reason, String description) {
         validateUserId(userId);
@@ -349,6 +368,13 @@ public class AuditApplicationService {
         if (userId == null || userId <= 0) {
             throw new IllegalArgumentException("audit userId required");
         }
+    }
+
+    private long validateOperatorId(Long operatorId) {
+        if (operatorId == null || operatorId <= 0) {
+            throw new IllegalArgumentException("admin operatorId required");
+        }
+        return operatorId;
     }
 
     private String requireText(String value, String message) {
