@@ -10,6 +10,7 @@ const failures = []
 
 const walletForbiddenMarkers = [
   "const withdrawForm = reactive({ amount: '20.00'",
+  "const rechargeForm = reactive({ amount: '10.00'",
   "accountNo: ''",
   "v-model.trim=\"withdrawForm.accountNo\"",
   'placeholder="收款账号 / 支付宝 / 银行卡"',
