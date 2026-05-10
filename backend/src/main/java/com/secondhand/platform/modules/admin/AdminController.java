@@ -157,7 +157,7 @@ public class AdminController {
                                                     HttpServletRequest request) {
         long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
         AuditRecordResponse response = auditApplicationService.approve(auditNo, body == null ? null : body.getRemark(), adminUserId);
-        syncWithdrawalStatus(response, "APPROVED");
+        syncWithdrawalStatus(response, "APPROVED", adminUserId);
         return Result.ok(response);
     }
 
@@ -167,13 +167,21 @@ public class AdminController {
                                                    HttpServletRequest request) {
         long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
         AuditRecordResponse response = auditApplicationService.reject(auditNo, body == null ? null : body.getRemark(), adminUserId);
-        syncWithdrawalStatus(response, "REJECTED");
+        syncWithdrawalStatus(response, "REJECTED", adminUserId);
         return Result.ok(response);
     }
 
-    private void syncWithdrawalStatus(AuditRecordResponse response, String status) {
+    private void syncWithdrawalStatus(AuditRecordResponse response, String status, long adminUserId) {
         if (response != null && AuditApplicationService.AUDIT_TYPE_WITHDRAWAL.equals(response.auditType())) {
             walletLedgerService.markWithdrawalReviewed(response.targetId(), status);
+            auditApplicationService.recordAdminOperation(
+                    "WITHDRAWAL_REVIEW",
+                    adminUserId,
+                    "WITHDRAWAL",
+                    response.targetId(),
+                    status,
+                    "提现审核状态已更新：" + status
+            );
         }
     }
 }
