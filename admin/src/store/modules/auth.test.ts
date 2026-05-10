@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   buildAdminHeaders,
   loginAdminSession,
+  logoutAdminSession,
   menuAllowsSession,
   normalizeAdminSession,
   shouldRedirectToLogin,
@@ -31,6 +32,22 @@ describe('admin auth helpers', () => {
       body: JSON.stringify({ mobile: '13900000071', password: 'admin-pass-71' })
     }))
     expect(session?.permissions).toEqual(['audit:read', 'finance:read'])
+  })
+
+  it('logs out by revoking the server-issued admin session header pair only', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal('fetch', fetchMock)
+    const session = normalizeAdminSession({ username: 'ops', userId: '7', permissions: ['audit:read'], sessionId: 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', expiresAt: '2026-05-11T03:00:00' })
+
+    await logoutAdminSession(session)
+
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/session/logout'), expect.objectContaining({
+      method: 'POST',
+      headers: {
+        'X-User-Id': '7',
+        'X-Admin-Session': 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+      }
+    }))
   })
 
   it('rejects backend admin sessions that omit an explicit permissions array', () => {

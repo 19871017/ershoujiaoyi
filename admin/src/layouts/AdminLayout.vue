@@ -41,8 +41,8 @@ const allMenus: AdminMenuItem[] = [
 ]
 const menus = computed(() => allMenus.filter((item) => menuAllowsSession(item, auth.session)))
 
-function logout() {
-  auth.clear()
+async function logout() {
+  await auth.clear()
   router.replace('/login')
 }
 </script>

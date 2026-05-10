@@ -16,6 +16,7 @@ import javax.crypto.spec.PBEKeySpec;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -57,6 +58,40 @@ public class AdminSessionController {
         LocalDateTime expiresAt = LocalDateTime.now().plusHours(8);
         String sessionId = issueSession(row.userId(), expiresAt);
         return Result.ok(new AdminSessionResponse(row.nickname(), String.valueOf(row.userId()), permissions, sessionId, expiresAt.toString()));
+    }
+
+    @PostMapping("/logout")
+    public Result<Boolean> logout(@RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
+                                  @RequestHeader(value = "X-Admin-Session", required = false) String sessionIdHeader) {
+        Long userId = parsePositiveUserId(userIdHeader);
+        String sessionId = normalizeSessionId(sessionIdHeader);
+        if (userId == null || sessionId == null) {
+            throw new SecurityException("admin session required");
+        }
+        int updated = jdbcTemplate.update("""
+                UPDATE admin_session
+                SET revoked = TRUE
+                WHERE user_id = ? AND session_id = ? AND revoked = FALSE
+                """, userId, sessionId);
+        if (updated <= 0) {
+            throw new SecurityException("admin session required");
+        }
+        return Result.ok(Boolean.TRUE);
+    }
+
+    private Long parsePositiveUserId(String userIdHeader) {
+        if (userIdHeader == null || !userIdHeader.trim().matches("^[1-9]\\d*$")) {
+            return null;
+        }
+        return Long.parseLong(userIdHeader.trim());
+    }
+
+    private String normalizeSessionId(String sessionIdHeader) {
+        if (sessionIdHeader == null) {
+            return null;
+        }
+        String sessionId = sessionIdHeader.trim();
+        return sessionId.matches("^adm_[a-fA-F0-9]{32}$") ? sessionId : null;
     }
 
     private String issueSession(Long userId, LocalDateTime expiresAt) {

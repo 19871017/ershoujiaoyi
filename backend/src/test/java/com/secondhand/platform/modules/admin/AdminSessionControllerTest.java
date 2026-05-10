@@ -105,6 +105,27 @@ class AdminSessionControllerTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void adminLogoutRevokesOnlyMatchingServerIssuedSession() throws Exception {
+        createUserThroughPasswordLogin("13900000075", "admin-pass-75");
+        Long userId = jdbcTemplate.queryForObject("select id from user_account where phone = ?", Long.class, "13900000075");
+        grantPermission(userId, "audit:read");
+
+        mvc.perform(post("/api/admin/session/login")
+                        .contentType("application/json")
+                        .content("{\"mobile\":\"13900000075\",\"password\":\"admin-pass-75\"}"))
+                .andExpect(status().isOk());
+        String sessionId = jdbcTemplate.queryForObject("select session_id from admin_session where user_id = ?", String.class, userId);
+
+        mvc.perform(post("/api/admin/session/logout")
+                        .header("X-User-Id", String.valueOf(userId))
+                        .header("X-Admin-Session", sessionId))
+                .andExpect(status().isOk());
+
+        Boolean revoked = jdbcTemplate.queryForObject("select revoked from admin_session where session_id = ?", Boolean.class, sessionId);
+        org.junit.jupiter.api.Assertions.assertEquals(Boolean.TRUE, revoked);
+    }
+
     private void createUserThroughPasswordLogin(String mobile, String password) {
         LoginRequest request = new LoginRequest();
         request.setMobile(mobile);

@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { setAdminHeaderProvider } from '../../api/http'
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:18080'
 
@@ -14,6 +15,17 @@ async function postAdminSessionLogin(mobile: string, password: string): Promise<
   }
   const payload = await response.json() as { data?: AdminSessionInput }
   return payload.data ?? {}
+}
+
+async function postAdminSessionLogout(session: AdminSession): Promise<void> {
+  await fetch(`${API_BASE}/api/admin/session/logout`, {
+    method: 'POST',
+    headers: {
+      'X-User-Id': session.userId,
+      'X-Admin-Session': session.sessionId
+    },
+    credentials: 'include'
+  }).catch(() => undefined)
 }
 
 export interface AdminSessionInput {
@@ -108,6 +120,13 @@ export function buildAdminHeaders(session: AdminSession | null): Record<string, 
   }
 }
 
+export async function logoutAdminSession(session: AdminSession | null): Promise<void> {
+  if (session) {
+    await postAdminSessionLogout(session)
+  }
+  setAdminHeaderProvider(null)
+}
+
 export async function loginAdminSession(mobile: string, password: string): Promise<AdminSession> {
   const session = normalizeAdminSession(await postAdminSessionLogin(mobile, password))
   if (!session) {
@@ -157,11 +176,13 @@ export const useAuthStore = defineStore('admin-auth', {
       this.token = token
       persistState({ token: this.token, username: this.username, session: this.session })
     },
-    clear() {
+    async clear() {
+      const currentSession = this.session
       this.token = ''
       this.username = ''
       this.session = null
       sessionStorage.removeItem(STORAGE_KEY)
+      await logoutAdminSession(currentSession)
     }
   }
 })
