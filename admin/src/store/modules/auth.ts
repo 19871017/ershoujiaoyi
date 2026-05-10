@@ -57,7 +57,7 @@ const PROTECTED_ROUTE_PERMISSIONS: RoutePermissionRule[] = [
 export interface AdminMenuItem {
   path: string
   label: string
-  permission: AdminPermission
+  permission: AdminPermission | null
 }
 
 export interface AdminSession {
@@ -110,6 +110,8 @@ export function sessionAllowsPermission(session: AdminSession | null, permission
 }
 
 export function menuAllowsSession(item: AdminMenuItem, session: AdminSession | null): boolean {
+  if (!session) return false
+  if (item.permission === null) return true
   return sessionAllowsPermission(session, item.permission)
 }
 

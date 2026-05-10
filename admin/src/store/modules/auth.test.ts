@@ -167,6 +167,19 @@ describe('admin auth helpers', () => {
     expect(shouldRedirectToLogin('/dashboard', financeOnly)).toBe(false)
   })
 
+  it('shows dashboard menu for any valid admin session because dashboard requires session only', () => {
+    const financeOnly = normalizeAdminSession({
+      username: 'finance-admin',
+      userId: '14',
+      permissions: ['finance:read'],
+      sessionId: 'adm_99999999999999999999999999999999',
+      expiresAt: '2026-05-11T03:00:00'
+    })
+
+    expect(menuAllowsSession({ path: '/dashboard', label: '仪表盘', permission: null }, financeOnly)).toBe(true)
+    expect(menuAllowsSession({ path: '/dashboard', label: '仪表盘', permission: null }, null)).toBe(false)
+  })
+
   it('fails closed when a persisted/admin API session has no explicit permissions', () => {
     const session = normalizeAdminSession({
       username: 'no-permission-admin',

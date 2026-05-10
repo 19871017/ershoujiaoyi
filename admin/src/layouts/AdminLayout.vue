@@ -30,7 +30,7 @@ import { menuAllowsSession, useAuthStore, type AdminMenuItem } from '../store/mo
 const router = useRouter()
 const auth = useAuthStore()
 const allMenus: AdminMenuItem[] = [
-  { path: '/dashboard', label: '仪表盘', permission: 'audit:read' },
+  { path: '/dashboard', label: '仪表盘', permission: null },
   { path: '/audit', label: '审核工作台', permission: 'audit:read' },
   { path: '/finance/withdrawals', label: '提现审核', permission: 'finance:read' },
   { path: '/orders', label: '订单管理', permission: 'order:read' },
