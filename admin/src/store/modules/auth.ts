@@ -190,7 +190,8 @@ function readInitialState(): AuthState {
     if (!raw) return { token: '', username: '', session: null }
     const parsed = JSON.parse(raw) as Partial<AuthState> & AdminSessionInput
     const session = normalizeAdminSession(parsed.session ?? null)
-    return { token: parsed.token || '', username: session?.username || parsed.username || '', session }
+    if (!session) return { token: '', username: '', session: null }
+    return { token: createAdminAuthToken(session), username: session.username, session }
   } catch {
     return { token: '', username: '', session: null }
   }

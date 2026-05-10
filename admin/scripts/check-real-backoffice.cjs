@@ -32,6 +32,7 @@ const requiredPatterns = [
   { file: 'src/store/modules/auth.ts', pattern: /permission: 'user:read'/, message: 'user routes must require module-specific user:read permission' },
   { file: 'src/store/modules/auth.ts', pattern: /permission: 'order:read'/, message: 'order routes must require module-specific order:read permission' },
   { file: 'src/store/modules/auth.ts', pattern: /permission: 'after-sales:read'/, message: 'after-sales routes must require module-specific after-sales:read permission' },
+  { file: 'src/store/modules/auth.ts', pattern: /if \(!session\) return \{ token: '', username: '', session: null \}/, message: 'expired or invalid persisted admin sessions must clear stale local token and username' },
   { file: 'src/layouts/AdminLayout.vue', pattern: /permission: 'user:read'/, message: 'user menu must require user:read rather than broad audit permission' },
   { file: 'src/layouts/AdminLayout.vue', pattern: /ADMIN_DASHBOARD_ACTIONS/, message: 'layout menu must reuse module-specific dashboard action permissions' },
   { file: 'src/pages/dashboard/index.vue', pattern: /dashboardActionsForSession/, message: 'dashboard quick actions must be filtered by explicit module permissions' },

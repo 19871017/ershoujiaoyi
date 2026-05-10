@@ -1,5 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { describe, expect, it, vi } from 'vitest'
+import { request, setAdminHeaderProvider } from '../../api/http'
 import {
   buildAdminHeaders,
   canReviewAfterSales,
@@ -59,6 +60,25 @@ describe('admin auth helpers', () => {
         'X-Admin-Session': 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
       }
     }))
+  })
+
+  it('clears the shared admin HTTP header provider after logout so later protected requests fail closed', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: 'ok' }) })
+    vi.stubGlobal('fetch', fetchMock)
+    const session = normalizeAdminSession({
+      username: 'ops',
+      userId: '7',
+      permissions: ['audit:read'],
+      sessionId: 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+    setAdminHeaderProvider(() => buildAdminHeaders(session))
+
+    await request({ url: '/api/admin/dashboard' })
+    await logoutAdminSession(session)
+
+    await expect(request({ url: '/api/admin/dashboard' })).rejects.toThrow('管理员会话无效')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('rejects backend admin sessions that omit an explicit permissions array', () => {
@@ -260,6 +280,32 @@ describe('admin auth helpers', () => {
     expect(session).toBeNull()
     expect(buildAdminHeaders(session)).toEqual({})
     expect(shouldRedirectToLogin('/dashboard', session)).toBe(true)
+  })
+
+  it('clears stale persisted token and username when stored admin session is expired', () => {
+    vi.stubGlobal('sessionStorage', {
+      getItem: vi.fn(() => JSON.stringify({
+        token: 'adm_77777777777777777777777777777777',
+        username: 'expired-admin',
+        session: {
+          username: 'expired-admin',
+          userId: '13',
+          permissions: ['audit:read'],
+          sessionId: 'adm_77777777777777777777777777777777',
+          expiresAt: '2000-01-01T00:00:00Z'
+        }
+      })),
+      setItem: vi.fn(),
+      removeItem: vi.fn()
+    })
+    setActivePinia(createPinia())
+
+    const auth = useAuthStore()
+
+    expect(auth.session).toBeNull()
+    expect(auth.token).toBe('')
+    expect(auth.username).toBe('')
+    expect(auth.isAuthenticated).toBe(false)
   })
 
   it('requires module-specific read permissions for order and after-sales deep links', () => {
