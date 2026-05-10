@@ -62,7 +62,7 @@
     <view v-if="loadError" class="empty ds-card">
       <view class="empty-icon">📊</view>
       <view class="section-title">榜单接口尚未接入，未展示本地预览榜单</view>
-      <view class="section-desc">{{ loadError }}；交易请以平台订单、支付和售后状态为准。</view>
+      <view class="section-desc">{{ loadError }}；交易状态以服务端订单、支付和售后记录为准。</view>
     </view>
 
     <view class="rank-list">
@@ -98,7 +98,7 @@
       <view class="safe-icon">🛡️</view>
       <view>
         <view class="safe-title">榜单安全说明</view>
-        <view class="safe-desc">榜单只展示开发预览互动热度，不展示静态实名、信用或成交指标；交易请以平台订单、支付和售后状态为准，拒绝私下转账。</view>
+        <view class="safe-desc">榜单只展示后端返回的互动热度，不展示静态实名、信用或成交指标；交易状态以服务端订单、支付和售后记录为准。</view>
       </view>
     </view>
   </view>

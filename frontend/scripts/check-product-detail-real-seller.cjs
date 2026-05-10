@@ -55,6 +55,8 @@ const requiredMarkers = [
   '暂无服务端信用/成交统计',
   '平台交易',
   '订单、支付和售后状态以服务端记录为准',
+  '沟通内容以服务端会话记录为准',
+  '交付与收货状态以服务端订单记录为准',
   'favoriteProduct(detail.value.productId)',
   'unfavoriteProduct(detail.value.productId)',
   'favoriteLoading',

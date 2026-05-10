@@ -51,7 +51,7 @@ const previewTrustCopyPatterns = [
 for (const { label, pattern } of previewTrustCopyPatterns) {
   if (pattern.test(source)) failures.push(`ranking page preview/static copy must not assert transaction/location trust signal without backend state: ${label}`)
 }
-if (!source.includes('交易请以平台订单、支付和售后状态为准')) {
+if (!source.includes('交易状态以服务端订单、支付和售后记录为准')) {
   failures.push('ranking page safety copy must use neutral backend-record wording for transactions')
 }
 

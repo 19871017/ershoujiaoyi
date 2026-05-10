@@ -92,8 +92,8 @@ const favorited = ref(false)
 const favoriteLoading = ref(false)
 const safeRules = [
   { icon: '🛡️', title: '平台交易', desc: '订单、支付和售后状态以服务端记录为准' },
-  { icon: '💬', title: '聊天留痕', desc: '私下转账可直接举报' },
-  { icon: '📦', title: '验货确认', desc: '收到后再确认收货' }
+  { icon: '💬', title: '会话记录', desc: '沟通内容以服务端会话记录为准' },
+  { icon: '📦', title: '交付确认', desc: '交付与收货状态以服务端订单记录为准' }
 ]
 const confirmItems = reactive([
   { key: 'rule', label: '已阅读订单、支付和售后状态以服务端记录为准', checked: true },
@@ -154,7 +154,7 @@ function reportProduct() {
   }
   uni.navigateTo({ url: `/pages/report/submit/index?targetType=GOODS&targetId=${encodeURIComponent(String(reportTargetId))}` })
 }
-function shareProduct() { uni.showToast({ title: '已生成分享卡片预览', icon: 'none' }) }
+function shareProduct() { uni.showToast({ title: '分享接口暂未接入，未生成正式分享记录', icon: 'none' }) }
 async function toggleFavorite() {
   if (!detail.value?.productId || detail.value.productId <= 0) {
     uni.showToast({ title: '商品缺少后端 productId，未执行收藏变更', icon: 'none' })
