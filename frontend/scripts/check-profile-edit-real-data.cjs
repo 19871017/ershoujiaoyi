@@ -18,7 +18,8 @@ const forbiddenMarkers = [
   "catch { /* keep local demo */ }",
   "资料已校验，接入保存接口后再同步到个人主页",
   "资料保存接口尚未接入，未执行任何资料修改",
-  "角色修改需通过资料保存接口持久化，当前未执行任何角色修改"
+  "角色修改需通过资料保存接口持久化，当前未执行任何角色修改",
+  "需后端保存接口接入"
 ]
 
 for (const marker of forbiddenMarkers) {

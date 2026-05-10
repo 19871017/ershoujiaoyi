@@ -13,9 +13,9 @@
 
     <view class="form-card ds-card">
       <view class="section-title">编辑资料</view>
-      <input v-model.trim="form.nickname" class="field" maxlength="16" placeholder="昵称（需后端保存接口接入）" />
-      <input v-model.trim="form.city" class="field" maxlength="24" placeholder="所在城市（需后端保存接口接入）" />
-      <input v-model.trim="form.bio" class="field" maxlength="60" placeholder="个人简介（需后端保存接口接入）" />
+      <input v-model.trim="form.nickname" class="field" maxlength="16" placeholder="昵称（保存后以后端返回为准）" />
+      <input v-model.trim="form.city" class="field" maxlength="24" placeholder="所在城市（保存后以后端返回为准）" />
+      <input v-model.trim="form.bio" class="field" maxlength="60" placeholder="个人简介（保存后以后端返回为准）" />
       <view class="role-row">
         <view v-for="item in roles" :key="item.value" class="role-chip tapable" :class="{ active: form.mainRole === item.value }" @click="chooseRole(item.value)">
           {{ item.label }}
