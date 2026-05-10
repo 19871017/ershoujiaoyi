@@ -145,6 +145,14 @@ public class AdminController {
         return Result.ok(walletLedgerService.getAdminWithdrawal(withdrawalNo));
     }
 
+    @GetMapping("/after-sales")
+    public Result<List<AfterSalesResponse>> afterSalesList(@RequestParam(required = false) String status,
+                                                           @RequestParam(defaultValue = "20") Integer limit,
+                                                           HttpServletRequest request) {
+        adminAccessGuard.requireAdmin(request, "after-sales:read");
+        return Result.ok(afterSalesApplicationService.listAdminAfterSales(status, limit));
+    }
+
     @GetMapping("/after-sales/{afterSalesNo}")
     public Result<AfterSalesResponse> afterSalesDetail(@PathVariable String afterSalesNo, HttpServletRequest request) {
         adminAccessGuard.requireAdmin(request, "after-sales:read");

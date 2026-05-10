@@ -1,19 +1,60 @@
 <template>
   <section class="page-shell after-sales-page">
     <div class="page-title">售后管理</div>
-    <div class="page-desc">按后端售后编号读取真实售后详情；无有效编号或接口失败时不展示本地样例，也不执行本地处理成功态。</div>
+    <div class="page-desc">默认从后端读取待处理售后列表；详情按后端售后编号查询，无有效编号或接口失败时不展示本地样例，也不执行本地处理成功态。</div>
+
+    <div class="lookup-card">
+      <label>
+        <span>状态筛选</span>
+        <select v-model="statusFilter" :disabled="loadingList" @change="loadList">
+          <option value="PENDING_REVIEW">待处理</option>
+          <option value="APPROVED">已通过</option>
+          <option value="REJECTED">已拒绝</option>
+          <option value="ALL">全部</option>
+        </select>
+      </label>
+      <button class="primary-btn" :disabled="loadingList" @click="loadList">{{ loadingList ? '刷新中...' : '刷新列表' }}</button>
+    </div>
+
+    <div v-if="listError" class="alert">{{ listError }}</div>
+    <div v-if="loadingList" class="empty">售后列表加载中...</div>
+    <div v-else-if="rows.length === 0" class="empty">后端未返回售后记录；本页不展示预览或本地售后样例。</div>
+    <div v-else class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>售后编号</th>
+            <th>订单编号</th>
+            <th>申请人</th>
+            <th>金额</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in rows" :key="row.afterSalesNo">
+            <td>{{ row.afterSalesNo }}</td>
+            <td>{{ row.orderNo }}</td>
+            <td>{{ row.applicantId }}</td>
+            <td>¥{{ row.refundAmount }}</td>
+            <td>{{ row.status }}</td>
+            <td><button class="link-btn" @click="selectDetail(row.afterSalesNo)">查看详情</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <form class="lookup-card" @submit.prevent="loadDetail">
       <label>
         <span>售后编号</span>
         <input v-model.trim="afterSalesNo" placeholder="例如 AS-ADMIN-20260510-0001" />
       </label>
-      <button class="primary-btn" :disabled="loading || !afterSalesNo">{{ loading ? '查询中...' : '查询详情' }}</button>
+      <button class="primary-btn" :disabled="loadingDetail || !afterSalesNo">{{ loadingDetail ? '查询中...' : '查询详情' }}</button>
     </form>
 
-    <div v-if="error" class="alert">{{ error }}</div>
-    <div v-if="loading" class="empty">售后记录加载中...</div>
-    <div v-else-if="!detail" class="empty">请输入后端售后编号查询详情；未接通接口时不会展示预览或本地售后样例。</div>
+    <div v-if="detailError" class="alert">{{ detailError }}</div>
+    <div v-if="loadingDetail" class="empty">售后详情加载中...</div>
+    <div v-else-if="!detail" class="empty">请选择列表记录或输入后端售后编号查询详情。</div>
 
     <article v-else class="detail-card">
       <div class="detail-head">
@@ -38,30 +79,60 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { getAdminAfterSalesDetail, isValidAdminAfterSalesNo, type AdminAfterSalesDetail } from '../../api'
+import { onMounted, ref } from 'vue'
+import {
+  getAdminAfterSalesDetail,
+  getAdminAfterSalesList,
+  isValidAdminAfterSalesNo,
+  type AdminAfterSalesDetail,
+  type AdminAfterSalesListQuery
+} from '../../api'
 
 const afterSalesNo = ref('')
-const loading = ref(false)
-const error = ref('')
+const statusFilter = ref<NonNullable<AdminAfterSalesListQuery['status']>>('PENDING_REVIEW')
+const loadingList = ref(false)
+const loadingDetail = ref(false)
+const listError = ref('')
+const detailError = ref('')
+const rows = ref<AdminAfterSalesDetail[]>([])
 const detail = ref<AdminAfterSalesDetail | null>(null)
+
+async function loadList() {
+  loadingList.value = true
+  listError.value = ''
+  rows.value = []
+  try {
+    rows.value = await getAdminAfterSalesList({ status: statusFilter.value, limit: 20 })
+  } catch {
+    listError.value = '售后列表加载失败：未展示本地样例，请确认管理员权限、后端服务与 /api/admin/after-sales 可用。'
+  } finally {
+    loadingList.value = false
+  }
+}
+
+async function selectDetail(no: string) {
+  afterSalesNo.value = no
+  await loadDetail()
+}
 
 async function loadDetail() {
   const safeNo = afterSalesNo.value.trim()
-  loading.value = true
-  error.value = ''
+  loadingDetail.value = true
+  detailError.value = ''
   detail.value = null
   if (!isValidAdminAfterSalesNo(safeNo)) {
-    error.value = '售后编号无效：已阻止预览、占位或非后端编号查询。'
-    loading.value = false
+    detailError.value = '售后编号无效：已阻止预览、占位或非后端编号查询。'
+    loadingDetail.value = false
     return
   }
   try {
     detail.value = await getAdminAfterSalesDetail(safeNo)
   } catch {
-    error.value = '售后详情加载失败：未展示本地样例，请确认管理员权限、后端服务与 /api/admin/after-sales/{afterSalesNo} 可用。'
+    detailError.value = '售后详情加载失败：未展示本地样例，请确认管理员权限、后端服务与 /api/admin/after-sales/{afterSalesNo} 可用。'
   } finally {
-    loading.value = false
+    loadingDetail.value = false
   }
 }
+
+onMounted(loadList)
 </script>

@@ -36,6 +36,11 @@ export interface AdminAfterSalesDetail {
   createdAt?: string
 }
 
+export interface AdminAfterSalesListQuery {
+  status?: 'ALL' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
+  limit?: number
+}
+
 export interface AdminOrderDetail {
   orderNo: string
   buyerId: number
@@ -239,6 +244,21 @@ export async function getAdminAfterSalesDetail(afterSalesNo: string) {
     throw new Error('售后编号无效')
   }
   return request<AdminAfterSalesDetail>({ url: `/api/admin/after-sales/${encodeURIComponent(afterSalesNo)}` })
+}
+
+export async function getAdminAfterSalesList(query: AdminAfterSalesListQuery = {}) {
+  const params = new URLSearchParams()
+  const status = query.status ?? 'PENDING_REVIEW'
+  if (!['ALL', 'PENDING_REVIEW', 'APPROVED', 'REJECTED'].includes(status)) {
+    throw new Error('售后状态筛选无效')
+  }
+  if (status !== 'ALL') params.set('status', status)
+  const limit = query.limit ?? 20
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new Error('售后列表条数无效')
+  }
+  params.set('limit', String(limit))
+  return request<AdminAfterSalesDetail[]>({ url: `/api/admin/after-sales?${params.toString()}` })
 }
 
 export async function getAdminOrderDetail(orderNo: string) {

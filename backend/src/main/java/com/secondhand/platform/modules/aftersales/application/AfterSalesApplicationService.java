@@ -77,6 +77,24 @@ public class AfterSalesApplicationService {
         return findByAfterSalesNo(safeAfterSalesNo);
     }
 
+    public List<AfterSalesResponse> listAdminAfterSales(String status, Integer limit) {
+        String safeStatus = status == null || status.isBlank() || "ALL".equalsIgnoreCase(status) ? null : status.trim().toUpperCase(Locale.ROOT);
+        if (safeStatus != null && !STATUS_PENDING_REVIEW.equals(safeStatus) && !"APPROVED".equals(safeStatus) && !"REJECTED".equals(safeStatus)) {
+            throw new IllegalArgumentException("after-sales status invalid");
+        }
+        int safeLimit = limit == null ? 20 : limit;
+        if (safeLimit < 1 || safeLimit > 100) throw new IllegalArgumentException("after-sales limit invalid");
+        String where = safeStatus == null ? "" : " where after_sales_status = ?";
+        Object[] args = safeStatus == null ? new Object[]{safeLimit} : new Object[]{safeStatus, safeLimit};
+        return jdbcTemplate.query("""
+                select * from after_sales_record
+                """ + where + " order by created_at desc limit ?", (rs, rowNum) -> new AfterSalesResponse(
+                rs.getString("after_sales_no"), rs.getString("order_no"), rs.getLong("applicant_id"), rs.getString("after_sales_type"),
+                rs.getBigDecimal("refund_amount"), rs.getString("reason"), rs.getString("description"), decode(rs.getString("evidence_urls")),
+                rs.getString("after_sales_status"), timeText(rs.getTimestamp("created_at"))
+        ), args);
+    }
+
     private List<String> sanitizeEvidence(Long applicantId, List<String> evidenceUrls) {
         if (evidenceUrls == null || evidenceUrls.isEmpty()) throw new IllegalArgumentException("after-sales evidence required");
         if (evidenceUrls.size() > 6) throw new IllegalArgumentException("too many after-sales evidence images");

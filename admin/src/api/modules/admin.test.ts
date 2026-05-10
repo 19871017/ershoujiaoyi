@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   approveAdminAudit,
   getAdminAfterSalesDetail,
+  getAdminAfterSalesList,
   getAdminAuditDetail,
   getAdminAuditLogs,
   getAdminDashboard,
@@ -312,6 +313,36 @@ describe('admin finance api', () => {
     expect(isValidAdminAfterSalesNo('preview-after-sales')).toBe(false)
     expect(isValidAdminAfterSalesNo('AS-DEMO-0001')).toBe(false)
     await expect(getAdminAfterSalesDetail('preview-after-sales')).rejects.toThrow('售后编号无效')
+  })
+
+  it('loads admin after-sales list through backend endpoint with status and bounded limit', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            afterSalesNo: 'AS-ADMIN-20260510-0001',
+            orderNo: 'ORDER-ADMIN-20260510-0001',
+            applicantId: 8801,
+            afterSalesType: 'REFUND_ONLY',
+            refundAmount: 30,
+            reason: '尺码不合适',
+            description: '售后描述已脱敏',
+            evidenceUrls: ['/uploads/evidence/after-sales/8801/proof.jpg'],
+            status: 'PENDING_REVIEW',
+            createdAt: '2026-05-10T12:00:00'
+          }
+        ]
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const rows = await getAdminAfterSalesList({ status: 'PENDING_REVIEW', limit: 20 })
+
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/after-sales?status=PENDING_REVIEW&limit=20'), expect.any(Object))
+    expect(rows[0].afterSalesNo).toBe('AS-ADMIN-20260510-0001')
+    await expect(getAdminAfterSalesList({ status: 'preview' as never, limit: 20 })).rejects.toThrow('售后状态筛选无效')
+    await expect(getAdminAfterSalesList({ status: 'ALL', limit: 101 })).rejects.toThrow('售后列表条数无效')
   })
 
   it('loads order detail only for backend order numbers without fake success', async () => {

@@ -155,6 +155,26 @@ class AdminControllerRbacTest {
         org.junit.jupiter.api.Assertions.assertEquals(1, count);
     }
 
+    @Test
+    void adminAfterSalesListRequiresAfterSalesReadPermission() throws Exception {
+        createActiveUser(51L);
+        grantPermission(51L, "audit:read");
+
+        mvc.perform(get("/api/admin/after-sales")
+                        .header("X-User-Id", "51")
+                        .param("status", "PENDING_REVIEW")
+                        .param("limit", "20"))
+                .andExpect(status().isForbidden());
+
+        grantPermission(51L, "after-sales:read");
+
+        mvc.perform(get("/api/admin/after-sales")
+                        .header("X-User-Id", "51")
+                        .param("status", "PENDING_REVIEW")
+                        .param("limit", "20"))
+                .andExpect(status().isOk());
+    }
+
     private void grantPermission(Long userId, String permission) {
         jdbcTemplate.update("""
                 insert into admin_user_permission (user_id, permission_code, enabled, created_at, updated_at)
