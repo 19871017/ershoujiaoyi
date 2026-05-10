@@ -6,6 +6,7 @@ import {
   canReviewAudit,
   canReviewFinance,
   createAdminAuthToken,
+  dashboardActionsForSession,
   isAdminAuthenticated,
   loginAdminSession,
   logoutAdminSession,
@@ -187,6 +188,27 @@ describe('admin auth helpers', () => {
 
     expect(menuAllowsSession({ path: '/dashboard', label: '仪表盘', permission: null }, financeOnly)).toBe(true)
     expect(menuAllowsSession({ path: '/dashboard', label: '仪表盘', permission: null }, null)).toBe(false)
+  })
+
+  it('filters dashboard quick actions by explicit module permissions instead of linking read-only sessions into forbidden pages', () => {
+    const financeOnly = normalizeAdminSession({
+      username: 'finance-admin',
+      userId: '14',
+      permissions: ['finance:read'],
+      sessionId: 'adm_99999999999999999999999999999999',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+    const allAccess = normalizeAdminSession({
+      username: 'ops',
+      userId: '7',
+      permissions: ['audit:read', 'finance:read', 'order:read', 'after-sales:read'],
+      sessionId: 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
+
+    expect(dashboardActionsForSession(financeOnly).map((item) => item.path)).toEqual(['/finance/withdrawals'])
+    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/finance/withdrawals', '/after-sales', '/orders'])
+    expect(dashboardActionsForSession(null)).toEqual([])
   })
 
   it('fails closed when a persisted/admin API session has no explicit permissions', () => {

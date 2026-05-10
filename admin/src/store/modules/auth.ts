@@ -60,6 +60,13 @@ export interface AdminMenuItem {
   permission: AdminPermission | null
 }
 
+export const ADMIN_DASHBOARD_ACTIONS: AdminMenuItem[] = [
+  { path: '/audit', label: '审核工作台', permission: 'audit:read' },
+  { path: '/finance/withdrawals', label: '提现审核', permission: 'finance:read' },
+  { path: '/after-sales', label: '售后管理', permission: 'after-sales:read' },
+  { path: '/orders', label: '订单管理', permission: 'order:read' }
+]
+
 export interface AdminSession {
   username: string
   userId: string
@@ -113,6 +120,10 @@ export function menuAllowsSession(item: AdminMenuItem, session: AdminSession | n
   if (!session) return false
   if (item.permission === null) return true
   return sessionAllowsPermission(session, item.permission)
+}
+
+export function dashboardActionsForSession(session: AdminSession | null): AdminMenuItem[] {
+  return ADMIN_DASHBOARD_ACTIONS.filter((item) => menuAllowsSession(item, session))
 }
 
 export function canReviewAfterSales(session: AdminSession | null): boolean {

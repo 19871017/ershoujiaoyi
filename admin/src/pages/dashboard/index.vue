@@ -15,10 +15,7 @@
     </div>
     <p class="safe-note">仪表盘只展示服务端聚合记录；不会从本地审核列表推导财务、售后、订单或用户指标。</p>
     <div class="actions dashboard-actions">
-      <RouterLink class="primary-link" to="/audit">审核工作台</RouterLink>
-      <RouterLink class="primary-link" to="/finance/withdrawals">提现审核</RouterLink>
-      <RouterLink class="primary-link" to="/after-sales">售后管理</RouterLink>
-      <RouterLink class="primary-link" to="/orders">订单管理</RouterLink>
+      <RouterLink v-for="item in dashboardActions" :key="item.path" class="primary-link" :to="item.path">{{ item.label }}</RouterLink>
     </div>
   </section>
 </template>
@@ -27,9 +24,12 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getAdminDashboard, type AdminDashboardSummary } from '../../api'
+import { dashboardActionsForSession, useAuthStore } from '../../store/modules/auth'
 
+const auth = useAuthStore()
 const summary = ref<AdminDashboardSummary | null>(null)
 const error = ref('')
+const dashboardActions = dashboardActionsForSession(auth.session)
 
 function display(value: number | undefined) {
   return value === undefined ? '-' : String(value)
