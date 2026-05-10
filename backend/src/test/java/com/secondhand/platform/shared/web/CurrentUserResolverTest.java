@@ -18,11 +18,13 @@ class CurrentUserResolverTest {
     }
 
     @Test
-    void allowsDefaultUserOnlyWhenExplicitDevModeHeaderIsPresent() {
+    void rejectsMissingCurrentUserEvenWhenLegacyDevModeHeaderIsPresent() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("X-Dev-Mode", "enabled");
 
-        assertEquals(1L, resolver.resolve(request));
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> resolver.resolve(request));
+
+        assertEquals("X-User-Id required", error.getMessage());
     }
 
     @Test
