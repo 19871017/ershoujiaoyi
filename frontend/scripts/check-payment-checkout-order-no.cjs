@@ -88,6 +88,14 @@ if (!method.includes('return /^[A-Z]{2,10}-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test
   failures.push(`${methodFile}: payment method return flow must require canonical backend order numbers before redirecting to checkout`)
 }
 
+if (/navigateBack\(\{\s*delta:\s*1\s*\}\)/.test(method)) {
+  failures.push(`${methodFile}: invalid payment method route orderNo must not navigateBack to a stale checkout carrying the same unsafe route params`)
+}
+
+if (!/uni\.redirectTo\(\{\s*url:\s*'\/pages\/payment\/checkout\/index'\s*\}\)/s.test(method)) {
+  failures.push(`${methodFile}: invalid payment method route orderNo must redirect to a clean checkout entry without propagating route orderNo`)
+}
+
 if (!/async function backToCheckout\(\)\s*\{[\s\S]*isValidBackendOrderNo\(orderNo\.value\)[\s\S]*await getOrderDetail\(orderNo\.value\)[\s\S]*orderNo: detail\.orderNo[\s\S]*encodeURIComponent\(checkoutRoute\.orderNo\)/s.test(method)) {
   failures.push(`${methodFile}: backToCheckout must rehydrate backend order detail and redirect with backend-derived detail.orderNo, not only route orderNo`)
 }

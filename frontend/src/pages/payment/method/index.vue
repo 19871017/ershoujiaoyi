@@ -41,7 +41,7 @@ const steps=['后端创建支付单并保存幂等号','前端只拉起官方收
 function readQuery(){const pages=getCurrentPages(); const current=pages.length?pages[pages.length-1] as unknown as {options?:Record<string,string>}:undefined; const hash=typeof window!=='undefined'?new URLSearchParams(window.location.hash.split('?')[1]||''):undefined; const value=current?.options?.method||hash?.get('method'); method.value=value==='ALIPAY'?'ALIPAY':'WECHAT'; orderNo.value=current?.options?.orderNo||hash?.get('orderNo')||''}
 function isValidBackendOrderNo(value: string) { return /^[A-Z]{2,10}-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(value) }
 async function backToCheckout(){
-  if(!isValidBackendOrderNo(orderNo.value)){ uni.showToast({title:'订单号无效，已阻止返回收银台',icon:'none'}); uni.navigateBack({delta:1}); return }
+  if(!isValidBackendOrderNo(orderNo.value)){ uni.showToast({title:'订单号无效，已阻止返回收银台',icon:'none'}); uni.redirectTo({ url: '/pages/payment/checkout/index' }); return }
   try {
     const detail = await getOrderDetail(orderNo.value)
     const checkoutRoute = { orderNo: detail.orderNo }
