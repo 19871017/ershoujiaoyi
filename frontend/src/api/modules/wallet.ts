@@ -43,7 +43,7 @@ export interface WithdrawalResponse {
   amount: WalletMoneyAmount
   paymentMethod: string
   accountName: string
-  accountNo: string
+  maskedAccountNo: string
   accountVerifyStatus?: string | null
   status: WithdrawalStatus | string
   remark?: string | null

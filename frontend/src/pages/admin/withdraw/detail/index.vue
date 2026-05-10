@@ -49,7 +49,7 @@ const rows = computed(() => [
   { label: '提现金额', value: withdrawal.value ? `¥${withdrawal.value.amount}` : '待后端返回' },
   { label: '收款渠道', value: withdrawal.value?.paymentMethod || '待后端返回' },
   { label: '收款人', value: withdrawal.value?.accountName || '待后端返回' },
-  { label: '收款账号', value: withdrawal.value?.accountNo || '待后端返回安全展示' },
+  { label: '脱敏收款账号', value: withdrawal.value?.maskedAccountNo || '待后端返回安全展示' },
   { label: '一致性状态', value: withdrawal.value?.accountVerifyStatus || '实名与收款账户待人工一致性复核' },
   { label: '资金状态', value: '提交时已冻结；通过扣减冻结余额，拒绝解冻回可提现' },
   { label: '账本影响', value: '提现冻结 / 提现出款 / 提现解冻均写入后端幂等流水' }

@@ -110,11 +110,24 @@ class WalletLedgerServiceTest {
         WithdrawalResponse created = service.createWithdrawal(1L, request, "AU-WD-1");
         WithdrawalResponse listed = service.listWithdrawals(1L).get(0);
 
-        assertEquals("6222 **** **** 8088", created.accountNo());
-        assertEquals("6222 **** **** 8088", listed.accountNo());
-        assertFalse(created.accountNo().contains("020202020"));
+        assertEquals("6222 **** **** 8088", created.maskedAccountNo());
+        assertEquals("6222 **** **** 8088", listed.maskedAccountNo());
+        assertFalse(created.maskedAccountNo().contains("020202020"));
         assertEquals("Alice", created.accountName());
         assertEquals("实名与收款账户待人工一致性复核", created.accountVerifyStatus());
+    }
+
+    @Test
+    void withdrawalResponsesShouldNotExposeRawAccountNumberField() {
+        service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        CreateWithdrawalRequest request = withdrawal("50.00");
+        request.setAccountNo("6222020202020208088");
+
+        WithdrawalResponse created = service.createWithdrawal(1L, request, "AU-WD-1");
+        WithdrawalResponse listed = service.listWithdrawals(1L).get(0);
+
+        assertEquals("6222 **** **** 8088", created.maskedAccountNo());
+        assertEquals("6222 **** **** 8088", listed.maskedAccountNo());
     }
 
     @Test
@@ -126,9 +139,9 @@ class WalletLedgerServiceTest {
 
         WithdrawalResponse adminDetail = service.getAdminWithdrawal(withdrawal.withdrawalNo());
 
-        assertEquals("a***e@example.com", adminDetail.accountNo());
+        assertEquals("a***e@example.com", adminDetail.maskedAccountNo());
         assertEquals("实名与收款账户待人工一致性复核", adminDetail.accountVerifyStatus());
-        assertFalse(adminDetail.accountNo().contains("alice@"));
+        assertFalse(adminDetail.maskedAccountNo().contains("alice@"));
     }
 
     @Test

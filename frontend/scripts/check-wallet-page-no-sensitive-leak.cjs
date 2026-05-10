@@ -34,11 +34,23 @@ const walletRequiredMarkers = [
 const walletNewForbiddenMarkers = [
   'accountNo: maskedAccountNo.value',
   'createWithdrawal({ amount, paymentMethod: withdrawForm.paymentMethod',
-  '提现已提交审核：'
+  '提现已提交审核：',
+  'withdrawal.value?.accountNo'
 ]
 
+const walletApiSource = fs.readFileSync(path.join(root, 'src/api/modules/wallet.ts'), 'utf8')
+const withdrawalResponseBlock = walletApiSource.match(/export interface WithdrawalResponse \{[\s\S]*?\n\}/)?.[0] || ''
+if (withdrawalResponseBlock.includes('accountNo: string')) {
+  failures.push('src/api/modules/wallet.ts: WithdrawalResponse must expose maskedAccountNo, not raw accountNo')
+}
+if (!withdrawalResponseBlock.includes('maskedAccountNo: string')) {
+  failures.push('src/api/modules/wallet.ts: WithdrawalResponse missing maskedAccountNo')
+}
+
 for (const marker of walletNewForbiddenMarkers) {
-  if (walletSource.includes(marker)) failures.push(`${walletFile}: forbidden withdrawal submission without backend-owned payout-account reference: ${marker}`)
+  if (walletSource.includes(marker)) failures.push(`${walletFile}: forbidden withdrawal submission or raw withdrawal-account response marker: ${marker}`)
+  const adminWithdrawSource = fs.readFileSync(path.join(root, 'src/pages/admin/withdraw/detail/index.vue'), 'utf8')
+  if (adminWithdrawSource.includes(marker)) failures.push(`src/pages/admin/withdraw/detail/index.vue: forbidden raw withdrawal-account display marker: ${marker}`)
 }
 
 const walletNewRequiredMarkers = [

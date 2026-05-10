@@ -10,7 +10,7 @@ public record WithdrawalResponse(
         BigDecimal amount,
         String paymentMethod,
         String accountName,
-        String accountNo,
+        String maskedAccountNo,
         String accountVerifyStatus,
         String status,
         String remark,
