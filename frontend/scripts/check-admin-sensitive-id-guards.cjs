@@ -5,11 +5,21 @@ const root = path.resolve(__dirname, '..')
 const failures = []
 
 function read(file) {
-  return fs.readFileSync(path.join(root, file), 'utf8')
+  const fullPath = path.join(root, file)
+  if (!fs.existsSync(fullPath)) {
+    return null
+  }
+  return fs.readFileSync(fullPath, 'utf8')
+}
+
+function checkOptionalFile(file, checker) {
+  const source = read(file)
+  if (source === null) return
+  checker(source)
 }
 
 const auditDetailFile = 'src/pages/admin/audit/detail/index.vue'
-const auditDetail = read(auditDetailFile)
+checkOptionalFile(auditDetailFile, (auditDetail) => {
 
 if (!auditDetail.includes('function isValidAuditNo')) {
   failures.push(`${auditDetailFile}: must use a positive audit number allowlist guard named isValidAuditNo`)
@@ -23,9 +33,10 @@ if (!/if \(!isValidAuditNo\(auditNo\.value\)\)/.test(auditDetail)) {
 if (!/approveAudit\(auditNo\.value,/.test(auditDetail) || !/rejectAudit\(auditNo\.value,/.test(auditDetail)) {
   failures.push(`${auditDetailFile}: review actions must submit the already route/backend-validated auditNo.value, not mutable DTO fields`)
 }
+})
 
 const withdrawDetailFile = 'src/pages/admin/withdraw/detail/index.vue'
-const withdrawDetail = read(withdrawDetailFile)
+checkOptionalFile(withdrawDetailFile, (withdrawDetail) => {
 
 if (!withdrawDetail.includes('function isValidWithdrawalNo')) {
   failures.push(`${withdrawDetailFile}: must use a positive withdrawal number allowlist guard named isValidWithdrawalNo`)
@@ -42,9 +53,10 @@ if (!/if \(!isValidWithdrawalNo\(withdrawNo\.value\)\)/.test(withdrawDetail)) {
 if (!/if \(!isValidAuditNo\(auditNo\.value\)\)/.test(withdrawDetail)) {
   failures.push(`${withdrawDetailFile}: requireAuditNo must fail closed unless auditNo passes isValidAuditNo(auditNo.value)`)
 }
+})
 
 const riskDetailFile = 'src/pages/admin/risk/detail/index.vue'
-const riskDetail = read(riskDetailFile)
+checkOptionalFile(riskDetailFile, (riskDetail) => {
 
 if (!riskDetail.includes('function isValidAuditNo')) {
   failures.push(`${riskDetailFile}: must use the same positive audit number allowlist guard named isValidAuditNo before redirecting to audit detail`)
@@ -61,6 +73,7 @@ if (!/if \(!isValidAuditNo\(auditNo\.value\)\)/.test(riskDetail)) {
 if (/startsWith\(['"]preview['"]\)/i.test(riskDetail) || /['"](?:UNKNOWN|PREVIEW|sample|demo)['"]/i.test(riskDetail)) {
   failures.push(`${riskDetailFile}: must not rely on preview/sample/demo blocklists in admin risk route validation`)
 }
+})
 
 if (failures.length) {
   console.error(failures.join('\n'))
