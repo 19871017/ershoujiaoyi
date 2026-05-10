@@ -196,9 +196,8 @@ export const useAuthStore = defineStore('admin-auth', {
       this.token = createAdminAuthToken(session)
       persistState({ token: this.token, username: this.username, session: this.session })
     },
-    setToken(token: string) {
-      this.token = token
-      persistState({ token: this.token, username: this.username, session: this.session })
+    setToken(_token: string) {
+      throw new Error('本地管理员令牌写入已禁用，请通过后端登录接口获取服务端会话')
     },
     async clear() {
       const currentSession = this.session

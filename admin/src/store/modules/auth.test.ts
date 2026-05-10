@@ -1,3 +1,4 @@
+import { createPinia, setActivePinia } from 'pinia'
 import { describe, expect, it, vi } from 'vitest'
 import {
   buildAdminHeaders,
@@ -11,7 +12,8 @@ import {
   menuAllowsSession,
   normalizeAdminSession,
   shouldRedirectToLogin,
-  sessionAllowsPermission
+  sessionAllowsPermission,
+  useAuthStore
 } from './auth'
 
 const FUTURE_EXPIRES_AT = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
@@ -302,6 +304,24 @@ describe('admin auth helpers', () => {
     expect(isAdminAuthenticated({ token: '', username: 'legacy-name', session })).toBe(true)
     expect(createAdminAuthToken(session!)).toBe('adm_01010101010101010101010101010101')
     expect(createAdminAuthToken(null)).toBe('')
+  })
+
+  it('rejects local pseudo token writes so admin auth stays server-session derived', () => {
+    const setItem = vi.fn()
+    vi.stubGlobal('sessionStorage', {
+      getItem: vi.fn(() => null),
+      setItem,
+      removeItem: vi.fn()
+    })
+    setActivePinia(createPinia())
+    const auth = useAuthStore()
+
+    expect(() => auth.setToken('local-pseudo-token')).toThrow('本地管理员令牌写入已禁用')
+
+    expect(auth.token).toBe('')
+    expect(auth.session).toBeNull()
+    expect(auth.isAuthenticated).toBe(false)
+    expect(setItem).not.toHaveBeenCalled()
   })
 
   it('requires finance review permission before enabling withdrawal approval actions', () => {
