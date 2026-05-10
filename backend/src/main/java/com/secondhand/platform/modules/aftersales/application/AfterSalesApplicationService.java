@@ -69,6 +69,14 @@ public class AfterSalesApplicationService {
         return response;
     }
 
+    public AfterSalesResponse getAdminDetail(String afterSalesNo) {
+        String safeAfterSalesNo = requireText(afterSalesNo, "afterSalesNo required");
+        if (!safeAfterSalesNo.matches("AS-[A-Z]+-\\d{8}-\\d{4,}")) {
+            throw new IllegalArgumentException("after-sales record not found");
+        }
+        return findByAfterSalesNo(safeAfterSalesNo);
+    }
+
     private List<String> sanitizeEvidence(Long applicantId, List<String> evidenceUrls) {
         if (evidenceUrls == null || evidenceUrls.isEmpty()) throw new IllegalArgumentException("after-sales evidence required");
         if (evidenceUrls.size() > 6) throw new IllegalArgumentException("too many after-sales evidence images");

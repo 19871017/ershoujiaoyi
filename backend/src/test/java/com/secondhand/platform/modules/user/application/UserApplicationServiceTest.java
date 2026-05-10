@@ -184,6 +184,71 @@ class UserApplicationServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.publicProfile(999L));
     }
 
+    @Test
+    void adminUserDetailShouldReturnMaskedPersistedUserProfileOnly() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.login(login("13800138331", "pass-123456"));
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138331");
+        jdbcTemplate.update("UPDATE user_profile SET main_role = ?, city = ?, bio = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?",
+                "SELLER", "上海", "后台用户资料", "APPROVED", true, userId);
+
+        com.secondhand.platform.modules.user.AdminUserDetailResponse detail = service.adminUserDetail(userId);
+
+        assertEquals(userId, detail.getUserId());
+        assertEquals("小原圈用户8331", detail.getNickname());
+        assertEquals("138****8331", detail.getMaskedPhone());
+        assertEquals("SELLER", detail.getMainRole());
+        assertEquals("APPROVED", detail.getVideoIdentityStatus());
+        assertEquals(true, detail.isVideoVerified());
+        assertEquals("ACTIVE", detail.getStatus());
+    }
+
+    @Test
+    void adminUserDetailShouldRejectInvalidIdsAndInactiveUsers() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.login(login("13800138332", "pass-123456"));
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138332");
+        jdbcTemplate.update("UPDATE user_account SET status = ? WHERE id = ?", "DISABLED", userId);
+
+        assertThrows(IllegalArgumentException.class, () -> service.adminUserDetail(0L));
+        assertThrows(IllegalArgumentException.class, () -> service.adminUserDetail(-1L));
+        assertThrows(IllegalArgumentException.class, () -> service.adminUserDetail(userId));
+    }
+
+    @Test
+    void adminUserSearchShouldReturnMaskedActiveUsersByKeywordWithoutRawPhone() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.login(login("13800138441", "pass-123456"));
+        auth.login(login("13800138442", "pass-123456"));
+        Long sellerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138441");
+        Long disabledId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138442");
+        jdbcTemplate.update("UPDATE user_account SET nickname = ? WHERE id = ?", "后台检索用户", sellerId);
+        jdbcTemplate.update("UPDATE user_account SET status = ? WHERE id = ?", "DISABLED", disabledId);
+        jdbcTemplate.update("UPDATE user_profile SET main_role = ?, city = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?",
+                "SELLER", "杭州", "APPROVED", true, sellerId);
+
+        java.util.List<com.secondhand.platform.modules.user.AdminUserDetailResponse> rows = service.searchAdminUsers("后台检索", 20);
+        java.util.List<com.secondhand.platform.modules.user.AdminUserDetailResponse> byMaskedPhone = service.searchAdminUsers("8441", 20);
+
+        assertEquals(1, rows.size());
+        assertEquals(sellerId, rows.get(0).getUserId());
+        assertEquals("后台检索用户", rows.get(0).getNickname());
+        assertEquals("138****8441", rows.get(0).getMaskedPhone());
+        assertEquals("SELLER", rows.get(0).getMainRole());
+        assertEquals("杭州", rows.get(0).getCity());
+        assertEquals(true, rows.get(0).isVideoVerified());
+        assertEquals(1, byMaskedPhone.size());
+        assertEquals(sellerId, byMaskedPhone.get(0).getUserId());
+    }
+
+    @Test
+    void adminUserSearchShouldFailClosedOnInvalidQueryOrLimit() {
+        assertThrows(IllegalArgumentException.class, () -> service.searchAdminUsers("", 20));
+        assertThrows(IllegalArgumentException.class, () -> service.searchAdminUsers("preview-user", 20));
+        assertThrows(IllegalArgumentException.class, () -> service.searchAdminUsers("13800138441", 0));
+        assertThrows(IllegalArgumentException.class, () -> service.searchAdminUsers("13800138441", 101));
+    }
+
     private LoginRequest login(String mobile, String password) {
         LoginRequest request = new LoginRequest();
         request.setMobile(mobile);

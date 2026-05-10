@@ -118,9 +118,8 @@ const menus = [
   { icon: '🪪', label: '视频认证', desc: '通过后主页展示视频认证卖家', url: '/pages/user/identity/index?tab=video' },
   { icon: '📍', label: '地址管理', desc: '收货与发货信息以服务端记录为准', url: '/pages/user/address/index' },
   { icon: '🎁', label: '收到的礼物', desc: '礼物分账和收入记录', url: '/pages/gift/index' },
-  { icon: '🛡️', label: '举报与风控', desc: '处理交易纠纷和举报', url: '/pages/risk/index' },
-  { icon: '⚙️', label: '设置', desc: '账号安全、隐私和开发预览', url: '/pages/system/settings/index' },
-  { icon: '🧭', label: '后台管理入口', desc: '审核、配置、风控', url: '/pages/admin/entry/index' }
+  { icon: '🛡️', label: '举报与风控', desc: '提交举报、查看安全提示', url: '/pages/risk/index' },
+  { icon: '⚙️', label: '设置', desc: '账号安全、隐私和开发预览', url: '/pages/system/settings/index' }
 ]
 const avatarText = computed(() => (profile.nickname || '原').slice(-1))
 const totalAvailable = computed(() => {

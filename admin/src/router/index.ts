@@ -1,15 +1,37 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { shouldRedirectToLogin } from '../store/modules/auth'
+import { useAuthStore } from '../store/modules/auth'
 
-const routes = [
-  { path: '/', redirect: '/login' },
-  { path: '/login', component: () => import('../pages/login/index.vue') },
-  { path: '/dashboard', component: () => import('../pages/dashboard/index.vue') },
-  { path: '/system/empty', component: () => import('../pages/system/empty/index.vue') }
+const routes: RouteRecordRaw[] = [
+  { path: '/', redirect: '/dashboard' },
+  { path: '/login', component: () => import('../pages/login/index.vue'), meta: { public: true } },
+  {
+    path: '/',
+    component: () => import('../layouts/AdminLayout.vue'),
+    children: [
+      { path: 'dashboard', component: () => import('../pages/dashboard/index.vue') },
+      { path: 'audit', component: () => import('../pages/audit/index.vue') },
+      { path: 'audit/:auditNo', component: () => import('../pages/audit/detail.vue') },
+      { path: 'finance/withdrawals', component: () => import('../pages/finance/withdrawals/index.vue') },
+      { path: 'orders', component: () => import('../pages/orders/index.vue') },
+      { path: 'users', component: () => import('../pages/users/index.vue') },
+      { path: 'after-sales', component: () => import('../pages/after-sales/index.vue') },
+      { path: 'audit-logs', component: () => import('../pages/audit-logs/index.vue') },
+      { path: 'system/location', component: () => import('../pages/system/location/index.vue') }
+    ]
+  }
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+router.beforeEach((to) => {
+  if (to.meta.public) return true
+  const auth = useAuthStore()
+  if (shouldRedirectToLogin(to.path, auth.session)) return '/login'
+  return true
 })
 
 export default router

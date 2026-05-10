@@ -197,6 +197,54 @@ class OrderApplicationServiceTest {
     }
 
     @Test
+    void adminListOrdersShouldReturnPersistedOrdersWithStatusFilterAndBoundedLimit() {
+        CreateProductResponse firstProduct = approvedProduct("后台订单列表裙子", "129.00", 7101L);
+        CreateOrderResponse firstOrder = orderService.createOrder(orderRequest(firstProduct.getProductId()), 6101L);
+        recharge(6101L, "200.00");
+        orderService.payOrder(firstOrder.getOrderNo(), 6101L);
+        jdbcTemplate.update("insert into after_sales_record (after_sales_no, order_no, applicant_id, after_sales_type, refund_amount, reason, description, evidence_urls, after_sales_status, created_at, updated_at) values (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                "AS-ADMINLIST-6101", firstOrder.getOrderNo(), 6101L, "REFUND_ONLY", new BigDecimal("30.00"), "成色不符", "后台订单列表售后", "/uploads/evidence/after-sales/6101/demo.jpg", "PENDING_REVIEW");
+
+        CreateProductResponse secondProduct = approvedProduct("后台订单未支付鞋子", "59.00", 7102L);
+        CreateOrderResponse secondOrder = orderService.createOrder(orderRequest(secondProduct.getProductId()), 6102L);
+
+        List<OrderListItemResponse> paidOrders = orderService.adminListOrders("PAID", 10);
+        List<OrderListItemResponse> allOrders = orderService.adminListOrders("ALL", 10);
+
+        assertEquals(1, paidOrders.size());
+        assertEquals(firstOrder.getOrderNo(), paidOrders.get(0).getOrderNo());
+        assertEquals(6101L, paidOrders.get(0).getBuyerId());
+        assertEquals(7101L, paidOrders.get(0).getSellerId());
+        assertEquals("AS-ADMINLIST-6101", paidOrders.get(0).getAfterSalesNo());
+        assertTrue(allOrders.stream().anyMatch(item -> secondOrder.getOrderNo().equals(item.getOrderNo())));
+        assertThrows(IllegalArgumentException.class, () -> orderService.adminListOrders("preview-status", 10));
+        assertThrows(IllegalArgumentException.class, () -> orderService.adminListOrders("ALL", 101));
+    }
+
+    @Test
+    void adminDetailOrderShouldLoadPersistedOrderByPositiveBackendNumber() {
+        CreateProductResponse product = approvedProduct("后台订单详情裙子", "129.00", 7101L);
+        CreateOrderResponse order = orderService.createOrder(orderRequest(product.getProductId()), 6101L);
+        recharge(6101L, "200.00");
+        orderService.payOrder(order.getOrderNo(), 6101L);
+
+        OrderDetailResponse detail = orderService.adminDetailOrder(order.getOrderNo());
+
+        assertEquals(order.getOrderNo(), detail.getOrderNo());
+        assertEquals(6101L, detail.getBuyerId());
+        assertEquals(7101L, detail.getSellerId());
+        assertEquals("PAID", detail.getStatus());
+        assertEquals(product.getTitle(), detail.getProductTitle());
+    }
+
+    @Test
+    void adminDetailOrderShouldRejectPreviewAndMalformedOrderNumbers() {
+        assertThrows(IllegalArgumentException.class, () -> orderService.adminDetailOrder("preview-order"));
+        assertThrows(IllegalArgumentException.class, () -> orderService.adminDetailOrder("ORDER-DEMO-0001"));
+        assertThrows(IllegalArgumentException.class, () -> orderService.adminDetailOrder("OD-123/../raw"));
+    }
+
+    @Test
     void payOrderShouldRejectWrongBuyerAfterReload() {
         CreateProductResponse product = approvedProduct("针织小外套", "59.00");
         CreateOrderResponse order = orderService.createOrder(orderRequest(product.getProductId()), 4001L);

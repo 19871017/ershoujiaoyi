@@ -1,9 +1,11 @@
 package com.secondhand.platform.modules.user.application;
 
+import com.secondhand.platform.modules.user.AdminUserDetailResponse;
 import com.secondhand.platform.modules.user.UpdateUserProfileRequest;
 import com.secondhand.platform.modules.user.UserProfileResponse;
 import com.secondhand.platform.modules.user.UserRankingResponse;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -71,6 +73,76 @@ public class UserApplicationService {
         validateFollowActors(followerId, followedId);
         jdbcTemplate.update("DELETE FROM user_follow WHERE follower_id = ? AND followed_id = ?", followerId, followedId);
         return publicProfile(followedId, followerId);
+    }
+
+    public AdminUserDetailResponse adminUserDetail(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("userId required");
+        }
+        List<AdminUserDetailResponse> rows = jdbcTemplate.query("""
+                SELECT a.id, a.user_no, a.phone, a.nickname, a.status, a.created_at, a.updated_at,
+                       p.main_role, p.city, p.bio, p.video_identity_status, p.video_verified
+                FROM user_account a
+                LEFT JOIN user_profile p ON p.user_id = a.id
+                WHERE a.id = ? AND a.status = 'ACTIVE'
+                """, (rs, rowNum) -> {
+                    String videoStatus = rs.getString("video_identity_status") == null ? "UNVERIFIED" : rs.getString("video_identity_status");
+                    boolean approvedVideo = "APPROVED".equals(videoStatus) && rs.getBoolean("video_verified");
+                    return new AdminUserDetailResponse(
+                            rs.getLong("id"),
+                            rs.getString("user_no"),
+                            maskPhone(rs.getString("phone")),
+                            rs.getString("nickname"),
+                            rs.getString("status"),
+                            rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role"),
+                            rs.getString("city"),
+                            rs.getString("bio"),
+                            videoStatus,
+                            approvedVideo,
+                            String.valueOf(rs.getTimestamp("created_at")),
+                            String.valueOf(rs.getTimestamp("updated_at"))
+                    );
+                }, userId);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("user not found");
+        }
+        return rows.get(0);
+    }
+
+    public List<AdminUserDetailResponse> searchAdminUsers(String keyword, int limit) {
+        String normalized = normalizeAdminSearchKeyword(keyword);
+        if (limit <= 0 || limit > 100) {
+            throw new IllegalArgumentException("limit invalid");
+        }
+        String like = "%" + normalized + "%";
+        List<AdminUserDetailResponse> rows = jdbcTemplate.query("""
+                SELECT a.id, a.user_no, a.phone, a.nickname, a.status, a.created_at, a.updated_at,
+                       p.main_role, p.city, p.bio, p.video_identity_status, p.video_verified
+                FROM user_account a
+                LEFT JOIN user_profile p ON p.user_id = a.id
+                WHERE a.status = 'ACTIVE'
+                  AND (LOWER(a.nickname) LIKE LOWER(?) OR LOWER(a.user_no) LIKE LOWER(?) OR a.phone LIKE ?)
+                ORDER BY a.id DESC
+                LIMIT ?
+                """, (rs, rowNum) -> {
+                    String videoStatus = rs.getString("video_identity_status") == null ? "UNVERIFIED" : rs.getString("video_identity_status");
+                    boolean approvedVideo = "APPROVED".equals(videoStatus) && rs.getBoolean("video_verified");
+                    return new AdminUserDetailResponse(
+                            rs.getLong("id"),
+                            rs.getString("user_no"),
+                            maskPhone(rs.getString("phone")),
+                            rs.getString("nickname"),
+                            rs.getString("status"),
+                            rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role"),
+                            rs.getString("city"),
+                            rs.getString("bio"),
+                            videoStatus,
+                            approvedVideo,
+                            String.valueOf(rs.getTimestamp("created_at")),
+                            String.valueOf(rs.getTimestamp("updated_at"))
+                    );
+                }, like, like, like, limit);
+        return List.copyOf(rows);
     }
 
     public List<UserRankingResponse> listRankings(String gender, int limit, Long viewerId) {
@@ -148,6 +220,13 @@ public class UserApplicationService {
         return rows.get(0);
     }
 
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 8) {
+            return "****";
+        }
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+    }
+
     private String normalizeRequired(String value, int minLength, int maxLength, String message) {
         String normalized = value == null ? "" : value.trim();
         if (normalized.length() < minLength || normalized.length() > maxLength) {
@@ -163,6 +242,18 @@ public class UserApplicationService {
         String normalized = value.trim();
         if (normalized.length() > maxLength) {
             throw new IllegalArgumentException(message);
+        }
+        return normalized;
+    }
+
+    private String normalizeAdminSearchKeyword(String value) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty() || normalized.length() > 32) {
+            throw new IllegalArgumentException("keyword invalid");
+        }
+        String lower = normalized.toLowerCase(Locale.ROOT);
+        if (lower.contains("preview") || lower.contains("demo") || lower.contains("mock") || lower.contains("sample") || lower.contains("placeholder")) {
+            throw new IllegalArgumentException("keyword invalid");
         }
         return normalized;
     }

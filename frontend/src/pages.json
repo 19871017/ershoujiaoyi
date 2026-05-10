@@ -121,18 +121,6 @@
       }
     },
     {
-      "path": "pages/admin/entry/index",
-      "style": {
-        "navigationBarTitleText": "后台入口"
-      }
-    },
-    {
-      "path": "pages/admin/home/index",
-      "style": {
-        "navigationBarTitleText": "后台首页"
-      }
-    },
-    {
       "path": "pages/report/submit/index",
       "style": {
         "navigationBarTitleText": "提交举报"
@@ -265,12 +253,6 @@
       }
     },
     {
-      "path": "pages/admin/audit/detail/index",
-      "style": {
-        "navigationBarTitleText": "审核详情"
-      }
-    },
-    {
       "path": "pages/upload/evidence/index",
       "style": {
         "navigationBarTitleText": "上传凭证"
@@ -280,18 +262,6 @@
       "path": "pages/payment/method/index",
       "style": {
         "navigationBarTitleText": "支付方式"
-      }
-    },
-    {
-      "path": "pages/admin/risk/detail/index",
-      "style": {
-        "navigationBarTitleText": "风控详情"
-      }
-    },
-    {
-      "path": "pages/admin/withdraw/detail/index",
-      "style": {
-        "navigationBarTitleText": "提现审核详情"
       }
     }
   ],

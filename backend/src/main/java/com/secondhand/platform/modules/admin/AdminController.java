@@ -10,6 +10,7 @@ import com.secondhand.platform.modules.location.AdminUpdateLocationConfigRequest
 import com.secondhand.platform.modules.location.LocationApplicationService;
 import com.secondhand.platform.modules.location.LocationConfigResponse;
 import com.secondhand.platform.modules.order.OrderDetailResponse;
+import com.secondhand.platform.modules.order.OrderListItemResponse;
 import com.secondhand.platform.modules.order.application.OrderApplicationService;
 import com.secondhand.platform.modules.user.AdminUserDetailResponse;
 import com.secondhand.platform.modules.user.application.UserApplicationService;
@@ -58,6 +59,14 @@ public class AdminController {
     public Result<AdminDashboardSummary> dashboard(HttpServletRequest request) {
         adminAccessGuard.requireAdmin(request, "audit:read");
         return Result.ok(auditApplicationService.getAdminDashboardSummary());
+    }
+
+    @GetMapping("/orders")
+    public Result<List<OrderListItemResponse>> orderList(@RequestParam(required = false) String status,
+                                                         @RequestParam(defaultValue = "20") Integer limit,
+                                                         HttpServletRequest request) {
+        adminAccessGuard.requireAdmin(request, "order:read");
+        return Result.ok(orderApplicationService.adminListOrders(status, limit));
     }
 
     @GetMapping("/orders/{orderNo}")

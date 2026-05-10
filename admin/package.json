@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "test": "vitest run",
+    "build": "vite build",
+    "check:real-backoffice": "node scripts/check-real-backoffice.cjs"
   },
   "dependencies": {
     "pinia": "^2.3.1",
@@ -12,9 +14,11 @@
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
+    "@types/node": "^25.6.2",
     "@vitejs/plugin-vue": "^5.2.0",
     "sass": "^1.89.0",
     "typescript": "^5.8.0",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0"
   }
 }

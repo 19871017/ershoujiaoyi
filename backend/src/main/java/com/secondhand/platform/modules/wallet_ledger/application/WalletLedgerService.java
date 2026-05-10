@@ -205,6 +205,39 @@ public class WalletLedgerService {
         );
     }
 
+    public List<WithdrawalResponse> listAdminWithdrawals(String status, Integer limit) {
+        String safeStatus = status == null || status.isBlank() || "ALL".equalsIgnoreCase(status) ? null : status.trim().toUpperCase(Locale.ROOT);
+        if (safeStatus != null && !"PENDING".equals(safeStatus) && !"APPROVED".equals(safeStatus) && !"REJECTED".equals(safeStatus)) {
+            throw new IllegalArgumentException("withdrawal status invalid");
+        }
+        int safeLimit = limit == null ? 20 : limit;
+        if (safeLimit < 1 || safeLimit > 100) {
+            throw new IllegalArgumentException("withdrawal limit invalid");
+        }
+        String sql = "select withdrawal_no,audit_no,user_id,amount,payment_method,account_name,account_no,status,remark,created_at,reviewed_at "
+                + "from withdrawal_record "
+                + (safeStatus == null ? "" : "where status = ? ")
+                + "order by created_at desc, id desc limit ?";
+        Object[] args = safeStatus == null ? new Object[]{safeLimit} : new Object[]{safeStatus, safeLimit};
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> toWithdrawalResponse(
+                        rs.getString("withdrawal_no"),
+                        rs.getString("audit_no"),
+                        rs.getLong("user_id"),
+                        rs.getBigDecimal("amount"),
+                        rs.getString("payment_method"),
+                        rs.getString("account_name"),
+                        rs.getString("account_no"),
+                        rs.getString("status"),
+                        rs.getString("remark"),
+                        toLocalDateTime(rs.getTimestamp("created_at")),
+                        toLocalDateTime(rs.getTimestamp("reviewed_at"))
+                ),
+                args
+        );
+    }
+
     @Transactional
     public WithdrawalResponse attachWithdrawalAudit(String withdrawalNo, String auditNo) {
         String safeWithdrawalNo = requireText(withdrawalNo, "withdrawalNo required");

@@ -44,6 +44,18 @@ for (const canonical of ['AFTER_SALES_EVIDENCE', 'REPORT_EVIDENCE', 'VIDEO_IDENT
 if (!uploadEvidence.includes("{label:'社区',value:'COMMUNITY_IMAGE' as const}")) {
   failures.push('upload evidence scene picker must expose COMMUNITY_IMAGE so community image tickets can be generated without legacy aliases')
 }
+if (!uploadEvidence.includes("{label:'实名视频',value:'VIDEO_IDENTITY' as const}")) {
+  failures.push('upload evidence scene picker must expose VIDEO_IDENTITY explicitly')
+}
+if (!uploadEvidence.includes('function chooseVideoIdentity()')) {
+  failures.push('upload evidence page must use uni.chooseVideo for VIDEO_IDENTITY instead of routing video verification through chooseImage')
+}
+if (!uploadEvidence.includes("createMediaUploadTicket({ scene: 'VIDEO_IDENTITY'")) {
+  failures.push('upload evidence page must create VIDEO_IDENTITY tickets with the canonical scene')
+}
+if (!uploadEvidence.includes('视频上传票据创建失败')) {
+  failures.push('upload evidence VIDEO_IDENTITY failure copy should describe upload-ticket creation, not saved evidence')
+}
 
 if (uploadEvidence.includes("type Scene='AFTER_SALES'|'REPORT'|'IDENTITY'|'PRODUCT'|'CHAT'")) {
   failures.push('upload evidence scene type must not be alias-only')

@@ -9,6 +9,7 @@ import com.secondhand.platform.modules.wallet_ledger.CreateWithdrawalRequest;
 import com.secondhand.platform.modules.wallet_ledger.WalletBalanceResponse;
 import com.secondhand.platform.modules.wallet_ledger.WithdrawalResponse;
 import java.math.BigDecimal;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -142,6 +143,26 @@ class WalletLedgerServiceTest {
         assertEquals("a***e@example.com", adminDetail.maskedAccountNo());
         assertEquals("实名与收款账户待人工一致性复核", adminDetail.accountVerifyStatus());
         assertFalse(adminDetail.maskedAccountNo().contains("alice@"));
+    }
+
+    @Test
+    void adminWithdrawalListShouldFilterByStatusLimitResultsAndMaskAccountNumbers() {
+        service.credit(credit(1L, "income-1", "WITHDRAWABLE", "80.00"));
+        service.credit(credit(2L, "income-2", "WITHDRAWABLE", "80.00"));
+        WithdrawalResponse pending = service.createWithdrawal(1L, withdrawal("20.00"), "AU-WD-1");
+        WithdrawalResponse approved = service.createWithdrawal(2L, withdrawal("30.00"), "AU-WD-2");
+        service.markWithdrawalReviewed(approved.withdrawalNo(), "APPROVED");
+
+        List<WithdrawalResponse> pendingRows = service.listAdminWithdrawals("PENDING", 20);
+        List<WithdrawalResponse> allRows = service.listAdminWithdrawals(null, 1);
+
+        assertEquals(1, pendingRows.size());
+        assertEquals(pending.withdrawalNo(), pendingRows.get(0).withdrawalNo());
+        assertEquals("a***e@example.com", pendingRows.get(0).maskedAccountNo());
+        assertFalse(pendingRows.get(0).maskedAccountNo().contains("alice@"));
+        assertEquals(1, allRows.size());
+        assertThrows(IllegalArgumentException.class, () -> service.listAdminWithdrawals("PREVIEW", 20));
+        assertThrows(IllegalArgumentException.class, () -> service.listAdminWithdrawals("PENDING", 101));
     }
 
     @Test

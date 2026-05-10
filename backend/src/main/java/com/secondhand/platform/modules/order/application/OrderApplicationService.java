@@ -219,6 +219,56 @@ public class OrderApplicationService {
         }
     }
 
+    public OrderDetailResponse adminDetailOrder(String orderNo) {
+        String safeOrderNo = requireAdminOrderNo(orderNo);
+        try {
+            return jdbcTemplate.queryForObject("""
+                    select o.*, a.after_sales_no, a.after_sales_status
+                    from trade_order o
+                    left join after_sales_record a on a.order_no = o.order_no and a.applicant_id = o.buyer_id
+                    where o.order_no = ?
+                    """, (rs, rowNum) -> new OrderDetailResponse(
+                    rs.getString("order_no"), rs.getLong("buyer_id"), rs.getLong("seller_id"), rs.getLong("product_id"), rs.getLong("goods_id"),
+                    rs.getString("product_no"), rs.getString("product_title"), rs.getBigDecimal("amount"), rs.getString("trade_rule_snapshot"),
+                    rs.getString("order_status"), "后台", rs.getString("after_sales_no"), rs.getString("after_sales_status"),
+                    rs.getString("shipping_type"), rs.getString("shipping_company"), rs.getString("tracking_no"), rs.getString("shipping_remark"),
+                    timeText(rs.getTimestamp("created_at")), timeText(rs.getTimestamp("paid_at")), timeText(rs.getTimestamp("shipped_at")), timeText(rs.getTimestamp("completed_at"))
+            ), safeOrderNo);
+        } catch (EmptyResultDataAccessException e) {
+            throw new IllegalArgumentException("order-not-found");
+        }
+    }
+
+    public List<OrderListItemResponse> adminListOrders(String status, Integer limit) {
+        String safeStatus = normalizeStatusFilter(status);
+        int safeLimit = limit == null ? 20 : limit;
+        if (safeLimit < 1 || safeLimit > 100) {
+            throw new IllegalArgumentException("order limit invalid");
+        }
+        StringBuilder sql = new StringBuilder("""
+                select o.*, a.after_sales_no, a.after_sales_status
+                from trade_order o
+                left join after_sales_record a on a.order_no = o.order_no and a.applicant_id = o.buyer_id
+                where 1 = 1
+                """);
+        List<Object> args = new java.util.ArrayList<>();
+        if (!"ALL".equals(safeStatus)) {
+            if ("REFUNDING".equals(safeStatus)) {
+                sql.append(" and a.after_sales_no is not null");
+            } else {
+                sql.append(" and o.order_status = ?");
+                args.add(safeStatus);
+            }
+        }
+        sql.append(" order by o.created_at desc limit ?");
+        args.add(safeLimit);
+        return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> new OrderListItemResponse(
+                rs.getString("order_no"), rs.getLong("buyer_id"), rs.getLong("seller_id"), rs.getLong("product_id"), rs.getLong("goods_id"),
+                rs.getString("product_no"), rs.getString("product_title"), rs.getBigDecimal("amount"), rs.getString("trade_rule_snapshot"),
+                rs.getString("order_status"), "admin", "后台", rs.getString("after_sales_no"), rs.getString("after_sales_status"), timeText(rs.getTimestamp("created_at"))
+        ), args.toArray());
+    }
+
     public List<OrderListItemResponse> listOrders(Long userId, String role, String status) {
         if (userId == null || userId <= 0) throw new IllegalArgumentException("userId required");
         String safeRole = normalizeRole(role);
@@ -325,6 +375,12 @@ public class OrderApplicationService {
     private String requireText(String value, String message) {
         if (value == null || value.isBlank()) throw new IllegalArgumentException(message);
         return value.trim();
+    }
+
+    private String requireAdminOrderNo(String value) {
+        String safe = requireText(value, "orderNo required");
+        if (!safe.matches("^OD-[A-Z0-9]{4,}$")) throw new IllegalArgumentException("orderNo invalid");
+        return safe;
     }
 
     private String trimLimit(String value, int max) {
