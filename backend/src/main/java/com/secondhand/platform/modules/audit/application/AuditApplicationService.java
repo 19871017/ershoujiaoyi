@@ -72,12 +72,22 @@ public class AuditApplicationService {
 
     @Transactional
     public AuditRecordResponse approve(String auditNo, String remark) {
-        return review(auditNo, STATUS_APPROVED, remark);
+        return review(auditNo, STATUS_APPROVED, remark, null);
+    }
+
+    @Transactional
+    public AuditRecordResponse approve(String auditNo, String remark, Long operatorId) {
+        return review(auditNo, STATUS_APPROVED, remark, operatorId);
     }
 
     @Transactional
     public AuditRecordResponse reject(String auditNo, String remark) {
-        return review(auditNo, STATUS_REJECTED, remark);
+        return review(auditNo, STATUS_REJECTED, remark, null);
+    }
+
+    @Transactional
+    public AuditRecordResponse reject(String auditNo, String remark, Long operatorId) {
+        return review(auditNo, STATUS_REJECTED, remark, operatorId);
     }
 
     public AuditRecordResponse get(String auditNo) {
@@ -136,6 +146,45 @@ public class AuditApplicationService {
         );
     }
 
+    public List<AdminAuditLogResponse> listAdminAuditLogs(Long afterId, Integer limit) {
+        int safeLimit = limit == null ? 50 : limit;
+        if (safeLimit < 1 || safeLimit > 100) {
+            throw new IllegalArgumentException("audit log limit invalid");
+        }
+        if (afterId != null && afterId <= 0) {
+            throw new IllegalArgumentException("audit log cursor invalid");
+        }
+        if (afterId == null) {
+            return queryAuditLogs("select id,action,operator_id,target_type,target_id,result,summary,created_at from admin_audit_log order by id desc limit ?", safeLimit);
+        }
+        return queryAuditLogs("select id,action,operator_id,target_type,target_id,result,summary,created_at from admin_audit_log where id > ? order by id asc limit ?", afterId, safeLimit);
+    }
+
+    public AdminDashboardSummary getAdminDashboardSummary() {
+        Integer pendingAudits = countForSql("select count(1) from audit_record where status = ?", STATUS_PENDING);
+        Integer approvedAudits = countForSql("select count(1) from audit_record where status = ?", STATUS_APPROVED);
+        Integer rejectedAudits = countForSql("select count(1) from audit_record where status = ?", STATUS_REJECTED);
+        Integer pendingWithdrawals = countForSql("select count(1) from withdrawal_record where status = ?", STATUS_PENDING);
+        Integer pendingAfterSales = countForSql("select count(1) from after_sales_record where after_sales_status = ?", "PENDING_REVIEW");
+        Integer activeUsers = countForSql("select count(1) from user_account where status = ?", "ACTIVE");
+        Integer todayOrders = countForSql("select count(1) from trade_order where created_at >= CURRENT_DATE");
+        java.math.BigDecimal gmv = jdbcTemplate.queryForObject(
+                "select coalesce(sum(amount), 0) from trade_order where created_at >= CURRENT_DATE and order_status in ('PAID','SHIPPED','COMPLETED')",
+                java.math.BigDecimal.class
+        );
+        return new AdminDashboardSummary(
+                "dashboard-ready",
+                pendingAudits == null ? 0 : pendingAudits,
+                approvedAudits == null ? 0 : approvedAudits,
+                rejectedAudits == null ? 0 : rejectedAudits,
+                pendingWithdrawals == null ? 0 : pendingWithdrawals,
+                pendingAfterSales == null ? 0 : pendingAfterSales,
+                activeUsers == null ? 0 : activeUsers,
+                todayOrders == null ? 0 : todayOrders,
+                gmv == null ? java.math.BigDecimal.ZERO : gmv
+        );
+    }
+
     @Transactional
     protected AuditRecordResponse create(String auditType, Long userId, String targetType, String targetId, String reason, String description) {
         validateUserId(userId);
@@ -158,7 +207,7 @@ public class AuditApplicationService {
         }
     }
 
-    private AuditRecordResponse review(String auditNo, String status, String remark) {
+    private AuditRecordResponse review(String auditNo, String status, String remark, Long operatorId) {
         String safeAuditNo = requireText(auditNo, "auditNo required");
         int changed = jdbcTemplate.update(
                 "update audit_record set status = ?, review_remark = ?, reviewed_at = CURRENT_TIMESTAMP where audit_no = ? and status = ?",
@@ -170,6 +219,7 @@ public class AuditApplicationService {
         if (changed == 1) {
             AuditRecordResponse reviewed = get(safeAuditNo);
             syncVideoIdentityStatus(reviewed, status);
+            recordAdminAuditLog(reviewed, status, safeText(remark), operatorId);
             return reviewed;
         }
         AuditRecordResponse existing = get(safeAuditNo);
@@ -191,6 +241,48 @@ public class AuditApplicationService {
         if (STATUS_REJECTED.equals(status)) {
             jdbcTemplate.update("update user_profile set video_identity_status = ?, video_verified = ?, updated_at = CURRENT_TIMESTAMP where user_id = ?", STATUS_REJECTED, false, userId);
         }
+    }
+
+    private void recordAdminAuditLog(AuditRecordResponse response, String status, String remark, Long operatorId) {
+        if (response == null) {
+            return;
+        }
+        String action = STATUS_APPROVED.equals(status) ? "AUDIT_APPROVE" : "AUDIT_REJECT";
+        String summary = remark == null ? (STATUS_APPROVED.equals(status) ? "审核通过" : "审核驳回") : remark;
+        long safeOperatorId = operatorId == null ? response.userId() : operatorId;
+        jdbcTemplate.update("""
+                insert into admin_audit_log (action,operator_id,target_type,target_id,result,summary,created_at)
+                values (?,?,?,?,?,?,CURRENT_TIMESTAMP)
+                """,
+                action,
+                safeOperatorId,
+                "AUDIT",
+                response.auditNo(),
+                "SUCCESS",
+                summary
+        );
+    }
+
+    private List<AdminAuditLogResponse> queryAuditLogs(String sql, Object... args) {
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new AdminAuditLogResponse(
+                        rs.getLong("id"),
+                        rs.getString("action"),
+                        rs.getLong("operator_id"),
+                        rs.getString("target_type"),
+                        rs.getString("target_id"),
+                        rs.getString("result"),
+                        maskSensitiveDescription(rs.getString("summary"), true),
+                        toLocalDateTime(rs.getTimestamp("created_at"))
+                ),
+                args
+        );
+    }
+
+    private Integer countForSql(String sql, Object... args) {
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, args);
+        return count == null ? 0 : count;
     }
 
     private List<String> normalizeReportEvidence(Long userId, List<String> evidenceUrls) {

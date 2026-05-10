@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
+import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -144,6 +145,41 @@ class AuditApplicationServiceTest {
     }
 
     @Test
+    void approveAndRejectShouldPersistMaskedAdminAuditLogRows() {
+        AuditRecordResponse reportAudit = service.submitReport(1L, "user", "2", "ABUSE", "涉及手机号 13800138000");
+        AuditRecordResponse withdrawalAudit = service.submitWithdrawal(2L, "WD-20260510-8899", "WITHDRAW", "提现复核");
+
+        service.approve(reportAudit.auditNo(), "同意处理 13800138001");
+        service.reject(withdrawalAudit.auditNo(), "资料不符 13800138002");
+
+        List<AdminAuditLogResponse> logs = service.listAdminAuditLogs(null, 10);
+
+        assertEquals(2, logs.size());
+        AdminAuditLogResponse latest = logs.get(0);
+        AdminAuditLogResponse first = logs.get(1);
+        assertEquals("AUDIT_REJECT", latest.action());
+        assertEquals("AUDIT", latest.targetType());
+        assertEquals(withdrawalAudit.auditNo(), latest.targetId());
+        assertEquals("SUCCESS", latest.result());
+        assertEquals("资料不符 138****8002", latest.summary());
+        assertEquals("AUDIT_APPROVE", first.action());
+        assertEquals(reportAudit.auditNo(), first.targetId());
+        assertEquals("同意处理 138****8001", first.summary());
+    }
+
+    @Test
+    void reviewShouldPersistActualAdminOperatorIdNotTargetUserId() {
+        AuditRecordResponse reportAudit = service.submitReport(11L, "user", "12", "ABUSE", "举报内容");
+
+        service.approve(reportAudit.auditNo(), "管理员复核通过", 99L);
+
+        List<AdminAuditLogResponse> logs = service.listAdminAuditLogs(null, 10);
+        assertEquals(1, logs.size());
+        assertEquals(99L, logs.get(0).operatorId());
+        assertEquals(reportAudit.auditNo(), logs.get(0).targetId());
+    }
+
+    @Test
     void repeatedReviewShouldBeRejected() {
         AuditRecordResponse created = service.submitReport(1L, "product", "PRODUCT-100001", "SPAM", "bad content");
         service.approve(created.auditNo(), "approved");
@@ -186,6 +222,55 @@ class AuditApplicationServiceTest {
         assertEquals("CHAT", loaded.targetType());
         assertEquals("CHAT-100900", loaded.targetId());
         assertTrue(all.stream().anyMatch(item -> created.auditNo().equals(item.auditNo())));
+    }
+
+    @Test
+    void adminAuditLogsShouldReturnPersistedSafeSummariesWithPositiveCursor() {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        jdbcTemplate.update("insert into admin_audit_log (action,operator_id,target_type,target_id,result,summary,created_at) values (?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+                "AUDIT_APPROVE", 7L, "AUDIT", "AU-20260510-0001", "SUCCESS", "处理用户 13800138000 的审核");
+        Long logId = jdbcTemplate.queryForObject("select id from admin_audit_log where target_id = ?", Long.class, "AU-20260510-0001");
+
+        List<AdminAuditLogResponse> firstPage = service.listAdminAuditLogs(null, 50);
+        List<AdminAuditLogResponse> nextPage = service.listAdminAuditLogs(logId, 50);
+
+        assertEquals(1, firstPage.size());
+        assertEquals("AUDIT_APPROVE", firstPage.get(0).action());
+        assertEquals("处理用户 138****8000 的审核", firstPage.get(0).summary());
+        assertEquals(0, nextPage.size());
+        assertThrows(IllegalArgumentException.class, () -> service.listAdminAuditLogs(0L, 50));
+        assertThrows(IllegalArgumentException.class, () -> service.listAdminAuditLogs(null, 101));
+    }
+
+    @Test
+    void adminDashboardSummaryShouldAggregatePersistedBackofficeCountsOnly() {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        jdbcTemplate.update("insert into audit_record (audit_no,audit_type,user_id,target_type,target_id,reason,description,status,created_at) values (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+                "AU-DASH-20260510-0001", "REPORT", 1L, "PRODUCT", "PRODUCT-100001", "SPAM", "待审核", "PENDING");
+        jdbcTemplate.update("insert into audit_record (audit_no,audit_type,user_id,target_type,target_id,reason,description,status,created_at) values (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+                "AU-DASH-20260510-0002", "REPORT", 2L, "PRODUCT", "PRODUCT-100002", "SPAM", "已通过", "APPROVED");
+        jdbcTemplate.update("insert into withdrawal_record (withdrawal_no,user_id,amount,payment_method,account_name,account_no,status,created_at) values (?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+                "WD-20260510-9001", 3L, new BigDecimal("88.00"), "ALIPAY", "王*", "13800138000", "PENDING");
+        jdbcTemplate.update("insert into after_sales_record (after_sales_no,order_no,applicant_id,after_sales_type,refund_amount,reason,description,evidence_urls,after_sales_status,created_at) values (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+                "AS-DASH-20260510-0001", "OD-DASH01", 4L, "REFUND_ONLY", new BigDecimal("12.00"), "尺码", "描述足够长", "/uploads/evidence/after-sales/4/proof.jpg", "PENDING_REVIEW");
+        jdbcTemplate.update("insert into user_account (user_no,phone,password_hash,nickname,status,created_at) values (?,?,?,?,?,CURRENT_TIMESTAMP)",
+                "U-DASH-1", "13800139001", "hash", "活跃用户", "ACTIVE");
+        jdbcTemplate.update("insert into user_account (user_no,phone,password_hash,nickname,status,created_at) values (?,?,?,?,?,CURRENT_TIMESTAMP)",
+                "U-DASH-2", "13800139002", "hash", "禁用用户", "DISABLED");
+        jdbcTemplate.update("insert into trade_order (order_no,product_id,goods_id,product_no,product_title,trade_rule_snapshot,buyer_id,seller_id,amount,order_status,accepted_trade_rule,created_at) values (?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+                "OD-DASH01", 10L, 10L, "PD-DASH01", "今日订单", "server-record", 4L, 5L, new BigDecimal("199.50"), "PAID", true);
+
+        AdminDashboardSummary summary = service.getAdminDashboardSummary();
+
+        assertEquals("dashboard-ready", summary.status());
+        assertEquals(1, summary.pendingAudits());
+        assertEquals(1, summary.approvedAudits());
+        assertEquals(0, summary.rejectedAudits());
+        assertEquals(1, summary.pendingWithdrawals());
+        assertEquals(1, summary.pendingAfterSales());
+        assertEquals(1, summary.activeUsers());
+        assertEquals(1, summary.todayOrders());
+        assertEquals(0, new BigDecimal("199.50").compareTo(summary.grossMerchandiseValue()));
     }
 
     private MediaUploadTicketService serviceMedia() {
