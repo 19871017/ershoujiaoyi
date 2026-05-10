@@ -60,14 +60,15 @@ public class CommunityApplicationService {
     }
 
     public CommunityPostDetailResponse detail(String postIdOrNo, Long currentUserId) {
-        if (postIdOrNo == null || postIdOrNo.isBlank() || "preview".equalsIgnoreCase(postIdOrNo) || "UNKNOWN".equalsIgnoreCase(postIdOrNo)) {
+        String normalized = postIdOrNo == null ? "" : postIdOrNo.trim();
+        if (!isValidPostLookup(normalized)) {
             throw new IllegalArgumentException("invalid post id");
         }
         Long id;
-        if (postIdOrNo.matches("\\d+")) {
-            id = Long.parseLong(postIdOrNo);
+        if (normalized.matches("\\d+")) {
+            id = Long.parseLong(normalized);
         } else {
-            List<Long> ids = jdbcTemplate.query("SELECT id FROM community_post WHERE post_no = ?", (rs, rowNum) -> rs.getLong("id"), postIdOrNo);
+            List<Long> ids = jdbcTemplate.query("SELECT id FROM community_post WHERE post_no = ?", (rs, rowNum) -> rs.getLong("id"), normalized);
             if (ids.isEmpty()) {
                 throw new IllegalArgumentException("post not found");
             }
@@ -126,6 +127,24 @@ public class CommunityApplicationService {
             jdbcTemplate.update("UPDATE community_post SET like_count = CASE WHEN like_count > 0 THEN like_count - 1 ELSE 0 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?", postId);
         }
         return detail(postId, userId);
+    }
+
+    private static boolean isValidPostLookup(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        String lower = value.toLowerCase();
+        if (lower.contains("preview") || lower.contains("demo") || lower.contains("mock") || lower.contains("sample") || lower.contains("placeholder") || "unknown".equals(lower)) {
+            return false;
+        }
+        if (value.matches("\\d+")) {
+            try {
+                return Long.parseLong(value) > 0;
+            } catch (NumberFormatException ex) {
+                return false;
+            }
+        }
+        return value.matches("POST-[1-9]\\d*-[1-9]\\d*");
     }
 
     private CommunityPostResponse loadPostById(Long postId) {

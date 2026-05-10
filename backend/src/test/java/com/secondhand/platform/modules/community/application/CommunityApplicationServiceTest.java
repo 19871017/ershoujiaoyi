@@ -44,8 +44,11 @@ class CommunityApplicationServiceTest {
         assertEquals("奶油白裙子怎么搭？", detail.getTitle());
         assertEquals(0, detail.getComments().size());
 
-        assertThrows(IllegalArgumentException.class, () -> reloaded.detail("preview", 11L));
-        assertThrows(IllegalArgumentException.class, () -> reloaded.detail("UNKNOWN", 11L));
+        assertEquals("invalid post id", assertThrows(IllegalArgumentException.class, () -> reloaded.detail("preview", 11L)).getMessage());
+        assertEquals("invalid post id", assertThrows(IllegalArgumentException.class, () -> reloaded.detail("UNKNOWN", 11L)).getMessage());
+        assertEquals("invalid post id", assertThrows(IllegalArgumentException.class, () -> reloaded.detail("POST-DEMO-0001", 11L)).getMessage());
+        assertEquals("invalid post id", assertThrows(IllegalArgumentException.class, () -> reloaded.detail("../1", 11L)).getMessage());
+        assertEquals("invalid post id", assertThrows(IllegalArgumentException.class, () -> reloaded.detail("0", 11L)).getMessage());
     }
 
     @Test
