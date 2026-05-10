@@ -1,5 +1,21 @@
 import { defineStore } from 'pinia'
 
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:18080'
+
+async function postAdminSessionLogin(mobile: string, password: string): Promise<AdminSessionInput> {
+  const response = await fetch(`${API_BASE}/api/admin/session/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mobile, password }),
+    credentials: 'include'
+  })
+  if (!response.ok) {
+    throw new Error('后台登录失败')
+  }
+  const payload = await response.json() as { data?: AdminSessionInput }
+  return payload.data ?? {}
+}
+
 export interface AdminSessionInput {
   username?: string
   userId?: string
@@ -45,7 +61,6 @@ interface AuthState {
 }
 
 const STORAGE_KEY = 'xiaoyuanquan_admin_session'
-const DEFAULT_DEV_ADMIN_USER_ID = '1'
 const USER_ID_PATTERN = /^[1-9]\d*$/
 const DEFAULT_DEV_ADMIN_PERMISSIONS: AdminPermission[] = ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log']
 const PERMISSION_SET = new Set<AdminPermission>(DEFAULT_DEV_ADMIN_PERMISSIONS)
@@ -80,6 +95,14 @@ export function buildAdminHeaders(session: AdminSession | null): Record<string, 
   }
 }
 
+export async function loginAdminSession(mobile: string, password: string): Promise<AdminSession> {
+  const session = normalizeAdminSession(await postAdminSessionLogin(mobile, password))
+  if (!session) {
+    throw new Error('后台登录失败')
+  }
+  return session
+}
+
 export function shouldRedirectToLogin(path: string, session: AdminSession | null): boolean {
   if (path === '/login') return false
   if (!session) return true
@@ -92,11 +115,7 @@ function readInitialState(): AuthState {
     const raw = sessionStorage.getItem(STORAGE_KEY)
     if (!raw) return { token: '', username: '', session: null }
     const parsed = JSON.parse(raw) as Partial<AuthState> & AdminSessionInput
-    const session = normalizeAdminSession(parsed.session ?? {
-      username: parsed.username,
-      userId: parsed.userId || DEFAULT_DEV_ADMIN_USER_ID,
-      devAdminEnabled: parsed.devAdminEnabled ?? Boolean(parsed.token && parsed.username)
-    })
+    const session = normalizeAdminSession(parsed.session ?? null)
     return { token: parsed.token || '', username: session?.username || parsed.username || '', session }
   } catch {
     return { token: '', username: '', session: null }
@@ -114,14 +133,11 @@ export const useAuthStore = defineStore('admin-auth', {
     headers: (state) => buildAdminHeaders(state.session)
   },
   actions: {
-    login(username: string, accessKey: string) {
-      const session = normalizeAdminSession({ username, userId: DEFAULT_DEV_ADMIN_USER_ID, devAdminEnabled: true })
-      if (!session || accessKey.length < 6) {
-        throw new Error('请输入有效管理员信息')
-      }
+    async login(username: string, accessKey: string) {
+      const session = await loginAdminSession(username, accessKey)
       this.username = session.username
       this.session = session
-      this.token = `admin-session-${accessKey.length}-${Date.now()}`
+      this.token = `admin-session-${session.userId}-${Date.now()}`
       persistState({ token: this.token, username: this.username, session: this.session })
     },
     setToken(token: string) {

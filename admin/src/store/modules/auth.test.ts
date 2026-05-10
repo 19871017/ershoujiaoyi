@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   buildAdminHeaders,
+  loginAdminSession,
   menuAllowsSession,
   normalizeAdminSession,
   shouldRedirectToLogin,
@@ -8,6 +9,29 @@ import {
 } from './auth'
 
 describe('admin auth helpers', () => {
+  it('logs in through backend admin session endpoint and persists returned permissions only', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          username: 'ops',
+          userId: '7',
+          devAdminEnabled: true,
+          permissions: ['audit:read', 'finance:read']
+        }
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const session = await loginAdminSession('13900000071', 'admin-pass-71')
+
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/session/login'), expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ mobile: '13900000071', password: 'admin-pass-71' })
+    }))
+    expect(session?.permissions).toEqual(['audit:read', 'finance:read'])
+  })
+
   it('normalizes a dev admin session into non-sensitive request headers', () => {
     const session = normalizeAdminSession({ username: ' ops ', userId: '7', devAdminEnabled: true })
 

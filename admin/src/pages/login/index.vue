@@ -28,14 +28,14 @@ const accessKey = ref('')
 const error = ref('')
 const canSubmit = computed(() => username.value.length >= 2 && accessKey.value.length >= 6)
 
-function submit() {
+async function submit() {
   error.value = ''
   if (!canSubmit.value) {
     error.value = '请输入有效管理员账号和访问口令'
     return
   }
   try {
-    auth.login(username.value, accessKey.value)
+    await auth.login(username.value, accessKey.value)
   } catch {
     error.value = '登录失败：未生成有效管理员会话，请检查账号、口令和后端接入。'
     return
