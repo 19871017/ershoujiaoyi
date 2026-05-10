@@ -45,6 +45,10 @@ function formatTime(value: string) {
   if (!value) return '--'
   return value.replace('T', ' ').slice(0, 16)
 }
+function isSafeNotificationTargetUrl(value?: string | null) {
+  if (!value) return false
+  return /^\/pages\/[A-Za-z0-9/_-]+\/index(?:\?[A-Za-z0-9%=&_.:-]+)?$/.test(value)
+}
 async function openNotice(item: NotificationItemResponse){
   try {
     const read = await markNotificationRead(item.notificationNo)
@@ -53,7 +57,11 @@ async function openNotice(item: NotificationItemResponse){
     uni.showToast({ title: '后端已读接口调用失败，未执行本地已读变更', icon: 'none' })
     return
   }
-  if (item.targetUrl) uni.navigateTo({url:item.targetUrl})
+  if (item.targetUrl && isSafeNotificationTargetUrl(item.targetUrl)) {
+    uni.navigateTo({url:item.targetUrl})
+  } else if (item.targetUrl) {
+    uni.showToast({ title: '通知跳转地址无效，未打开页面', icon: 'none' })
+  }
 }
 onMounted(() => { void loadNotifications() })
 </script>

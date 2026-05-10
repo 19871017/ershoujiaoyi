@@ -29,6 +29,9 @@ const required = [
   'const notices = ref<NotificationItemResponse[]>([])',
   'await listNotifications(active.value)',
   'await markNotificationRead(item.notificationNo)',
+  'isSafeNotificationTargetUrl',
+  "item.targetUrl && isSafeNotificationTargetUrl(item.targetUrl)",
+  '通知跳转地址无效，未打开页面',
   '后端已读接口调用失败，未执行本地已读变更',
   '通知接口加载失败，未展示任何本地样例消息'
 ]
