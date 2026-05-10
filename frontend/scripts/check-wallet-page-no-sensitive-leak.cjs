@@ -47,10 +47,19 @@ if (!withdrawalResponseBlock.includes('maskedAccountNo: string')) {
   failures.push('src/api/modules/wallet.ts: WithdrawalResponse missing maskedAccountNo')
 }
 
+const optionalSources = [
+  [walletFile, walletSource]
+]
+const legacyAdminWithdrawFile = 'src/pages/admin/withdraw/detail/index.vue'
+const legacyAdminWithdrawPath = path.join(root, legacyAdminWithdrawFile)
+if (fs.existsSync(legacyAdminWithdrawPath)) {
+  optionalSources.push([legacyAdminWithdrawFile, fs.readFileSync(legacyAdminWithdrawPath, 'utf8')])
+}
+
 for (const marker of walletNewForbiddenMarkers) {
-  if (walletSource.includes(marker)) failures.push(`${walletFile}: forbidden withdrawal submission or raw withdrawal-account response marker: ${marker}`)
-  const adminWithdrawSource = fs.readFileSync(path.join(root, 'src/pages/admin/withdraw/detail/index.vue'), 'utf8')
-  if (adminWithdrawSource.includes(marker)) failures.push(`src/pages/admin/withdraw/detail/index.vue: forbidden raw withdrawal-account display marker: ${marker}`)
+  for (const [sourceFile, source] of optionalSources) {
+    if (source.includes(marker)) failures.push(`${sourceFile}: forbidden withdrawal submission or raw withdrawal-account response marker: ${marker}`)
+  }
 }
 
 const walletNewRequiredMarkers = [
