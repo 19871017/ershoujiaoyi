@@ -56,10 +56,7 @@ public class NotificationApplicationService {
         String normalizedType = normalizeType(type);
         String safeTitle = requireText(title, "title", 2, 80);
         String safeDescription = requireText(description, "description", 2, 300);
-        String safeTargetUrl = targetUrl == null ? "" : targetUrl.trim();
-        if (safeTargetUrl.length() > 256) {
-            throw new IllegalArgumentException("notification targetUrl invalid");
-        }
+        String safeTargetUrl = validateTargetUrl(targetUrl);
         String notificationNo = "NTF-" + userId + "-" + System.currentTimeMillis();
         jdbcTemplate.update("INSERT INTO notification_record(notification_no, user_id, notification_type, title, description, target_url, read_flag, created_at) VALUES(?,?,?,?,?,?,FALSE,CURRENT_TIMESTAMP)",
                 notificationNo, userId, normalizedType, safeTitle, safeDescription, safeTargetUrl);
@@ -132,6 +129,17 @@ public class NotificationApplicationService {
         String trimmed = notificationNo == null ? "" : notificationNo.trim();
         if (!trimmed.matches("NTF-[A-Za-z0-9][A-Za-z0-9_-]{5,120}")) {
             throw new IllegalArgumentException("notificationNo invalid");
+        }
+        return trimmed;
+    }
+
+    private static String validateTargetUrl(String targetUrl) {
+        String trimmed = targetUrl == null ? "" : targetUrl.trim();
+        if (trimmed.isEmpty()) {
+            return "";
+        }
+        if (trimmed.length() > 256 || !trimmed.matches("/pages/[A-Za-z0-9/_-]+/index(\\?[A-Za-z0-9%=&_.:-]+)?")) {
+            throw new IllegalArgumentException("notification targetUrl invalid");
         }
         return trimmed;
     }

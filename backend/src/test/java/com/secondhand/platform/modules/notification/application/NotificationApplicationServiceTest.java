@@ -65,4 +65,13 @@ class NotificationApplicationServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.markRead(31L, "PREVIEW-NTF-001"));
         assertThrows(IllegalArgumentException.class, () -> service.markRead(31L, "UNKNOWN"));
     }
+
+    @Test
+    void createNotificationShouldRejectUnsafeTargetUrlsBeforePersistence() {
+        assertThrows(IllegalArgumentException.class, () -> service.createNotification(41L, "SYSTEM", "外链通知", "跳转地址必须是站内白名单页面", "https://evil.example/phish"));
+        assertThrows(IllegalArgumentException.class, () -> service.createNotification(41L, "SYSTEM", "脚本通知", "跳转地址必须是站内白名单页面", "javascript:alert(1)"));
+        assertThrows(IllegalArgumentException.class, () -> service.createNotification(41L, "SYSTEM", "越权通知", "跳转地址必须是站内白名单页面", "/pages/admin/risk/detail/index?riskNo=../secret"));
+
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM notification_record WHERE user_id = ?", Integer.class, 41L));
+    }
 }
