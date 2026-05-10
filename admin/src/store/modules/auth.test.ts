@@ -155,6 +155,18 @@ describe('admin auth helpers', () => {
     expect(shouldRedirectToLogin('/users/8331', userOnly)).toBe(false)
   })
 
+  it('allows every valid admin session to open dashboard because metrics are already permission-filtered by backend', () => {
+    const financeOnly = normalizeAdminSession({
+      username: 'finance-admin',
+      userId: '14',
+      permissions: ['finance:read'],
+      sessionId: 'adm_88888888888888888888888888888888',
+      expiresAt: '2026-05-11T03:00:00'
+    })
+
+    expect(shouldRedirectToLogin('/dashboard', financeOnly)).toBe(false)
+  })
+
   it('fails closed when a persisted/admin API session has no explicit permissions', () => {
     const session = normalizeAdminSession({
       username: 'no-permission-admin',

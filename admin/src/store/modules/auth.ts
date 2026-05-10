@@ -40,11 +40,11 @@ export type AdminPermission = 'audit:read' | 'audit:review' | 'finance:read' | '
 
 interface RoutePermissionRule {
   pattern: RegExp
-  permission: AdminPermission
+  permission: AdminPermission | null
 }
 
 const PROTECTED_ROUTE_PERMISSIONS: RoutePermissionRule[] = [
-  { pattern: /^\/dashboard\/?$/, permission: 'audit:read' },
+  { pattern: /^\/dashboard\/?$/, permission: null },
   { pattern: /^\/audit(?:\/|$)/, permission: 'audit:read' },
   { pattern: /^\/finance\/withdrawals(?:\/|$)/, permission: 'finance:read' },
   { pattern: /^\/users(?:\/|$)/, permission: 'user:read' },
@@ -140,7 +140,8 @@ export function shouldRedirectToLogin(path: string, session: AdminSession | null
   if (path === '/login') return false
   if (!session) return true
   const rule = PROTECTED_ROUTE_PERMISSIONS.find((item) => item.pattern.test(path))
-  return rule ? !sessionAllowsPermission(session, rule.permission) : true
+  if (!rule) return true
+  return rule.permission ? !sessionAllowsPermission(session, rule.permission) : false
 }
 
 function readInitialState(): AuthState {
