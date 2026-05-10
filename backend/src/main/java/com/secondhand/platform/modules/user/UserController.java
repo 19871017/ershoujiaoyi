@@ -29,6 +29,12 @@ public class UserController {
         return Result.ok(userApplicationService.currentUserProfile(userId));
     }
 
+    @GetMapping("/me/security")
+    public Result<AccountSecurityResponse> accountSecurity(HttpServletRequest request) {
+        long userId = currentUserResolver.resolve(request);
+        return Result.ok(userApplicationService.accountSecurity(userId));
+    }
+
     @GetMapping("/{userId}/profile")
     public Result<UserProfileResponse> publicProfile(@PathVariable Long userId, HttpServletRequest request) {
         Long viewerId = resolveOptionalViewer(request);

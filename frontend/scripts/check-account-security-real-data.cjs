@@ -25,11 +25,13 @@ for (const marker of forbiddenMarkers) {
 
 const requiredMarkers = [
   '安全状态以服务端账号风控接口为准',
-  '账号安全接口尚未接入',
+  'getAccountSecurity',
+  'security.value = await getAccountSecurity()',
+  '服务端暂未返回登录设备记录',
   '未展示本地登录设备样例',
   '未执行任何账号安全变更',
-  'const devices = computed(() => []',
-  'const securityScore = computed(() => \'--\')'
+  'security.value?.maskedPhone',
+  'const securityScore = computed(() => security.value?.securityScore || \'--\')'
 ]
 
 for (const marker of requiredMarkers) {

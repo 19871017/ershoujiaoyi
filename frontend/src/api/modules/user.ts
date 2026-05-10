@@ -11,6 +11,18 @@ export interface UserProfileResponse {
   followedByMe?: boolean
 }
 
+export interface AccountSecurityResponse {
+  userId: number
+  maskedPhone: string
+  securityScore: string
+  recentDevices: Array<{
+    deviceName: string
+    loginAt: string
+    city: string
+    status: string
+  }>
+}
+
 export interface SubmitVideoIdentityRequest {
   videoUrl: string
   description?: string
@@ -25,6 +37,10 @@ export interface UpdateUserProfileRequest {
 
 export function getMyProfile() {
   return get<UserProfileResponse>('/api/user/me')
+}
+
+export function getAccountSecurity() {
+  return get<AccountSecurityResponse>('/api/user/me/security')
 }
 
 export function updateMyProfile(data: UpdateUserProfileRequest) {

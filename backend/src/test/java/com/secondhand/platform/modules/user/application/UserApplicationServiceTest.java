@@ -30,6 +30,31 @@ class UserApplicationServiceTest {
     }
 
     @Test
+    void accountSecurityShouldReturnMaskedPhoneAndEmptyBackendDeviceState() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.login(login("13800138666", "pass-123456"));
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138666");
+
+        com.secondhand.platform.modules.user.AccountSecurityResponse security = service.accountSecurity(userId);
+
+        assertEquals(userId, security.getUserId());
+        assertEquals("138****8666", security.getMaskedPhone());
+        assertEquals("--", security.getSecurityScore());
+        assertEquals(0, security.getRecentDevices().size());
+    }
+
+    @Test
+    void accountSecurityShouldRejectMissingOrInactiveUsersWithoutLeakingRawPhone() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.login(login("13800138667", "pass-123456"));
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138667");
+        jdbcTemplate.update("UPDATE user_account SET status = ? WHERE id = ?", "DISABLED", userId);
+
+        assertThrows(IllegalArgumentException.class, () -> service.accountSecurity(0L));
+        assertThrows(IllegalArgumentException.class, () -> service.accountSecurity(userId));
+    }
+
+    @Test
     void currentUserProfileShouldReadPersistedAccountAndProfile() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
         auth.login(login("13800138002", "pass-123456"));

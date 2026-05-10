@@ -1,5 +1,6 @@
 package com.secondhand.platform.modules.user.application;
 
+import com.secondhand.platform.modules.user.AccountSecurityResponse;
 import com.secondhand.platform.modules.user.AdminUserDetailResponse;
 import com.secondhand.platform.modules.user.UpdateUserProfileRequest;
 import com.secondhand.platform.modules.user.UserProfileResponse;
@@ -54,6 +55,26 @@ public class UserApplicationService {
                 UPDATE user_profile SET main_role = ?, city = ?, bio = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?
                 """, mainRole, city, bio, userId);
         return currentUserProfile(userId);
+    }
+
+    public AccountSecurityResponse accountSecurity(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("userId required");
+        }
+        List<AccountSecurityResponse> rows = jdbcTemplate.query("""
+                SELECT id, phone
+                FROM user_account
+                WHERE id = ? AND status = 'ACTIVE'
+                """, (rs, rowNum) -> new AccountSecurityResponse(
+                rs.getLong("id"),
+                maskPhone(rs.getString("phone")),
+                "--",
+                List.of()
+        ), userId);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("user not found");
+        }
+        return rows.get(0);
     }
 
     public UserProfileResponse followProfile(Long followerId, Long followedId) {
