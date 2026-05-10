@@ -28,7 +28,7 @@ import { setAdminHeaderProvider } from '../http'
 
 describe('admin finance api', () => {
   beforeEach(() => {
-    setAdminHeaderProvider(() => ({ 'X-Admin-Mode': 'enabled', 'X-User-Id': '7', 'X-Dev-Mode': 'enabled' }))
+    setAdminHeaderProvider(() => ({ 'X-User-Id': '7', 'X-Admin-Session': 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }))
     vi.restoreAllMocks()
   })
 

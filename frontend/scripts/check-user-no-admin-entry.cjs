@@ -6,7 +6,9 @@ const files = [
   'src/pages.json',
   'pages.json',
   'src/pages/tabbar/me/index.vue',
-  'src/pages/risk/index.vue'
+  'src/pages/risk/index.vue',
+  'src/api/modules/admin.ts',
+  'src/api/modules/location.ts'
 ]
 const forbiddenDirs = [
   'src/pages/admin'
@@ -18,7 +20,10 @@ const forbidden = [
   /后台入口/,
   /进入后台首页/,
   /getAdminAuditList/,
-  /X-Admin-Mode/
+  /X-Admin-Mode/,
+  /X-Dev-Mode/,
+  /adminHeader\s*\(/,
+  /\/api\/admin\//
 ]
 
 let failed = false
