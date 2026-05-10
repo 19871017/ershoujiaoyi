@@ -99,6 +99,7 @@ export function normalizeAdminSession(input: AdminSessionInput | null | undefine
   if (!USER_ID_PATTERN.test(userId)) return null
   if (!sessionId || !/^adm_[a-f0-9]{32}$/i.test(sessionId)) return null
   if (!expiresAt || Number.isNaN(Date.parse(expiresAt))) return null
+  if (Date.parse(expiresAt) <= Date.now()) return null
   const permissions = normalizePermissions(input.permissions)
   if (permissions.length === 0) return null
   return { username, userId, permissions, sessionId, expiresAt }

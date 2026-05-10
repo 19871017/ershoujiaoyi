@@ -169,6 +169,20 @@ describe('admin auth helpers', () => {
     expect(menuAllowsSession({ path: '/dashboard', label: '仪表盘', permission: 'audit:read' }, session)).toBe(false)
   })
 
+  it('fails closed for expired persisted admin sessions before building headers', () => {
+    const session = normalizeAdminSession({
+      username: 'expired-admin',
+      userId: '13',
+      permissions: ['audit:read'],
+      sessionId: 'adm_77777777777777777777777777777777',
+      expiresAt: '2000-01-01T00:00:00Z'
+    })
+
+    expect(session).toBeNull()
+    expect(buildAdminHeaders(session)).toEqual({})
+    expect(shouldRedirectToLogin('/dashboard', session)).toBe(true)
+  })
+
   it('requires module-specific read permissions for order and after-sales deep links', () => {
     const auditOnly = normalizeAdminSession({
       username: 'audit-only',
