@@ -88,7 +88,7 @@
           </view>
         </view>
         <view class="user-actions">
-          <button class="follow-btn" @click="toggleFollow">{{ item.viewerFollows ? '已关注' : '关注' }}</button>
+          <button class="follow-btn" :disabled="followingIds.has(item.id)" @click="toggleFollow(item)">{{ followingIds.has(item.id) ? '处理中' : (item.viewerFollows ? '已关注' : '关注') }}</button>
           <button class="chat-btn" @click="chat(item)">私信</button>
         </view>
       </view>
@@ -107,6 +107,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { listUserRankings, type RankingGender, type UserRankingResponse } from '../../api/modules/ranking'
+import { followPublicProfile, unfollowPublicProfile } from '../../api/modules/user'
 
 type Gender = RankingGender
 type RankType = 'popular' | 'deal' | 'guardian'
@@ -129,6 +130,7 @@ const activeType = ref<RankType>('popular')
 const cityFilter = ref('全部')
 const loadError = ref('')
 const rankings = ref<RankingUser[]>([])
+const followingIds = ref<Set<number>>(new Set())
 const genderTabs = [
   { value: 'goddess' as const, label: '女神榜', icon: '👑' },
   { value: 'god' as const, label: '男神榜', icon: '✨' }
@@ -179,7 +181,22 @@ function toRankingUser(item: UserRankingResponse): RankingUser {
     viewerFollows: item.followedByMe
   }
 }
-function toggleFollow() { uni.showToast({ title: '榜单页不执行本地关注变更，请进入真实主页操作', icon: 'none' }) }
+async function toggleFollow(item: RankingUser) {
+  if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少后端用户编号，未执行关注变更', icon: 'none' })
+  if (followingIds.value.has(item.id)) return
+  followingIds.value = new Set([...followingIds.value, item.id])
+  try {
+    const updated = item.viewerFollows ? await unfollowPublicProfile(item.id) : await followPublicProfile(item.id)
+    rankings.value = rankings.value.map((row) => row.id === item.id ? { ...row, viewerFollows: !!updated.followedByMe } : row)
+    uni.showToast({ title: updated.followedByMe ? '已关注' : '已取消关注', icon: 'none' })
+  } catch {
+    uni.showToast({ title: '关注状态未更新，请稍后重试', icon: 'none' })
+  } finally {
+    const next = new Set(followingIds.value)
+    next.delete(item.id)
+    followingIds.value = next
+  }
+}
 function chat(item: RankingUser) {
   if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少后端用户编号，未进入会话', icon: 'none' })
   uni.navigateTo({ url: `/pages/chat/conversation/index?receiverId=${item.id}` })

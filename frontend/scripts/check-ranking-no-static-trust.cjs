@@ -63,8 +63,17 @@ const forbiddenLocalFollowMarkers = [
 for (const marker of forbiddenLocalFollowMarkers) {
   if (source.includes(marker)) failures.push(`ranking page must not render local/static follow state: ${marker}`)
 }
-if (!source.includes('榜单页不执行本地关注变更，请进入真实主页操作')) {
-  failures.push('ranking page follow action must fail closed with explicit no-change copy')
+if (source.includes('榜单页不执行本地关注变更，请进入真实主页操作')) {
+  failures.push('ranking page should use the existing backend follow/unfollow API instead of a fail-closed follow stub')
+}
+if (!source.includes('followPublicProfile') || !source.includes('unfollowPublicProfile')) {
+  failures.push('ranking page follow action must call backend follow/unfollow APIs when they are available')
+}
+if (!source.includes('viewerFollows: !!updated.followedByMe') || source.includes('item.viewerFollows = !item.viewerFollows')) {
+  failures.push('ranking page follow state must update only from backend followedByMe ack, never local inversion')
+}
+if (!source.includes('followingIds.value.has(item.id)')) {
+  failures.push('ranking page follow action must guard duplicate clicks per backend user id')
 }
 
 const navigationRiskMarkers = [
