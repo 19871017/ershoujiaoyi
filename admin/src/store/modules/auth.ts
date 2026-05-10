@@ -66,7 +66,7 @@ const DEFAULT_DEV_ADMIN_PERMISSIONS: AdminPermission[] = ['audit:read', 'audit:r
 const PERMISSION_SET = new Set<AdminPermission>(DEFAULT_DEV_ADMIN_PERMISSIONS)
 
 function normalizePermissions(permissions?: string[]): AdminPermission[] {
-  if (!permissions) return [...DEFAULT_DEV_ADMIN_PERMISSIONS]
+  if (!Array.isArray(permissions)) return []
   return permissions.filter((permission): permission is AdminPermission => PERMISSION_SET.has(permission as AdminPermission))
 }
 

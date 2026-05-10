@@ -32,8 +32,15 @@ describe('admin auth helpers', () => {
     expect(session?.permissions).toEqual(['audit:read', 'finance:read'])
   })
 
+  it('rejects backend admin sessions that omit an explicit permissions array', () => {
+    const session = normalizeAdminSession({ username: 'legacy-admin', userId: '7', devAdminEnabled: true })
+
+    expect(session).toBeNull()
+    expect(buildAdminHeaders(session)).toEqual({})
+  })
+
   it('normalizes a dev admin session into non-sensitive request headers', () => {
-    const session = normalizeAdminSession({ username: ' ops ', userId: '7', devAdminEnabled: true })
+    const session = normalizeAdminSession({ username: ' ops ', userId: '7', devAdminEnabled: true, permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'] })
 
     expect(session).toEqual({ username: 'ops', userId: '7', devAdminEnabled: true, permissions: ['audit:read', 'audit:review', 'finance:read', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log'] })
     expect(buildAdminHeaders(session)).toEqual({
