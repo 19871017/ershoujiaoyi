@@ -3,6 +3,7 @@ package com.secondhand.platform.modules.admin;
 import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.secondhand.platform.modules.aftersales.application.AfterSalesApplicationService;
@@ -38,6 +39,7 @@ class AdminControllerRbacTest {
     private AuditApplicationService auditApplicationService;
     private WalletLedgerService walletLedgerService;
     private ProductApplicationService productApplicationService;
+    private OrderApplicationService orderApplicationService;
 
     @BeforeEach
     void setUp() {
@@ -51,13 +53,14 @@ class AdminControllerRbacTest {
         auditApplicationService = new AuditApplicationService(jdbcTemplate);
         walletLedgerService = new WalletLedgerService(jdbcTemplate);
         productApplicationService = new ProductApplicationService(jdbcTemplate, new MediaUploadTicketService(jdbcTemplate));
+        orderApplicationService = new OrderApplicationService(productApplicationService, walletLedgerService, jdbcTemplate);
 
         AdminController controller = new AdminController(
                 auditApplicationService,
                 walletLedgerService,
                 new LocationApplicationService(new com.secondhand.platform.modules.location.BaiduReverseGeocodeClient(), "", jdbcTemplate),
                 mock(AfterSalesApplicationService.class),
-                mock(OrderApplicationService.class),
+                orderApplicationService,
                 productApplicationService,
                 mock(UserApplicationService.class),
                 new AdminAccessGuard(new CurrentUserResolver(), jdbcTemplate)
@@ -270,7 +273,7 @@ class AdminControllerRbacTest {
 
     @Test
     void adminProductApproveRequiresAuditReviewAndPublishesProductForSale() throws Exception {
-        CreateProductResponse product = productApplicationService.createProduct(61L, productRequest("后台待审商品", "12.34"));
+        CreateProductResponse product = productApplicationService.createProduct(61L, productRequest(61L, "后台待审商品", "12.34"));
         createActiveUser(62L);
 
         mvc.perform(post("/api/admin/products/" + product.getProductId() + "/approve")
@@ -286,6 +289,24 @@ class AdminControllerRbacTest {
                 .andExpect(status().isOk());
 
         org.junit.jupiter.api.Assertions.assertEquals(1, productApplicationService.listProducts().size());
+    }
+
+    @Test
+    void adminOrderListUsesPersistedOrderServiceWithOrderReadPermission() throws Exception {
+        createActiveUser(71L);
+        grantPermission(71L, "order:read");
+        CreateProductResponse product = productApplicationService.createProduct(81L, productRequest(81L, "后台订单闭环商品", "66.00"));
+        productApplicationService.approveForSale(product.getProductId());
+        var order = orderApplicationService.createOrder(orderRequest(product.getProductId()), 82L);
+
+        mvc.perform(get("/api/admin/orders")
+                        .header("X-User-Id", "71")
+                        .header("X-Admin-Session", issueAdminSession(71L))
+                        .param("status", "ALL")
+                        .param("limit", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].orderNo").value(order.getOrderNo()))
+                .andExpect(jsonPath("$.data[0].buyerId").value(82));
     }
 
     private void grantPermission(Long userId, String permission) {
@@ -351,10 +372,25 @@ class AdminControllerRbacTest {
     }
 
     private CreateProductRequest productRequest(String title, String price) {
+        return productRequest(61L, title, price);
+    }
+
+    private CreateProductRequest productRequest(Long sellerId, String title, String price) {
         CreateProductRequest request = new CreateProductRequest();
         request.setTitle(title);
         request.setDescription("admin product approval test");
         request.setPrice(new BigDecimal(price));
+        String issued = new MediaUploadTicketService(jdbcTemplate)
+                .issue(sellerId, "PRODUCT_IMAGE", "image/jpeg", 300_000L, title + ".jpg")
+                .storageUrl();
+        request.setImageUrls(java.util.List.of(issued));
+        return request;
+    }
+
+    private com.secondhand.platform.modules.order.application.CreateOrderRequest orderRequest(Long productId) {
+        com.secondhand.platform.modules.order.application.CreateOrderRequest request = new com.secondhand.platform.modules.order.application.CreateOrderRequest();
+        request.setGoodsId(productId);
+        request.setAcceptedTradeRule(true);
         return request;
     }
 }
