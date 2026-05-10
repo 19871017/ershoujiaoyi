@@ -8,32 +8,34 @@ const failures = []
 
 const forbiddenMarkers = [
   'const selected = ref(\'深圳\')',
-  'uni.showToast({ title: `已选择${selected.value}`',
   "setTimeout(() => uni.switchTab({ url: '/pages/tabbar/home/index' }), 300)",
-  '@click="selected = city"'
+  '@click="selected = city"',
+  '城市偏好接口尚未接入，未保存为正式位置偏好'
 ]
 
 for (const marker of forbiddenMarkers) {
-  if (source.includes(marker)) failures.push(`${file}: city picker must not locally save or claim a selected city without backend/system persistence: ${marker}`)
+  if (source.includes(marker)) failures.push(`${file}: city picker must not keep local-only selection or claim no-op success: ${marker}`)
 }
 
 const requiredMarkers = [
-  "const selected = ref('')",
-  '@click="selectCity(city)"',
+  "import { computed, onMounted, reactive, ref } from 'vue'",
+  "import { getMyProfile, updateMyProfile } from '../../../api/modules/user'",
+  "const profile = reactive({ userId: 0, nickname: '', mainRole: 'UNVERIFIED', city: '', bio: '' })",
+  "async function loadProfile()",
+  'const selected = ref(\'\')',
   'function selectCity(city: string)',
-  'function saveCity()',
-  '城市偏好接口尚未接入，未保存为正式位置偏好',
-  '当前未执行任何位置变更',
-  'const canConfirm = computed(() => Boolean(selected.value))',
-  ':disabled="!canConfirm"'
+  'updateMyProfile({ nickname: profile.nickname, mainRole: profile.mainRole, city: selected.value, bio: profile.bio })',
+  '城市偏好已保存至服务端资料',
+  '城市偏好保存失败，未修改服务端资料',
+  '资料接口加载失败，未展示本地城市偏好样例'
 ]
 
 for (const marker of requiredMarkers) {
-  if (!source.includes(marker)) failures.push(`${file}: missing fail-closed city-selection marker: ${marker}`)
+  if (!source.includes(marker)) failures.push(`${file}: missing backend-backed city preference marker: ${marker}`)
 }
 
-if (/selected\.value\s*=\s*city[\s\S]*uni\.showToast\(\{ title: `已选择/.test(source)) {
-  failures.push(`${file}: selecting a chip may update UI highlight, but must not show saved/selected success copy as a persisted preference`)
+if (/uni\.showModal\(\{[\s\S]*title:\s*['"]城市偏好接口尚未接入['"]/.test(source)) {
+  failures.push(`${file}: city picker must not present interface-not-connected copy once backend profile persistence is wired`)
 }
 
 if (failures.length) {
@@ -41,4 +43,5 @@ if (failures.length) {
   process.exit(1)
 }
 
-console.log('location city page keeps manual city choice local-only and fails closed until backend/system preference persistence exists')
+console.log('location city page persists city preference via backend profile API and no longer behaves as local-only no-op')
+
