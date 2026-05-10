@@ -137,7 +137,7 @@ public class AuditApplicationService {
                         rs.getString("target_type"),
                         rs.getString("target_id"),
                         rs.getString("reason"),
-                        rs.getString("description"),
+                        maskSensitiveDescription(rs.getString("description"), true),
                         rs.getString("status"),
                         rs.getString("review_remark"),
                         toLocalDateTime(rs.getTimestamp("created_at")),

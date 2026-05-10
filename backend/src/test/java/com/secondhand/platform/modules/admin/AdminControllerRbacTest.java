@@ -292,6 +292,22 @@ class AdminControllerRbacTest {
     }
 
     @Test
+    void adminAuditListMasksSensitiveDescriptionBeforeDtoResponse() throws Exception {
+        createActiveUser(72L);
+        grantPermission(72L, "audit:read");
+        jdbcTemplate.update("""
+                insert into audit_record (audit_no,audit_type,user_id,target_type,target_id,reason,description,status,created_at)
+                values (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+                """, "AU-MASK-20260511-0001", AuditApplicationService.AUDIT_TYPE_WITHDRAWAL, 42L, "WITHDRAWAL", "WD-MASK-1", "提现审核", "用户手机号13912345678，银行卡6222020202020208088", AuditApplicationService.STATUS_PENDING);
+
+        mvc.perform(get("/api/admin/audit")
+                        .header("X-User-Id", "72")
+                        .header("X-Admin-Session", issueAdminSession(72L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].description").value("用户手机号139****5678，银行卡622202********8088"));
+    }
+
+    @Test
     void adminOrderListUsesPersistedOrderServiceWithOrderReadPermission() throws Exception {
         createActiveUser(71L);
         grantPermission(71L, "order:read");
