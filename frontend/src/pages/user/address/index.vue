@@ -17,7 +17,9 @@
     </view>
 
     <view class="section-title">我的地址</view>
-    <view v-for="item in addresses" :key="item.id" class="address-card ds-card">
+    <view v-if="loading" class="empty-card ds-card">地址加载中...</view>
+    <view v-else-if="!addresses.length" class="empty-card ds-card">暂无服务端地址记录，请新增后再用于订单发货。</view>
+    <view v-for="item in addresses" :key="item.addressId" class="address-card ds-card">
       <view class="address-head">
         <view class="person">{{ item.name }} {{ item.mobile }}</view>
         <view v-if="item.isDefault" class="tag">默认</view>
@@ -25,18 +27,49 @@
       <view class="address-text">{{ item.provinceCity }} {{ item.detail }}</view>
       <view class="card-actions">
         <button class="mini-btn" @click="editAddress(item)">编辑</button>
-        <button class="mini-btn" @click="setDefault(item.id)">设默认</button>
-        <button class="mini-btn danger" @click="removeAddress(item.id)">删除</button>
+        <button class="mini-btn" @click="setDefault(item.addressId)">设默认</button>
+        <button class="mini-btn danger" @click="removeAddress(item.addressId)">删除</button>
       </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
-interface Address { id: number; name: string; mobile: string; provinceCity: string; detail: string; isDefault: boolean }
+import { onMounted, reactive, ref } from 'vue'
+import { deleteUserAddress, listAddresses, saveUserAddress, setDefaultUserAddress, type UserAddressResponse } from '../../../api/modules/address'
+
+interface Address { addressId: number; name: string; mobile: string; provinceCity: string; detail: string; isDefault: boolean }
 const addresses = ref<Address[]>([])
-const form = reactive<Address>({ id: 0, name: '', mobile: '', provinceCity: '', detail: '', isDefault: false })
+const loading = ref(false)
+const saving = ref(false)
+const form = reactive<Address>({ addressId: 0, name: '', mobile: '', provinceCity: '', detail: '', isDefault: false })
+
+function toAddress(item: UserAddressResponse): Address {
+  return {
+    addressId: item.addressId,
+    name: item.name,
+    mobile: item.mobile,
+    provinceCity: item.provinceCity,
+    detail: item.detail,
+    isDefault: item.isDefault
+  }
+}
+
+function resetForm() {
+  Object.assign(form, { addressId: 0, name: '', mobile: '', provinceCity: '', detail: '', isDefault: false })
+}
+
+async function loadAddresses() {
+  loading.value = true
+  try {
+    addresses.value = (await listAddresses()).map(toAddress)
+  } catch (error) {
+    addresses.value = []
+    uni.showToast({ title: '地址加载失败，请稍后重试', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
 
 function validateAddressForm() {
   if (!form.name.trim()) return '请填写收货人'
@@ -45,29 +78,62 @@ function validateAddressForm() {
   return ''
 }
 
-function showUnavailableToast(action: string) {
-  uni.showToast({ title: `${action}失败：地址服务暂未接入，未保存为正式收货地址`, icon: 'none' })
-}
-
-function saveAddress() {
+async function saveAddress() {
   const error = validateAddressForm()
   if (error) return uni.showToast({ title: error, icon: 'none' })
-  showUnavailableToast('保存地址')
+  if (saving.value) return
+  saving.value = true
+  try {
+    await saveUserAddress({
+      addressId: form.addressId || undefined,
+      name: form.name.trim(),
+      mobile: form.mobile.trim(),
+      provinceCity: form.provinceCity.trim(),
+      detail: form.detail.trim(),
+      isDefault: form.isDefault
+    })
+    resetForm()
+    await loadAddresses()
+    uni.showToast({ title: '地址已保存', icon: 'success' })
+  } catch (error) {
+    uni.showToast({ title: '保存地址失败，请稍后重试', icon: 'none' })
+  } finally {
+    saving.value = false
+  }
 }
 function editAddress(item: Address) { Object.assign(form, item) }
-function setDefault(_id: number) { showUnavailableToast('设置默认地址') }
-function removeAddress(_id: number) {
+async function setDefault(id: number) {
+  try {
+    await setDefaultUserAddress(id)
+    await loadAddresses()
+    uni.showToast({ title: '默认地址已更新', icon: 'success' })
+  } catch (error) {
+    uni.showToast({ title: '设置默认地址失败', icon: 'none' })
+  }
+}
+function removeAddress(id: number) {
   uni.showModal({
-    title: '暂不能删除',
-    content: '地址服务暂未接入，当前不会删除或保存为正式收货地址。',
-    showCancel: false
+    title: '确认删除',
+    content: '删除后该收货地址将从服务端地址记录移除。',
+    success: async (res) => {
+      if (!res.confirm) return
+      try {
+        await deleteUserAddress(id)
+        await loadAddresses()
+        uni.showToast({ title: '地址已删除', icon: 'success' })
+      } catch (error) {
+        uni.showToast({ title: '删除地址失败', icon: 'none' })
+      }
+    }
   })
 }
+
+onMounted(loadAddresses)
 </script>
 
 <style scoped>
 .address-page { background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%); }
-.form-card,.address-card { margin-top:18rpx; padding:22rpx; border-color:#ffd9bd; }
+.form-card,.address-card,.empty-card { margin-top:18rpx; padding:22rpx; border-color:#ffd9bd; }
 .form-title,.section-title { margin-top:20rpx; color:#3a2a1f; font-size:29rpx; font-weight:950; }
 .input,.textarea { width:100%; box-sizing:border-box; margin-top:14rpx; padding:20rpx; border-radius:24rpx; background:#fffaf6; border:1rpx solid #ffd9bd; color:#3a2a1f; font-size:24rpx; }
 .textarea { height:132rpx; }

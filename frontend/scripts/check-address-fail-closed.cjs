@@ -24,8 +24,12 @@ for (const marker of forbiddenMarkers) {
   if (source.includes(marker)) failures.push(`address page must not contain local-only success/demo marker: ${marker}`)
 }
 
-if (!/地址服务暂未接入|不会保存为正式收货地址|未保存/.test(source)) {
-  failures.push('address page must explicitly fail closed when backend address persistence is unavailable')
+if (!/listAddresses/.test(source) || !/saveUserAddress/.test(source) || !/setDefaultUserAddress/.test(source) || !/deleteUserAddress/.test(source)) {
+  failures.push('address page must call real backend address APIs for list/save/default/delete')
+}
+
+if (!/loadAddresses/.test(source)) {
+  failures.push('address page must hydrate address list from backend')
 }
 
 if (!/addresses = ref<Address\[\]>\(\[\]\)/.test(source)) {
@@ -37,4 +41,4 @@ if (failures.length) {
   process.exit(1)
 }
 
-console.log('address page fails closed without local-only persistence')
+console.log('address page uses real backend persistence without local-only demo data')
