@@ -9,6 +9,7 @@ import {
   getAdminLocationConfig,
   getAdminOrderDetail,
   getAdminOrderList,
+  approveAdminProduct,
   getAdminUserDetail,
   getAdminWithdrawalDetail,
   getAdminWithdrawalList,
@@ -17,6 +18,7 @@ import {
   isValidAdminAuditLogId,
   isValidAdminAuditNo,
   isValidAdminOrderNo,
+  isValidAdminProductId,
   isValidAdminUserId,
   isValidAdminWithdrawalNo,
   rejectAdminAudit,
@@ -69,6 +71,34 @@ describe('admin finance api', () => {
     await expect(approveAdminAudit('preview-audit', 'ok')).rejects.toThrow('审核编号无效')
     await expect(rejectAdminAudit('AUDIT-GOODS-1', 'bad')).rejects.toThrow('审核编号无效')
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('approves product audit through backend product approval endpoint and rejects malformed product ids before fetch', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          productId: 88,
+          title: '后台审核通过商品',
+          description: '后端返回商品状态',
+          price: 12.34,
+          status: 'ON_SALE'
+        }
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(isValidAdminProductId(88)).toBe(true)
+    await expect(approveAdminProduct('preview-product')).rejects.toThrow('商品编号无效')
+    await expect(approveAdminProduct(0)).rejects.toThrow('商品编号无效')
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    const product = await approveAdminProduct(88)
+
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/products/88/approve'), expect.objectContaining({
+      method: 'POST'
+    }))
+    expect(product.status).toBe('ON_SALE')
   })
 
   it('loads withdrawal detail through the admin endpoint without exposing raw account numbers', async () => {

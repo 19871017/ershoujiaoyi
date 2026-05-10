@@ -12,7 +12,11 @@ import com.secondhand.platform.modules.wallet_ledger.PayoutAccountRequest;
 import com.secondhand.platform.modules.wallet_ledger.WithdrawalResponse;
 import com.secondhand.platform.modules.wallet_ledger.application.CreditCommand;
 import com.secondhand.platform.modules.location.LocationApplicationService;
+import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
 import com.secondhand.platform.modules.order.application.OrderApplicationService;
+import com.secondhand.platform.modules.product.CreateProductResponse;
+import com.secondhand.platform.modules.product.application.CreateProductRequest;
+import com.secondhand.platform.modules.product.application.ProductApplicationService;
 import com.secondhand.platform.modules.user.application.UserApplicationService;
 import com.secondhand.platform.modules.wallet_ledger.application.WalletLedgerService;
 import com.secondhand.platform.shared.web.AdminAccessGuard;
@@ -33,6 +37,7 @@ class AdminControllerRbacTest {
     private MockMvc mvc;
     private AuditApplicationService auditApplicationService;
     private WalletLedgerService walletLedgerService;
+    private ProductApplicationService productApplicationService;
 
     @BeforeEach
     void setUp() {
@@ -45,6 +50,7 @@ class AdminControllerRbacTest {
 
         auditApplicationService = new AuditApplicationService(jdbcTemplate);
         walletLedgerService = new WalletLedgerService(jdbcTemplate);
+        productApplicationService = new ProductApplicationService(jdbcTemplate, new MediaUploadTicketService(jdbcTemplate));
 
         AdminController controller = new AdminController(
                 auditApplicationService,
@@ -52,6 +58,7 @@ class AdminControllerRbacTest {
                 new LocationApplicationService(new com.secondhand.platform.modules.location.BaiduReverseGeocodeClient(), "", jdbcTemplate),
                 mock(AfterSalesApplicationService.class),
                 mock(OrderApplicationService.class),
+                productApplicationService,
                 mock(UserApplicationService.class),
                 new AdminAccessGuard(new CurrentUserResolver(), jdbcTemplate)
         );
@@ -220,6 +227,26 @@ class AdminControllerRbacTest {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    void adminProductApproveRequiresAuditReviewAndPublishesProductForSale() throws Exception {
+        CreateProductResponse product = productApplicationService.createProduct(61L, productRequest("后台待审商品", "12.34"));
+        createActiveUser(62L);
+
+        mvc.perform(post("/api/admin/products/" + product.getProductId() + "/approve")
+                        .header("X-User-Id", "62")
+                        .header("X-Admin-Session", issueAdminSession(62L)))
+                .andExpect(status().isForbidden());
+
+        grantPermission(62L, "audit:review");
+
+        mvc.perform(post("/api/admin/products/" + product.getProductId() + "/approve")
+                        .header("X-User-Id", "62")
+                        .header("X-Admin-Session", issueAdminSession(62L)))
+                .andExpect(status().isOk());
+
+        org.junit.jupiter.api.Assertions.assertEquals(1, productApplicationService.listProducts().size());
+    }
+
     private void grantPermission(Long userId, String permission) {
         jdbcTemplate.update("""
                 insert into admin_user_permission (user_id, permission_code, enabled, created_at, updated_at)
@@ -268,6 +295,14 @@ class AdminControllerRbacTest {
         request.setPaymentMethod(paymentMethod);
         request.setAccountName(accountName);
         request.setAccountNo(accountNo);
+        return request;
+    }
+
+    private CreateProductRequest productRequest(String title, String price) {
+        CreateProductRequest request = new CreateProductRequest();
+        request.setTitle(title);
+        request.setDescription("admin product approval test");
+        request.setPrice(new BigDecimal(price));
         return request;
     }
 }

@@ -42,6 +42,15 @@ class PersistenceContextSmokeTest {
                     "select config_value from system_config where config_key = 'platform.category.primary'",
                     String.class
             ));
+            Long adminUserId = jdbcTemplate.queryForObject(
+                    "select id from user_account where phone = '13800138000' and status = 'ACTIVE'",
+                    Long.class
+            );
+            assertEquals(9, jdbcTemplate.queryForObject(
+                    "select count(1) from admin_user_permission where user_id = ? and enabled = TRUE",
+                    Integer.class,
+                    adminUserId
+            ));
         });
     }
 }

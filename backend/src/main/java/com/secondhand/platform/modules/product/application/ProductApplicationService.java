@@ -51,7 +51,7 @@ public class ProductApplicationService {
         }
         BigDecimal price = money(request.getPrice());
         String title = request.getTitle().trim();
-        String productNo = generateNo("GD", title, price, request.getImageUrls());
+        String productNo = generateNo("GD", title, price, request.getImageUrls() == null ? List.of() : request.getImageUrls());
         jdbcTemplate.update(
                 "insert into product_item (product_no,seller_id,title,category,price,product_status,audit_status,visible,trade_rule,description,image_urls,created_at,updated_at) values (?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
                 productNo,
@@ -251,6 +251,10 @@ public class ProductApplicationService {
                 AUDIT_APPROVED,
                 product.productId()
         );
+    }
+
+    public CreateProductResponse createResponse(Long productId) {
+        return toCreateResponse(getExistingProduct(productId));
     }
 
     private ProductRecord getVisibleProduct(Long productId) {

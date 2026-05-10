@@ -74,6 +74,14 @@ export interface AdminOrderListQuery {
   limit?: number
 }
 
+export interface AdminProductAuditResponse {
+  productId: number
+  title: string
+  description?: string
+  price: number
+  status: string
+}
+
 export interface AdminUserDetailResponse {
   userId: number
   userNo: string
@@ -178,6 +186,10 @@ export function isValidAdminOrderNo(orderNo: string) {
   return /^OD-[A-Z0-9]{4,}$/.test(orderNo)
 }
 
+export function isValidAdminProductId(productId: string | number) {
+  return /^[1-9]\d*$/.test(String(productId))
+}
+
 export function isValidAdminUserId(userId: string | number) {
   return /^[1-9]\d*$/.test(String(userId))
 }
@@ -218,6 +230,16 @@ export async function rejectAdminAudit(auditNo: string, remark: string) {
     url: `/api/admin/audit/${encodeURIComponent(auditNo)}/reject`,
     method: 'POST',
     data: { remark }
+  })
+}
+
+export async function approveAdminProduct(productId: string | number) {
+  if (!isValidAdminProductId(productId)) {
+    throw new Error('商品编号无效')
+  }
+  return request<AdminProductAuditResponse>({
+    url: `/api/admin/products/${encodeURIComponent(String(productId))}/approve`,
+    method: 'POST'
   })
 }
 

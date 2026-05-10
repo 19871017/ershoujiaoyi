@@ -19,8 +19,8 @@
       <div class="audit-side">
         <b :class="['status', item.status.toLowerCase()]">{{ item.status }}</b>
         <div class="actions" v-if="item.status === 'PENDING'">
-          <button :disabled="reviewingAuditNo === item.auditNo" @click="review(item.auditNo, 'approve')">{{ reviewingAuditNo === item.auditNo ? '提交中...' : '通过' }}</button>
-          <button class="danger" :disabled="reviewingAuditNo === item.auditNo" @click="review(item.auditNo, 'reject')">拒绝</button>
+          <button :disabled="reviewingAuditNo === item.auditNo" @click="review(item, 'approve')">{{ reviewingAuditNo === item.auditNo ? '提交中...' : '通过' }}</button>
+          <button class="danger" :disabled="reviewingAuditNo === item.auditNo" @click="review(item, 'reject')">拒绝</button>
         </div>
       </div>
     </article>
@@ -30,7 +30,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { approveAdminAudit, getAdminAuditList, rejectAdminAudit, type AuditRecordResponse } from '../../api'
+import { approveAdminAudit, approveAdminProduct, getAdminAuditList, rejectAdminAudit, type AuditRecordResponse } from '../../api'
 
 const audits = ref<AuditRecordResponse[]>([])
 const loading = ref(false)
@@ -51,14 +51,18 @@ async function load() {
   }
 }
 
-async function review(auditNo: string, action: 'approve' | 'reject') {
+async function review(item: AuditRecordResponse, action: 'approve' | 'reject') {
   if (reviewingAuditNo.value) return
   error.value = ''
-  reviewingAuditNo.value = auditNo
+  reviewingAuditNo.value = item.auditNo
   try {
     const remark = action === 'approve' ? '后台审核通过' : '后台审核拒绝'
-    const updated = action === 'approve' ? await approveAdminAudit(auditNo, remark) : await rejectAdminAudit(auditNo, remark)
-    audits.value = audits.value.map((item) => item.auditNo === auditNo ? updated : item)
+    const isProductAudit = action === 'approve' && item.targetType === 'PRODUCT'
+    if (isProductAudit) {
+      await approveAdminProduct(item.targetId || '')
+    }
+    const updated = action === 'approve' ? await approveAdminAudit(item.auditNo, remark) : await rejectAdminAudit(item.auditNo, remark)
+    audits.value = audits.value.map((row) => row.auditNo === item.auditNo ? updated : row)
   } catch {
     error.value = '审核操作失败：未做本地假成功，请检查后端审核接口。'
   } finally {

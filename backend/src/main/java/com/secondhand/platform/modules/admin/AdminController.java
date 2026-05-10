@@ -12,6 +12,8 @@ import com.secondhand.platform.modules.location.LocationConfigResponse;
 import com.secondhand.platform.modules.order.OrderDetailResponse;
 import com.secondhand.platform.modules.order.OrderListItemResponse;
 import com.secondhand.platform.modules.order.application.OrderApplicationService;
+import com.secondhand.platform.modules.product.CreateProductResponse;
+import com.secondhand.platform.modules.product.application.ProductApplicationService;
 import com.secondhand.platform.modules.user.AdminUserDetailResponse;
 import com.secondhand.platform.modules.user.application.UserApplicationService;
 import com.secondhand.platform.modules.wallet_ledger.WithdrawalResponse;
@@ -36,6 +38,7 @@ public class AdminController {
     private final LocationApplicationService locationApplicationService;
     private final AfterSalesApplicationService afterSalesApplicationService;
     private final OrderApplicationService orderApplicationService;
+    private final ProductApplicationService productApplicationService;
     private final UserApplicationService userApplicationService;
     private final AdminAccessGuard adminAccessGuard;
 
@@ -44,6 +47,7 @@ public class AdminController {
                            LocationApplicationService locationApplicationService,
                            AfterSalesApplicationService afterSalesApplicationService,
                            OrderApplicationService orderApplicationService,
+                           ProductApplicationService productApplicationService,
                            UserApplicationService userApplicationService,
                            AdminAccessGuard adminAccessGuard) {
         this.auditApplicationService = auditApplicationService;
@@ -51,6 +55,7 @@ public class AdminController {
         this.locationApplicationService = locationApplicationService;
         this.afterSalesApplicationService = afterSalesApplicationService;
         this.orderApplicationService = orderApplicationService;
+        this.productApplicationService = productApplicationService;
         this.userApplicationService = userApplicationService;
         this.adminAccessGuard = adminAccessGuard;
     }
@@ -73,6 +78,13 @@ public class AdminController {
     public Result<OrderDetailResponse> orderDetail(@PathVariable String orderNo, HttpServletRequest request) {
         adminAccessGuard.requireAdmin(request, "order:read");
         return Result.ok(orderApplicationService.adminDetailOrder(orderNo));
+    }
+
+    @PostMapping("/products/{productId}/approve")
+    public Result<CreateProductResponse> approveProduct(@PathVariable Long productId, HttpServletRequest request) {
+        adminAccessGuard.requireAdmin(request, "audit:review");
+        productApplicationService.approveForSale(productId);
+        return Result.ok(productApplicationService.createResponse(productId));
     }
 
     @GetMapping("/users/{userId}")
