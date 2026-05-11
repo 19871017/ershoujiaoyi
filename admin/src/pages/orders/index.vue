@@ -122,6 +122,7 @@ async function loadDetail() {
 }
 
 onMounted(() => {
+  loadList()
   const routeOrderNo = String(route.params.orderNo || '').trim()
   if (routeOrderNo) {
     orderNo.value = routeOrderNo
