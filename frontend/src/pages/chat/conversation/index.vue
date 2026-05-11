@@ -140,6 +140,10 @@ function sendImagePlaceholder() {
   })
 }
 async function handleSendImage(localPath: string) {
+  if (!localPath || localPath.startsWith('local://') || localPath.includes('placeholder')) {
+    statusText.value = '聊天图片票据需使用有效本地选择文件'
+    return
+  }
   sending.value = true
   statusText.value = '正在签发聊天图片票据...'
   try {

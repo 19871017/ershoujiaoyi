@@ -49,7 +49,8 @@ const requiredConversationMarkers = [
   '聊天用户以服务端会话为准',
   '缺少当前登录用户，不能发送消息',
   'conversationId.value = response.ack.conversationId',
-  '消息不能为空，未发送默认聊天文案'
+  '消息不能为空，未发送默认聊天文案',
+  '聊天图片票据需使用有效本地选择文件'
 ]
 for (const marker of requiredConversationMarkers) {
   if (!conversation.includes(marker)) {
