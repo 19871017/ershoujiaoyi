@@ -93,8 +93,11 @@ const actions = computed(() => {
   return ['查看售后', '联系客服']
 })
 function readQuery() { const pages = getCurrentPages(); const currentPage = pages.length ? pages[pages.length - 1] as unknown as { options?: Record<string, string> } : undefined; const hashParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.hash.split('?')[1] || '') : undefined; orderNo.value = currentPage?.options?.orderNo || hashParams?.get('orderNo') || '' }
+function isValidBackendOrderNo(value: string) {
+  return /^[A-Z]{2,10}-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(value)
+}
 async function loadDetail() {
-  if (!orderNo.value) { errorText.value = '缺少订单号，请从订单列表进入'; return }
+  if (!isValidBackendOrderNo(orderNo.value)) { errorText.value = '缺少有效订单号，请从订单列表进入'; order.value = null; return }
   loading.value = true; errorText.value = ''
   try { order.value = await getOrderDetail(orderNo.value) }
   catch (error) { errorText.value = error instanceof Error ? error.message : '订单详情读取失败' }

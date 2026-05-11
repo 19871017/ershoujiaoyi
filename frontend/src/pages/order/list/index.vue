@@ -97,6 +97,9 @@ const loading = ref(false)
 const confirmingOrderNo = ref('')
 const errorText = ref('')
 const filteredOrders = computed(() => orders.value.filter((item) => status.value === 'ALL' || displayStatus(item) === status.value))
+function isValidBackendOrderNo(value: string) {
+  return /^[A-Z]{2,10}-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(value)
+}
 function countByStatus(value: StatusTab) {
   return orders.value.filter((item) => value === 'ALL' || displayStatus(item) === value).length
 }
@@ -129,6 +132,10 @@ async function loadOrders() {
 function switchRole(value: OrderRole) { role.value = value; status.value = 'ALL'; void loadOrders() }
 function switchStatus(value: StatusTab) { status.value = value }
 function handleAction(item: OrderListItemResponse, action: string) {
+  if (!isValidBackendOrderNo(item.orderNo)) {
+    uni.showToast({ title: '订单编号无效，已阻止敏感订单操作', icon: 'none' })
+    return
+  }
   if (action === '去付款') uni.navigateTo({ url: `/pages/payment/checkout/index?orderNo=${encodeURIComponent(item.orderNo)}&amount=${item.amount}&productId=${item.productId}` })
   else if (action === '去发货') uni.navigateTo({ url: `/pages/order/ship/index?orderNo=${encodeURIComponent(item.orderNo)}` })
   else if (action === '查看物流') uni.navigateTo({ url: `/pages/order/logistics/index?orderNo=${encodeURIComponent(item.orderNo)}` })

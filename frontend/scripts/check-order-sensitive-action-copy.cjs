@@ -42,6 +42,17 @@ const requiredOrderDetailNeutralMarkers = [
   '确认收货将调用后端接口完成状态变更'
 ]
 
+const requiredOrderIdGuardMarkers = {
+  'src/pages/order/detail/index.vue': [
+    'function isValidBackendOrderNo(value: string)',
+    'if (!isValidBackendOrderNo(orderNo.value))'
+  ],
+  'src/pages/order/list/index.vue': [
+    'function isValidBackendOrderNo(value: string)',
+    'if (!isValidBackendOrderNo(item.orderNo))'
+  ]
+}
+
 let failed = false
 for (const file of files) {
   const absolute = path.join(root, file)
@@ -92,6 +103,12 @@ for (const file of files) {
         console.error(`${file}: missing neutral logistics marker: ${marker}`)
         failed = true
       }
+    }
+  }
+  for (const marker of requiredOrderIdGuardMarkers[file] || []) {
+    if (!content.includes(marker)) {
+      console.error(`${file}: missing positive backend order number guard marker: ${marker}`)
+      failed = true
     }
   }
 }
