@@ -1,3 +1,5 @@
+import { useUserStore } from '../store/modules/user'
+
 export interface HttpOptions {
   url: string
   method?: UniApp.RequestOptions['method']
@@ -137,6 +139,11 @@ export function isDevRuntimeEnabled() {
   return ENABLE_DEV_HEADERS
 }
 
+function authHeaders(): Record<string, string> {
+  const token = useUserStore().token
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 export function request<T = unknown>(options: HttpOptions): Promise<T> {
   const method = options.method ?? 'GET'
   const requestUrl = method === 'GET' ? appendQuery(options.url, options.data) : options.url
@@ -150,7 +157,7 @@ export function request<T = unknown>(options: HttpOptions): Promise<T> {
       url: `${RESOLVED_API_BASE_URL}${requestUrl}`,
       method,
       data: method === 'GET' ? {} : options.data ?? {},
-      header: { ...DEV_HEADERS, ...(options.header ?? {}) },
+      header: { ...DEV_HEADERS, ...authHeaders(), ...(options.header ?? {}) },
       success: (res: UniApp.RequestSuccessCallbackResult) => {
         const result = res.data
 

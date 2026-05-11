@@ -31,12 +31,14 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { login, type LoginRequest } from '../../../api/modules/auth'
+import { useUserStore } from '../../../store/modules/user'
 
 const form = reactive<LoginRequest>({ mobile: '', password: '' })
 const loading = ref(false)
 const message = ref('')
 const isError = ref(false)
 const remember = ref(true)
+const userStore = useUserStore()
 function validMobile(value: string) { return /^1\d{10}$/.test(value) }
 function toast(title: string) { uni.showToast({ title, icon: 'none' }) }
 function useCodePreview() {
@@ -52,7 +54,9 @@ async function handleLogin() {
   message.value = ''
   try {
     const token = await login({ ...form })
-    message.value = token.accessToken ? '登录成功，正在进入首页' : '登录请求已提交'
+    if (!token.accessToken) throw new Error('access token missing')
+    userStore.setToken(token.accessToken)
+    message.value = '登录成功，正在进入首页'
     setTimeout(() => uni.switchTab({ url: '/pages/tabbar/home/index' }), 500)
   } catch {
     message.value = '登录请求未完成，请检查账号密码或稍后重试'

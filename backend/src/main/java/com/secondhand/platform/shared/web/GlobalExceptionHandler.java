@@ -35,6 +35,7 @@ public class GlobalExceptionHandler {
             "X-User-Id required",
             "X-User-Id must be positive",
             "X-User-Id invalid",
+            "user session invalid",
             "requestNo or clientGiftId required",
             "withdrawal already reviewed",
             "withdrawal status invalid",
