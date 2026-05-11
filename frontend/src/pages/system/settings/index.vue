@@ -19,7 +19,7 @@
 
     <view class="danger-card ds-card">
       <view class="section-title">安全提醒</view>
-      <view class="danger-text">不要私下转账，不要发送验证码、密码、银行卡完整信息。平台客服不会索要支付密码。</view>
+      <view class="danger-text">交易安全请以服务端订单、支付、发货和售后记录为准；验证码、密码、银行卡完整信息不应在页面内提交。</view>
     </view>
 
     <button class="logout-btn" @click="logout">退出登录</button>
