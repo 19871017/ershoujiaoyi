@@ -28,6 +28,22 @@ async function postAdminSessionLogout(session: AdminSession): Promise<void> {
   }).catch(() => undefined)
 }
 
+async function getAdminSessionMe(session: AdminSession): Promise<AdminSessionInput> {
+  const response = await fetch(`${API_BASE}/api/admin/session/me`, {
+    method: 'GET',
+    headers: {
+      'X-User-Id': session.userId,
+      'X-Admin-Session': session.sessionId
+    },
+    credentials: 'include'
+  })
+  if (!response.ok) {
+    throw new Error('后台会话已失效')
+  }
+  const payload = await response.json() as { data?: AdminSessionInput }
+  return payload.data ?? {}
+}
+
 export interface AdminSessionInput {
   username?: string
   userId?: string
@@ -176,6 +192,24 @@ export async function loginAdminSession(mobile: string, password: string): Promi
   return session
 }
 
+export async function refreshAdminSession(currentSession: AdminSession | null): Promise<AdminSession> {
+  if (!currentSession) {
+    setAdminHeaderProvider(null)
+    throw new Error('后台会话已失效')
+  }
+  try {
+    const session = normalizeAdminSession(await getAdminSessionMe(currentSession))
+    if (!session) {
+      throw new Error('后台会话已失效')
+    }
+    setAdminHeaderProvider(() => buildAdminHeaders(session))
+    return session
+  } catch (error) {
+    setAdminHeaderProvider(null)
+    throw error instanceof Error ? error : new Error('后台会话已失效')
+  }
+}
+
 export function shouldRedirectToLogin(path: string, session: AdminSession | null): boolean {
   if (path === '/login') return false
   if (!session) return true
@@ -217,6 +251,22 @@ export const useAuthStore = defineStore('admin-auth', {
     },
     setToken(_token: string) {
       throw new Error('本地管理员令牌写入已禁用，请通过后端登录接口获取服务端会话')
+    },
+    async refresh() {
+      try {
+        const session = await refreshAdminSession(this.session)
+        this.username = session.username
+        this.session = session
+        this.token = createAdminAuthToken(session)
+        persistState({ token: this.token, username: this.username, session: this.session })
+        return session
+      } catch (error) {
+        this.token = ''
+        this.username = ''
+        this.session = null
+        sessionStorage.removeItem(STORAGE_KEY)
+        throw error
+      }
     },
     async clear() {
       const currentSession = this.session

@@ -14,6 +14,7 @@ import java.util.Set;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -80,6 +81,25 @@ public class AdminSessionController {
         return Result.ok(Boolean.TRUE);
     }
 
+    @GetMapping("/me")
+    public Result<AdminSessionResponse> me(@RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
+                                           @RequestHeader(value = "X-Admin-Session", required = false) String sessionIdHeader) {
+        Long userId = parsePositiveUserId(userIdHeader);
+        String sessionId = normalizeSessionId(sessionIdHeader);
+        if (userId == null || sessionId == null) {
+            throw new SecurityException("admin session required");
+        }
+        AdminSessionRow session = findActiveSession(userId, sessionId);
+        if (session == null) {
+            throw new SecurityException("admin session required");
+        }
+        List<String> permissions = listPermissions(userId);
+        if (permissions.isEmpty()) {
+            throw new SecurityException("admin access required");
+        }
+        return Result.ok(new AdminSessionResponse(session.nickname(), String.valueOf(userId), permissions, sessionId, session.expiresAt().toString()));
+    }
+
     private Long parsePositiveUserId(String userIdHeader) {
         if (userIdHeader == null || !userIdHeader.trim().matches("^[1-9]\\d*$")) {
             return null;
@@ -114,6 +134,19 @@ public class AdminSessionController {
                 rs.getString("password_hash"),
                 rs.getString("nickname")
         ), mobile);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    private AdminSessionRow findActiveSession(Long userId, String sessionId) {
+        List<AdminSessionRow> rows = jdbcTemplate.query("""
+                SELECT u.nickname, s.expires_at
+                FROM admin_session s
+                INNER JOIN user_account u ON u.id = s.user_id AND u.status = 'ACTIVE'
+                WHERE s.user_id = ? AND s.session_id = ? AND s.revoked = FALSE AND s.expires_at > CURRENT_TIMESTAMP
+                """, (rs, rowNum) -> new AdminSessionRow(
+                rs.getString("nickname"),
+                rs.getTimestamp("expires_at").toLocalDateTime()
+        ), userId, sessionId);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -158,6 +191,9 @@ public class AdminSessionController {
     }
 
     private record AdminLoginRow(Long userId, String passwordHash, String nickname) {
+    }
+
+    private record AdminSessionRow(String nickname, LocalDateTime expiresAt) {
     }
 
     public record AdminSessionResponse(String username, String userId, List<String> permissions, String sessionId, String expiresAt) {

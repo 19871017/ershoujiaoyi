@@ -14,6 +14,7 @@ import {
   logoutAdminSession,
   menuAllowsSession,
   normalizeAdminSession,
+  refreshAdminSession,
   shouldRedirectToLogin,
   sessionAllowsPermission,
   useAuthStore
@@ -60,6 +61,44 @@ describe('admin auth helpers', () => {
         'X-Admin-Session': 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
       }
     }))
+  })
+
+  it('refreshes persisted admin session through backend session/me before restoring headers', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          username: 'ops',
+          userId: '7',
+          permissions: ['order:read'],
+          sessionId: 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          expiresAt: FUTURE_EXPIRES_AT
+        }
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const stale = normalizeAdminSession({ username: 'ops', userId: '7', permissions: ['audit:read'], sessionId: 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', expiresAt: FUTURE_EXPIRES_AT })
+
+    const refreshed = await refreshAdminSession(stale)
+
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/session/me'), expect.objectContaining({
+      method: 'GET',
+      headers: {
+        'X-User-Id': '7',
+        'X-Admin-Session': 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+      }
+    }))
+    expect(refreshed?.permissions).toEqual(['order:read'])
+  })
+
+  it('fails closed and clears header provider when backend session/me rejects persisted admin session', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 403, json: async () => ({ message: 'forbidden' }) })
+    vi.stubGlobal('fetch', fetchMock)
+    const stale = normalizeAdminSession({ username: 'ops', userId: '7', permissions: ['audit:read'], sessionId: 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', expiresAt: FUTURE_EXPIRES_AT })
+    setAdminHeaderProvider(() => buildAdminHeaders(stale))
+
+    await expect(refreshAdminSession(stale)).rejects.toThrow('后台会话已失效')
+    await expect(request({ url: '/api/admin/dashboard' })).rejects.toThrow('管理员会话无效')
   })
 
   it('clears the shared admin HTTP header provider after logout so later protected requests fail closed', async () => {

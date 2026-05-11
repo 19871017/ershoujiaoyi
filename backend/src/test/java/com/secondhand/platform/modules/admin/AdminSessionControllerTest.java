@@ -3,6 +3,7 @@ package com.secondhand.platform.modules.admin;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -124,6 +125,37 @@ class AdminSessionControllerTest {
 
         Boolean revoked = jdbcTemplate.queryForObject("select revoked from admin_session where session_id = ?", Boolean.class, sessionId);
         org.junit.jupiter.api.Assertions.assertEquals(Boolean.TRUE, revoked);
+    }
+
+    @Test
+    void adminSessionMeRehydratesOnlyActiveUnrevokedSessionWithCurrentPermissions() throws Exception {
+        createUserThroughPasswordLogin("13900000076", "admin-pass-76");
+        Long userId = jdbcTemplate.queryForObject("select id from user_account where phone = ?", Long.class, "13900000076");
+        grantPermission(userId, "audit:read");
+        grantPermission(userId, "order:read");
+
+        mvc.perform(post("/api/admin/session/login")
+                        .contentType("application/json")
+                        .content("{\"mobile\":\"13900000076\",\"password\":\"admin-pass-76\"}"))
+                .andExpect(status().isOk());
+        String sessionId = jdbcTemplate.queryForObject("select session_id from admin_session where user_id = ?", String.class, userId);
+
+        mvc.perform(get("/api/admin/session/me")
+                        .header("X-User-Id", String.valueOf(userId))
+                        .header("X-Admin-Session", sessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userId").value(String.valueOf(userId)))
+                .andExpect(jsonPath("$.data.permissions", containsInAnyOrder("audit:read", "order:read")))
+                .andExpect(jsonPath("$.data.sessionId").value(sessionId))
+                .andExpect(jsonPath("$.data.devAdminEnabled").doesNotExist())
+                .andExpect(jsonPath("$.data.password").doesNotExist());
+
+        jdbcTemplate.update("update admin_session set revoked = true where session_id = ?", sessionId);
+
+        mvc.perform(get("/api/admin/session/me")
+                        .header("X-User-Id", String.valueOf(userId))
+                        .header("X-Admin-Session", sessionId))
+                .andExpect(status().isForbidden());
     }
 
     private void createUserThroughPasswordLogin(String mobile, String password) {
