@@ -266,6 +266,7 @@ public class ChatApplicationService {
         Integer count = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*) FROM media_upload_ticket
                 WHERE owner_user_id = ? AND scene = 'CHAT_IMAGE' AND storage_url = ? AND status = 'ISSUED'
+                  AND expires_at > CURRENT_TIMESTAMP
                 """, Integer.class, senderId, url);
         if (count == null || count <= 0) {
             throw new IllegalArgumentException("chat image ticket invalid");

@@ -64,6 +64,8 @@ class ChatApplicationServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.sendMessage(image(conversationId, "placeholder-image", 1L, 2L, "/uploads/chat-image/placeholder.png")));
         assertThrows(IllegalArgumentException.class, () -> service.sendMessage(image(conversationId, "other-owner", 1L, 2L, chatImageUrl)));
         assertThrows(IllegalArgumentException.class, () -> service.sendMessage(image(conversationId, "not-ticket", 1L, 2L, "/uploads/chat-image/no-ticket.png")));
+        String expiredChatImageUrl = issueExpiredChatImageTicket(1L, "/uploads/chat-image/expired-owner1.png");
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(image(conversationId, "expired-ticket", 1L, 2L, expiredChatImageUrl)));
     }
 
     @Test
@@ -186,6 +188,15 @@ class ChatApplicationServiceTest {
                   ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
                 ) VALUES (?, ?, 'CHAT_IMAGE', 'chat.png', 'image/png', 1024, ?, 'hash', 'ISSUED', CURRENT_TIMESTAMP, DATEADD('HOUR', 1, CURRENT_TIMESTAMP))
                 """, "TICKET-" + ownerUserId + '-' + Math.abs(storageUrl.hashCode()), ownerUserId, storageUrl);
+        return storageUrl;
+    }
+
+    private String issueExpiredChatImageTicket(Long ownerUserId, String storageUrl) {
+        jdbcTemplate.update("""
+                INSERT INTO media_upload_ticket (
+                  ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
+                ) VALUES (?, ?, 'CHAT_IMAGE', 'chat.png', 'image/png', 1024, ?, 'hash', 'ISSUED', DATEADD('HOUR', -2, CURRENT_TIMESTAMP), DATEADD('HOUR', -1, CURRENT_TIMESTAMP))
+                """, "EXPIRED-TICKET-" + ownerUserId + '-' + Math.abs(storageUrl.hashCode()), ownerUserId, storageUrl);
         return storageUrl;
     }
 }
