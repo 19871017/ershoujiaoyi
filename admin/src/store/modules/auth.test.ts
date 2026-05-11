@@ -261,13 +261,13 @@ describe('admin auth helpers', () => {
     const allAccess = normalizeAdminSession({
       username: 'ops',
       userId: '7',
-      permissions: ['audit:read', 'finance:read', 'order:read', 'after-sales:read'],
+      permissions: ['audit:read', 'finance:read', 'order:read', 'after-sales:read', 'user:read', 'audit:log', 'system:config'],
       sessionId: 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       expiresAt: FUTURE_EXPIRES_AT
     })
 
     expect(dashboardActionsForSession(financeOnly).map((item) => item.path)).toEqual(['/finance/withdrawals'])
-    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/finance/withdrawals', '/after-sales', '/orders'])
+    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/finance/withdrawals', '/after-sales', '/orders', '/users', '/audit-logs', '/system/location'])
     expect(dashboardActionsForSession(null)).toEqual([])
   })
 

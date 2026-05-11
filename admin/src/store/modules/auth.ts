@@ -80,7 +80,10 @@ export const ADMIN_DASHBOARD_ACTIONS: AdminMenuItem[] = [
   { path: '/audit', label: '审核工作台', permission: 'audit:read' },
   { path: '/finance/withdrawals', label: '提现审核', permission: 'finance:read' },
   { path: '/after-sales', label: '售后管理', permission: 'after-sales:read' },
-  { path: '/orders', label: '订单管理', permission: 'order:read' }
+  { path: '/orders', label: '订单管理', permission: 'order:read' },
+  { path: '/users', label: '用户检索', permission: 'user:read' },
+  { path: '/audit-logs', label: '审计日志', permission: 'audit:log' },
+  { path: '/system/location', label: '位置配置', permission: 'system:config' }
 ]
 
 export interface AdminSession {

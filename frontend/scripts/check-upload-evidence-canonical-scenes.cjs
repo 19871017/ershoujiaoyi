@@ -73,9 +73,9 @@ if (uploadEvidence.includes("uni.showModal({title:'凭证已保存'")) {
   failures.push('upload evidence submit must not claim evidence is saved without a business API submission')
 }
 
-for (const forbiddenSubmitCopy of ['保存凭证', '保存中...', '安全凭证', '上传凭证', '保存前会先向服务端申请上传票据']) {
+for (const forbiddenSubmitCopy of ['保存凭证', '保存中...', '安全凭证', '上传凭证', '凭证图片无效', '请先选择凭证图片', '凭证需先完成平台上传票据校验', '凭证上传票据创建失败', '平台上传票据', '保存前会先向服务端申请上传票据']) {
   if (uploadEvidence.includes(forbiddenSubmitCopy)) {
-    failures.push(`upload evidence standalone page must not label ticket/local validation as a saved/uploaded evidence action: ${forbiddenSubmitCopy}`)
+    failures.push(`upload evidence standalone page must not label ticket/local validation as a saved/uploaded evidence action or platform-accepted evidence: ${forbiddenSubmitCopy}`)
   }
 }
 

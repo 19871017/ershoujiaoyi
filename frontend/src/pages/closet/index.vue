@@ -33,7 +33,7 @@
           <view class="price">¥{{ item.price }}</view>
           <view class="actions">
             <button class="mini-btn" @click="openDetail(item)">查看</button>
-            <button v-if="item.status !== 'SOLD'" class="mini-btn" @click="toggleOnline">{{ item.status === 'ACTIVE' ? '下架' : '上架' }}</button>
+            <button v-if="item.status !== 'SOLD'" class="mini-btn" :disabled="visibilityUpdatingId === item.productId" @click="toggleOnline(item)">{{ item.status === 'ACTIVE' ? '下架' : '上架' }}</button>
             <button class="mini-btn primary" @click="editProduct(item)">编辑</button>
           </view>
         </view>
@@ -43,7 +43,7 @@
 </template>
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { listMyProducts, type ProductListItemResponse, type ProductAuditState, type ProductCreateStatus } from '../../api/modules/product'
+import { listMyProducts, updateProductVisibility, type ProductListItemResponse, type ProductAuditState, type ProductCreateStatus } from '../../api/modules/product'
 
 type TabValue = 'ALL' | ProductCreateStatus
 const tabs: Array<{ label: string; value: TabValue }> = [
@@ -55,6 +55,7 @@ const tabs: Array<{ label: string; value: TabValue }> = [
 const activeTab = ref<TabValue>('ALL')
 const products = ref<ProductListItemResponse[]>([])
 const loadError = ref(false)
+const visibilityUpdatingId = ref<number | null>(null)
 const filtered = computed(() => activeTab.value === 'ALL' ? products.value : products.value.filter((item) => item.status === activeTab.value))
 
 onMounted(() => { void loadProducts() })
@@ -70,7 +71,7 @@ async function loadProducts() {
 }
 function selectTab(value: TabValue) { activeTab.value = value }
 function count(value: TabValue) { return value === 'ALL' ? products.value.length : products.value.filter((item) => item.status === value).length }
-function statusLabel(status: ProductCreateStatus) { return ({ created: '待审核', PENDING_AUDIT: '待审核', ACTIVE: '在售', SOLD: '已卖出' } as Record<ProductCreateStatus, string>)[status] || '未知状态' }
+function statusLabel(status: ProductCreateStatus) { return ({ created: '待审核', PENDING_AUDIT: '待审核', ACTIVE: '在售', OFFLINE: '已下架', SOLD: '已卖出' } as Record<ProductCreateStatus, string>)[status] || '未知状态' }
 function auditLabel(auditState: ProductAuditState) { return ({ pending: '待审', PENDING: '待审', APPROVED: '已通过', REJECTED: '已驳回' } as Record<ProductAuditState, string>)[auditState] || '审核状态未知' }
 function productIcon(item: ProductListItemResponse) { return item.coverImageUrl ? '🖼️' : '📦' }
 function openDetail(item: ProductListItemResponse) {
@@ -80,7 +81,26 @@ function openDetail(item: ProductListItemResponse) {
   }
   uni.navigateTo({ url: `/pages/product/detail/index?productId=${item.productId}` })
 }
-function toggleOnline() { uni.showToast({ title: '上下架暂未接通后端，未执行任何商品变更', icon: 'none' }) }
+async function toggleOnline(item: ProductListItemResponse) {
+  if (!item.productId || item.productId <= 0) {
+    uni.showToast({ title: '商品缺少后端 productId，未执行任何商品变更', icon: 'none' })
+    return
+  }
+  if (item.auditState !== 'APPROVED') {
+    uni.showToast({ title: '商品未通过后端审核，未执行上下架变更', icon: 'none' })
+    return
+  }
+  visibilityUpdatingId.value = item.productId
+  try {
+    await updateProductVisibility(item.productId, item.status !== 'ACTIVE')
+    await loadProducts()
+    uni.showToast({ title: item.status === 'ACTIVE' ? '已按后端记录下架' : '已按后端记录上架', icon: 'none' })
+  } catch {
+    uni.showToast({ title: '上下架提交失败，未执行本地商品状态变更', icon: 'none' })
+  } finally {
+    visibilityUpdatingId.value = null
+  }
+}
 function editProduct(item: ProductListItemResponse) {
   if (!item.productId || item.productId <= 0) {
     uni.showToast({ title: '商品缺少后端 productId，未进入本地编辑页', icon: 'none' })

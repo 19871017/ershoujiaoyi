@@ -28,6 +28,7 @@ public class ProductApplicationService {
     private static final String DEFAULT_TRADE_RULE = "offline-face-to-face-after-platform-order";
     private static final String STATUS_PENDING_AUDIT = "PENDING_AUDIT";
     private static final String STATUS_ACTIVE = "ACTIVE";
+    private static final String STATUS_OFFLINE = "OFFLINE";
     private static final String STATUS_SOLD = "SOLD";
     private static final String AUDIT_PENDING = "PENDING";
     private static final String AUDIT_APPROVED = "APPROVED";
@@ -170,6 +171,35 @@ public class ProductApplicationService {
         );
         if (changed == 0) {
             throw new IllegalArgumentException("product update failed");
+        }
+        return toUpdateResponse(getExistingProduct(productId));
+    }
+
+    @Transactional
+    public UpdateProductResponse updateVisibility(Long sellerId, Long productId, boolean visible) {
+        requirePositiveId(sellerId, "valid sellerId required");
+        ProductRecord existing = getExistingProduct(productId);
+        if (!Objects.equals(existing.sellerId(), sellerId)) {
+            throw new IllegalArgumentException("product ownership mismatch");
+        }
+        if (!AUDIT_APPROVED.equals(existing.auditState())) {
+            throw new IllegalArgumentException("product not approved");
+        }
+        if (STATUS_SOLD.equals(existing.status()) || existing.lockedOrderNo() != null) {
+            throw new IllegalArgumentException("product cannot change visibility after locked or sold");
+        }
+        String nextStatus = visible ? STATUS_ACTIVE : STATUS_OFFLINE;
+        int changed = jdbcTemplate.update(
+                "update product_item set product_status = ?, visible = ?, updated_at = CURRENT_TIMESTAMP where id = ? and seller_id = ? and audit_status = ? and product_status <> ? and locked_order_no is null",
+                nextStatus,
+                visible,
+                productId,
+                sellerId,
+                AUDIT_APPROVED,
+                STATUS_SOLD
+        );
+        if (changed == 0) {
+            throw new IllegalArgumentException("product visibility update failed");
         }
         return toUpdateResponse(getExistingProduct(productId));
     }

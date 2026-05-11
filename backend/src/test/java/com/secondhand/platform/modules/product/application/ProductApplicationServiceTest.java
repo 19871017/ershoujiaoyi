@@ -170,6 +170,42 @@ class ProductApplicationServiceTest {
         assertTrue(reloaded.listFavorites(8L).isEmpty());
     }
 
+    @Test
+    void sellerCanToggleApprovedProductVisibilityWithoutLocalOnlyStatusMutation() {
+        CreateProductResponse response = service.createProduct(1L, product("可上下架商品", "88.00"));
+        service.approveForSale(response.getProductId());
+
+        var offline = service.updateVisibility(1L, response.getProductId(), false);
+
+        assertEquals("OFFLINE", offline.getStatus());
+        assertEquals("APPROVED", offline.getAuditState());
+        assertFalse(offline.getVisible());
+        assertThrows(IllegalArgumentException.class, () -> service.detailProduct(response.getProductId()));
+        assertTrue(service.listProducts().isEmpty());
+        assertEquals("OFFLINE", service.listMyProducts(1L).get(0).getStatus());
+
+        var online = service.updateVisibility(1L, response.getProductId(), true);
+
+        assertEquals("ACTIVE", online.getStatus());
+        assertTrue(online.getVisible());
+        assertEquals(1, service.listProducts().size());
+        assertThrows(IllegalArgumentException.class, () -> service.updateVisibility(2L, response.getProductId(), false));
+    }
+
+    @Test
+    void visibilityToggleRejectsPendingLockedAndSoldProducts() {
+        CreateProductResponse pending = service.createProduct(1L, product("待审不可上架", "88.00"));
+        assertThrows(IllegalArgumentException.class, () -> service.updateVisibility(1L, pending.getProductId(), true));
+
+        CreateProductResponse locked = service.createProduct(1L, product("锁定不可下架", "99.00"));
+        service.approveForSale(locked.getProductId());
+        service.reserveForOrder(locked.getProductId(), "OD-LOCKED-VISIBILITY");
+        assertThrows(IllegalArgumentException.class, () -> service.updateVisibility(1L, locked.getProductId(), false));
+
+        service.markSold(locked.getProductId(), "OD-LOCKED-VISIBILITY");
+        assertThrows(IllegalArgumentException.class, () -> service.updateVisibility(1L, locked.getProductId(), true));
+    }
+
     private JdbcTemplate jdbcTemplate() {
         return new JdbcTemplate(database);
     }

@@ -78,4 +78,13 @@ public class ProductController {
         long userId = currentUserResolver.resolve(request);
         return Result.ok(productApplicationService.updateProduct(userId, productId, body));
     }
+
+    @PutMapping("/{productId}/visibility")
+    public Result<UpdateProductResponse> updateVisibility(@PathVariable Long productId, @RequestBody UpdateVisibilityRequest body, HttpServletRequest request) {
+        long sellerId = currentUserResolver.resolve(request);
+        return Result.ok(productApplicationService.updateVisibility(sellerId, productId, body.visible()));
+    }
+
+    public record UpdateVisibilityRequest(boolean visible) {
+    }
 }

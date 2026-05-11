@@ -53,26 +53,26 @@ function chooseImage(){
   uni.chooseImage({ count: remain, sizeType: ['compressed'], sourceType: ['album','camera'], async success(res){
     try {
       for (const path of res.tempFilePaths.slice(0, remain)) {
-        if (path.startsWith('local://') || path.includes('placeholder')) throw new Error('凭证图片无效，请重新选择')
+        if (path.startsWith('local://') || path.includes('placeholder')) throw new Error('票据图片无效，请重新选择')
         const ticket = await createMediaUploadTicket({ scene: scene.value, contentType: imageContentType(path), fileSize: 300_000, filename: fileNameFromPath(path) })
         images.value.push(ticket.storageUrl)
       }
       images.value = images.value.slice(0, 9)
       uni.showToast({title:`已生成上传票据 ${images.value.length} 张`,icon:'none'})
     } catch (error) {
-      uni.showToast({title:error instanceof Error ? error.message : '凭证上传票据创建失败',icon:'none'})
+      uni.showToast({title:error instanceof Error ? error.message : '上传票据创建失败',icon:'none'})
     }
-  }, fail(){ uni.showToast({title:'未选择凭证图片',icon:'none'}) } })
+  }, fail(){ uni.showToast({title:'未选择票据图片',icon:'none'}) } })
 }
 function remove(index:number){images.value.splice(index,1)}
 function fileNameFromPath(path: string) { const clean = path.split('?')[0] || ''; const last = clean.split('/').pop() || 'evidence.jpg'; return last.includes('.') ? last : `${last}.jpg` }
 function imageContentType(path: string) { const lower = path.toLowerCase(); if (lower.endsWith('.png')) return 'image/png'; if (lower.endsWith('.webp')) return 'image/webp'; return 'image/jpeg' }
 function videoContentType(path: string) { const lower = path.toLowerCase(); if (lower.endsWith('.mov')) return 'video/quicktime'; if (lower.endsWith('.m4v')) return 'video/x-m4v'; return 'video/mp4' }
 function submit(){
-  if (!images.value.length) return uni.showToast({ title:'请先选择凭证图片', icon:'none' })
-  if (images.value.some(url => url.startsWith('local://') || url.includes('placeholder') || !url.startsWith('/uploads/'))) return uni.showToast({ title:'凭证需先完成平台上传票据校验', icon:'none' })
+  if (!images.value.length) return uni.showToast({ title:'请先生成上传票据', icon:'none' })
+  if (images.value.some(url => url.startsWith('local://') || url.includes('placeholder') || !url.startsWith('/uploads/'))) return uni.showToast({ title:'票据需先完成服务端签发与本地校验', icon:'none' })
   saving.value = true
-  uni.showModal({title:'上传票据已生成',content:`已完成 ${images.value.length} 张平台上传票据和本地校验；售后、举报或聊天等业务仍需回到对应页面提交正式表单。`,showCancel:false,success:()=>{saving.value=false}})
+  uni.showModal({title:'上传票据已生成',content:`已完成 ${images.value.length} 张上传票据和本地校验；售后、举报或聊天等业务仍需回到对应页面提交正式表单。`,showCancel:false,success:()=>{saving.value=false}})
 }
 onMounted(readQuery)
 </script>

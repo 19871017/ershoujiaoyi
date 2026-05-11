@@ -1,6 +1,6 @@
 import { del, get, post, put } from '../http'
 
-export type ProductCreateStatus = 'created' | 'PENDING_AUDIT' | 'ACTIVE' | 'SOLD'
+export type ProductCreateStatus = 'created' | 'PENDING_AUDIT' | 'ACTIVE' | 'OFFLINE' | 'SOLD'
 export type ProductAuditState = 'pending' | 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export interface CreateProductRequest {
@@ -84,6 +84,10 @@ export function createProduct(data: CreateProductRequest) {
 
 export function updateProduct(productId: number, data: CreateProductRequest) {
   return put<UpdateProductResponse>(`/api/products/${productId}`, data)
+}
+
+export function updateProductVisibility(productId: number, visible: boolean) {
+  return put<UpdateProductResponse>(`/api/products/${productId}/visibility`, { visible })
 }
 
 export function listFavoriteProducts() {

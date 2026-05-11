@@ -40,7 +40,9 @@ const requiredMarkers = [
   '商品列表为空或暂未接入卖家专属筛选',
   '商品缺少后端 productId，未打开本地商品详情',
   '商品缺少后端 productId，未进入本地编辑页',
-  '上下架暂未接通后端，未执行任何商品变更'
+  'updateProductVisibility',
+  "await updateProductVisibility(item.productId, item.status !== 'ACTIVE')",
+  'await loadProducts()',
 ]
 
 for (const marker of requiredMarkers) {

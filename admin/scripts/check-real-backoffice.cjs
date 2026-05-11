@@ -53,7 +53,9 @@ const requiredPatterns = [
   { file: 'src/pages/orders/index.vue', pattern: /listLoading/, message: 'order page must expose backend list loading/fail-closed state' },
   { file: 'src/pages/users/index.vue', pattern: /getAdminUserDetail/, message: 'user page must load backend admin user detail' },
   { file: 'src/pages/users/index.vue', pattern: /searchAdminUsers/, message: 'user page must search backend admin users without local sample lists' },
-  { file: 'src/pages/audit-logs/index.vue', pattern: /getAdminAuditLogs/, message: 'audit log page must load backend admin audit logs' }
+  { file: 'src/pages/audit-logs/index.vue', pattern: /getAdminAuditLogs/, message: 'audit log page must load backend admin audit logs' },
+  { file: 'src/store/modules/auth.ts', pattern: /path: '\/audit-logs'[\s\S]*permission: 'audit:log'/, message: 'dashboard quick actions must expose audit logs only to audit:log sessions' },
+  { file: 'src/store/modules/auth.ts', pattern: /path: '\/system\/location'[\s\S]*permission: 'system:config'/, message: 'dashboard quick actions must expose location config only to system:config sessions' }
 ]
 
 const failures = []
