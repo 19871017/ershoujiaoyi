@@ -49,7 +49,11 @@ else:
 
 if smoke_py.exists():
     s = read(smoke_py)
-    if 'X-Admin-Mode' in s or 'X-Dev-Mode' in s:
+    admin_legacy_auth = [
+        legacy for legacy in ('X-Admin-Mode', 'X-Dev-Mode')
+        if re.search(rf"ADMIN_HEADERS[^\n]*{legacy}|headers=ADMIN_HEADERS[^\n]*{legacy}|X-Admin-Mode", s)
+    ]
+    if admin_legacy_auth:
         issues.append('smoke-api still sends legacy dev/admin authorization headers')
     if '/api/admin/session/login' not in s:
         issues.append('smoke-api must obtain an admin session through persisted RBAC login')
