@@ -182,7 +182,7 @@ function toRankingUser(item: UserRankingResponse): RankingUser {
   }
 }
 async function toggleFollow(item: RankingUser) {
-  if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少后端用户编号，未执行关注变更', icon: 'none' })
+  if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少后端用户编号，无法提交关注请求', icon: 'none' })
   if (followingIds.value.has(item.id)) return
   followingIds.value = new Set([...followingIds.value, item.id])
   try {

@@ -22,6 +22,19 @@ if (source.includes("{ value: 'deal' as const, label: '安全榜' }") && !source
   failures.push('safety leaderboard tab must have an explicit backend metric field or stay unavailable')
 }
 
+if (!source.includes('followingIds.value = new Set([...followingIds.value, item.id])')) {
+  failures.push('ranking follow action must keep duplicate-submit lock before backend request')
+}
+if (!source.includes('await followPublicProfile(item.id)') || !source.includes('await unfollowPublicProfile(item.id)')) {
+  failures.push('ranking follow action must call backend follow/unfollow APIs instead of local no-op copy')
+}
+if (!source.includes('!!updated.followedByMe')) {
+  failures.push('ranking follow state must refresh from backend returned followedByMe')
+}
+if (/未执行关注变更/.test(source)) {
+  failures.push('ranking page must not keep fail-closed follow copy once backend follow/unfollow APIs are wired')
+}
+
 if (failures.length) {
   console.error(failures.join('\n'))
   process.exit(1)
