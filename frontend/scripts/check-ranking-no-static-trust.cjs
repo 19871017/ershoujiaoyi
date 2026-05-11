@@ -27,13 +27,16 @@ if (source.includes("activeType.value === 'deal' ? 'deals'")) {
 if (source.includes('const rankings = reactive<RankingUser[]>([') || source.includes("tags: ['") || source.includes('<view class="verify">预览用户</view>') || source.includes('榜单为开发预览数据')) {
   failures.push('ranking page must not render static preview leaderboard users as a substitute for backend ranking data')
 }
-if (!source.includes('未展示本地预览榜单') || !source.includes('没有后端榜单数据时，本页保持空态')) {
-  failures.push('ranking page must fail closed with an explicit empty state when backend ranking data is unavailable')
+if (source.includes('榜单接口尚未接入') || source.includes('未接入前不展示本地榜单用户')) {
+  failures.push('ranking page must not tell users the ranking API is not connected after /api/user/rankings is wired')
+}
+if (!source.includes('后端榜单暂无上榜用户，未展示本地预览榜单')) {
+  failures.push('ranking page must keep a backend-empty fail-closed message when no ranking rows are returned')
 }
 if (!source.includes('const rankings = ref<RankingUser[]>([])')) {
   failures.push('ranking page must initialize leaderboard rows as an empty backend-derived ref')
 }
-if (!source.includes('listUserRankings(activeGender.value, 20)') || !source.includes("loadError.value = '榜单接口加载失败，未展示本地预览榜单'")) {
+if (!source.includes('listUserRankings(activeGender.value, 20)') || !source.includes("loadError.value = '后端榜单加载失败，未展示本地预览榜单'")) {
   failures.push('ranking page must load backend rankings and fail closed instead of static ranking rows')
 }
 if (!source.includes('const stats = computed(() => [') || !source.includes("{ value: `${rankings.value.length}`, label: '后端上榜用户' }")) {

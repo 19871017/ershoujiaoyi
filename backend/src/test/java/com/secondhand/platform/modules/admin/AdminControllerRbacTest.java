@@ -292,6 +292,27 @@ class AdminControllerRbacTest {
     }
 
     @Test
+    void adminProductApproveReviewsLinkedAuditRecordWithActingOperator() throws Exception {
+        CreateProductResponse product = productApplicationService.createProduct(63L, productRequest(63L, "后台商品审核联动", "45.67"));
+        jdbcTemplate.update("""
+                insert into audit_record (audit_no,audit_type,user_id,target_type,target_id,reason,description,status,created_at)
+                values (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+                """, "AU-20260511-6301", "PRODUCT", 63L, "PRODUCT", String.valueOf(product.getProductId()), "商品待审核", "后台商品审核联动", AuditApplicationService.STATUS_PENDING);
+        createActiveUser(64L);
+        grantPermission(64L, "audit:review");
+
+        mvc.perform(post("/api/admin/products/" + product.getProductId() + "/approve")
+                        .header("X-User-Id", "64")
+                        .header("X-Admin-Session", issueAdminSession(64L)))
+                .andExpect(status().isOk());
+
+        org.junit.jupiter.api.Assertions.assertEquals(AuditApplicationService.STATUS_APPROVED,
+                jdbcTemplate.queryForObject("select status from audit_record where audit_no = ?", String.class, "AU-20260511-6301"));
+        org.junit.jupiter.api.Assertions.assertEquals(64L,
+                jdbcTemplate.queryForObject("select operator_id from admin_audit_log where target_id = ?", Long.class, "AU-20260511-6301"));
+    }
+
+    @Test
     void adminAuditListMasksSensitiveDescriptionBeforeDtoResponse() throws Exception {
         createActiveUser(72L);
         grantPermission(72L, "audit:read");

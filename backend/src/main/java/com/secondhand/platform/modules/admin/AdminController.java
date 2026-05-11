@@ -82,8 +82,9 @@ public class AdminController {
 
     @PostMapping("/products/{productId}/approve")
     public Result<CreateProductResponse> approveProduct(@PathVariable Long productId, HttpServletRequest request) {
-        adminAccessGuard.requireAdmin(request, "audit:review");
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
         productApplicationService.approveForSale(productId);
+        auditApplicationService.approveLinkedPendingAudit("PRODUCT", String.valueOf(productId), "后台商品审核通过", adminUserId);
         return Result.ok(productApplicationService.createResponse(productId));
     }
 

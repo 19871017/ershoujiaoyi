@@ -205,6 +205,23 @@ public class AuditApplicationService {
     }
 
     @Transactional
+    public void approveLinkedPendingAudit(String targetType, String targetId, String remark, Long operatorId) {
+        String safeTargetType = requireText(targetType, "audit targetType required").toUpperCase(Locale.ROOT);
+        String safeTargetId = requireText(targetId, "audit targetId required");
+        String auditNo;
+        try {
+            auditNo = jdbcTemplate.queryForObject("""
+                    select audit_no from audit_record
+                    where target_type = ? and target_id = ? and status = ?
+                    order by created_at asc, id asc limit 1
+                    """, String.class, safeTargetType, safeTargetId, STATUS_PENDING);
+        } catch (EmptyResultDataAccessException e) {
+            return;
+        }
+        approve(auditNo, remark, operatorId);
+    }
+
+    @Transactional
     protected AuditRecordResponse create(String auditType, Long userId, String targetType, String targetId, String reason, String description) {
         validateUserId(userId);
         String auditNo = generateAuditNo(auditType);

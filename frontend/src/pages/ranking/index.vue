@@ -6,7 +6,7 @@
         <view>
           <view class="kicker">♡ 圈内人气榜</view>
           <view class="page-title">男神女神榜</view>
-          <view class="page-desc">等待后端榜单接口返回真实互动热度；未接入前不展示本地榜单用户。</view>
+          <view class="page-desc">榜单数据来自后端 /api/user/rankings；没有返回真实互动热度时不展示本地榜单用户。</view>
         </view>
         <view class="crown">👑</view>
       </view>
@@ -61,7 +61,7 @@
 
     <view v-if="loadError" class="empty ds-card">
       <view class="empty-icon">📊</view>
-      <view class="section-title">榜单接口尚未接入，未展示本地预览榜单</view>
+      <view class="section-title">榜单暂无后端数据，未展示本地预览榜单</view>
       <view class="section-desc">{{ loadError }}；交易状态以服务端订单、支付和售后记录为准。</view>
     </view>
 
@@ -147,7 +147,7 @@ const stats = computed(() => [
 ])
 const currentTitle = computed(() => `${activeGender.value === 'goddess' ? '女神' : '男神'} · ${rankTypes.find((item) => item.value === activeType.value)?.label}`)
 const currentDesc = computed(() => {
-  if (activeType.value === 'popular') return '等待后端榜单接口返回真实互动热度后展示'
+  if (activeType.value === 'popular') return '展示后端返回的真实互动热度；暂无数据时保持空态'
   if (activeType.value === 'deal') return '实名、信用、成交等信任指标必须由后端审计数据提供'
   return '守护热度必须由后端互动与审核记录提供'
 })
@@ -214,7 +214,7 @@ async function loadRankings() {
     if (rankings.value.length === 0) loadError.value = '后端榜单暂无上榜用户，未展示本地预览榜单'
   } catch {
     rankings.value = []
-    loadError.value = '榜单接口加载失败，未展示本地预览榜单'
+    loadError.value = '后端榜单加载失败，未展示本地预览榜单'
   }
 }
 function readQuery() {
