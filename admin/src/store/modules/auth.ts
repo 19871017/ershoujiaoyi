@@ -227,9 +227,13 @@ function readInitialState(): AuthState {
     if (!raw) return { token: '', username: '', session: null }
     const parsed = JSON.parse(raw) as Partial<AuthState> & AdminSessionInput
     const session = normalizeAdminSession(parsed.session ?? null)
-    if (!session) return { token: '', username: '', session: null }
+    if (!session) {
+      sessionStorage.removeItem(STORAGE_KEY)
+      return { token: '', username: '', session: null }
+    }
     return { token: createAdminAuthToken(session), username: session.username, session }
   } catch {
+    sessionStorage.removeItem(STORAGE_KEY)
     return { token: '', username: '', session: null }
   }
 }

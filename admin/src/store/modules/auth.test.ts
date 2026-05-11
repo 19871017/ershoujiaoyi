@@ -322,6 +322,7 @@ describe('admin auth helpers', () => {
   })
 
   it('clears stale persisted token and username when stored admin session is expired', () => {
+    const removeItem = vi.fn()
     vi.stubGlobal('sessionStorage', {
       getItem: vi.fn(() => JSON.stringify({
         token: 'adm_77777777777777777777777777777777',
@@ -335,7 +336,7 @@ describe('admin auth helpers', () => {
         }
       })),
       setItem: vi.fn(),
-      removeItem: vi.fn()
+      removeItem
     })
     setActivePinia(createPinia())
 
@@ -345,6 +346,7 @@ describe('admin auth helpers', () => {
     expect(auth.token).toBe('')
     expect(auth.username).toBe('')
     expect(auth.isAuthenticated).toBe(false)
+    expect(removeItem).toHaveBeenCalledWith('xiaoyuanquan_admin_session')
   })
 
   it('requires module-specific read permissions for order and after-sales deep links', () => {
