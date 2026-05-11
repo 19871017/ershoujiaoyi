@@ -45,6 +45,7 @@ class AdminSessionControllerTest {
         Long userId = jdbcTemplate.queryForObject("select id from user_account where phone = ?", Long.class, "13900000071");
         grantPermission(userId, "audit:read");
         grantPermission(userId, "finance:read");
+        grantPermission(userId, "finance:review");
 
         mvc.perform(post("/api/admin/session/login")
                         .contentType("application/json")
@@ -52,7 +53,7 @@ class AdminSessionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.userId").value(String.valueOf(userId)))
                 .andExpect(jsonPath("$.data.username").value("小原圈用户0071"))
-                .andExpect(jsonPath("$.data.permissions", containsInAnyOrder("audit:read", "finance:read")))
+                .andExpect(jsonPath("$.data.permissions", containsInAnyOrder("audit:read", "finance:read", "finance:review")))
                 .andExpect(jsonPath("$.data.devAdminEnabled").doesNotExist())
                 .andExpect(jsonPath("$.data.password").doesNotExist())
                 .andExpect(jsonPath("$.data.accessKey").doesNotExist());

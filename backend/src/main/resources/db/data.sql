@@ -27,6 +27,7 @@ CROSS JOIN (
   SELECT 'audit:read' AS permission_code
   UNION ALL SELECT 'audit:review'
   UNION ALL SELECT 'finance:read'
+  UNION ALL SELECT 'finance:review'
   UNION ALL SELECT 'user:read'
   UNION ALL SELECT 'order:read'
   UNION ALL SELECT 'after-sales:read'
