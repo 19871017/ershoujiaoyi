@@ -4,6 +4,8 @@ const path = require('path')
 const root = path.resolve(__dirname, '..')
 const file = 'src/pages/product/detail/index.vue'
 const source = fs.readFileSync(path.join(root, file), 'utf8')
+const productApiFile = 'src/api/modules/product.ts'
+const productApiSource = fs.readFileSync(path.join(root, productApiFile), 'utf8')
 
 const failures = []
 
@@ -51,6 +53,8 @@ const requiredMarkers = [
   'sellerCity',
   'sellerTrustText',
   'sellerTags',
+  'sellerId?: number | null',
+  'resolveProductSellerContactTarget(detail.value)',
   '商品卖家信息以服务端返回为准',
   '暂无服务端信用/成交统计',
   '平台交易',
@@ -82,7 +86,9 @@ for (const { pattern, message } of forbiddenFavoritePatterns) {
 }
 
 for (const marker of requiredMarkers) {
-  if (!source.includes(marker)) failures.push(`${file}: missing backend-derived/neutral seller marker: ${marker}`)
+  const checkSource = marker === 'sellerId?: number | null' ? productApiSource : source
+  const checkFile = marker === 'sellerId?: number | null' ? productApiFile : file
+  if (!checkSource.includes(marker)) failures.push(`${checkFile}: missing backend-derived/neutral seller marker: ${marker}`)
 }
 
 if (failures.length) {

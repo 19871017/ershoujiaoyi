@@ -57,6 +57,7 @@ class ProductApplicationServiceTest {
         ProductSnapshot snapshot = reloaded.snapshotForOrder(response.getProductId());
 
         assertEquals(response.getProductNo(), detail.getProductNo());
+        assertEquals(1L, detail.getSellerId());
         assertEquals("ACTIVE", detail.getStatus());
         assertEquals("APPROVED", detail.getAuditState());
         assertTrue(detail.getVisible());

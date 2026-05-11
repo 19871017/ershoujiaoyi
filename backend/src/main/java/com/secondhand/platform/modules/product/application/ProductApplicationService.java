@@ -365,7 +365,7 @@ public class ProductApplicationService {
     }
 
     private ProductDetailResponse toDetailResponse(ProductRecord product) {
-        return new ProductDetailResponse(product.productId(), product.productNo(), product.title(), product.description(), product.price(), product.imageUrls(), product.status(), product.auditState(), product.visible(), product.tradeRule(), product.createdAt());
+        return new ProductDetailResponse(product.productId(), product.productNo(), product.title(), product.description(), product.price(), product.imageUrls(), product.status(), product.auditState(), product.visible(), product.tradeRule(), product.createdAt(), product.sellerId());
     }
 
     private void requireOrderNo(String orderNo) {

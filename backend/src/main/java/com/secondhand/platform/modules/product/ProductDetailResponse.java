@@ -15,10 +15,11 @@ public class ProductDetailResponse {
     private final Boolean visible;
     private final String tradeRule;
     private final String createdAt;
+    private final Long sellerId;
 
     public ProductDetailResponse(Long productId, String productNo, String title, String description, BigDecimal price,
             List<String> imageUrls, String status, String auditState, Boolean visible, String tradeRule,
-            String createdAt) {
+            String createdAt, Long sellerId) {
         this.productId = productId;
         this.productNo = productNo;
         this.title = title;
@@ -30,6 +31,7 @@ public class ProductDetailResponse {
         this.visible = visible;
         this.tradeRule = tradeRule;
         this.createdAt = createdAt;
+        this.sellerId = sellerId;
     }
 
     public Long getProductId() { return productId; }
@@ -43,4 +45,5 @@ public class ProductDetailResponse {
     public Boolean getVisible() { return visible; }
     public String getTradeRule() { return tradeRule; }
     public String getCreatedAt() { return createdAt; }
+    public Long getSellerId() { return sellerId; }
 }

@@ -41,6 +41,17 @@ class ProductControllerTest {
     }
 
     @Test
+    void publicProductDetailReturnsServerDerivedSellerIdForChatRouting() throws Exception {
+        CreateProductResponse product = service.createProduct(41L, product(41L, "可私信卖家商品", "88.00"));
+        service.approveForSale(product.getProductId());
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/products/{productId}", product.getProductId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.productId", is(product.getProductId().intValue())))
+                .andExpect(jsonPath("$.data.sellerId", is(41)));
+    }
+
+    @Test
     void sellerVisibilityEndpointUsesServerDerivedOwnerAndReturnsPersistedState() throws Exception {
         CreateProductResponse product = service.createProduct(41L, product(41L, "可下架商品", "88.00"));
         service.approveForSale(product.getProductId());
