@@ -69,6 +69,10 @@
         </label>
       </div>
       <p class="safe-note">安全提示：本页不展示服务商密钥；保存成功只采用后端返回配置刷新页面状态。</p>
+      <label class="confirm-row">
+        <span>二次确认</span>
+        <input v-model.trim="locationConfirmText" autocomplete="off" placeholder="输入 保存位置配置 后才能提交" />
+      </label>
       <button class="primary-btn" :disabled="saving">{{ saving ? '保存中...' : '保存配置' }}</button>
     </form>
   </section>
@@ -82,6 +86,7 @@ const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
 const config = ref<AdminLocationConfig | null>(null)
+const locationConfirmText = ref('')
 
 const form = reactive({
   provider: 'baidu',
@@ -117,8 +122,12 @@ async function loadConfig() {
 }
 
 async function saveConfig() {
-  saving.value = true
   error.value = ''
+  if (locationConfirmText.value !== '保存位置配置') {
+    error.value = '位置配置保存已阻止：请输入“保存位置配置”完成二次确认。'
+    return
+  }
+  saving.value = true
   try {
     const next = await updateAdminLocationConfig({
       provider: form.provider,
@@ -130,6 +139,7 @@ async function saveConfig() {
     })
     config.value = next
     fillForm(next)
+    locationConfirmText.value = ''
   } catch {
     error.value = '位置配置保存失败：未写入本地成功态，请检查管理员权限、字段合法性和后端接口。'
   } finally {

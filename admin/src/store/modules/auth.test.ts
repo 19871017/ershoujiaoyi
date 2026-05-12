@@ -200,6 +200,8 @@ describe('admin auth helpers', () => {
     expect(shouldRedirectToLogin('/finance/withdrawals', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/system/location', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/audit-logs', auditOnly)).toBe(true)
+    expect(shouldRedirectToLogin('/operators', auditOnly)).toBe(true)
+    expect(shouldRedirectToLogin('/operators/8331', normalizeAdminSession({ username: 'owner', userId: '9', permissions: ['operator:grant'], sessionId: 'adm_ffffffffffffffffffffffffffffffff', expiresAt: FUTURE_EXPIRES_AT }))).toBe(false)
     expect(shouldRedirectToLogin('/finance/withdrawals', null)).toBe(true)
   })
 
@@ -261,13 +263,13 @@ describe('admin auth helpers', () => {
     const allAccess = normalizeAdminSession({
       username: 'ops',
       userId: '7',
-      permissions: ['audit:read', 'finance:read', 'order:read', 'after-sales:read', 'user:read', 'audit:log', 'system:config'],
+      permissions: ['audit:read', 'finance:read', 'order:read', 'after-sales:read', 'user:read', 'audit:log', 'operator:grant', 'system:config'],
       sessionId: 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       expiresAt: FUTURE_EXPIRES_AT
     })
 
     expect(dashboardActionsForSession(financeOnly).map((item) => item.path)).toEqual(['/finance/withdrawals'])
-    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/finance/withdrawals', '/after-sales', '/orders', '/users', '/audit-logs', '/system/location'])
+    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/finance/withdrawals', '/after-sales', '/orders', '/users', '/audit-logs', '/operators', '/system/location'])
     expect(dashboardActionsForSession(null)).toEqual([])
   })
 

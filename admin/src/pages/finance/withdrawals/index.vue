@@ -70,6 +70,11 @@
           <span>审核备注</span>
           <input v-model.trim="reviewRemark" placeholder="请填写本次提现复核备注" />
         </label>
+        <label class="confirm-field">
+          <span>提现审核二次确认</span>
+          <input v-model.trim="reviewConfirmText" :placeholder="`请输入：${expectedReviewConfirmText}`" />
+        </label>
+        <p class="safe-note">通过或拒绝提现前必须输入对应确认文本：{{ expectedReviewConfirmText }}；避免误触发资金复核。</p>
         <div class="actions">
           <button class="primary-btn" :disabled="reviewing" @click="submitReview('approve')">{{ reviewing ? '提交中...' : '通过提现审核' }}</button>
           <button class="danger" :disabled="reviewing" @click="submitReview('reject')">拒绝提现审核</button>
@@ -83,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { getAdminWithdrawalDetail, getAdminWithdrawalList, isValidAdminWithdrawalNo, reviewAdminWithdrawal, type AdminWithdrawalDetail, type WithdrawalStatus } from '../../../api'
 import { canReviewFinance, useAuthStore } from '../../../store/modules/auth'
@@ -100,6 +105,8 @@ const withdrawals = ref<AdminWithdrawalDetail[]>([])
 const statusFilter = ref<WithdrawalStatus | 'ALL'>('PENDING')
 const listLimit = ref(20)
 const reviewRemark = ref('')
+const reviewConfirmText = ref('')
+const expectedReviewConfirmText = computed(() => `提现审核${detail.value?.withdrawalNo || ''}`)
 
 async function loadDetail() {
   const safeNo = withdrawalNo.value.trim()
@@ -114,6 +121,7 @@ async function loadDetail() {
   try {
     detail.value = await getAdminWithdrawalDetail(safeNo)
     reviewRemark.value = detail.value.remark || ''
+    reviewConfirmText.value = ''
   } catch {
     error.value = '提现详情加载失败：未展示本地样例，请确认管理员权限、后端服务与 /api/admin/withdrawals/{withdrawalNo} 可用。'
   } finally {
@@ -138,6 +146,7 @@ function selectWithdrawal(item: AdminWithdrawalDetail) {
   withdrawalNo.value = item.withdrawalNo
   detail.value = item
   reviewRemark.value = item.remark || ''
+  reviewConfirmText.value = ''
 }
 
 async function submitReview(action: 'approve' | 'reject') {
@@ -152,9 +161,14 @@ async function submitReview(action: 'approve' | 'reject') {
     error.value = '提现记录缺少后端审核编号，已阻止审核提交。'
     return
   }
+  if (reviewConfirmText.value !== expectedReviewConfirmText.value) {
+    error.value = `提现审核二次确认失败：请输入“${expectedReviewConfirmText.value}”。`
+    return
+  }
   reviewing.value = true
   try {
     detail.value = await reviewAdminWithdrawal(current.withdrawalNo, current.auditNo, action, reviewRemark.value || (action === 'approve' ? '提现审核通过' : '提现审核拒绝'))
+    reviewConfirmText.value = ''
     await loadList()
   } catch {
     error.value = '提现审核提交失败：未执行本地状态变更，请确认后端审核接口、权限与记录状态。'

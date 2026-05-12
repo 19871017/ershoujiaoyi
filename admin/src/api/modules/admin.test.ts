@@ -10,6 +10,8 @@ import {
   getAdminOrderDetail,
   getAdminOrderList,
   approveAdminProduct,
+  getAdminOperatorPermissions,
+  updateAdminOperatorPermissions,
   getAdminUserDetail,
   getAdminWithdrawalDetail,
   getAdminWithdrawalList,
@@ -512,6 +514,47 @@ describe('admin finance api', () => {
     await expect(searchAdminUsers({ keyword: 'preview-user', limit: 20 })).rejects.toThrow('用户查询条件无效')
     await expect(searchAdminUsers({ keyword: '', limit: 20 })).rejects.toThrow('用户查询条件无效')
     await expect(searchAdminUsers({ keyword: '8331', limit: 101 })).rejects.toThrow('用户查询条数无效')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('loads and updates operator permissions through backend-only authorization endpoints', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: { userId: 8331, userNo: 'U-8331', nickname: '运营经理', status: 'ACTIVE', permissions: ['audit:read'] } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: { userId: 8331, userNo: 'U-8331', nickname: '运营经理', status: 'ACTIVE', permissions: ['audit:read', 'finance:read'] } }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const current = await getAdminOperatorPermissions('8331')
+    const updated = await updateAdminOperatorPermissions('8331', { permissions: ['audit:read', 'finance:read', 'audit:read'] })
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, expect.stringContaining('/api/admin/operators/8331/permissions'), expect.any(Object))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringContaining('/api/admin/operators/8331/permissions'), expect.objectContaining({
+      method: 'POST',
+      body: '{"permissions":["audit:read","finance:read"]}'
+    }))
+    expect(current.permissions).toEqual(['audit:read'])
+    expect(updated.permissions).toEqual(['audit:read', 'finance:read'])
+  })
+
+  it('allows clearing operator permissions through backend endpoint while still rejecting malformed payloads before fetch', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: { userId: 8331, userNo: 'U-8331', nickname: '运营经理', status: 'ACTIVE', permissions: [] } }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const cleared = await updateAdminOperatorPermissions('8331', { permissions: [] })
+
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/operators/8331/permissions'), expect.objectContaining({
+      method: 'POST',
+      body: '{"permissions":[]}'
+    }))
+    expect(cleared.permissions).toEqual([])
+    await expect(updateAdminOperatorPermissions('8331', { permissions: ['root:all' as never] })).rejects.toThrow('运营经理权限无效')
+  })
+
+  it('rejects malformed operator ids and unknown operator permission codes before fetch', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getAdminOperatorPermissions('preview-operator')).rejects.toThrow('运营经理编号无效')
+    await expect(updateAdminOperatorPermissions('8331', { permissions: ['root:all' as never] })).rejects.toThrow('运营经理权限无效')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 

@@ -167,5 +167,37 @@ onMounted(() => { readQuery(); readAddress(); void loadProduct() })
 </script>
 
 <style scoped>
-.confirm-page { padding-bottom:142rpx; background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%); }.hero,.goods-card,.address-card,.form-card,.safe-card,.amount-card,.status-card { margin-top:18rpx; padding:22rpx; border-color:#ffd9bd; }.hero,.goods-card,.status-card { display:flex; gap:16rpx; align-items:center; }.hero { justify-content:space-between; background:linear-gradient(135deg,#fff,#fff3e7); }.kicker { color:#ff7a45; font-size:22rpx; font-weight:950; }.hero-icon,.status-icon { width:82rpx; height:82rpx; border-radius:28rpx; background:#ff7a45; color:#fff; display:flex; align-items:center; justify-content:center; font-size:38rpx; }.danger .status-icon{background:#ef4444}.status-title{color:#3a2a1f;font-size:30rpx;font-weight:950}.status-desc{margin-top:8rpx;color:#9b7560;font-size:23rpx;line-height:1.5}.goods-cover,.goods-image { width:128rpx; height:128rpx; border-radius:28rpx; background:#fff3e7; display:flex; align-items:center; justify-content:center; font-size:50rpx; flex-shrink:0; }.goods-image{display:block}.goods-main { flex:1; min-width:0; }.goods-title,.section-title { color:#3a2a1f; font-size:29rpx; font-weight:950; }.goods-desc,.address-text,.address-empty { margin-top:8rpx; color:#9b7560; font-size:22rpx; line-height:1.5; }.address-empty{color:#ff7a45;font-weight:950}.goods-price { margin-top:10rpx; color:#ff3f8d; font-size:32rpx; font-weight:950; }.address-name { margin-top:14rpx; color:#3a2a1f; font-size:27rpx; font-weight:950; }.ship-row { margin-top:14rpx; display:grid; grid-template-columns:repeat(2,1fr); gap:12rpx; }.ship-chip { padding:18rpx; border-radius:24rpx; background:#fffaf6; border:1rpx solid #ffd9bd; color:#3a2a1f; font-weight:950; }.ship-chip text { display:block; margin-top:6rpx; color:#9b7560; font-size:20rpx; font-weight:700; }.ship-chip.active { border-color:#ff7a45; background:#fff3e7; }.textarea { box-sizing:border-box; width:100%; height:130rpx; margin-top:16rpx; padding:18rpx; border-radius:24rpx; background:#fffaf6; border:1rpx solid #ffd9bd; color:#3a2a1f; font-size:24rpx; }.confirm-row,.amount-row { margin-top:14rpx; display:flex; align-items:center; justify-content:space-between; gap:12rpx; color:#7b5542; font-size:23rpx; }.confirm-row { justify-content:flex-start; }.check { width:34rpx; height:34rpx; border-radius:50%; border:1rpx solid #ffd9bd; color:#ffd9bd; display:flex; align-items:center; justify-content:center; font-size:20rpx; }.check.active { background:#ff7a45; color:#fff; border-color:#ff7a45; }.amount-row.total { padding-top:12rpx; border-top:1rpx solid #ffe5ef; color:#3a2a1f; font-size:30rpx; font-weight:950; }.bottom-bar { position:fixed; left:0; right:0; bottom:0; padding:18rpx 28rpx calc(18rpx + env(safe-area-inset-bottom)); background:rgba(255,255,255,.95); border-top:1rpx solid #ffe5ef; display:flex; justify-content:space-between; align-items:center; z-index:20; }.pay-label { color:#9b7560; font-size:21rpx; }.pay-amount { color:#ff3f8d; font-size:36rpx; font-weight:950; }.submit { min-width:260rpx; }
+.confirm-page { padding-bottom:124rpx; background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%); }
+.hero,.goods-card,.address-card,.form-card,.safe-card,.amount-card,.status-card { margin-top:12rpx; padding:16rpx; border-color:#ffd9bd; }
+.hero,.goods-card,.status-card { display:flex; gap:10rpx; align-items:center; }
+.hero { justify-content:space-between; background:linear-gradient(135deg,#fff,#fff3e7); }
+.kicker { color:#ff7a45; font-size:20rpx; font-weight:950; }
+.hero-icon,.status-icon { width:62rpx; height:62rpx; border-radius:22rpx; background:#ff7a45; color:#fff; display:flex; align-items:center; justify-content:center; font-size:30rpx; flex-shrink:0; }
+.danger .status-icon { background:#ef4444; }
+.status-title { color:#3a2a1f; font-size:26rpx; font-weight:950; }
+.status-desc { margin-top:5rpx; color:#9b7560; font-size:21rpx; line-height:1.38; }
+.goods-cover,.goods-image { width:98rpx; height:98rpx; border-radius:22rpx; background:#fff3e7; display:flex; align-items:center; justify-content:center; font-size:38rpx; flex-shrink:0; }
+.goods-image { display:block; }
+.goods-main { flex:1; min-width:0; }
+.goods-title,.section-title { color:#3a2a1f; font-size:25rpx; font-weight:950; }
+.goods-desc,.address-text,.address-empty { margin-top:5rpx; color:#9b7560; font-size:20rpx; line-height:1.35; }
+.address-empty { color:#ff7a45; font-weight:950; }
+.goods-price { margin-top:6rpx; color:#ff3f8d; font-size:27rpx; font-weight:950; }
+.address-name { margin-top:8rpx; color:#3a2a1f; font-size:23rpx; font-weight:950; }
+.arrow { color:#d79262; font-size:34rpx; }
+.ship-row { margin-top:10rpx; display:grid; grid-template-columns:repeat(2,1fr); gap:8rpx; }
+.ship-chip { padding:12rpx; border-radius:18rpx; background:#fffaf6; border:1rpx solid #ffd9bd; color:#3a2a1f; font-weight:950; }
+.ship-chip text { display:block; margin-top:5rpx; color:#9b7560; font-size:18rpx; font-weight:700; }
+.ship-chip.active { border-color:#ff7a45; background:#fff3e7; }
+.textarea { box-sizing:border-box; width:100%; height:98rpx; margin-top:10rpx; padding:14rpx; border-radius:18rpx; background:#fffaf6; color:#3a2a1f; border:1rpx solid #ffd9bd; font-size:22rpx; }
+.confirm-row { margin-top:10rpx; display:flex; gap:10rpx; align-items:center; color:#7b5542; font-size:21rpx; font-weight:850; }
+.check { width:30rpx; height:30rpx; border-radius:50%; border:1rpx solid #ffd9bd; color:transparent; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.check.active { background:#ff7a45; border-color:#ff7a45; color:#fff; }
+.amount-row { min-height:46rpx; display:flex; justify-content:space-between; align-items:center; color:#7b5542; font-size:21rpx; border-bottom:1rpx solid #ffe5ef; }
+.amount-row:last-child { border-bottom:0; }
+.amount-row.total { color:#3a2a1f; font-weight:950; font-size:24rpx; }
+.bottom-bar { position:fixed; left:0; right:0; bottom:0; padding:12rpx 18rpx calc(12rpx + env(safe-area-inset-bottom)); background:rgba(255,247,237,.96); border-top:1rpx solid #ffd9bd; display:flex; justify-content:space-between; align-items:center; gap:14rpx; z-index:20; }
+.pay-label { color:#9b7560; font-size:20rpx; }
+.pay-amount { color:#ff3f8d; font-size:34rpx; font-weight:950; }
+.submit { width:260rpx; height:54rpx; line-height:54rpx; }
 </style>

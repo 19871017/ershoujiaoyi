@@ -18,10 +18,10 @@
   --c-peach: #ffc08a;
   --c-lavender: #b99cff;
   --c-ring: #ffb36b;
-  --radius-sm: 18rpx;
-  --radius-md: 28rpx;
-  --radius-lg: 38rpx;
-  --shadow-card: 0 14rpx 34rpx rgba(255, 122, 69, .14);
+  --radius-sm: 16rpx;
+  --radius-md: 22rpx;
+  --radius-lg: 28rpx;
+  --shadow-card: 0 8rpx 22rpx rgba(255, 122, 69, .10);
 }
 
 page {
@@ -37,22 +37,22 @@ button { margin: 0; padding: 0; border: 0; background: none; line-height: 1.2; }
 
 .page-shell {
   min-height: 100vh;
-  padding: 24rpx 24rpx calc(150rpx + env(safe-area-inset-bottom));
+  padding: 18rpx 18rpx calc(120rpx + env(safe-area-inset-bottom));
   background: var(--c-bg);
 }
 
 .page-title {
-  font-size: 42rpx;
-  line-height: 1.2;
+  font-size: 36rpx;
+  line-height: 1.16;
   font-weight: 900;
   color: var(--c-text);
 }
 
 .page-desc {
-  margin-top: 10rpx;
+  margin-top: 6rpx;
   color: var(--c-muted);
-  font-size: 25rpx;
-  line-height: 1.55;
+  font-size: 23rpx;
+  line-height: 1.42;
 }
 
 .ds-card {
@@ -66,28 +66,28 @@ button { margin: 0; padding: 0; border: 0; background: none; line-height: 1.2; }
 .tapable:active { transform: scale(.98); opacity: .82; }
 
 .primary-btn {
-  min-height: 88rpx;
-  padding: 0 30rpx;
+  min-height: 76rpx;
+  padding: 0 24rpx;
   border-radius: 999rpx;
   background: var(--c-primary);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28rpx;
+  font-size: 26rpx;
   font-weight: 900;
 }
 
 .secondary-btn {
-  min-height: 76rpx;
-  padding: 0 26rpx;
+  min-height: 64rpx;
+  padding: 0 22rpx;
   border-radius: 999rpx;
   background: var(--c-surface-soft);
   color: var(--c-text);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26rpx;
+  font-size: 24rpx;
   font-weight: 800;
 }
 

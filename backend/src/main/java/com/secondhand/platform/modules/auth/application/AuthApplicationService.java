@@ -8,6 +8,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
@@ -26,6 +27,8 @@ public class AuthApplicationService {
     private static final int PBKDF2_ITERATIONS = 120_000;
     private static final int PBKDF2_KEY_LENGTH = 256;
     private static final int PASSWORD_SALT_BYTES = 16;
+    private static final String REGISTRATION_IP_LIMIT_KEY_PREFIX = "auth.registration.ip.";
+    private static final DateTimeFormatter REGISTRATION_DAY_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final JdbcTemplate jdbcTemplate;
@@ -36,11 +39,26 @@ public class AuthApplicationService {
 
     @Transactional
     public AuthTokenResponse login(LoginRequest request) {
+        return login(request, null, false);
+    }
+
+    @Transactional
+    public AuthTokenResponse login(LoginRequest request, String clientIp) {
+        return login(request, clientIp, true);
+    }
+
+    private AuthTokenResponse login(LoginRequest request, String clientIp, boolean enforceRegistrationLimit) {
         validateLoginRequest(request);
         String normalizedMobile = request.getMobile().trim();
         UserAuthRow user = findByMobile(normalizedMobile);
         if (user == null) {
+            if (enforceRegistrationLimit) {
+                enforceDailyRegistrationLimit(clientIp);
+            }
             user = createUser(normalizedMobile, passwordHash(request.getPassword()));
+            if (enforceRegistrationLimit) {
+                recordDailyRegistration(clientIp);
+            }
         } else if (!verifyPassword(request.getPassword(), user.passwordHash())) {
             throw new IllegalArgumentException("mobile or password invalid");
         }
@@ -76,6 +94,39 @@ public class AuthApplicationService {
                 rs.getString("status")
         ), mobile);
         return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    private void enforceDailyRegistrationLimit(String clientIp) {
+        Integer existing = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM system_config WHERE config_key = ?",
+                Integer.class,
+                registrationLimitKey(clientIp)
+        );
+        if (existing != null && existing > 0) {
+            throw new IllegalStateException("daily registration limit exceeded");
+        }
+    }
+
+    private void recordDailyRegistration(String clientIp) {
+        String key = registrationLimitKey(clientIp);
+        jdbcTemplate.update("""
+                INSERT INTO system_config (config_key, config_value, config_type, config_group, remark, created_at, updated_at)
+                VALUES (?, '1', 'number', 'auth-registration-limit', 'one account per client ip per day', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, key);
+    }
+
+    private String registrationLimitKey(String clientIp) {
+        String normalizedIp = normalizeClientIp(clientIp);
+        String ipHash = sha256("registration-ip:" + normalizedIp).substring(0, 32);
+        String day = LocalDateTime.now().format(REGISTRATION_DAY_FORMAT);
+        return REGISTRATION_IP_LIMIT_KEY_PREFIX + day + "." + ipHash;
+    }
+
+    private String normalizeClientIp(String clientIp) {
+        if (clientIp == null || clientIp.isBlank()) {
+            return "unknown";
+        }
+        return clientIp.trim().toLowerCase(Locale.ROOT);
     }
 
     private void validateLoginRequest(LoginRequest request) {

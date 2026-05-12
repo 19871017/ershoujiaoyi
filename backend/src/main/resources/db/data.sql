@@ -34,6 +34,7 @@ CROSS JOIN (
   UNION ALL SELECT 'after-sales:review'
   UNION ALL SELECT 'system:config'
   UNION ALL SELECT 'audit:log'
+  UNION ALL SELECT 'operator:grant'
 ) permissions
 WHERE phone = '13800138000'
   AND NOT EXISTS (

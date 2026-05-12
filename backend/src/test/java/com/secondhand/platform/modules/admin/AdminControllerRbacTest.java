@@ -63,7 +63,8 @@ class AdminControllerRbacTest {
                 orderApplicationService,
                 productApplicationService,
                 mock(UserApplicationService.class),
-                new AdminAccessGuard(new CurrentUserResolver(), jdbcTemplate)
+                new AdminAccessGuard(new CurrentUserResolver(), jdbcTemplate),
+                jdbcTemplate
         );
         mvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
@@ -326,6 +327,76 @@ class AdminControllerRbacTest {
                         .header("X-Admin-Session", issueAdminSession(72L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].description").value("用户手机号139****5678，银行卡622202********8088"));
+    }
+
+    @Test
+    void adminOperatorPermissionGrantRequiresOperatorGrantPermissionAndWritesAuditLog() throws Exception {
+        createActiveUser(91L);
+        createActiveUser(92L);
+        grantPermission(91L, "audit:read");
+
+        mvc.perform(post("/api/admin/operators/92/permissions")
+                        .header("X-User-Id", "91")
+                        .header("X-Admin-Session", issueAdminSession(91L))
+                        .contentType("application/json")
+                        .content("{\"permissions\":[\"audit:read\",\"finance:read\"]}"))
+                .andExpect(status().isForbidden());
+
+        grantPermission(91L, "operator:grant");
+
+        mvc.perform(post("/api/admin/operators/92/permissions")
+                        .header("X-User-Id", "91")
+                        .header("X-Admin-Session", issueAdminSession(91L))
+                        .contentType("application/json")
+                        .content("{\"permissions\":[\"audit:read\",\"finance:read\",\"audit:read\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userId").value(92))
+                .andExpect(jsonPath("$.data.permissions.length()").value(2));
+
+        org.junit.jupiter.api.Assertions.assertEquals(1,
+                jdbcTemplate.queryForObject("select count(*) from admin_user_permission where user_id = ? and permission_code = ? and enabled = true", Integer.class, 92L, "audit:read"));
+        org.junit.jupiter.api.Assertions.assertEquals(91L,
+                jdbcTemplate.queryForObject("select operator_id from admin_audit_log where action = ? and target_id = ?", Long.class, "OPERATOR_PERMISSION_GRANT", "92"));
+    }
+
+    @Test
+    void adminOperatorPermissionGrantRejectsUnknownPermissionCodesFailClosed() throws Exception {
+        createActiveUser(93L);
+        createActiveUser(94L);
+        grantPermission(93L, "operator:grant");
+
+        mvc.perform(post("/api/admin/operators/94/permissions")
+                        .header("X-User-Id", "93")
+                        .header("X-Admin-Session", issueAdminSession(93L))
+                        .contentType("application/json")
+                        .content("{\"permissions\":[\"root:all\"]}"))
+                .andExpect(status().isBadRequest());
+
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                jdbcTemplate.queryForObject("select count(*) from admin_user_permission where user_id = ?", Integer.class, 94L));
+    }
+
+    @Test
+    void adminOperatorPermissionGrantAllowsClearingAllAssignablePermissionsWithAuditLog() throws Exception {
+        createActiveUser(95L);
+        createActiveUser(96L);
+        grantPermission(95L, "operator:grant");
+        grantPermission(96L, "audit:read");
+        grantPermission(96L, "finance:read");
+
+        mvc.perform(post("/api/admin/operators/96/permissions")
+                        .header("X-User-Id", "95")
+                        .header("X-Admin-Session", issueAdminSession(95L))
+                        .contentType("application/json")
+                        .content("{\"permissions\":[]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userId").value(96))
+                .andExpect(jsonPath("$.data.permissions.length()").value(0));
+
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                jdbcTemplate.queryForObject("select count(*) from admin_user_permission where user_id = ? and enabled = true", Integer.class, 96L));
+        org.junit.jupiter.api.Assertions.assertEquals(95L,
+                jdbcTemplate.queryForObject("select operator_id from admin_audit_log where action = ? and target_id = ?", Long.class, "OPERATOR_PERMISSION_GRANT", "96"));
     }
 
     @Test

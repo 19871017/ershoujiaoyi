@@ -85,6 +85,32 @@ class AuthApplicationServiceTest {
     }
 
     @Test
+    void newRegistrationShouldBeLimitedToOneAccountPerClientIpPerDay() {
+        service.login(login("13800138011", "pass-123456"), "203.0.113.8");
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> service.login(login("13800138012", "pass-123456"), "203.0.113.8"));
+
+        assertEquals("daily registration limit exceeded", error.getMessage());
+        assertEquals(1, count("user_account"));
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM system_config WHERE config_group = 'auth-registration-limit'",
+                Integer.class));
+    }
+
+    @Test
+    void ipRegistrationLimitShouldNotBlockExistingUserLoginOrDifferentIp() {
+        service.login(login("13800138013", "pass-123456"), "203.0.113.9");
+
+        AuthTokenResponse existingUserLogin = service.login(login("13800138013", "pass-123456"), "203.0.113.9");
+        AuthTokenResponse differentIpRegistration = service.login(login("13800138014", "pass-123456"), "203.0.113.10");
+
+        assertTrue(existingUserLogin.getAccessToken().startsWith("usr_"));
+        assertTrue(differentIpRegistration.getAccessToken().startsWith("usr_"));
+        assertEquals(2, count("user_account"));
+    }
+
+    @Test
     void loginShouldRejectWeakOrInvalidInput() {
         assertThrows(IllegalArgumentException.class, () -> service.login(login("12800138000", "pass-123456")));
         assertThrows(IllegalArgumentException.class, () -> service.login(login("13800138000", "123")));

@@ -17,7 +17,15 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public Result<AuthTokenResponse> login(@RequestBody LoginRequest request) {
-        return Result.ok(authApplicationService.login(request));
+    public Result<AuthTokenResponse> login(@RequestBody LoginRequest request, jakarta.servlet.http.HttpServletRequest httpRequest) {
+        return Result.ok(authApplicationService.login(request, resolveClientIp(httpRequest)));
+    }
+
+    private String resolveClientIp(jakarta.servlet.http.HttpServletRequest request) {
+        String remoteAddr = request == null ? null : request.getRemoteAddr();
+        if (remoteAddr == null || remoteAddr.isBlank()) {
+            return "unknown";
+        }
+        return remoteAddr.trim();
     }
 }

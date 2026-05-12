@@ -21,7 +21,11 @@ import com.secondhand.platform.modules.wallet_ledger.application.WalletLedgerSer
 import com.secondhand.platform.shared.kernel.Result;
 import com.secondhand.platform.shared.web.AdminAccessGuard;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,6 +37,21 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
+    private static final Set<String> ASSIGNABLE_OPERATOR_PERMISSIONS = Set.of(
+            "audit:read",
+            "audit:review",
+            "finance:read",
+            "finance:review",
+            "user:read",
+            "user:risk-control",
+            "order:read",
+            "after-sales:read",
+            "after-sales:review",
+            "system:config",
+            "audit:log",
+            "operator:grant"
+    );
+
     private final AuditApplicationService auditApplicationService;
     private final WalletLedgerService walletLedgerService;
     private final LocationApplicationService locationApplicationService;
@@ -41,6 +60,7 @@ public class AdminController {
     private final ProductApplicationService productApplicationService;
     private final UserApplicationService userApplicationService;
     private final AdminAccessGuard adminAccessGuard;
+    private final JdbcTemplate jdbcTemplate;
 
     public AdminController(AuditApplicationService auditApplicationService,
                            WalletLedgerService walletLedgerService,
@@ -49,7 +69,8 @@ public class AdminController {
                            OrderApplicationService orderApplicationService,
                            ProductApplicationService productApplicationService,
                            UserApplicationService userApplicationService,
-                           AdminAccessGuard adminAccessGuard) {
+                           AdminAccessGuard adminAccessGuard,
+                           JdbcTemplate jdbcTemplate) {
         this.auditApplicationService = auditApplicationService;
         this.walletLedgerService = walletLedgerService;
         this.locationApplicationService = locationApplicationService;
@@ -58,6 +79,7 @@ public class AdminController {
         this.productApplicationService = productApplicationService;
         this.userApplicationService = userApplicationService;
         this.adminAccessGuard = adminAccessGuard;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @GetMapping("/dashboard")
@@ -100,6 +122,31 @@ public class AdminController {
                                                             HttpServletRequest request) {
         adminAccessGuard.requireAdmin(request, "user:read");
         return Result.ok(userApplicationService.searchAdminUsers(keyword, limit == null ? 20 : limit));
+    }
+
+    @GetMapping("/operators/{userId}/permissions")
+    public Result<AdminOperatorPermissionResponse> operatorPermissions(@PathVariable Long userId, HttpServletRequest request) {
+        adminAccessGuard.requireAdmin(request, "operator:grant");
+        return Result.ok(loadOperatorPermissions(userId));
+    }
+
+    @PostMapping("/operators/{userId}/permissions")
+    public Result<AdminOperatorPermissionResponse> updateOperatorPermissions(@PathVariable Long userId,
+                                                                            @RequestBody(required = false) AdminOperatorPermissionUpdateRequest body,
+                                                                            HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "operator:grant");
+        List<String> permissions = normalizeAssignablePermissions(body == null ? null : body.getPermissions());
+        ensureActiveOperator(userId);
+        jdbcReplaceOperatorPermissions(userId, permissions);
+        auditApplicationService.recordAdminOperation(
+                "OPERATOR_PERMISSION_GRANT",
+                adminUserId,
+                "ADMIN_OPERATOR",
+                String.valueOf(userId),
+                "SUCCESS",
+                "运营经理权限已更新：" + String.join(",", permissions)
+        );
+        return Result.ok(loadOperatorPermissions(userId));
     }
 
     @GetMapping("/audit")
@@ -214,6 +261,109 @@ public class AdminController {
             return adminAccessGuard.requireAdmin(request, "finance:review");
         }
         return adminAccessGuard.requireAdmin(request, "audit:review");
+    }
+
+    private AdminOperatorPermissionResponse loadOperatorPermissions(Long userId) {
+        OperatorRow row = findActiveOperator(userId);
+        return new AdminOperatorPermissionResponse(row.userId(), row.userNo(), row.nickname(), row.status(), listOperatorPermissions(row.userId()));
+    }
+
+    private void ensureActiveOperator(Long userId) {
+        findActiveOperator(userId);
+    }
+
+    private OperatorRow findActiveOperator(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("operator userId required");
+        }
+        List<OperatorRow> rows = jdbcQueryOperator(userId);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("operator not found");
+        }
+        return rows.get(0);
+    }
+
+    private List<OperatorRow> jdbcQueryOperator(Long userId) {
+        return jdbcTemplate.query("""
+                SELECT id, user_no, nickname, status
+                FROM user_account
+                WHERE id = ? AND status = 'ACTIVE'
+                """, (rs, rowNum) -> new OperatorRow(
+                rs.getLong("id"),
+                rs.getString("user_no"),
+                rs.getString("nickname"),
+                rs.getString("status")
+        ), userId);
+    }
+
+    private List<String> listOperatorPermissions(Long userId) {
+        return jdbcTemplate.query("""
+                SELECT permission_code
+                FROM admin_user_permission
+                WHERE user_id = ? AND enabled = TRUE
+                ORDER BY permission_code
+                """, (rs, rowNum) -> rs.getString("permission_code"), userId)
+                .stream()
+                .filter(ASSIGNABLE_OPERATOR_PERMISSIONS::contains)
+                .toList();
+    }
+
+    private List<String> normalizeAssignablePermissions(List<String> permissions) {
+        if (permissions == null) {
+            throw new IllegalArgumentException("permissions required");
+        }
+        List<String> normalized = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (String permission : permissions) {
+            if (permission == null || permission.isBlank()) {
+                throw new IllegalArgumentException("permission invalid");
+            }
+            String safePermission = permission.trim();
+            if (!ASSIGNABLE_OPERATOR_PERMISSIONS.contains(safePermission)) {
+                throw new IllegalArgumentException("permission invalid");
+            }
+            if (seen.add(safePermission)) {
+                normalized.add(safePermission);
+            }
+        }
+        return List.copyOf(normalized);
+    }
+
+    private void jdbcReplaceOperatorPermissions(Long userId, List<String> permissions) {
+        jdbcTemplate.update("""
+                UPDATE admin_user_permission
+                SET enabled = FALSE, updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = ? AND permission_code IN (
+                    'audit:read',
+                    'audit:review',
+                    'finance:read',
+                    'finance:review',
+                    'user:read',
+                    'user:risk-control',
+                    'order:read',
+                    'after-sales:read',
+                    'after-sales:review',
+                    'system:config',
+                    'audit:log',
+                    'operator:grant'
+                )
+                """, userId);
+        for (String permission : permissions) {
+            int updated = jdbcTemplate.update("""
+                    UPDATE admin_user_permission
+                    SET enabled = TRUE, updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = ? AND permission_code = ?
+                    """, userId, permission);
+            if (updated == 0) {
+                jdbcTemplate.update("""
+                        INSERT INTO admin_user_permission (user_id, permission_code, enabled, created_at, updated_at)
+                        VALUES (?, ?, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        """, userId, permission);
+            }
+        }
+    }
+
+    private record OperatorRow(Long userId, String userNo, String nickname, String status) {
     }
 
     private void syncWithdrawalStatus(AuditRecordResponse response, String status, long adminUserId) {

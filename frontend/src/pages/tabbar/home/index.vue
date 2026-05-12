@@ -192,69 +192,69 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.home-page { padding-top: 26rpx; background:radial-gradient(circle at 14% 2%, rgba(255,195,128,.38), transparent 28%), linear-gradient(180deg,#fff7ed 0%,#fffdfa 48%,#fff5ee 100%); }
-.header { display:flex; align-items:center; justify-content:space-between; gap:24rpx; }
-.eyebrow { display:inline-flex; padding:9rpx 16rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; border:1rpx solid #ffd9bd; font-size:22rpx; font-weight:900; }
-.title { margin-top:14rpx; font-size:56rpx; line-height:1.02; font-weight:950; letter-spacing:-1.2rpx; color:#3a2a1f; }
-.subtitle { margin-top:12rpx; color:#9b7560; font-size:24rpx; font-weight:700; }
-.avatar { width:78rpx; height:78rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffc08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:38rpx; font-weight:900; box-shadow:0 12rpx 26rpx rgba(255,122,69,.28); }
-.search { margin-top:24rpx; min-height:92rpx; padding:0 18rpx 0 24rpx; display:flex; align-items:center; gap:14rpx; border-color:#ffd9bd; }
-.search-icon { color:#ff7a45; font-size:30rpx; }
-.search-text { flex:1; min-width:0; color:#9b7560; font-size:26rpx; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.search-action { padding:15rpx 22rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:24rpx; font-weight:900; }
-.hero { position:relative; margin-top:22rpx; padding:30rpx; display:flex; align-items:center; gap:24rpx; overflow:hidden; background:linear-gradient(135deg,#fff 0%,#fff1df 56%,#ffe1c2 100%); border-color:#ffd9bd; }
-.ring-mark { position:absolute; right:116rpx; top:-20rpx; width:150rpx; height:150rpx; border-radius:50%; border:18rpx solid rgba(255,122,69,.12); color:rgba(255,122,69,.13); display:flex; align-items:center; justify-content:center; font-size:66rpx; font-weight:950; }
+.home-page { padding-top:16rpx; background:radial-gradient(circle at 14% 2%, rgba(255,195,128,.30), transparent 26%), linear-gradient(180deg,#fff7ed 0%,#fffdfa 48%,#fff5ee 100%); }
+.header { display:flex; align-items:center; justify-content:space-between; gap:18rpx; }
+.eyebrow { display:inline-flex; padding:7rpx 13rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; border:1rpx solid #ffd9bd; font-size:20rpx; font-weight:900; }
+.title { margin-top:9rpx; font-size:46rpx; line-height:1.02; font-weight:950; letter-spacing:-1rpx; color:#3a2a1f; }
+.subtitle { margin-top:8rpx; color:#9b7560; font-size:22rpx; font-weight:700; }
+.avatar { width:64rpx; height:64rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffc08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:32rpx; font-weight:900; box-shadow:0 8rpx 18rpx rgba(255,122,69,.22); }
+.search { margin-top:16rpx; min-height:76rpx; padding:0 14rpx 0 18rpx; display:flex; align-items:center; gap:10rpx; border-color:#ffd9bd; }
+.search-icon { color:#ff7a45; font-size:26rpx; }
+.search-text { flex:1; min-width:0; color:#9b7560; font-size:24rpx; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.search-action { padding:11rpx 18rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:22rpx; font-weight:900; }
+.hero { position:relative; margin-top:16rpx; padding:22rpx; display:flex; align-items:center; gap:18rpx; overflow:hidden; background:linear-gradient(135deg,#fff 0%,#fff1df 56%,#ffe1c2 100%); border-color:#ffd9bd; }
+.ring-mark { position:absolute; right:98rpx; top:-18rpx; width:118rpx; height:118rpx; border-radius:50%; border:14rpx solid rgba(255,122,69,.12); color:rgba(255,122,69,.13); display:flex; align-items:center; justify-content:center; font-size:54rpx; font-weight:950; }
 .hero-main { position:relative; z-index:1; flex:1; min-width:0; }
-.hero-tag { color:#ff7a45; font-size:22rpx; font-weight:950; }
-.hero-title { margin-top:10rpx; font-size:36rpx; line-height:1.23; font-weight:950; color:#3a2a1f; }
-.hero-desc { margin-top:10rpx; color:#9b7560; font-size:24rpx; line-height:1.5; }
-.hero-tags { margin-top:14rpx; display:flex; flex-wrap:wrap; gap:8rpx; }
-.hero-tags text { padding:7rpx 12rpx; border-radius:999rpx; background:rgba(255,255,255,.72); color:#b35d2f; font-size:19rpx; font-weight:900; }
-.hero-side { position:relative; z-index:1; width:132rpx; height:132rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffc08a); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:0 14rpx 30rpx rgba(255,122,69,.25); }
-.hero-num { font-size:46rpx; font-weight:950; }
-.hero-label { margin-top:2rpx; font-size:21rpx; color:rgba(255,255,255,.9); font-weight:850; }
-.quick-grid { margin-top:22rpx; display:grid; grid-template-columns:repeat(6, 1fr); gap:10rpx; }
-.quick-card { min-height:104rpx; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7rpx; border-color:#ffd9bd; background:#fff; border-radius:26rpx; }
-.quick-icon { font-size:31rpx; }
-.quick-title { font-size:19rpx; color:#7b5542; font-weight:900; }
-.closet-strip { margin-top:18rpx; padding:18rpx; display:flex; align-items:center; gap:16rpx; border-color:#ffd9bd; background:linear-gradient(135deg,#fff,#fff3e7); }
-.closet-logo { width:66rpx; height:66rpx; border-radius:24rpx; display:flex; align-items:center; justify-content:center; background:#fff; font-size:34rpx; box-shadow:0 8rpx 18rpx rgba(255,122,69,.12); }
+.hero-tag { color:#ff7a45; font-size:21rpx; font-weight:950; }
+.hero-title { margin-top:7rpx; font-size:31rpx; line-height:1.2; font-weight:950; color:#3a2a1f; }
+.hero-desc { margin-top:7rpx; color:#9b7560; font-size:22rpx; line-height:1.42; }
+.hero-tags { margin-top:10rpx; display:flex; flex-wrap:wrap; gap:6rpx; }
+.hero-tags text { padding:5rpx 10rpx; border-radius:999rpx; background:rgba(255,255,255,.72); color:#b35d2f; font-size:18rpx; font-weight:900; }
+.hero-side { position:relative; z-index:1; width:104rpx; height:104rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffc08a); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:0 10rpx 22rpx rgba(255,122,69,.22); }
+.hero-num { font-size:38rpx; font-weight:950; }
+.hero-label { margin-top:2rpx; font-size:20rpx; color:rgba(255,255,255,.9); font-weight:850; }
+.quick-grid { margin-top:16rpx; display:grid; grid-template-columns:repeat(6, 1fr); gap:8rpx; }
+.quick-card { min-height:86rpx; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5rpx; border-color:#ffd9bd; background:#fff; border-radius:20rpx; }
+.quick-icon { font-size:27rpx; }
+.quick-title { font-size:18rpx; color:#7b5542; font-weight:900; }
+.closet-strip { margin-top:14rpx; padding:14rpx; display:flex; align-items:center; gap:12rpx; border-color:#ffd9bd; background:linear-gradient(135deg,#fff,#fff3e7); }
+.closet-logo { width:56rpx; height:56rpx; border-radius:20rpx; display:flex; align-items:center; justify-content:center; background:#fff; font-size:30rpx; box-shadow:0 6rpx 14rpx rgba(255,122,69,.10); }
 .closet-body { flex:1; min-width:0; }
-.closet-title { font-size:27rpx; font-weight:950; color:#3a2a1f; }
-.closet-desc { margin-top:5rpx; color:#9b7560; font-size:21rpx; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.closet-go { padding:10rpx 18rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:21rpx; font-weight:950; }
-.community-card { margin-top:22rpx; padding:22rpx; border-color:#ffd9bd; background:linear-gradient(180deg,#fff,#fffaf6); }
-.community-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16rpx; }
-.forum-chip { flex:none; padding:12rpx 18rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:22rpx; font-weight:950; box-shadow:0 8rpx 18rpx rgba(255,122,69,.2); }
-.rank-row { margin-top:18rpx; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14rpx; }
-.rank-card { min-height:118rpx; padding:16rpx; border-radius:30rpx; display:flex; align-items:center; gap:14rpx; border:1rpx solid #ffd9bd; }
+.closet-title { font-size:25rpx; font-weight:950; color:#3a2a1f; }
+.closet-desc { margin-top:4rpx; color:#9b7560; font-size:20rpx; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.closet-go { padding:8rpx 16rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:20rpx; font-weight:950; }
+.community-card { margin-top:16rpx; padding:16rpx; border-color:#ffd9bd; background:linear-gradient(180deg,#fff,#fffaf6); }
+.community-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12rpx; }
+.forum-chip { flex:none; padding:10rpx 16rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:20rpx; font-weight:950; box-shadow:0 6rpx 14rpx rgba(255,122,69,.16); }
+.rank-row { margin-top:14rpx; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10rpx; }
+.rank-card { min-height:96rpx; padding:12rpx; border-radius:22rpx; display:flex; align-items:center; gap:10rpx; border:1rpx solid #ffd9bd; }
 .rank-card.pink { background:linear-gradient(135deg,#fff3e7,#ffe5f0); }
 .rank-card.blue { background:linear-gradient(135deg,#f2edff,#eef7ff); }
-.rank-logo { width:58rpx; height:58rpx; border-radius:22rpx; background:#fff; display:flex; align-items:center; justify-content:center; font-size:31rpx; box-shadow:0 8rpx 18rpx rgba(255,122,69,.12); }
+.rank-logo { width:50rpx; height:50rpx; border-radius:18rpx; background:#fff; display:flex; align-items:center; justify-content:center; font-size:27rpx; box-shadow:0 6rpx 14rpx rgba(255,122,69,.10); }
 .rank-info { flex:1; min-width:0; }
-.rank-title { font-size:24rpx; font-weight:950; color:#3a2a1f; }
-.rank-name { margin-top:5rpx; font-size:21rpx; color:#7b5542; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.rank-score { margin-top:4rpx; font-size:19rpx; color:#b9856a; }
-.forum-list { margin-top:16rpx; display:flex; gap:10rpx; overflow:hidden; }
-.forum-item { flex:1; min-width:0; min-height:72rpx; padding:10rpx 8rpx; border-radius:24rpx; background:#fff3e7; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3rpx; }
-.forum-icon { font-size:24rpx; }
-.forum-title { font-size:20rpx; color:#7b5542; font-weight:900; }
-.forum-count { font-size:18rpx; color:#b9856a; }
-.section-head { margin:30rpx 0 16rpx; display:flex; align-items:flex-end; justify-content:space-between; }
-.section-title { font-size:36rpx; font-weight:950; color:#3a2a1f; }
-.section-subtitle { margin-top:6rpx; color:#9b7560; font-size:23rpx; }
-.small { min-height:60rpx; padding:0 22rpx; font-size:23rpx; color:#ff7a45; background:#fff3e7; }
-.state { margin-bottom:16rpx; padding:22rpx; color:#9b7560; font-size:24rpx; }
+.rank-title { font-size:22rpx; font-weight:950; color:#3a2a1f; }
+.rank-name { margin-top:4rpx; font-size:20rpx; color:#7b5542; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rank-score { margin-top:3rpx; font-size:18rpx; color:#b9856a; }
+.forum-list { margin-top:12rpx; display:flex; gap:8rpx; overflow:hidden; }
+.forum-item { flex:1; min-width:0; min-height:62rpx; padding:8rpx 6rpx; border-radius:20rpx; background:#fff3e7; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2rpx; }
+.forum-icon { font-size:22rpx; }
+.forum-title { font-size:19rpx; color:#7b5542; font-weight:900; }
+.forum-count { font-size:17rpx; color:#b9856a; }
+.section-head { margin:22rpx 0 12rpx; display:flex; align-items:flex-end; justify-content:space-between; }
+.section-title { font-size:31rpx; font-weight:950; color:#3a2a1f; }
+.section-subtitle { margin-top:5rpx; color:#9b7560; font-size:21rpx; }
+.small { min-height:54rpx; padding:0 18rpx; font-size:21rpx; color:#ff7a45; background:#fff3e7; }
+.state { margin-bottom:12rpx; padding:18rpx; color:#9b7560; font-size:23rpx; }
 .muted { background:#fff3e7; color:#b45374; }
-.product-list { display:flex; flex-direction:column; gap:16rpx; }
-.product-card { padding:16rpx; display:flex; gap:18rpx; border-color:#ffd9bd; }
-.thumb { width:168rpx; height:168rpx; flex:none; border-radius:34rpx; display:flex; align-items:center; justify-content:center; font-size:58rpx; overflow:hidden; }
+.product-list { display:flex; flex-direction:column; gap:12rpx; }
+.product-card { padding:12rpx; display:flex; gap:14rpx; border-color:#ffd9bd; }
+.thumb { width:138rpx; height:138rpx; flex:none; border-radius:26rpx; display:flex; align-items:center; justify-content:center; font-size:48rpx; overflow:hidden; }
 .cover { width:100%; height:100%; }
 .tone-0 { background:#fff3e7; } .tone-1 { background:#fff2e9; } .tone-2 { background:#f2edff; } .tone-3 { background:#fff7d6; }
-.product-info { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:space-between; padding:2rpx 0; }
-.product-title { font-size:29rpx; line-height:1.35; font-weight:900; color:#3a2a1f; }
-.product-meta { margin-top:10rpx; color:#9b7560; font-size:23rpx; }
-.product-bottom { display:flex; align-items:center; justify-content:space-between; gap:12rpx; }
-.price { color:#ff6b3a; font-size:34rpx; font-weight:950; }
-.status { padding:7rpx 14rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:21rpx; font-weight:900; }
+.product-info { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:space-between; padding:1rpx 0; }
+.product-title { font-size:27rpx; line-height:1.3; font-weight:900; color:#3a2a1f; }
+.product-meta { margin-top:7rpx; color:#9b7560; font-size:21rpx; }
+.product-bottom { display:flex; align-items:center; justify-content:space-between; gap:10rpx; }
+.price { color:#ff6b3a; font-size:30rpx; font-weight:950; }
+.status { padding:6rpx 12rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:20rpx; font-weight:900; }
 </style>

@@ -6,14 +6,14 @@
     <div class="lookup-card">
       <label>
         <span>状态筛选</span>
-        <select v-model="statusFilter" :disabled="loadingList" @change="loadList">
+        <select v-model="statusFilter" :disabled="loadingList || afterSalesReviewing" @change="loadList">
           <option value="PENDING_REVIEW">待处理</option>
           <option value="APPROVED">已通过</option>
           <option value="REJECTED">已拒绝</option>
           <option value="ALL">全部</option>
         </select>
       </label>
-      <button class="primary-btn" :disabled="loadingList" @click="loadList">{{ loadingList ? '刷新中...' : '刷新列表' }}</button>
+      <button class="primary-btn" :disabled="loadingList || afterSalesReviewing" @click="loadList">{{ loadingList ? '刷新中...' : '刷新列表' }}</button>
     </div>
 
     <div v-if="listError" class="alert">{{ listError }}</div>
@@ -38,7 +38,7 @@
             <td>{{ row.applicantId }}</td>
             <td>¥{{ row.refundAmount }}</td>
             <td>{{ row.status }}</td>
-            <td><button class="link-btn" @click="selectDetail(row.afterSalesNo)">查看详情</button></td>
+            <td><button class="link-btn" :disabled="afterSalesReviewing" @click="selectDetail(row.afterSalesNo)">查看详情</button></td>
           </tr>
         </tbody>
       </table>
@@ -47,9 +47,9 @@
     <form class="lookup-card" @submit.prevent="loadDetail">
       <label>
         <span>售后编号</span>
-        <input v-model.trim="afterSalesNo" placeholder="例如 AS-ADMIN-20260510-0001" />
+        <input v-model.trim="afterSalesNo" :disabled="afterSalesReviewing" placeholder="例如 AS-ADMIN-20260510-0001" />
       </label>
-      <button class="primary-btn" :disabled="loadingDetail || !afterSalesNo">{{ loadingDetail ? '查询中...' : '查询详情' }}</button>
+      <button class="primary-btn" :disabled="loadingDetail || afterSalesReviewing || !afterSalesNo">{{ loadingDetail ? '查询中...' : '查询详情' }}</button>
     </form>
 
     <div v-if="detailError" class="alert">{{ detailError }}</div>
@@ -77,8 +77,13 @@
       <div class="review-panel">
         <label>
           <span>审核备注</span>
-          <textarea v-model.trim="reviewRemark" maxlength="200" placeholder="选填，仅提交给后端售后审核接口"></textarea>
+          <textarea v-model.trim="reviewRemark" :disabled="afterSalesReviewing || !canReviewDetail" maxlength="200" placeholder="选填，仅提交给后端售后审核接口"></textarea>
         </label>
+        <label class="confirm-field">
+          <span>售后审核二次确认</span>
+          <input v-model.trim="afterSalesConfirmText" :disabled="afterSalesReviewing || !canReviewDetail" :placeholder="`请输入：${expectedAfterSalesConfirmText}`" />
+        </label>
+        <p class="safe-note">通过或拒绝售后前必须输入对应确认文本：{{ expectedAfterSalesConfirmText }}；避免误触发退款/售后流程。</p>
         <div class="review-actions">
           <button class="primary-btn" :disabled="afterSalesReviewing || !canReviewDetail" @click="submitReview('approve')">
             {{ afterSalesReviewing ? '提交中...' : '通过售后' }}
@@ -116,12 +121,15 @@ const loadingDetail = ref(false)
 const listError = ref('')
 const detailError = ref('')
 const reviewRemark = ref('')
+const afterSalesConfirmText = ref('')
 const afterSalesReviewing = ref(false)
 const rows = ref<AdminAfterSalesDetail[]>([])
 const detail = ref<AdminAfterSalesDetail | null>(null)
 const canReviewDetail = computed(() => canReviewAfterSales(auth.session) && detail.value?.status === 'PENDING_REVIEW')
+const expectedAfterSalesConfirmText = computed(() => `售后审核${detail.value?.afterSalesNo || ''}`)
 
 async function loadList() {
+  if (afterSalesReviewing.value) return
   loadingList.value = true
   listError.value = ''
   rows.value = []
@@ -135,15 +143,21 @@ async function loadList() {
 }
 
 async function selectDetail(no: string) {
+  if (afterSalesReviewing.value) return
   afterSalesNo.value = no
+  afterSalesConfirmText.value = ''
+  reviewRemark.value = ''
   await loadDetail()
 }
 
 async function loadDetail() {
+  if (afterSalesReviewing.value) return
   const safeNo = afterSalesNo.value.trim()
   loadingDetail.value = true
   detailError.value = ''
   detail.value = null
+  afterSalesConfirmText.value = ''
+  reviewRemark.value = ''
   if (!isValidAdminAfterSalesNo(safeNo)) {
     detailError.value = '售后编号无效：已阻止预览、占位或非后端编号查询。'
     loadingDetail.value = false
@@ -174,12 +188,17 @@ async function submitReview(action: 'approve' | 'reject') {
     detailError.value = '当前售后状态不可审核：未执行任何本地变更。'
     return
   }
+  if (afterSalesConfirmText.value !== expectedAfterSalesConfirmText.value) {
+    detailError.value = `售后审核二次确认失败：请输入“${expectedAfterSalesConfirmText.value}”。`
+    return
+  }
   afterSalesReviewing.value = true
   try {
     const reviewed = await reviewAdminAfterSales(safeNo, action, reviewRemark.value)
     detail.value = reviewed
     rows.value = rows.value.map((row) => row.afterSalesNo === safeNo ? reviewed : row)
     reviewRemark.value = ''
+    afterSalesConfirmText.value = ''
   } catch {
     detailError.value = '售后审核提交失败：未执行任何本地状态变更，请确认权限、编号与后端接口。'
   } finally {

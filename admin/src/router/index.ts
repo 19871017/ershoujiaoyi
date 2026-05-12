@@ -21,6 +21,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'after-sales', component: () => import('../pages/after-sales/index.vue') },
       { path: 'after-sales/:afterSalesNo', component: () => import('../pages/after-sales/index.vue') },
       { path: 'audit-logs', component: () => import('../pages/audit-logs/index.vue') },
+      { path: 'operators', component: () => import('../pages/operators/index.vue') },
+      { path: 'operators/:userId', component: () => import('../pages/operators/index.vue') },
       { path: 'system/location', component: () => import('../pages/system/location/index.vue') }
     ]
   }

@@ -118,6 +118,20 @@ export interface AdminUserSearchQuery {
   limit?: number
 }
 
+export type AdminOperatorPermissionCode = 'audit:read' | 'audit:review' | 'finance:read' | 'finance:review' | 'user:read' | 'user:risk-control' | 'order:read' | 'after-sales:read' | 'after-sales:review' | 'system:config' | 'audit:log' | 'operator:grant'
+
+export interface AdminOperatorPermissionResponse {
+  userId: number
+  userNo: string
+  nickname: string
+  status: string
+  permissions: AdminOperatorPermissionCode[]
+}
+
+export interface AdminOperatorPermissionUpdateRequest {
+  permissions: AdminOperatorPermissionCode[]
+}
+
 export interface AuditRecordResponse {
   auditNo: string
   auditType: string
@@ -192,6 +206,10 @@ export function isValidAdminProductId(productId: string | number) {
 
 export function isValidAdminUserId(userId: string | number) {
   return /^[1-9]\d*$/.test(String(userId))
+}
+
+export function isValidAdminOperatorPermission(permission: string): permission is AdminOperatorPermissionCode {
+  return ['audit:read', 'audit:review', 'finance:read', 'finance:review', 'user:read', 'user:risk-control', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log', 'operator:grant'].includes(permission)
 }
 
 export function isValidAdminUserSearchKeyword(keyword: string) {
@@ -341,6 +359,27 @@ export async function searchAdminUsers(query: AdminUserSearchQuery) {
   }
   const params = new URLSearchParams({ keyword, limit: String(limit) })
   return request<AdminUserDetailResponse[]>({ url: `/api/admin/users?${params.toString()}` })
+}
+
+export async function getAdminOperatorPermissions(userId: string | number) {
+  if (!isValidAdminUserId(userId)) {
+    throw new Error('运营经理编号无效')
+  }
+  return request<AdminOperatorPermissionResponse>({ url: `/api/admin/operators/${encodeURIComponent(String(userId))}/permissions` })
+}
+
+export async function updateAdminOperatorPermissions(userId: string | number, data: AdminOperatorPermissionUpdateRequest) {
+  if (!isValidAdminUserId(userId)) {
+    throw new Error('运营经理编号无效')
+  }
+  if (!Array.isArray(data.permissions) || !data.permissions.every(isValidAdminOperatorPermission)) {
+    throw new Error('运营经理权限无效')
+  }
+  return request<AdminOperatorPermissionResponse>({
+    url: `/api/admin/operators/${encodeURIComponent(String(userId))}/permissions`,
+    method: 'POST',
+    data: { permissions: Array.from(new Set(data.permissions)) }
+  })
 }
 
 export async function getAdminAuditLogs(query: AdminAuditLogQuery = {}) {

@@ -81,7 +81,8 @@ public class GlobalExceptionHandler {
             "mainRole invalid",
             "city invalid",
             "bio invalid",
-            "identity fields must be server-derived"
+            "identity fields must be server-derived",
+            "daily registration limit exceeded"
     );
 
     @ExceptionHandler(SecurityException.class)

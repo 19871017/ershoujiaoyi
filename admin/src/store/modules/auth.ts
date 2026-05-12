@@ -52,7 +52,7 @@ export interface AdminSessionInput {
   expiresAt?: string
 }
 
-export type AdminPermission = 'audit:read' | 'audit:review' | 'finance:read' | 'finance:review' | 'user:read' | 'order:read' | 'after-sales:read' | 'after-sales:review' | 'system:config' | 'audit:log'
+export type AdminPermission = 'audit:read' | 'audit:review' | 'finance:read' | 'finance:review' | 'user:read' | 'user:risk-control' | 'order:read' | 'after-sales:read' | 'after-sales:review' | 'system:config' | 'audit:log' | 'operator:grant'
 
 interface RoutePermissionRule {
   pattern: RegExp
@@ -67,6 +67,7 @@ const PROTECTED_ROUTE_PERMISSIONS: RoutePermissionRule[] = [
   { pattern: /^\/orders(?:\/|$)/, permission: 'order:read' },
   { pattern: /^\/after-sales(?:\/|$)/, permission: 'after-sales:read' },
   { pattern: /^\/audit-logs(?:\/|$)/, permission: 'audit:log' },
+  { pattern: /^\/operators(?:\/|$)/, permission: 'operator:grant' },
   { pattern: /^\/system\/location(?:\/|$)/, permission: 'system:config' }
 ]
 
@@ -83,6 +84,7 @@ export const ADMIN_DASHBOARD_ACTIONS: AdminMenuItem[] = [
   { path: '/orders', label: '订单管理', permission: 'order:read' },
   { path: '/users', label: '用户检索', permission: 'user:read' },
   { path: '/audit-logs', label: '审计日志', permission: 'audit:log' },
+  { path: '/operators', label: '运营授权', permission: 'operator:grant' },
   { path: '/system/location', label: '位置配置', permission: 'system:config' }
 ]
 
@@ -102,7 +104,7 @@ interface AuthState {
 
 const STORAGE_KEY = 'xiaoyuanquan_admin_session'
 const USER_ID_PATTERN = /^[1-9]\d*$/
-const DEFAULT_DEV_ADMIN_PERMISSIONS: AdminPermission[] = ['audit:read', 'audit:review', 'finance:read', 'finance:review', 'user:read', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log']
+const DEFAULT_DEV_ADMIN_PERMISSIONS: AdminPermission[] = ['audit:read', 'audit:review', 'finance:read', 'finance:review', 'user:read', 'user:risk-control', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log', 'operator:grant']
 const PERMISSION_SET = new Set<AdminPermission>(DEFAULT_DEV_ADMIN_PERMISSIONS)
 
 function normalizePermissions(permissions?: string[]): AdminPermission[] {
