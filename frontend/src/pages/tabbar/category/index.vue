@@ -76,23 +76,20 @@ const groups = [
   {
     name: '衣物',
     icon: '👗',
-    desc: '裙子、上衣、外套、套装',
+    desc: '上衣、下衣、套装',
     items: [
-      { name: '连衣裙', icon: '👗' },
       { name: '上衣', icon: '🎽' },
-      { name: '外套', icon: '🧥' },
+      { name: '下衣', icon: '👖' },
       { name: '套装', icon: '🧸' }
     ]
   },
   {
     name: '鞋袜',
     icon: '👠',
-    desc: '鞋子和袜子放一起，入口更少更直接',
+    desc: '鞋子、袜子',
     items: [
-      { name: '玛丽珍鞋', icon: '👠' },
-      { name: '运动鞋', icon: '👟' },
-      { name: '短袜', icon: '🧦' },
-      { name: '长袜', icon: '🎀' }
+      { name: '鞋子', icon: '👠' },
+      { name: '袜子', icon: '🧦' }
     ]
   },
   {
