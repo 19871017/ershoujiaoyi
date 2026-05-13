@@ -24,7 +24,7 @@
 
       <view class="form-section">
         <view class="field-label">宝贝标题</view>
-        <input v-model.trim="form.title" class="field-input" maxlength="40" placeholder="请填写真实宝贝标题" />
+        <input :value="form.title" class="field-input" maxlength="40" placeholder="请填写真实宝贝标题" confirm-type="next" @input="handleTextInput('title', $event)" />
         <view class="field-hint">{{ form.title.length }}/40</view>
       </view>
 
@@ -37,11 +37,11 @@
       <view class="row">
         <view class="form-section half">
           <view class="field-label">售价</view>
-          <input v-model.trim="form.price" class="field-input" type="digit" placeholder="¥ 0.00" />
+          <input :value="form.price" class="field-input" type="digit" inputmode="decimal" placeholder="¥ 0.00" confirm-type="next" @input="handlePriceInput" />
         </view>
         <view class="form-section half">
           <view class="field-label">所在位置</view>
-          <input v-model.trim="form.location" class="field-input" maxlength="24" placeholder="填写真实可公开的城市/区域" />
+          <input :value="form.location" class="field-input" maxlength="24" placeholder="填写真实可公开的城市/区域" confirm-type="done" @input="handleTextInput('location', $event)" />
         </view>
       </view>
 
@@ -80,7 +80,8 @@ import { createProduct } from '../../../api/modules/product'
 
 const categories = ['衣物', '鞋袜', '小用品']
 const conditions = ['全新未拆', '几乎全新', '轻微使用', '有瑕疵已说明']
-const tradeOptions = ['按平台订单流程交易', '仅公开联系方式内沟通', '可邮寄']
+const platformTradeRule = '按平台订单流程交易'
+const tradeOptions = [platformTradeRule]
 
 const form = reactive({
   category: '衣物',
@@ -89,7 +90,7 @@ const form = reactive({
   price: '',
   location: '',
   condition: '几乎全新',
-  tradeRule: '',
+  tradeRule: platformTradeRule,
   imageUrls: [] as string[]
 })
 const submitting = ref(false)
@@ -141,7 +142,31 @@ function imageContentType(path: string) {
   return 'image/jpeg'
 }
 
+type TextFieldKey = 'title' | 'location'
+
+type UniInputEvent = { detail?: { value?: string } }
+
+function inputValue(event: Event | UniInputEvent) {
+  const detailValue = (event as UniInputEvent).detail?.value
+  if (typeof detailValue === 'string') return detailValue
+  const targetValue = ((event as Event).target as HTMLInputElement | null)?.value
+  return typeof targetValue === 'string' ? targetValue : ''
+}
+
+function handleTextInput(field: TextFieldKey, event: Event | UniInputEvent) {
+  form[field] = inputValue(event).trim()
+}
+
+function handlePriceInput(event: Event | UniInputEvent) {
+  const value = inputValue(event)
+    .replace(/[^\d.]/g, '')
+    .replace(/(\.\d{2}).+$/, '$1')
+  const dotIndex = value.indexOf('.')
+  form.price = dotIndex === -1 ? value : `${value.slice(0, dotIndex + 1)}${value.slice(dotIndex + 1).replace(/\./g, '')}`
+}
+
 function validateForm() {
+  form.tradeRule = platformTradeRule
   if (!form.title || form.title.length < 4) return '标题至少 4 个字'
   if (!form.description || form.description.length < 10) return '描述至少 10 个字，写清楚成色和尺码'
   const amount = Number(form.price)
