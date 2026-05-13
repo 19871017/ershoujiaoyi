@@ -1,14 +1,5 @@
 <template>
   <view class="page-shell category-page">
-    <view class="cute-head ds-card">
-      <view>
-        <view class="kicker">♡ 小原圈宝贝</view>
-        <view class="page-title">在小原圈挑好物</view>
-        <view class="page-desc">衣物、鞋袜、小用品，只放女孩子常逛的小宝贝。</view>
-      </view>
-      <view class="head-badge">🎀</view>
-    </view>
-
     <view class="search-card ds-card">
       <text class="search-icon">🔎</text>
       <input v-model.trim="keyword" class="search-input" placeholder="搜连衣裙、鞋子、袜子、包包" confirm-type="search" @confirm="openSearchResult" />
@@ -182,11 +173,8 @@ onMounted(loadProducts)
 </script>
 
 <style scoped>
-.category-page { background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 52%,#fff7ed 100%); }
-.cute-head { padding:20rpx; display:flex; align-items:center; justify-content:space-between; gap:18rpx; background:linear-gradient(135deg,#fff 0%,#ffe8f2 100%); }
-.kicker { display:inline-flex; padding:8rpx 16rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:22rpx; font-weight:950; }
-.head-badge { width:68rpx; height:68rpx; border-radius:32rpx; background:#ff7a45; color:#fff; display:flex; align-items:center; justify-content:center; font-size:28rpx; box-shadow:0 12rpx 28rpx rgba(255,122,69,.24); }
-.search-card { margin-top:14rpx; padding:0 14rpx; min-height:58rpx; display:flex; align-items:center; gap:12rpx; }
+.category-page { background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 52%,#fff7ed 100%); padding-top:16rpx; }
+.search-card { padding:0 14rpx; min-height:58rpx; display:flex; align-items:center; gap:12rpx; }
 .search-icon { font-size:28rpx; }
 .search-input { flex:1; height:68rpx; color:#3a2a1f; font-size:24rpx; }
 .category-pills { margin-top:14rpx; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14rpx; }
