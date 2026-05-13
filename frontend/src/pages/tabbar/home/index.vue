@@ -53,22 +53,24 @@
     <view v-else-if="errorMessage" class="state ds-card muted">商品接口暂时不可用，未展示本地演示宝贝</view>
     <view v-else-if="products.length === 0" class="state ds-card muted">暂未加载到后端在售宝贝</view>
 
-    <view class="product-list">
-      <view v-for="item in products" :key="item.productId" class="product-card ds-card tapable" @click="goDetail(item.productId)">
-        <view class="thumb" :class="toneClass(item.productId)">
-          <image v-if="item.coverImageUrl" class="cover" :src="item.coverImageUrl" mode="aspectFill" />
-          <text v-else>{{ iconFor(item.title) }}</text>
-        </view>
-        <view class="product-info">
-          <view class="product-title">{{ item.title }}</view>
-          <view class="product-meta">{{ tagFor(item.title) }} · {{ distanceFor(item.productId) }}</view>
-          <view class="product-bottom">
-            <text class="price">¥{{ compactPrice(item.price) }}</text>
-            <text class="status">{{ statusLabel(item.status) }}</text>
+    <swiper v-else class="product-ticker" vertical circular autoplay :interval="2600" :duration="650">
+      <swiper-item v-for="item in products" :key="item.productId" class="product-slide">
+        <view class="product-card ds-card tapable" @click="goDetail(item.productId)">
+          <view class="thumb" :class="toneClass(item.productId)">
+            <image v-if="item.coverImageUrl" class="cover" :src="item.coverImageUrl" mode="aspectFill" />
+            <text v-else>{{ iconFor(item.title) }}</text>
+          </view>
+          <view class="product-info">
+            <view class="product-title">{{ item.title }}</view>
+            <view class="product-meta">{{ tagFor(item.title) }} · {{ distanceFor(item.productId) }}</view>
+            <view class="product-bottom">
+              <text class="price">¥{{ compactPrice(item.price) }}</text>
+              <text class="status">{{ statusLabel(item.status) }}</text>
+            </view>
           </view>
         </view>
-      </view>
-    </view>
+      </swiper-item>
+    </swiper>
   </view>
 </template>
 
@@ -180,9 +182,10 @@ onMounted(() => {
 .small { min-height:54rpx; padding:0 18rpx; font-size:21rpx; color:#ff7a45; background:#fff3e7; }
 .state { margin-bottom:12rpx; padding:18rpx; color:#9b7560; font-size:23rpx; }
 .muted { background:#fff3e7; color:#b45374; }
-.product-list { display:flex; flex-direction:column; gap:12rpx; }
-.product-card { padding:12rpx; display:flex; gap:14rpx; border-color:#ffd9bd; }
-.thumb { width:138rpx; height:138rpx; flex:none; border-radius:26rpx; display:flex; align-items:center; justify-content:center; font-size:48rpx; overflow:hidden; }
+.product-ticker { height:162rpx; overflow:hidden; }
+.product-slide { height:162rpx; }
+.product-card { height:150rpx; padding:12rpx; display:flex; gap:14rpx; border-color:#ffd9bd; box-sizing:border-box; }
+.thumb { width:126rpx; height:126rpx; flex:none; border-radius:26rpx; display:flex; align-items:center; justify-content:center; font-size:48rpx; overflow:hidden; }
 .cover { width:100%; height:100%; }
 .tone-0 { background:#fff3e7; } .tone-1 { background:#fff2e9; } .tone-2 { background:#f2edff; } .tone-3 { background:#fff7d6; }
 .product-info { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:space-between; padding:1rpx 0; }
