@@ -29,25 +29,6 @@
       <view class="setting tapable" @click="goSettings">⚙︎</view>
     </view>
 
-    <view class="quick-grid">
-      <view v-for="item in quickStats" :key="item.label" class="quick-card ds-card tapable" @click="openQuick(item)">
-        <view class="quick-icon">{{ item.icon }}</view>
-        <view class="quick-num">{{ item.num }}</view>
-        <view class="quick-label">{{ item.label }}</view>
-      </view>
-    </view>
-
-    <view class="closet-card ds-card tapable" @click="goCloset">
-      <view class="closet-left">
-        <view class="closet-icon">👗</view>
-        <view>
-          <view class="closet-title">我的小原圈</view>
-          <view class="closet-desc">管理在售、审核中、草稿宝贝</view>
-        </view>
-      </view>
-      <view class="closet-go">进入</view>
-    </view>
-
     <view class="wallet-card ds-card tapable" @click="goWallet">
       <view>
         <view class="wallet-label">钱包可用余额</view>
@@ -98,12 +79,7 @@ const profileMessage = ref('身份状态以平台审核为准')
 const profileLoaded = ref(false)
 const emptyBalance: WalletBalanceResponse = { rechargeBalance: '--', incomeBalance: '--', frozenBalance: '--', withdrawableBalance: '--' }
 const balance = reactive<WalletBalanceResponse>({ ...emptyBalance })
-const walletMessage = ref('钱包余额以服务端为准')
-const quickStats = computed(() => [
-  { icon: '🎀', num: '--', label: '在售', action: 'closet' },
-  { icon: '💗', num: '--', label: '收藏', action: 'favorite' },
-  { icon: '⭐', num: profileLoaded.value ? '待计算' : '--', label: '评分', action: 'ranking' }
-])
+const walletMessage = ref('钱包余额以平台为准')
 const orderStatus = computed(() => [
   { icon: '💳', label: '待付款', count: 0 },
   { icon: '📦', label: '待发货', count: 0 },
@@ -116,10 +92,10 @@ const menus = [
   { icon: '🏦', label: '提现审核', desc: '查看提现进度', url: '/pages/wallet/index?tab=withdraw' },
   { icon: '💳', label: '收款账户', desc: '提现银行卡和支付宝账户', url: '/pages/wallet/accounts/index' },
   { icon: '🪪', label: '视频认证', desc: '通过后主页展示视频认证卖家', url: '/pages/user/identity/index?tab=video' },
-  { icon: '📍', label: '地址管理', desc: '收货与发货信息以服务端记录为准', url: '/pages/user/address/index' },
+  { icon: '📍', label: '地址管理', desc: '收货与发货信息以平台记录为准', url: '/pages/user/address/index' },
   { icon: '🎁', label: '收到的礼物', desc: '礼物分账和收入记录', url: '/pages/gift/index' },
   { icon: '🛡️', label: '举报与风控', desc: '提交举报、查看安全提示', url: '/pages/risk/index' },
-  { icon: '⚙️', label: '设置', desc: '账号安全、隐私和开发预览', url: '/pages/system/settings/index' }
+  { icon: '⚙️', label: '设置', desc: '账号安全、隐私和正式', url: '/pages/system/settings/index' }
 ]
 const avatarText = computed(() => (profile.nickname || '原').slice(-1))
 const totalAvailable = computed(() => {
@@ -140,34 +116,28 @@ async function loadProfile() {
   try {
     Object.assign(profile, await getMyProfile())
     profileLoaded.value = true
-    profileMessage.value = '资料已从服务端加载，身份状态以平台审核为准'
+    profileMessage.value = '资料已从平台加载，身份状态以平台审核为准'
   } catch {
     Object.assign(profile, emptyProfile)
     profileLoaded.value = false
-    profileMessage.value = '资料加载失败，未展示本地认证或信用分假数据'
+    profileMessage.value = '资料加载失败，未展示认证或信用分数据'
   }
 }
 async function loadWalletBalance() {
   try {
     Object.assign(balance, await getWalletBalance())
-    walletMessage.value = '钱包余额以服务端为准'
+    walletMessage.value = '钱包余额以平台为准'
   } catch {
     Object.assign(balance, emptyBalance)
-    walletMessage.value = '余额加载失败，未展示本地钱包假数据'
+    walletMessage.value = '余额加载失败，未展示钱包数据'
   }
 }
 function showToast(title: string) { uni.showToast({ title, icon: 'none' }) }
 function openNotification() { uni.navigateTo({ url: '/pages/notification/index' }) }
 function goWallet() { uni.navigateTo({ url: '/pages/wallet/index' }) }
 function goOrders() { uni.navigateTo({ url: '/pages/order/list/index' }) }
-function goCloset() { uni.navigateTo({ url: '/pages/closet/index' }) }
 function goSettings() { uni.navigateTo({ url: '/pages/system/settings/index' }) }
 function goVideoVerify() { uni.navigateTo({ url: '/pages/user/identity/index?tab=video' }) }
-function openQuick(item: { action: string; label: string }) {
-  if (item.action === 'ranking') uni.navigateTo({ url: '/pages/ranking/index?tab=goddess' })
-  else if (item.action === 'favorite') uni.navigateTo({ url: '/pages/favorite/index' })
-  else goCloset()
-}
 function openMenu(item: { label: string; url?: string }) { item.url ? uni.navigateTo({ url: item.url }) : showToast(`${item.label}已打开`) }
 onMounted(() => { void loadProfile(); void loadWalletBalance() })
 </script>
@@ -187,17 +157,6 @@ onMounted(() => { void loadProfile(); void loadWalletBalance() })
 .mini-tag { padding:6rpx 10rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:18rpx; font-weight:900; }
 .mini-tag.soft { background:#fff; color:#ff7a45; }
 .setting { width:50rpx; height:50rpx; border-radius:50%; background:#fff; color:#9b7560; display:flex; align-items:center; justify-content:center; }
-.quick-grid { margin-top:14rpx; display:grid; grid-template-columns:repeat(3, 1fr); gap:10rpx; }
-.quick-card { padding:13rpx 8rpx; text-align:center; border-color:#ffd9bd; }
-.quick-icon { font-size:28rpx; }
-.quick-num { margin-top:4rpx; font-size:26rpx; font-weight:950; color:#ff7a45; }
-.quick-label { margin-top:3rpx; color:#9b7560; font-size:20rpx; }
-.closet-card { margin-top:14rpx; padding:16rpx; display:flex; align-items:center; justify-content:space-between; border-color:#ffd9bd; }
-.closet-left { display:flex; align-items:center; gap:12rpx; }
-.closet-icon { width:58rpx; height:58rpx; border-radius:20rpx; background:#fff3e7; display:flex; align-items:center; justify-content:center; font-size:30rpx; }
-.closet-title { font-size:26rpx; font-weight:950; color:#3a2a1f; }
-.closet-desc { margin-top:4rpx; color:#9b7560; font-size:20rpx; }
-.closet-go { padding:8rpx 16rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:20rpx; font-weight:950; }
 .wallet-card { margin-top:14rpx; padding:18rpx; display:flex; justify-content:space-between; align-items:center; border-color:#ffd9bd; }
 .wallet-label { color:#9b7560; font-size:21rpx; font-weight:800; }
 .wallet-value { margin-top:5rpx; color:#3a2a1f; font-size:34rpx; font-weight:950; }

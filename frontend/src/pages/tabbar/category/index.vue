@@ -28,8 +28,8 @@
       </view>
 
       <view v-if="loading" class="state-tip">加载分类宝贝中...</view>
-      <view v-else-if="errorText" class="state-tip danger">商品接口暂时不可用，未展示本地分类宝贝样例</view>
-      <view v-else-if="products.length === 0" class="state-tip">暂未加载到后端分类宝贝</view>
+      <view v-else-if="errorText" class="state-tip danger">商品接口暂时不可用，未展示默认分类宝贝</view>
+      <view v-else-if="products.length === 0" class="state-tip">暂未加载到平台分类宝贝</view>
 
       <view class="sub-grid compact">
         <view v-for="item in activeItems" :key="item.name" class="sub-item tapable" :class="{ active: subCategory === item.name }" @click="selectSubCategory(item.name)">
@@ -52,7 +52,7 @@
           <text v-else>{{ iconFor(item.title) }}</text>
         </view>
         <view class="product-title">{{ item.title }}</view>
-        <view class="product-meta">后端商品 · {{ statusLabel(item.status) }} · {{ item.createdAt ? '已同步' : '时间待同步' }}</view>
+        <view class="product-meta">平台商品 · {{ statusLabel(item.status) }} · {{ item.createdAt ? '已同步' : '时间待同步' }}</view>
         <view class="product-bottom">
           <view class="price">¥{{ compactPrice(item.price) }}</view>
           <view class="distance">{{ item.visible ? '可查看' : '待公开' }}</view>
@@ -63,7 +63,7 @@
     <view v-else-if="!loading" class="empty-card ds-card">
       <view class="empty-icon">🪞</view>
       <view class="empty-title">暂时没找到这个宝贝</view>
-      <view class="empty-desc">仅展示后端返回的在售商品，未使用本地分类样例。</view>
+      <view class="empty-desc">仅展示平台返回的在售商品，未使用默认分类内容。</view>
     </view>
   </view>
 </template>

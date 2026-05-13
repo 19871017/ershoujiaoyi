@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 账本详情</view>
         <view class="page-title">{{ detail.ledgerNo || '账本详情' }}</view>
-        <view class="page-desc">账本详情由后端账本接口返回；缺失或加载失败时不展示本地流水样例。</view>
+        <view class="page-desc">账本详情由平台账本接口返回；缺失或加载失败时不展示页面流水默认内容。</view>
       </view>
       <view class="hero-icon">🧾</view>
     </view>
@@ -28,7 +28,7 @@
 
     <view class="safe-card ds-card">
       <view class="section-title">资金安全说明</view>
-      <view class="desc">涉及支付、退款、提现和结算的最终金额、状态与余额，以后端账本接口和对账结果为准；页面不会使用入口参数拼出资金详情。</view>
+      <view class="desc">涉及支付、退款、提现和结算的最终金额、状态与余额，以平台账本接口和对账结果为准；页面不会使用入口参数拼出资金详情。</view>
     </view>
   </view>
 </template>
@@ -128,7 +128,7 @@ async function loadDetail() {
     const response = await getWalletLedgerDetail(ledgerNo)
     Object.assign(detail, mapLedgerDetail(response))
   } catch {
-    loadMessage.value = '账本详情加载失败，未展示本地账本样例'
+    loadMessage.value = '账本详情加载失败，未展示默认账本'
   } finally {
     loading.value = false
   }

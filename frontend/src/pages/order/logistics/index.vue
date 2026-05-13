@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 履约跟踪</view>
         <view class="page-title">物流详情</view>
-        <view class="page-desc">查看卖家发货、配送/交付方式以服务端订单记录为准。</view>
+        <view class="page-desc">查看卖家发货、配送/交付方式以平台订单记录为准。</view>
       </view>
       <view class="hero-icon">🚚</view>
     </view>
@@ -55,9 +55,9 @@ const timeline = computed(() => {
   const item = order.value
   if (!item) return []
   return [
-    { title: item.shippedAt ? '卖家已发货' : '等待卖家发货', desc: item.shippedAt ? '卖家已提交履约信息，配送/交付方式以服务端订单记录为准。' : '付款完成后卖家需要提交真实发货信息。', time: item.shippedAt || '' },
-    { title: item.paidAt ? '订单已付款' : '等待付款', desc: item.paidAt ? '订单付款状态来自后端订单详情，履约与结算请以订单状态为准。' : '买家完成付款后才会进入后续履约流程。', time: item.paidAt || '' },
-    { title: '订单已创建', desc: '订单已创建，后续履约状态以服务端订单、支付和物流记录为准。', time: item.createdAt }
+    { title: item.shippedAt ? '卖家已发货' : '等待卖家发货', desc: item.shippedAt ? '卖家已提交履约信息，配送/交付方式以平台订单记录为准。' : '付款完成后卖家需要提交真实发货信息。', time: item.shippedAt || '' },
+    { title: item.paidAt ? '订单已付款' : '等待付款', desc: item.paidAt ? '订单付款状态来自平台订单详情，履约与结算请以订单状态为准。' : '买家完成付款后才会进入后续履约流程。', time: item.paidAt || '' },
+    { title: '订单已创建', desc: '订单已创建，后续履约状态以平台订单、支付和物流记录为准。', time: item.createdAt }
   ]
 })
 function readQuery() { const pages = getCurrentPages(); const current = pages.length ? pages[pages.length - 1] as unknown as { options?: Record<string, string> } : undefined; const hashParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.hash.split('?')[1] || '') : undefined; orderNo.value = current?.options?.orderNo || hashParams?.get('orderNo') || '' }

@@ -150,7 +150,7 @@ function handleAction(item: OrderListItemResponse, action: string) {
   else showUnavailableAction(action)
 }
 function showUnavailableAction(action: string) {
-  uni.showToast({ title: `${action}暂未接通后端，未执行任何订单变更`, icon: 'none' })
+  uni.showToast({ title: `${action}暂未接通平台，未执行任何订单变更`, icon: 'none' })
 }
 function openOrderContact(item: OrderListItemResponse, action: OrderContactAction) {
   const target = resolveOrderContactTarget(item, action)
@@ -161,7 +161,7 @@ async function confirmFromList(item: OrderListItemResponse) {
   if (confirmingOrderNo.value) return
   uni.showModal({
     title: '确认收货',
-    content: '确认收到宝贝且无争议后，结算与售后状态以服务端订单、支付和物流记录为准。',
+    content: '确认收到宝贝且无争议后，结算与售后状态以平台订单、支付和物流记录为准。',
     success: async (res) => {
       if (!res.confirm) return
       confirmingOrderNo.value = item.orderNo

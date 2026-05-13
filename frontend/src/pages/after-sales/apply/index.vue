@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 订单售后</view>
         <view class="page-title">申请售后/退款</view>
-        <view class="page-desc">交易请保留照片、聊天记录和物流材料；售后处理以服务端订单、支付、物流、聊天记录和已提交票据为准。</view>
+        <view class="page-desc">交易请保留照片、聊天记录和物流材料；售后处理以平台订单、支付、物流、聊天记录和已提交票据为准。</view>
       </view>
       <view class="hero-icon">🛟</view>
     </view>
@@ -27,8 +27,8 @@
 
     <view class="safe-card ds-card">
       <view class="section-title">处理规则</view>
-      <view class="safe-line">售后处理以服务端订单、支付、物流、聊天记录和已提交票据为准。</view>
-      <view class="safe-line">当前页面只提交售后申请；审核结论和公开展示状态以后端记录为准。</view>
+      <view class="safe-line">售后处理以平台订单、支付、物流、聊天记录和已提交票据为准。</view>
+      <view class="safe-line">当前页面只提交售后申请；审核结论和公开展示状态以平台记录为准。</view>
     </view>
   </view>
 </template>
@@ -79,7 +79,7 @@ function validate() {
   if (!amount.value || Number(amount.value) <= 0) return '请填写退款金额'
   if (!desc.value || desc.value.length < 8) return '请补充至少8个字的问题说明'
   if (!images.value.length) return '请至少生成一张售后上传票据'
-  if (images.value.some(url => url.startsWith('local://') || url.includes('placeholder') || !url.startsWith('/uploads/evidence/after-sales/'))) return '售后票据需先完成服务端上传票据校验'
+  if (images.value.some(url => url.startsWith('local://') || url.includes('placeholder') || !url.startsWith('/uploads/evidence/after-sales/'))) return '售后票据需先完成平台上传票据校验'
   return ''
 }
 async function submitApply() {
@@ -89,7 +89,7 @@ async function submitApply() {
   submitting.value = true
   try {
     const response = await createAfterSales({ orderNo: validatedOrderNo, afterSalesType: type.value, refundAmount: amount.value, reason: reason.value, description: desc.value, evidenceUrls: images.value })
-    uni.showModal({ title: '售后申请已提交', content: `售后单 ${response.afterSalesNo} 已创建。售后申请已提交，处理进度以后端记录为准。`, showCancel: false, success: () => uni.redirectTo({ url: `/pages/after-sales/detail/index?afterSalesNo=${encodeURIComponent(response.afterSalesNo)}&orderNo=${encodeURIComponent(validatedOrderNo)}` }) })
+    uni.showModal({ title: '售后申请已提交', content: `售后单 ${response.afterSalesNo} 已创建。售后申请已提交，处理进度以平台记录为准。`, showCancel: false, success: () => uni.redirectTo({ url: `/pages/after-sales/detail/index?afterSalesNo=${encodeURIComponent(response.afterSalesNo)}&orderNo=${encodeURIComponent(validatedOrderNo)}` }) })
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : '售后申请提交失败', icon: 'none' })
   } finally {

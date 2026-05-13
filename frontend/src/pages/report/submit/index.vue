@@ -4,7 +4,7 @@
       <view class="icon">🛡️</view>
       <view>
         <view class="page-title">提交举报</view>
-        <view class="page-desc">用于提交商品、聊天、订单或用户相关问题；举报处理以服务端审核记录为准。</view>
+        <view class="page-desc">用于提交商品、聊天、订单或用户相关问题；举报处理以平台审核记录为准。</view>
       </view>
     </view>
 
@@ -19,7 +19,7 @@
       <view class="reason-grid">
         <view v-for="item in reasons" :key="item" class="reason-chip tapable" :class="{ active: reason === item }" @click="reason = item">{{ item }}</view>
       </view>
-      <textarea v-model="description" class="textarea" placeholder="请补充聊天、商品、订单中的具体问题；处理进度以服务端审核记录为准" />
+      <textarea v-model="description" class="textarea" placeholder="请补充聊天、商品、订单中的具体问题；处理进度以平台审核记录为准" />
       <view class="upload-box tapable" @click="chooseEvidence">
         <view class="upload-icon">＋</view>
         <view>
@@ -37,8 +37,8 @@
 
     <view class="safe-card ds-card">
       <view class="section-title">处理说明</view>
-      <view class="safe-line">举报处理以服务端审核记录为准，上传票据不代表举报已受理。</view>
-      <view class="safe-line">如涉及资金，请以服务端订单、支付和售后状态为准。</view>
+      <view class="safe-line">举报处理以平台审核记录为准，上传票据不代表举报已受理。</view>
+      <view class="safe-line">如涉及资金，请以平台订单、支付和售后状态为准。</view>
     </view>
 
     <button class="submit-btn" :disabled="submitting" @click="submit">{{ submitting ? '提交中...' : '提交举报' }}</button>
@@ -125,12 +125,12 @@ async function submit() {
   if (description.value.trim().length < 6) return uni.showToast({ title: '请补充至少 6 个字说明', icon: 'none' })
   if (!isValidReportTargetId(targetId.value)) return uni.showToast({ title: '缺少有效举报对象，未提交举报', icon: 'none' })
   if (evidence.value.some(url => url.startsWith('local://') || url.includes('placeholder') || !url.startsWith('/uploads/report-evidence/'))) {
-    return uni.showToast({ title: '举报上传票据需先完成服务端校验', icon: 'none' })
+    return uni.showToast({ title: '举报上传票据需先完成平台校验', icon: 'none' })
   }
   submitting.value = true
   try {
     await submitReport({ targetType: targetType.value, targetId: targetId.value, reason: reason.value, description: description.value.trim(), evidenceUrls: evidence.value })
-    uni.showModal({ title: '已提交', content: '举报已由服务端接收；审核状态、通知和后续处理以服务端记录为准。', showCancel: false, success: () => uni.navigateTo({ url: '/pages/notification/index' }) })
+    uni.showModal({ title: '已提交', content: '举报已由平台接收；审核状态、通知和后续处理以平台记录为准。', showCancel: false, success: () => uni.navigateTo({ url: '/pages/notification/index' }) })
   } catch {
     uni.showModal({ title: '提交失败', content: '举报没有提交成功，请检查网络或稍后重试。', showCancel: false })
   } finally { submitting.value = false }

@@ -48,7 +48,7 @@
       <view class="safe-card ds-card">
         <view class="section-title">付款安全提示</view>
         <view class="safe-line">平台交易不要求私下转账，不要相信脱离平台的付款链接。</view>
-        <view class="safe-line">支付结果和后续订单流转以服务端订单状态为准。</view>
+        <view class="safe-line">支付结果和后续订单流转以平台订单状态为准。</view>
       </view>
 
       <view v-if="message" class="message ds-card" :class="{ error: isError }">{{ message }}</view>
@@ -78,7 +78,7 @@ const message = ref('')
 const errorText = ref('')
 const isError = ref(false)
 const payMethods = [
-  { value: 'WALLET' as const, icon: '👛', label: '钱包余额', desc: '优先使用可用余额，支付结果以服务端订单状态为准' },
+  { value: 'WALLET' as const, icon: '👛', label: '钱包余额', desc: '优先使用可用余额，支付结果以平台订单状态为准' },
   { value: 'WECHAT' as const, icon: '💚', label: '微信支付', desc: '商户支付通道未开通时不会伪造成功' },
   { value: 'ALIPAY' as const, icon: '💙', label: '支付宝', desc: '商户支付通道未开通时不会伪造成功' }
 ]

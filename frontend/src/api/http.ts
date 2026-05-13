@@ -68,7 +68,7 @@ function mockResponse<T>(url: string): T | undefined {
       status: 'ACTIVE',
       auditState: 'APPROVED',
       visible: true,
-      tradeRule: '交易状态以服务端订单、支付和售后记录为准',
+      tradeRule: '交易状态以平台订单、支付和售后记录为准',
       createdAt: '2026-05-07T10:00:00'
     },
     {
@@ -82,7 +82,7 @@ function mockResponse<T>(url: string): T | undefined {
       status: 'ACTIVE',
       auditState: 'APPROVED',
       visible: true,
-      tradeRule: '交付偏好以服务端商品与订单记录为准',
+      tradeRule: '交付偏好以平台商品与订单记录为准',
       createdAt: '2026-05-07T09:30:00'
     },
     {
@@ -96,7 +96,7 @@ function mockResponse<T>(url: string): T | undefined {
       status: 'ACTIVE',
       auditState: 'APPROVED',
       visible: true,
-      tradeRule: '发货、收货和售后状态以服务端记录为准',
+      tradeRule: '发货、收货和售后状态以平台记录为准',
       createdAt: '2026-05-06T21:10:00'
     },
     {
@@ -110,7 +110,7 @@ function mockResponse<T>(url: string): T | undefined {
       status: 'ACTIVE',
       auditState: 'APPROVED',
       visible: true,
-      tradeRule: '聊天记录以服务端会话为准',
+      tradeRule: '聊天记录以平台会话为准',
       createdAt: '2026-05-06T18:30:00'
     }
   ]
@@ -134,9 +134,9 @@ function mockResponse<T>(url: string): T | undefined {
       {
         id: 2,
         kicker: '圈内热度上升',
-        title: '男神女神榜正在更新',
+        title: '圈内人气正在更新',
         description: '看人气、看动态，也看真实交易口碑。',
-        cta: '看榜单',
+        cta: '去看看',
         imageUrl: '/uploads/home/banner-ranking.svg',
         action: 'ranking',
         sortOrder: 20,

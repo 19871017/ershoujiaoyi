@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 城市偏好</view>
         <view class="page-title">选择城市</view>
-        <view class="page-desc">城市偏好会写入后端个人资料；正式位置状态以后端或系统定位记录为准。</view>
+        <view class="page-desc">城市偏好会写入平台个人资料；正式位置状态以平台或系统定位记录为准。</view>
       </view>
       <view class="hero-icon">📍</view>
     </view>
@@ -23,7 +23,7 @@
 
     <view class="safe-card ds-card">
       <view class="section-title">位置使用提醒</view>
-      <view class="desc">城市偏好写入服务端资料后可用于本次页面筛选；订单、支付、发货和售后状态以服务端记录为准。</view>
+      <view class="desc">城市偏好写入平台资料后可用于本次页面筛选；订单、支付、发货和售后状态以平台记录为准。</view>
     </view>
 
     <button class="primary-btn" :disabled="!canConfirm || saving" @click="saveCity">{{ saving ? '保存中...' : '确认城市' }}</button>
@@ -50,7 +50,7 @@ async function loadProfile() {
   } catch {
     Object.assign(profile, { userId: 0, nickname: '', mainRole: 'UNVERIFIED', city: '', bio: '' })
     selected.value = ''
-    uni.showToast({ title: '资料接口加载失败，未展示本地城市偏好样例', icon: 'none' })
+    uni.showToast({ title: '资料接口加载失败，未展示页面城市偏好默认内容', icon: 'none' })
   }
 }
 async function saveCity() {
@@ -62,9 +62,9 @@ async function saveCity() {
     const updated = await updateMyProfile({ nickname: profile.nickname, mainRole: profile.mainRole, city: selected.value, bio: profile.bio })
     Object.assign(profile, updated)
     selected.value = updated.city || ''
-    uni.showToast({ title: '城市偏好已保存至服务端资料', icon: 'none' })
+    uni.showToast({ title: '城市偏好已保存至平台资料', icon: 'none' })
   } catch {
-    uni.showToast({ title: '城市偏好保存失败，未修改服务端资料', icon: 'none' })
+    uni.showToast({ title: '城市偏好保存失败，未修改平台资料', icon: 'none' })
   } finally {
     saving.value = false
   }

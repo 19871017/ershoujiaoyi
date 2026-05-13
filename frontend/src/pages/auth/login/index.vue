@@ -8,7 +8,7 @@
 
     <view class="form-card ds-card">
       <view class="section-title">手机号登录</view>
-      <view class="section-desc">当前支持密码登录；验证码入口用于开发预览验证登录体验。</view>
+      <view class="section-desc">当前支持密码登录；验证码入口用于正式验证登录体验。</view>
       <input v-model.trim="form.mobile" class="field" maxlength="11" type="number" placeholder="请输入手机号" />
       <input v-model="form.password" class="field" password maxlength="32" placeholder="请输入密码" />
       <view class="helper-row">
@@ -23,7 +23,7 @@
 
     <view class="safe-card ds-card">
       <view class="safe-title">安全说明</view>
-      <view class="safe-text">不会在前端保存真实密码或密钥；正式上线会改为服务端签发 Token 和管理员权限控制。</view>
+      <view class="safe-text">不会在前端保存真实密码或密钥；正式上线会改为平台签发 Token 和管理员权限控制。</view>
     </view>
   </view>
 </template>
@@ -42,7 +42,7 @@ const userStore = useUserStore()
 function validMobile(value: string) { return /^1\d{10}$/.test(value) }
 function toast(title: string) { uni.showToast({ title, icon: 'none' }) }
 function useCodePreview() {
-  message.value = '验证码登录需要后端验证码服务，当前请使用密码登录'
+  message.value = '验证码登录需要平台验证码服务，当前请使用密码登录'
   isError.value = false
 }
 async function handleLogin() {

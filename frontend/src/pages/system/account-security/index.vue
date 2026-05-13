@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 账号安全</view>
         <view class="page-title">安全中心</view>
-        <view class="page-desc">安全状态以服务端账号风控接口为准，接口失败时不展示本地分数或设备样例。</view>
+        <view class="page-desc">安全状态以平台账号风控接口为准，接口失败时不展示默认分数或设备。</view>
       </view>
       <view class="hero-score">{{ securityScore }}</view>
     </view>
@@ -25,19 +25,19 @@
       <view class="section-title">最近登录设备</view>
       <view v-if="loading" class="empty-state">账号安全信息加载中...</view>
       <view v-else-if="loadError" class="empty-state">{{ loadError }}</view>
-      <view v-else-if="devices.length === 0" class="empty-state">服务端暂未返回登录设备记录，未展示本地登录设备样例。</view>
+      <view v-else-if="devices.length === 0" class="empty-state">平台暂未返回登录设备记录，未展示默认登录设备。</view>
       <view v-else v-for="item in devices" :key="`${item.deviceName}-${item.loginAt}`" class="device-row">
         <view>
           <view class="label">{{ item.deviceName }}</view>
           <view class="desc">{{ item.loginAt || '暂无时间' }} · {{ item.city || '暂无城市' }}</view>
         </view>
-        <text class="safe-tag">{{ item.status || '后端记录' }}</text>
+        <text class="safe-tag">{{ item.status || '平台记录' }}</text>
       </view>
     </view>
 
     <view class="section-card ds-card">
       <view class="section-title">安全建议</view>
-      <view class="tip">不要私下转账，不要把验证码、登录密码、支付密码发给任何人。异常登录和高风险交易以服务端风控记录为准。</view>
+      <view class="tip">不要私下转账，不要把验证码、登录密码、支付密码发给任何人。异常登录和高风险交易以平台风控记录为准。</view>
     </view>
   </view>
 </template>
@@ -54,8 +54,8 @@ const loading = ref(false)
 const loadError = ref('')
 const securityScore = computed(() => security.value?.securityScore || '--')
 const rows = computed<SecurityRow[]>(() => [
-  { icon: '🔑', label: '登录密码', desc: '密码修改需通过后端安全校验流程', action: '修改' },
-  { icon: '📱', label: '绑定手机号', desc: `手机号信息由服务端脱敏返回：${security.value?.maskedPhone || '暂无后端记录'}`, action: '换绑' },
+  { icon: '🔑', label: '登录密码', desc: '密码修改需通过平台安全校验流程', action: '修改' },
+  { icon: '📱', label: '绑定手机号', desc: `手机号信息由平台脱敏返回：${security.value?.maskedPhone || '暂无平台记录'}`, action: '换绑' },
   { icon: '🛡️', label: '设备保护', desc: '新设备登录策略需由账号安全接口控制', action: '开启' },
   { icon: '🪪', label: '实名认证', desc: '提现和高额交易需完成实名审核', action: '去认证' }
 ])
@@ -68,7 +68,7 @@ async function loadSecurity() {
   try {
     security.value = await getAccountSecurity()
   } catch {
-    loadError.value = '账号安全接口加载失败，未展示本地分数或登录设备样例。'
+    loadError.value = '账号安全接口加载失败，未展示页面分数或登录设备默认内容。'
   } finally {
     loading.value = false
   }
@@ -81,7 +81,7 @@ function operate(item: SecurityRow) {
   }
   uni.showModal({
     title: item.label,
-    content: '账号安全变更需通过后端安全接口处理，当前未执行任何账号安全变更。',
+    content: '账号安全变更需通过平台安全接口处理，当前未执行任何账号安全变更。',
     showCancel: false
   })
 }

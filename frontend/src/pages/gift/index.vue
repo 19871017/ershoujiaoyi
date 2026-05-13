@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 礼物中心</view>
         <view class="page-title">{{ sendMode ? '送出礼物' : '收到的礼物' }}</view>
-        <view class="page-desc">礼物金额、平台服务费和收礼入账均以后端钱包账本为准，发送失败不会本地伪造成功状态。</view>
+        <view class="page-desc">礼物金额、平台服务费和收礼入账均以平台钱包账本为准，发送失败不会异常成功状态。</view>
       </view>
       <view class="hero-icon">🎁</view>
     </view>
@@ -22,7 +22,7 @@
           <view class="section-title">选择礼物</view>
           <view class="section-desc">接收人 ID：{{ receiverId || '未指定' }} · 充值余额：{{ rechargeBalanceText }}</view>
         </view>
-        <view class="settle-chip">后端扣款</view>
+        <view class="settle-chip">平台扣款</view>
       </view>
       <view v-if="catalogMessage" class="empty-row">{{ catalogMessage }}</view>
       <view class="gift-grid">
@@ -52,7 +52,7 @@
       <view class="section-head">
         <view>
           <view class="section-title">礼物流水</view>
-          <view class="section-desc">仅展示服务端已持久化的收礼记录，失败时不展示本地样例。</view>
+          <view class="section-desc">仅展示平台已持久化的收礼记录，失败时不展示默认内容。</view>
         </view>
         <view class="settle-chip">累计入账 ¥{{ totalIncome }}</view>
       </view>
@@ -70,7 +70,7 @@
     <view class="section-card ds-card">
       <view class="section-title">感谢互动</view>
       <view class="thanks-card">
-        <view>感谢消息必须进入真实会话；没有服务端收礼记录时不使用固定账号伪跳转。</view>
+        <view>感谢消息必须进入真实会话；没有平台收礼记录时不使用固定账号伪跳转。</view>
         <button class="secondary-btn" @click="sendThanks">去私信感谢</button>
       </view>
     </view>
@@ -124,16 +124,16 @@ async function loadCatalog() {
   } catch {
     catalogList.value = []
     selectedGift.value = null
-    catalogMessage.value = '礼物目录加载失败，未展示本地礼物样例'
+    catalogMessage.value = '礼物目录加载失败，未展示默认礼物'
   }
 }
 async function loadReceived() {
   try {
     giftList.value = await getReceivedGifts()
-    receivedMessage.value = giftList.value.length ? '' : '暂无后端收礼记录'
+    receivedMessage.value = giftList.value.length ? '' : '暂无平台收礼记录'
   } catch {
     giftList.value = []
-    receivedMessage.value = '礼物流水加载失败，未展示本地礼物样例'
+    receivedMessage.value = '礼物流水加载失败，未展示默认礼物'
   }
 }
 async function loadBalance() {
@@ -156,7 +156,7 @@ async function submitGift() {
   try {
     const requestNo = `gift-${receiverId.value}-${selectedGift.value.giftCode}-${Date.now()}`
     const response = await sendGift({ receiverId: receiverId.value, giftCode: selectedGift.value.giftCode, quantity: quantity.value, sceneType: sceneType.value, sceneId: sceneId.value, requestNo })
-    sendMessage.value = `送礼成功，订单 ${response.giftOrderNo}，已按后端钱包账本扣款`
+    sendMessage.value = `送礼成功，订单 ${response.giftOrderNo}，已按平台钱包账本扣款`
     uni.showToast({ title: '送礼成功', icon: 'success' })
     await Promise.all([loadReceived(), loadBalance()])
   } catch {

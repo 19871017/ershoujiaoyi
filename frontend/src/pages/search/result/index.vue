@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 找宝贝</view>
         <view class="page-title">搜索结果</view>
-        <view class="page-desc">按关键词筛选后端返回的在售女生衣物鞋袜小用品。</view>
+        <view class="page-desc">按关键词筛选平台返回的在售女生衣物鞋袜小用品。</view>
       </view>
       <view class="hero-icon">🔎</view>
     </view>
@@ -23,24 +23,24 @@
     </view>
 
     <view class="result-head">
-      <view class="section-title">共 {{ filtered.length }} 件后端宝贝</view>
+      <view class="section-title">共 {{ filtered.length }} 件平台宝贝</view>
       <view class="section-desc">{{ keyword || '全部关键词' }} · {{ category }}</view>
     </view>
 
     <view v-if="loading" class="empty ds-card">
       <view class="empty-icon">🔎</view>
       <view class="section-title">搜索加载中...</view>
-      <view class="section-desc">正在读取后端商品接口。</view>
+      <view class="section-desc">正在读取平台商品接口。</view>
     </view>
     <view v-else-if="loadMessage" class="empty ds-card danger">
       <view class="empty-icon">⚠️</view>
-      <view class="section-title">商品接口暂时不可用，未展示本地搜索宝贝样例</view>
+      <view class="section-title">商品接口暂时不可用，未展示默认搜索宝贝</view>
       <view class="section-desc">{{ loadMessage }}</view>
     </view>
     <view v-else-if="filtered.length === 0" class="empty ds-card">
       <view class="empty-icon">🧺</view>
-      <view class="section-title">没有找到后端宝贝</view>
-      <view class="section-desc">仅展示后端返回的在售商品，未使用本地搜索样例。</view>
+      <view class="section-title">没有找到平台宝贝</view>
+      <view class="section-desc">仅展示平台返回的在售商品，未使用默认搜索内容。</view>
       <button class="primary-btn" @click="goPublish">去上新</button>
     </view>
 
@@ -52,8 +52,8 @@
         </view>
         <view class="main">
           <view class="title">{{ item.title }}</view>
-          <view class="meta">后端商品 · {{ statusLabel(item.status) }} · {{ item.createdAt ? '已同步' : '时间待同步' }}</view>
-          <view class="bottom"><text class="price">¥{{ compactPrice(item.price) }}</text><text class="safe">{{ item.visible ? '后端可见' : '待公开' }}</text></view>
+          <view class="meta">平台商品 · {{ statusLabel(item.status) }} · {{ item.createdAt ? '已同步' : '时间待同步' }}</view>
+          <view class="bottom"><text class="price">¥{{ compactPrice(item.price) }}</text><text class="safe">{{ item.visible ? '平台可见' : '待公开' }}</text></view>
         </view>
       </view>
     </view>

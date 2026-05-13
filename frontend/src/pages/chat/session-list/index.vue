@@ -25,8 +25,8 @@
     <view v-if="errorText" class="status-card error">{{ errorText }}</view>
     <view v-else-if="!loading && visibleConversations.length === 0" class="empty-card ds-card">
       <view class="empty-icon">💌</view>
-      <view class="empty-title">暂无服务端会话</view>
-      <view class="empty-desc">会话列表仅展示后端返回记录；聊天记录以服务端会话为准。</view>
+      <view class="empty-title">暂无平台会话</view>
+      <view class="empty-desc">会话列表仅展示平台返回记录；聊天记录以平台会话为准。</view>
     </view>
 
     <view v-else class="session-list">

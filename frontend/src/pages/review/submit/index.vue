@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 交易评价</view>
         <view class="page-title">评价这次交易</view>
-        <view class="page-desc">评价提交后以后端订单评价记录为准。</view>
+        <view class="page-desc">评价提交后以平台订单评价记录为准。</view>
       </view>
       <view class="hero-icon">⭐</view>
     </view>
@@ -15,7 +15,7 @@
         <view><text v-for="star in 5" :key="star" class="star tapable" :class="{ active: star <= item.value }" @click="item.value = star">★</text></view>
       </view>
       <textarea v-model.trim="content" class="textarea" maxlength="160" placeholder="说说成色、沟通、发货和整体体验" />
-      <view class="fail-closed-tip">仅订单完成后的买家可提交一次评价；提交结果以服务端订单评价记录为准。</view>
+      <view class="fail-closed-tip">仅订单完成后的买家可提交一次评价；提交结果以平台订单评价记录为准。</view>
       <button class="primary-btn" :disabled="submitting" @click="submitReview">{{ submitting ? '提交中...' : '提交评价' }}</button>
     </view>
   </view>
@@ -51,7 +51,7 @@ async function submitReview() {
       shippingScore: scores[2].value,
       content: content.value
     })
-    uni.showModal({ title: '评价已提交', content: '评价已写入服务端订单评价记录。', showCancel: false, success: () => uni.navigateTo({ url: '/pages/order/list/index' }) })
+    uni.showModal({ title: '评价已提交', content: '评价已写入平台订单评价记录。', showCancel: false, success: () => uni.navigateTo({ url: '/pages/order/list/index' }) })
   } catch {
     uni.showToast({ title: '评价提交失败，请确认订单已完成且未重复评价', icon: 'none' })
   } finally {

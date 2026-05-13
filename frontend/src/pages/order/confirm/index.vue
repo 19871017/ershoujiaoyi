@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 平台订单创建后再进入支付确认</view>
         <view class="page-title">确认订单</view>
-        <view class="page-desc">付款前请确认商品、配送和订单规则；支付、售后和聊天记录以服务端订单状态为准。</view>
+        <view class="page-desc">付款前请确认商品、配送和订单规则；支付、售后和聊天记录以平台订单状态为准。</view>
       </view>
       <view class="hero-icon">🧾</view>
     </view>
@@ -44,7 +44,7 @@
         </template>
         <template v-else>
           <view class="address-empty">请选择收货信息</view>
-          <view class="address-text">快递邮寄需要收货人、手机号和详细地址；正式配送状态以后端订单记录为准。</view>
+          <view class="address-text">快递邮寄需要收货人、手机号和详细地址；正式配送状态以平台订单记录为准。</view>
         </template>
       </view>
 
@@ -103,11 +103,11 @@ const deliveryType = ref<DeliveryType>('EXPRESS')
 const buyerRemark = ref('')
 const deliveryTypes = [
   { value: 'EXPRESS' as const, label: '快递邮寄', desc: '卖家发货后可看物流' },
-  { value: 'LOCAL_MEET' as const, label: '线下交付', desc: '交付状态以后端订单记录为准' }
+  { value: 'LOCAL_MEET' as const, label: '线下交付', desc: '交付状态以平台订单记录为准' }
 ]
 const confirmItems = reactive([
   { text: '我已确认商品成色、尺码和瑕疵说明', checked: true },
-  { text: '我理解创建订单后仍需进入支付页读取服务端订单状态', checked: true },
+  { text: '我理解创建订单后仍需进入支付页读取平台订单状态', checked: true },
   { text: '我不会脱离平台私下转账或外部联系', checked: true }
 ])
 const coverImage = computed(() => product.value?.imageUrls?.[0] || '')

@@ -1,7 +1,7 @@
 <template>
   <view class="page-shell address-page">
     <view class="page-title">地址管理</view>
-    <view class="page-desc">用于订单发货、售后联系等正式服务端地址记录。</view>
+    <view class="page-desc">用于订单发货、售后联系等正式平台地址记录。</view>
 
     <view class="form-card ds-card">
       <view class="form-title">新增 / 编辑地址</view>
@@ -18,7 +18,7 @@
 
     <view class="section-title">我的地址</view>
     <view v-if="loading" class="empty-card ds-card">地址加载中...</view>
-    <view v-else-if="!addresses.length" class="empty-card ds-card">暂无服务端地址记录，请新增后再用于订单发货。</view>
+    <view v-else-if="!addresses.length" class="empty-card ds-card">暂无平台地址记录，请新增后再用于订单发货。</view>
     <view v-for="item in addresses" :key="item.addressId" class="address-card ds-card">
       <view class="address-head">
         <view class="person">{{ item.name }} {{ item.mobile }}</view>
@@ -114,7 +114,7 @@ async function setDefault(id: number) {
 function removeAddress(id: number) {
   uni.showModal({
     title: '确认删除',
-    content: '删除后该收货地址将从服务端地址记录移除。',
+    content: '删除后该收货地址将从平台地址记录移除。',
     success: async (res) => {
       if (!res.confirm) return
       try {

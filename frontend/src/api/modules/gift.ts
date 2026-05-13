@@ -29,7 +29,7 @@ export interface ReceivedGiftItemResponse {
 }
 
 export interface SendGiftRequest {
-  /** 后端会忽略该字段，发送人以当前登录用户/请求头为准 */
+  /** 平台会忽略该字段，发送人以当前登录用户/请求头为准 */
   senderId?: number
   receiverId: number
   giftCode?: string
@@ -37,9 +37,9 @@ export interface SendGiftRequest {
   quantity?: number
   sceneType?: string
   sceneId?: number
-  /** 后端强制 requestNo/clientGiftId 至少一个，用于防重复点击重复扣款 */
+  /** 平台强制 requestNo/clientGiftId 至少一个，用于防重复点击重复扣款 */
   clientGiftId?: string
-  /** 后端强制 requestNo/clientGiftId 至少一个，用于防重复点击重复扣款 */
+  /** 平台强制 requestNo/clientGiftId 至少一个，用于防重复点击重复扣款 */
   requestNo?: string
 }
 

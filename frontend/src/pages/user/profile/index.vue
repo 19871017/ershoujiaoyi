@@ -4,7 +4,7 @@
       <view class="avatar">{{ avatarText }}</view>
       <view class="profile-main">
         <view class="nickname">{{ displayNickname }}</view>
-        <view class="profile-desc">{{ roleLabel(form.mainRole) }} · 认证状态以服务端资料为准 · 信用分不在本页展示</view>
+        <view class="profile-desc">{{ roleLabel(form.mainRole) }} · 认证状态以平台资料为准 · 信用分不在本页展示</view>
         <view class="tag-row">
           <text class="tag soft">{{ loadMessage }}</text>
         </view>
@@ -13,9 +13,9 @@
 
     <view class="form-card ds-card">
       <view class="section-title">编辑资料</view>
-      <input v-model.trim="form.nickname" class="field" maxlength="16" placeholder="昵称（保存后以后端返回为准）" />
-      <input v-model.trim="form.city" class="field" maxlength="24" placeholder="所在城市（保存后以后端返回为准）" />
-      <input v-model.trim="form.bio" class="field" maxlength="60" placeholder="个人简介（保存后以后端返回为准）" />
+      <input v-model.trim="form.nickname" class="field" maxlength="16" placeholder="昵称（保存后以平台返回为准）" />
+      <input v-model.trim="form.city" class="field" maxlength="24" placeholder="所在城市（保存后以平台返回为准）" />
+      <input v-model.trim="form.bio" class="field" maxlength="60" placeholder="个人简介（保存后以平台返回为准）" />
       <view class="role-row">
         <view v-for="item in roles" :key="item.value" class="role-chip tapable" :class="{ active: form.mainRole === item.value }" @click="chooseRole(item.value)">
           {{ item.label }}
@@ -27,7 +27,7 @@
 
     <view class="verify-card ds-card">
       <view class="section-title">认证状态</view>
-      <view v-if="!verifies.length" class="empty-text">认证状态以服务端资料为准，当前未展示本地认证样例。</view>
+      <view v-if="!verifies.length" class="empty-text">认证状态以平台资料为准，当前未展示页面认证默认内容。</view>
       <view v-for="item in verifies" :key="item.label" class="verify-row">
         <view>
           <view class="verify-title">{{ item.label }}</view>
@@ -48,7 +48,7 @@ const roles = [{ label: '买家', value: 'BUYER' }, { label: '卖家', value: 'S
 const form = reactive({ userId: 0, nickname: '', mainRole: 'UNVERIFIED', city: '', bio: '' })
 const message = ref('')
 const saving = ref(false)
-const loadMessage = ref('资料接口加载中，仅展示服务端返回的个人资料')
+const loadMessage = ref('资料接口加载中，仅展示平台返回的个人资料')
 const avatarText = computed(() => (form.nickname || '衣').slice(0, 1))
 const displayNickname = computed(() => form.nickname || '个人资料暂不可用')
 const verifies = computed<VerifyItem[]>(() => [])
@@ -57,7 +57,7 @@ function chooseRole(role: string) {
   if (role === form.mainRole) return
   if (!roles.some((item) => item.value === role)) { message.value = '角色值无效，未执行任何角色修改'; return }
   form.mainRole = role
-  message.value = '角色已暂存，需点击保存后才会同步服务端'
+  message.value = '角色已暂存，需点击保存后才会同步平台'
 }
 async function saveProfile() {
   if (saving.value) return
@@ -71,11 +71,11 @@ async function saveProfile() {
     form.mainRole = profile.mainRole || 'UNVERIFIED'
     form.city = profile.city || ''
     form.bio = profile.bio || ''
-    message.value = '资料已按服务端返回结果保存'
+    message.value = '资料已按平台返回结果保存'
     uni.showToast({ title: '资料已保存', icon: 'success' })
   } catch {
-    message.value = '资料保存失败，未展示本地成功状态'
-    uni.showToast({ title: '保存失败，未修改服务端资料', icon: 'none' })
+    message.value = '资料保存失败，未展示成功状态'
+    uni.showToast({ title: '保存失败，未修改平台资料', icon: 'none' })
   } finally {
     saving.value = false
   }
@@ -88,14 +88,14 @@ async function loadProfile() {
     form.mainRole = profile.mainRole || 'UNVERIFIED'
     form.city = profile.city || ''
     form.bio = profile.bio || ''
-    loadMessage.value = '已加载服务端个人资料；保存修改将提交到后端资料接口'
+    loadMessage.value = '已加载平台个人资料；保存修改将提交到平台资料接口'
   } catch {
     form.userId = 0
     form.nickname = ''
     form.mainRole = 'UNVERIFIED'
     form.city = ''
     form.bio = ''
-    loadMessage.value = '资料接口加载失败，未展示本地个人资料样例'
+    loadMessage.value = '资料接口加载失败，未展示默认个人资料'
   }
 }
 onMounted(loadProfile)

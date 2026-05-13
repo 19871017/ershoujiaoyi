@@ -5,8 +5,7 @@
       <view class="hero-top">
         <view>
           <view class="kicker">♡ 圈内人气榜</view>
-          <view class="page-title">男神女神榜</view>
-          <view class="page-desc">榜单数据来自后端 /api/user/rankings；没有返回真实互动热度时不展示本地榜单用户。</view>
+          <view class="page-desc">榜单数据来自平台 /api/user/rankings；没有返回真实互动热度时不展示默认榜单用户。</view>
         </view>
         <view class="crown">👑</view>
       </view>
@@ -53,7 +52,7 @@
       <view class="filter-head">
         <view>
           <view class="section-title">完整榜单</view>
-          <view class="section-desc">没有后端榜单数据时，本页保持空态；实名、信用、成交等信任指标必须由后端审计数据提供。</view>
+          <view class="section-desc">没有平台榜单数据时，本页保持空态；实名、信用、成交等信任指标必须由平台审计数据提供。</view>
         </view>
         <view class="city-chip">{{ cityFilter }}</view>
       </view>
@@ -61,8 +60,8 @@
 
     <view v-if="loadError" class="empty ds-card">
       <view class="empty-icon">📊</view>
-      <view class="section-title">榜单暂无后端数据，未展示本地预览榜单</view>
-      <view class="section-desc">{{ loadError }}；交易状态以服务端订单、支付和售后记录为准。</view>
+      <view class="section-title">榜单暂无平台数据，未展示默认榜单</view>
+      <view class="section-desc">{{ loadError }}；交易状态以平台订单、支付和售后记录为准。</view>
     </view>
 
     <view class="rank-list">
@@ -75,7 +74,7 @@
         <view class="user-main">
           <view class="name-row">
             <view class="user-name">{{ item.name }}</view>
-            <view class="verify">后端返回</view>
+            <view class="verify">平台返回</view>
           </view>
           <view class="user-desc">{{ item.bio }}</view>
           <view class="tag-row">
@@ -84,7 +83,7 @@
           <view class="metric-row">
             <text>人气 {{ item.popularity }}</text>
             <text>关注者 {{ item.guardian }}</text>
-            <text>后端数据</text>
+            <text>平台数据</text>
           </view>
         </view>
         <view class="user-actions">
@@ -98,7 +97,7 @@
       <view class="safe-icon">🛡️</view>
       <view>
         <view class="safe-title">榜单安全说明</view>
-        <view class="safe-desc">榜单只展示后端返回的互动热度，不展示静态实名、信用或成交指标；交易状态以服务端订单、支付和售后记录为准。</view>
+        <view class="safe-desc">榜单只展示平台返回的互动热度，不展示静态实名、信用或成交指标；交易状态以平台订单、支付和售后记录为准。</view>
       </view>
     </view>
   </view>
@@ -132,8 +131,8 @@ const loadError = ref('')
 const rankings = ref<RankingUser[]>([])
 const followingIds = ref<Set<number>>(new Set())
 const genderTabs = [
-  { value: 'goddess' as const, label: '女神榜', icon: '👑' },
-  { value: 'god' as const, label: '男神榜', icon: '✨' }
+  { value: 'goddess' as const, label: '女生', icon: '👑' },
+  { value: 'god' as const, label: '男生', icon: '✨' }
 ]
 const rankTypes = [
   { value: 'popular' as const, label: '人气榜' },
@@ -141,15 +140,15 @@ const rankTypes = [
   { value: 'guardian' as const, label: '守护榜' }
 ]
 const stats = computed(() => [
-  { value: `${rankings.value.length}`, label: '后端上榜用户' },
+  { value: `${rankings.value.length}`, label: '平台上榜用户' },
   { value: `${filteredRankings.value.length}`, label: '已加载条目' },
   { value: '0', label: '信任指标' }
 ])
-const currentTitle = computed(() => `${activeGender.value === 'goddess' ? '女神' : '男神'} · ${rankTypes.find((item) => item.value === activeType.value)?.label}`)
+const currentTitle = computed(() => `${activeGender.value === 'goddess' ? '女生' : '男生'} · ${rankTypes.find((item) => item.value === activeType.value)?.label}`)
 const currentDesc = computed(() => {
-  if (activeType.value === 'popular') return '展示后端返回的真实互动热度；暂无数据时保持空态'
-  if (activeType.value === 'deal') return '实名、信用、成交等信任指标必须由后端审计数据提供'
-  return '守护热度必须由后端互动与审核记录提供'
+  if (activeType.value === 'popular') return '展示平台返回的真实互动热度；暂无数据时保持空态'
+  if (activeType.value === 'deal') return '实名、信用、成交等信任指标必须由平台审计数据提供'
+  return '守护热度必须由平台互动与审核记录提供'
 })
 const filteredRankings = computed(() => {
   const list = rankings.value.filter((item) => item.gender === activeGender.value && (cityFilter.value === '全部' || item.city === cityFilter.value))
@@ -172,8 +171,8 @@ function toRankingUser(item: UserRankingResponse): RankingUser {
     rank: item.rank,
     gender: item.gender === 'god' ? 'god' : 'goddess',
     avatar: (item.nickname || '圈').slice(0, 1),
-    name: item.nickname || '后端用户',
-    bio: item.bio || '个人介绍以后端资料为准',
+    name: item.nickname || '平台用户',
+    bio: item.bio || '个人介绍以平台资料为准',
     city: item.city || '全部',
     tags: item.mainRole ? [`角色 ${item.mainRole}`] : [],
     popularity: item.popularityScore,
@@ -182,7 +181,7 @@ function toRankingUser(item: UserRankingResponse): RankingUser {
   }
 }
 async function toggleFollow(item: RankingUser) {
-  if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少后端用户编号，无法提交关注请求', icon: 'none' })
+  if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少平台用户编号，无法提交关注请求', icon: 'none' })
   if (followingIds.value.has(item.id)) return
   followingIds.value = new Set([...followingIds.value, item.id])
   try {
@@ -198,23 +197,23 @@ async function toggleFollow(item: RankingUser) {
   }
 }
 function chat(item: RankingUser) {
-  if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少后端用户编号，未进入会话', icon: 'none' })
+  if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少平台用户编号，未进入会话', icon: 'none' })
   uni.navigateTo({ url: `/pages/chat/conversation/index?receiverId=${item.id}` })
 }
 function openProfile(item: RankingUser) {
-  if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少后端用户编号，未打开主页', icon: 'none' })
+  if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少平台用户编号，未打开主页', icon: 'none' })
   uni.navigateTo({ url: `/pages/user/public-profile/index?userId=${item.id}` })
 }
-function showRule() { uni.showModal({ title: '榜单规则', content: '榜单只展示后端用户资料和关注计数；实名、信用分、成交数必须由后端审计数据提供，当前不在本页展示。', showCancel: false }) }
+function showRule() { uni.showModal({ title: '榜单规则', content: '榜单只展示平台用户资料和关注计数；实名、信用分、成交数必须由平台审计数据提供，当前不在本页展示。', showCancel: false }) }
 async function loadRankings() {
   try {
     loadError.value = ''
     const rows = await listUserRankings(activeGender.value, 20)
     rankings.value = rows.map(toRankingUser)
-    if (rankings.value.length === 0) loadError.value = '后端榜单暂无上榜用户，未展示本地预览榜单'
+    if (rankings.value.length === 0) loadError.value = '平台榜单暂无上榜用户，未展示默认榜单'
   } catch {
     rankings.value = []
-    loadError.value = '后端榜单加载失败，未展示本地预览榜单'
+    loadError.value = '平台榜单加载失败，未展示默认榜单'
   }
 }
 function readQuery() {

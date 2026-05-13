@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 支付方式</view>
         <view class="page-title">{{ title }}</view>
-        <view class="page-desc">当前通道尚未完成商户接入，不会在前端模拟支付成功。</view>
+        <view class="page-desc">当前通道尚未完成商户接入，不会在前端伪造支付成功。</view>
       </view>
       <view class="hero-icon">{{ icon }}</view>
     </view>
@@ -12,7 +12,7 @@
     <view class="status-card ds-card danger">
       <view class="section-title">通道未开通</view>
       <view class="status-line">{{ title }}暂不可用于当前订单支付</view>
-      <view class="desc">正式接入前必须由后端创建支付单、完成回调验签、订单状态机、退款和对账任务；前端不得保存商户号、密钥或伪造成功状态。</view>
+      <view class="desc">正式接入前必须由平台创建支付单、完成回调验签、订单状态机、退款和对账任务；前端不得保存商户号、密钥或伪造成功状态。</view>
     </view>
 
     <view class="order-card ds-card">
@@ -37,7 +37,7 @@ const method=ref<Method>('WECHAT')
 const orderNo=ref('')
 const title=computed(()=>method.value==='WECHAT'?'微信支付':'支付宝')
 const icon=computed(()=>method.value==='WECHAT'?'💚':'💙')
-const steps=['后端创建支付单并保存幂等号','前端只拉起官方收银台，不接触密钥','支付平台回调必须验签并防重放','订单、钱包、账本状态统一事务更新','退款、提现和对账单独审计']
+const steps=['平台创建支付单并保存幂等号','前端只拉起官方收银台，不接触密钥','支付平台回调必须验签并防重放','订单、钱包、账本状态统一事务更新','退款、提现和对账单独审计']
 function readQuery(){const pages=getCurrentPages(); const current=pages.length?pages[pages.length-1] as unknown as {options?:Record<string,string>}:undefined; const hash=typeof window!=='undefined'?new URLSearchParams(window.location.hash.split('?')[1]||''):undefined; const value=current?.options?.method||hash?.get('method'); method.value=value==='ALIPAY'?'ALIPAY':'WECHAT'; orderNo.value=current?.options?.orderNo||hash?.get('orderNo')||''}
 function isValidBackendOrderNo(value: string) { return /^[A-Z]{2,10}-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(value) }
 async function backToCheckout(){

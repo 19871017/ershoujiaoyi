@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 发布圈内动态</view>
         <view class="page-title">发一条穿搭/避坑分享</view>
-        <view class="page-desc">可以聊穿搭、交易经验、求购心愿；订单、支付和售后状态以服务端记录为准。</view>
+        <view class="page-desc">可以聊穿搭、交易经验、求购心愿；订单、支付和售后状态以平台记录为准。</view>
       </view>
       <view class="hero-icon">✎</view>
     </view>
@@ -51,10 +51,10 @@ import { reactive, ref } from 'vue'
 import { createCommunityPost } from '../../../api/modules/community'
 import { createMediaUploadTicket } from '../../../api/modules/media'
 
-const topics = ['穿搭交流', '闲置避坑', '交易经验', '求购心愿']
+const topics = ['生活日常', '闲置避坑', '交易经验', '求购心愿']
 const submitting = ref(false)
 const submitMessage = ref('')
-const form = reactive({ topic: '穿搭交流', title: '', content: '', images: [] as string[] })
+const form = reactive({ topic: '生活日常', title: '', content: '', images: [] as string[] })
 function chooseImages() {
   const remain = Math.max(1, 9 - form.images.length)
   uni.chooseImage({
@@ -77,7 +77,7 @@ function chooseImages() {
           issuedUrls.push(ticket.storageUrl)
         }
         form.images = [...form.images, ...issuedUrls].slice(0, 9)
-        uni.showToast({ title: `已生成上传票据 ${form.images.length} 张，提交发布后才会进入社区`, icon: 'none' })
+        uni.showToast({ title: `已生成上传票据 ${form.images.length} 张，提交发布后进入动态`, icon: 'none' })
       } catch (error) {
         uni.showToast({ title: error instanceof Error ? error.message : '图片上传票据创建失败', icon: 'none' })
       }
@@ -109,14 +109,14 @@ async function submitPost() {
     submitMessage.value = `已提交发布：${created.postNo || created.postId}`
     uni.showModal({
       title: '已提交发布',
-      content: '后端已创建社区动态；列表、详情、评论和点赞均以服务端记录为准。',
+      content: '平台已创建社区动态；列表、详情、评论和点赞均以平台记录为准。',
       showCancel: true,
       confirmText: '查看动态',
       cancelText: '继续编辑',
       success: (res) => { if (res.confirm && created.postId > 0) uni.navigateTo({ url: `/pages/community/detail/index?postId=${created.postId}` }) }
     })
   } catch (error) {
-    submitMessage.value = '发布没有提交成功，未进入社区广场'
+    submitMessage.value = '发布没有提交成功，未进入广场'
     uni.showToast({ title: error instanceof Error ? error.message : '发布失败，请稍后重试', icon: 'none' })
   } finally {
     submitting.value = false

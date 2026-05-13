@@ -15,43 +15,17 @@
       </swiper-item>
     </swiper>
 
-    <view class="community-card ds-card">
-      <view class="community-head">
-        <view class="forum-chip tapable" @click="openForum">进圈逛逛</view>
-      </view>
-      <view class="rank-row">
-        <view v-for="item in ranking" :key="item.title" class="rank-card tapable" @click="openRanking(item.tab)" :class="item.tone">
-          <view class="rank-portrait">
-            <image class="rank-img" :src="item.image" mode="aspectFill" />
-            <text class="rank-crown">{{ item.logo }}</text>
-          </view>
-          <view class="rank-info">
-            <view class="rank-title">{{ item.title }}</view>
-            <view class="rank-name">{{ item.name }}</view>
-            <view class="rank-score">{{ item.score }}</view>
-          </view>
-        </view>
-      </view>
-      <view class="forum-list">
-        <view v-for="item in forumTopics" :key="item.title" class="forum-item tapable" @click="openTopic(item)" >
-          <text class="forum-icon">{{ item.icon }}</text>
-          <text class="forum-title">{{ item.title }}</text>
-          <text class="forum-count">{{ item.count }}</text>
-        </view>
-      </view>
-    </view>
-
     <view class="section-head">
       <view>
         <view class="section-title">今日小原圈</view>
-        <view class="section-subtitle">{{ products.length }} 件后端在售宝贝</view>
+        <view class="section-subtitle">{{ products.length }} 件在售宝贝</view>
       </view>
       <view class="secondary-btn small tapable" @click="openSearch">搜宝贝</view>
     </view>
 
     <view v-if="loading" class="state ds-card">加载宝贝中...</view>
-    <view v-else-if="errorMessage" class="state ds-card muted">商品接口暂时不可用，未展示本地演示宝贝</view>
-    <view v-else-if="products.length === 0" class="state ds-card muted">暂未加载到后端在售宝贝</view>
+    <view v-else-if="errorMessage" class="state ds-card muted">商品暂时不可用</view>
+    <view v-else-if="products.length === 0" class="state ds-card muted">暂无在售宝贝</view>
 
     <view v-else class="product-ticker">
       <view class="product-track" :class="{ rolling: products.length > 5 }">
@@ -82,11 +56,6 @@ import { listProducts, type ProductListItemResponse } from '../../../api/modules
 type BannerAction = HomeBannerAction
 
 const banners = ref<HomeBannerResponse[]>([])
-
-const ranking: Array<{ logo: string; title: string; name: string; score: string; tone: string; tab: 'goddess' | 'god'; image: string }> = [
-  { logo: '👑', title: '女神榜', name: '樱桃汽水少女', score: '本周 128 人喜欢', tone: 'pink', tab: 'goddess', image: 'https://images.unsplash.com/photo-1614583225154-5fcdda07019e?auto=format&fit=crop&w=420&q=80' },
-  { logo: '⭐', title: '男神榜', name: '蓝调漫画少年', score: '本周 96 人喜欢', tone: 'blue', tab: 'god', image: 'https://images.unsplash.com/photo-1620428268482-cf1851a36764?auto=format&fit=crop&w=420&q=80' }
-]
 
 const forumTopics = [
   { icon: '🌷', title: '日常生活', count: '2.1k', id: 1 },
@@ -129,20 +98,19 @@ function goDetail(productId: number) { uni.navigateTo({ url: `/pages/product/det
 function goCloset() { uni.switchTab({ url: '/pages/tabbar/category/index' }) }
 function handleBanner(action: BannerAction) {
   if (action === 'closet') goCloset()
-  if (action === 'ranking') openRanking('goddess')
+  if (action === 'ranking') openForum()
   if (action === 'forum') openForum()
   if (action === 'search') openSearch()
 }
 function openSearch() { uni.navigateTo({ url: '/pages/search/result/index?keyword=%E5%BF%83%E7%88%B1%E4%B9%8B%E7%89%A9' }) }
 function openTopic(item: { id: number; title: string }) { uni.navigateTo({ url: `/pages/community/detail/index?postId=${item.id}&topic=${encodeURIComponent(item.title)}` }) }
-function openRanking(tab: 'goddess' | 'god') { uni.navigateTo({ url: `/pages/ranking/index?tab=${tab}` }) }
-function openForum() { uni.switchTab({ url: '/pages/tabbar/message/index' }); showToast('已进入社区') }
+function openForum() { uni.switchTab({ url: '/pages/tabbar/message/index' }); showToast('已进入') }
 function statusLabel(status: string) { return status === 'created' || status === 'ACTIVE' ? '在售' : status }
 function compactPrice(price: string) { return Number(price).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
 function iconFor(title: string) { if (title.includes('裙')) return '👗'; if (title.includes('鞋')) return '👠'; if (title.includes('袜')) return '🧦'; return '👜' }
 function tagFor(title: string) { if (title.includes('裙')) return '衣物'; if (title.includes('鞋')) return '鞋子'; if (title.includes('袜')) return '袜子'; return '小用品' }
 function toneClass(id: number) { return `tone-${id % 4}` }
-function distanceFor(id: number) { return ['服务端记录', '订单为准', '售后为准', '可邮寄'][id % 4] }
+function distanceFor(id: number) { return ['平台记录', '订单为准', '售后为准', '可邮寄'][id % 4] }
 onMounted(() => {
   loadBanners()
   loadProducts()
@@ -160,26 +128,6 @@ onMounted(() => {
 .banner-title { margin-top:12rpx; font-size:36rpx; line-height:1.13; font-weight:950; letter-spacing:-1rpx; text-shadow:0 5rpx 14rpx rgba(80,35,18,.18); }
 .banner-desc { margin-top:8rpx; width:92%; font-size:21rpx; line-height:1.35; font-weight:750; color:rgba(255,255,255,.88); }
 .banner-cta { margin-top:12rpx; display:inline-flex; padding:8rpx 18rpx; border-radius:999rpx; background:#fff; color:#ff6b3a; font-size:20rpx; font-weight:950; box-shadow:0 8rpx 18rpx rgba(80,35,18,.14); }
-.community-card { margin-top:16rpx; padding:16rpx; border-color:#ffd9bd; background:linear-gradient(180deg,#fff,#fffaf6); }
-.community-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12rpx; }
-.forum-chip { flex:none; padding:10rpx 16rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:20rpx; font-weight:950; box-shadow:0 6rpx 14rpx rgba(255,122,69,.16); }
-.rank-row { margin-top:14rpx; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10rpx; }
-.rank-card { position:relative; min-height:154rpx; padding:12rpx; border-radius:26rpx; display:flex; align-items:flex-end; gap:12rpx; overflow:hidden; border:1rpx solid rgba(255,217,189,.92); box-shadow:0 10rpx 22rpx rgba(90,50,28,.08); }
-.rank-card::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.82)); pointer-events:none; }
-.rank-card.pink { background:linear-gradient(135deg,#fff0f6,#ffc4dd 52%,#fff8e7); }
-.rank-card.blue { background:linear-gradient(135deg,#edf5ff,#b8d7ff 54%,#f3ecff); }
-.rank-portrait { position:relative; z-index:1; width:86rpx; height:112rpx; flex:none; border-radius:24rpx; overflow:hidden; background:#fff; box-shadow:0 10rpx 18rpx rgba(80,35,18,.14); border:3rpx solid rgba(255,255,255,.84); }
-.rank-img { width:100%; height:100%; }
-.rank-crown { position:absolute; right:-2rpx; top:-2rpx; width:34rpx; height:34rpx; border-radius:0 20rpx 0 18rpx; background:rgba(255,255,255,.92); display:flex; align-items:center; justify-content:center; font-size:19rpx; }
-.rank-info { position:relative; z-index:1; flex:1; min-width:0; padding-bottom:2rpx; }
-.rank-title { display:inline-flex; padding:5rpx 12rpx; border-radius:999rpx; background:rgba(255,255,255,.76); font-size:20rpx; font-weight:950; color:#3a2a1f; }
-.rank-name { margin-top:8rpx; font-size:23rpx; color:#4a3225; font-weight:950; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.rank-score { margin-top:5rpx; font-size:18rpx; color:#9a6a55; font-weight:800; }
-.forum-list { margin-top:12rpx; display:flex; gap:8rpx; overflow:hidden; }
-.forum-item { flex:1; min-width:0; min-height:62rpx; padding:8rpx 6rpx; border-radius:20rpx; background:#fff3e7; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2rpx; }
-.forum-icon { font-size:22rpx; }
-.forum-title { font-size:19rpx; color:#7b5542; font-weight:900; }
-.forum-count { font-size:17rpx; color:#b9856a; }
 .section-head { margin:22rpx 0 12rpx; display:flex; align-items:flex-end; justify-content:space-between; }
 .section-title { font-size:31rpx; font-weight:950; color:#3a2a1f; }
 .section-subtitle { margin-top:5rpx; color:#9b7560; font-size:21rpx; }

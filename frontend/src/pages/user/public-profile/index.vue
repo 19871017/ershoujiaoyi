@@ -22,7 +22,7 @@
         <view class="bio">{{ profile.videoVerified ? '已通过真人视频核验的小原圈卖家' : '小原圈用户，交易请以平台订单、支付和售后状态为准。' }}</view>
         <view class="tag-row">
           <text v-if="profile.videoVerified" class="tag">视频认证卖家</text>
-          <text class="tag neutral">交易请以服务端订单、支付和售后记录为准</text>
+          <text class="tag neutral">交易请以平台订单、支付和售后记录为准</text>
         </view>
       </view>
     </view>
@@ -43,7 +43,7 @@
     <view class="section-card ds-card">
       <view class="section-title">在售宝贝</view>
       <view v-if="productsError" class="empty-row">{{ productsError }}</view>
-      <view v-else-if="!products.length" class="empty-row">暂无后端公开在售商品，未展示本地商品样例</view>
+      <view v-else-if="!products.length" class="empty-row">暂无平台公开在售商品，未展示默认商品</view>
       <view v-for="item in products" :key="item.productId" class="product-row" @click="openProduct(item.productId)">
         <view class="product-cover">{{ item.coverImageUrl ? '图' : '无图' }}</view>
         <view class="product-main">
@@ -55,7 +55,7 @@
 
     <view class="safe-card ds-card">
       <view class="section-title">交易安全</view>
-      <view class="desc">视频认证仅代表平台完成真人核验；如涉及交易，请以平台订单、支付、售后状态和服务端聊天记录为准。</view>
+      <view class="desc">视频认证仅代表平台完成真人核验；如涉及交易，请以平台订单、支付、售后状态和平台聊天记录为准。</view>
     </view>
   </view>
 </template>
@@ -75,14 +75,14 @@ const products = computed(() => sellerProducts.value)
 function readQuery(){const pages=getCurrentPages(); const current=pages.length?pages[pages.length-1] as unknown as {options?:Record<string,string>}:undefined; const hash=typeof window!=='undefined'?new URLSearchParams(window.location.hash.split('?')[1]||''):undefined; userId.value=current?.options?.userId||hash?.get('userId')||userId.value}
 function isValidBackendUserId(value: string) { return /^[1-9]\d*$/.test(value) }
 async function loadProfile(){
-  if (!isValidBackendUserId(userId.value)) { loadError.value = '卖家数据暂时不可用，未展示本地卖家样例'; sellerProducts.value = []; productsError.value = '缺少有效卖家编号，未展示本地商品样例'; return }
+  if (!isValidBackendUserId(userId.value)) { loadError.value = '卖家数据暂时不可用，未展示默认卖家'; sellerProducts.value = []; productsError.value = '缺少有效卖家编号，未展示默认商品'; return }
   try{const data=await getPublicProfile(userId.value); Object.assign(profile,data); loadError.value = ''}
-  catch(e){loadError.value = '卖家数据暂时不可用，未展示本地卖家样例'; uni.showToast({title:'卖家资料暂时不可用',icon:'none'})}
+  catch(e){loadError.value = '卖家数据暂时不可用，未展示默认卖家'; uni.showToast({title:'卖家资料暂时不可用',icon:'none'})}
 }
 async function loadSellerProducts(){
-  if (!isValidBackendUserId(userId.value)) { sellerProducts.value = []; productsError.value = '缺少有效卖家编号，未展示本地商品样例'; return }
+  if (!isValidBackendUserId(userId.value)) { sellerProducts.value = []; productsError.value = '缺少有效卖家编号，未展示默认商品'; return }
   try { sellerProducts.value = await listSellerProducts(userId.value); productsError.value = '' }
-  catch { sellerProducts.value = []; productsError.value = '卖家商品加载失败，未展示本地商品样例' }
+  catch { sellerProducts.value = []; productsError.value = '卖家商品加载失败，未展示默认商品' }
 }
 async function toggleFollow(){
   if (!isValidBackendUserId(userId.value)) { uni.showToast({title:'缺少真实用户ID，未执行任何关注变更',icon:'none'}); return }
@@ -94,12 +94,12 @@ async function toggleFollow(){
     Object.assign(profile, data)
     uni.showToast({title: wasFollowing ? '已取消关注' : '关注状态已同步',icon:'none'})
   }
-  catch { uni.showToast({title: wasFollowing ? '取消关注没有提交成功，未执行本地关注变更' : '关注没有提交成功，未执行本地关注变更',icon:'none'}) }
+  catch { uni.showToast({title: wasFollowing ? '取消关注没有提交成功，未执行关注变更' : '关注没有提交成功，未执行关注变更',icon:'none'}) }
 }
 function chat(){const validUserId = isValidBackendUserId(userId.value); if(!validUserId){uni.showToast({title:'缺少真实用户ID，未进入私信',icon:'none'});return} uni.navigateTo({url:`/pages/chat/conversation/index?receiverId=${userId.value}`})}
 function openGift(){const validUserId = isValidBackendUserId(userId.value); if(!validUserId){uni.showToast({title:'缺少真实用户ID，未进入送礼',icon:'none'});return} uni.navigateTo({url:`/pages/gift/index?mode=send&receiverId=${userId.value}&sceneType=PROFILE&sceneId=${userId.value}`})}
 function report(){const validUserId = isValidBackendUserId(userId.value); if(!validUserId){uni.showToast({title:'缺少真实用户ID，未进入举报',icon:'none'});return} uni.navigateTo({url:`/pages/report/submit/index?targetType=USER&targetId=${userId.value}`})}
-function openProduct(productId:number){ if(!productId || productId <= 0){uni.showToast({title:'缺少后端商品编号，未打开商品详情',icon:'none'});return} uni.navigateTo({url:`/pages/product/detail/index?productId=${productId}`}) }
+function openProduct(productId:number){ if(!productId || productId <= 0){uni.showToast({title:'缺少平台商品编号，未打开商品详情',icon:'none'});return} uni.navigateTo({url:`/pages/product/detail/index?productId=${productId}`}) }
 onMounted(()=>{readQuery(); loadProfile(); loadSellerProducts()})
 </script>
 <style scoped>

@@ -4,14 +4,14 @@
       <view>
         <view class="kicker">♡ 售后进度</view>
         <view class="page-title">售后详情</view>
-        <view class="page-desc">{{ detail ? `售后单 ${detail.afterSalesNo}` : '正在读取服务端售后记录' }}</view>
+        <view class="page-desc">{{ detail ? `售后单 ${detail.afterSalesNo}` : '正在读取平台售后记录' }}</view>
       </view>
       <view class="hero-icon">🛡️</view>
     </view>
 
     <view v-if="loading" class="status-card ds-card">
       <view class="status-icon">⌛</view>
-      <view><view class="status-title">正在加载</view><view class="status-desc">正在从服务端读取售后记录。</view></view>
+      <view><view class="status-title">正在加载</view><view class="status-desc">正在从平台读取售后记录。</view></view>
     </view>
 
     <view v-else-if="errorText" class="status-card ds-card danger">
@@ -68,7 +68,7 @@ const detail = ref<AfterSalesResponse | null>(null)
 const steps = computed(() => {
   if (!detail.value) return []
   return [
-    { title: '售后申请已提交', desc: '系统已记录退款原因、金额和已提交票据；售后处理以服务端订单、支付、物流、聊天记录和票据记录为准。', time: detail.value.createdAt || '已提交' },
+    { title: '售后申请已提交', desc: '系统已记录退款原因、金额和已提交票据；售后处理以平台订单、支付、物流、聊天记录和票据记录为准。', time: detail.value.createdAt || '已提交' },
     { title: statusText(detail.value.status), desc: statusDesc(detail.value.status), time: detail.value.status === 'PENDING_REVIEW' ? '等待处理' : '已更新' }
   ]
 })
@@ -93,7 +93,7 @@ async function loadDetail() {
   finally { loading.value = false }
 }
 function statusText(status: AfterSalesStatus) { const map: Record<AfterSalesStatus,string> = { PENDING_REVIEW:'售后处理中', APPROVED:'售后已通过', REJECTED:'售后已驳回', CANCELLED:'售后已取消' }; return map[status] || status }
-function statusDesc(status: AfterSalesStatus) { if (status === 'PENDING_REVIEW') return '处理进度以服务端订单、支付、物流、聊天记录和已提交票据为准。'; if (status === 'APPROVED') return '售后申请已通过，请按服务端处理结果继续操作。'; if (status === 'REJECTED') return '售后申请已驳回，可补充材料后再沟通。'; return '该售后单已取消。' }
+function statusDesc(status: AfterSalesStatus) { if (status === 'PENDING_REVIEW') return '处理进度以平台订单、支付、物流、聊天记录和已提交票据为准。'; if (status === 'APPROVED') return '售后申请已通过，请按平台处理结果继续操作。'; if (status === 'REJECTED') return '售后申请已驳回，可补充材料后再沟通。'; return '该售后单已取消。' }
 function typeText(type: string) { const map: Record<string,string> = { REFUND_ONLY:'仅退款', RETURN_REFUND:'退货退款', PLATFORM_ARBITRATION:'售后协调' }; return map[type] || type }
 function contactSeller() {
   if (!detail.value) return

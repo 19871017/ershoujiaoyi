@@ -13,8 +13,8 @@
       <view class="section-title">图片与交易</view>
       <view class="image-row"><view v-for="img in images" :key="img" class="image-box"><text>图</text><view class="remove tapable" @click="removeImage(img)">×</view></view><view v-if="images.length < 9" class="image-box add tapable" @click="chooseImage">＋</view></view>
       <input v-model.trim="form.city" class="field" placeholder="城市" />
-      <view class="rule"><switch :checked="form.serverTradeOnly" @change="toggleTradePreference('serverTradeOnly')" /> <text>交易方式以服务端订单与支付状态为准</text></view>
-      <view class="rule"><switch :checked="form.serverChatRecord" @change="toggleTradePreference('serverChatRecord')" /> <text>聊天记录以服务端会话为准</text></view>
+      <view class="rule"><switch :checked="form.serverTradeOnly" @change="toggleTradePreference('serverTradeOnly')" /> <text>交易方式以平台订单与支付状态为准</text></view>
+      <view class="rule"><switch :checked="form.serverChatRecord" @change="toggleTradePreference('serverChatRecord')" /> <text>聊天记录以平台会话为准</text></view>
     </view>
     <view v-if="loadError" class="fail-card">{{ loadError }}</view>
     <button class="primary-btn" :disabled="saving || !backendProductId" @click="save">{{ saving ? '提交中...' : '提交修改审核' }}</button>
@@ -37,9 +37,9 @@ function isValidBackendProductId(value: string) { return /^\d+$/.test(value) && 
 function readQuery(){const pages=getCurrentPages(); const current=pages.length?pages[pages.length-1] as unknown as {options?:Record<string,string>}:undefined; const hash=typeof window!=='undefined'?new URLSearchParams(window.location.hash.split('?')[1]||''):undefined; productId.value=current?.options?.productId||hash?.get('productId')||productId.value}
 async function loadDetail(){
   loadError.value = ''
-  if (!backendProductId.value) { loadError.value = '缺少有效商品编号，未加载本地样例商品'; return }
+  if (!backendProductId.value) { loadError.value = '缺少有效商品编号，未加载默认内容商品'; return }
   try { const detail = await getProductDetail(backendProductId.value); form.title = detail.title; form.description = detail.description || ''; form.price = String(detail.price); images.value = detail.imageUrls || [] }
-  catch { form.title=''; form.description=''; form.price=''; images.value=[]; loadError.value = '商品详情加载失败，未展示本地样例商品' }
+  catch { form.title=''; form.description=''; form.price=''; images.value=[]; loadError.value = '商品详情加载失败，未展示默认内容商品' }
 }
 function chooseImage(){
   const remain = Math.max(1, 9 - images.value.length)
@@ -58,7 +58,7 @@ function chooseImage(){
 }
 function removeImage(url:string){ images.value = images.value.filter(item => item !== url); uni.showToast({ title:'商品图片移除需提交修改审核后生效', icon:'none' }) }
 // product edit media/trade controls are read-only until backend update contract supports them
-function toggleTradePreference(_field: 'serverTradeOnly' | 'serverChatRecord') { uni.showToast({ title:'交易展示项暂未接入后端状态，未执行任何变更', icon:'none' }) }
+function toggleTradePreference(_field: 'serverTradeOnly' | 'serverChatRecord') { uni.showToast({ title:'交易展示项暂未接入平台状态，未执行任何变更', icon:'none' }) }
 function fileNameFromPath(path: string) { const clean = path.split('?')[0] || ''; const last = clean.split('/').pop() || 'product-image.jpg'; return last.includes('.') ? last : `${last}.jpg` }
 function imageContentType(path: string) { const lower = path.toLowerCase(); if (lower.endsWith('.png')) return 'image/png'; if (lower.endsWith('.webp')) return 'image/webp'; return 'image/jpeg' }
 function validate(){ if(!form.title || !form.price) return '请补全标题和价格'; if(Number(form.price)<=0) return '价格需大于0'; if(images.value.some(url => url.startsWith('local://') || url.includes('placeholder') || !url.startsWith('/uploads/product-image/'))) return '图片需先完成平台上传票据校验'; return '' }
@@ -67,7 +67,7 @@ async function save(){
   const message = validate(); if(message) return uni.showToast({title:message,icon:'none'})
   saving.value=true
   try { await updateProduct(backendProductId.value, { title:form.title, description:form.description, price:form.price, imageUrls:images.value }); uni.showModal({title:'已提交审核',content:'商品修改已保存，重新进入平台审核，通过后再公开展示。',showCancel:false,success:()=>uni.navigateTo({url:`/pages/product/detail/index?productId=${backendProductId.value}`})}) }
-  catch(error){ uni.showToast({ title:error instanceof Error ? error.message : '商品修改保存失败，保存失败时不会展示本地成功状态', icon:'none' }) }
+  catch(error){ uni.showToast({ title:error instanceof Error ? error.message : '商品修改保存失败，保存失败时不会展示成功状态', icon:'none' }) }
   finally { saving.value=false }
 }
 onMounted(()=>{readQuery(); void loadDetail()})

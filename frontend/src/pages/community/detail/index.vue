@@ -34,7 +34,7 @@
 
     <view class="comment-card ds-card">
       <view class="section-title">评论互动</view>
-      <view v-if="!comments.length" class="comment-empty">暂无后端评论</view>
+      <view v-if="!comments.length" class="comment-empty">暂无平台评论</view>
       <view v-for="item in comments" :key="item.id" class="comment-row">
         <view class="comment-avatar">{{ item.avatar }}</view>
         <view class="comment-main">
@@ -78,10 +78,10 @@ const relatedProductPrice = ref<string | number | null>(null)
 const errorText = ref('')
 const comments = reactive<CommentItem[]>([])
 
-const productTitle = computed(() => productId.value ? `关联商品：${relatedProductTitle.value || '后端商品'}` : '该动态没有关联商品')
+const productTitle = computed(() => productId.value ? `关联商品：${relatedProductTitle.value || '平台商品'}` : '该动态没有关联商品')
 const productDesc = computed(() => {
-  if (!productId.value) return '关联商品必须由动态详情接口返回，当前不打开本地样例商品'
-  const price = relatedProductPrice.value === null || relatedProductPrice.value === undefined || relatedProductPrice.value === '' ? '价格以后端为准' : `¥${relatedProductPrice.value}`
+  if (!productId.value) return '关联商品必须由动态详情接口返回，当前不打开默认内容商品'
+  const price = relatedProductPrice.value === null || relatedProductPrice.value === undefined || relatedProductPrice.value === '' ? '价格以平台为准' : `¥${relatedProductPrice.value}`
   return `商品编号 ${productId.value} · ${price}`
 })
 
@@ -98,7 +98,7 @@ function isValidCommunityPostId(value: string) { return /^[1-9]\d{0,18}$/.test(v
 function isValidBackendUserId(value: number | null) { return typeof value === 'number' && Number.isInteger(value) && value > 0 }
 async function loadDetail() {
   if (!isValidCommunityPostId(postId.value)) {
-    errorText.value = '缺少有效动态编号，动态详情接口未加载，未展示本地样例'
+    errorText.value = '缺少有效动态编号，动态详情接口未加载，未展示默认内容'
     return
   }
   const numericPostId = Number(postId.value)
@@ -116,7 +116,7 @@ async function loadDetail() {
     cityText.value = detail.city || '城市未公开'
     createdText.value = formatDateTime(detail.createdAt)
     productId.value = detail.relatedProductId || null
-    relatedProductTitle.value = detail.relatedProductTitle || '后端商品'
+    relatedProductTitle.value = detail.relatedProductTitle || '平台商品'
     relatedProductPrice.value = detail.relatedProductPrice ?? null
     comments.splice(0, comments.length, ...(detail.comments || []).map((item) => ({
       id: item.commentNo,
@@ -126,7 +126,7 @@ async function loadDetail() {
     })))
     await hydrateAuthorFollowState()
   } catch {
-    errorText.value = '动态详情加载失败，未展示静态作者、评论或关联商品样例'
+    errorText.value = '动态详情加载失败，未展示静态作者、评论或关联商品默认内容'
   }
 }
 async function hydrateAuthorFollowState() {
@@ -163,14 +163,14 @@ async function sendComment() {
 }
 function openProduct() {
   if (!productId.value) {
-    uni.showToast({ title: '缺少关联商品，未打开本地样例商品', icon: 'none' })
+    uni.showToast({ title: '缺少关联商品，未打开默认内容商品', icon: 'none' })
     return
   }
   uni.navigateTo({ url: `/pages/product/detail/index?productId=${productId.value}` })
 }
 async function toggleAuthorFollow() {
   if (!isValidBackendUserId(authorId.value)) {
-    uni.showToast({ title: '缺少后端作者ID，未执行任何关注变更', icon: 'none' })
+    uni.showToast({ title: '缺少平台作者ID，未执行任何关注变更', icon: 'none' })
     return
   }
   const safeAuthorId = Number(authorId.value)
@@ -178,9 +178,9 @@ async function toggleAuthorFollow() {
   try {
     const updated = wasFollowing ? await unfollowPublicProfile(safeAuthorId) : await followPublicProfile(safeAuthorId)
     authorFollowed.value = Boolean(updated.followedByMe)
-    uni.showToast({ title: wasFollowing ? '已按后端记录取消关注' : '关注状态已同步后端', icon: 'none' })
+    uni.showToast({ title: wasFollowing ? '已按平台记录取消关注' : '关注状态已同步平台', icon: 'none' })
   } catch {
-    uni.showToast({ title: '关注状态没有提交成功，未执行本地关注变更', icon: 'none' })
+    uni.showToast({ title: '关注状态没有提交成功，未执行关注变更', icon: 'none' })
   }
 }
 async function likePost() {

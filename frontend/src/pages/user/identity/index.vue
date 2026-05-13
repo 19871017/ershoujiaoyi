@@ -38,7 +38,7 @@
         <view class="upload-icon">＋</view>
         <view>
           <view class="upload-title">实名认证凭证上传接口尚未接入</view>
-          <view class="upload-desc">当前仅保留本地表单校验；不会生成本地凭证数量，也不会提交正式实名审核。</view>
+          <view class="upload-desc">当前仅保留表单校验；不会生成凭证数量，也不会提交正式实名审核。</view>
         </view>
       </view>
       <button class="primary-btn" @click="submit">校验实名认证草稿</button>
@@ -67,7 +67,7 @@ const videoStatusClass = computed(() => profile.videoVerified ? 'approved' : pro
 function choose() {
   uni.showModal({
     title: '实名认证接口尚未接入',
-    content: '证件类实名资料需要独立的服务端上传票据和审核接口；当前未生成本地凭证数量，未提交正式实名审核。',
+    content: '证件类实名资料需要独立的平台上传票据和审核接口；当前未生成凭证数量，未提交正式实名审核。',
     showCancel: false
   })
 }
@@ -133,7 +133,7 @@ async function submitVideo() {
     await loadProfile()
     uni.showModal({
       title: '视频认证已提交',
-      content: '资料已由后端接收，当前认证状态已重新读取服务端资料；通过后，其他用户可在你的个人主页顶部看到“视频认证卖家”。',
+      content: '资料已由平台接收，当前认证状态已重新读取平台资料；通过后，其他用户可在你的个人主页顶部看到“视频认证卖家”。',
       showCancel: false,
       success: () => uni.navigateTo({ url: '/pages/notification/index' })
     })
@@ -149,7 +149,7 @@ function submit() {
   if (!/^\d{4}$/.test(form.idTail)) return uni.showToast({ title: '请填写证件号码后四位', icon: 'none' })
   uni.showModal({
     title: '实名认证接口尚未接入',
-    content: '实名认证草稿已通过本地格式校验，但不会保存实名资料、不会进入审核队列，也不会更新提现资格或认证标识。',
+    content: '实名认证草稿已通过格式校验，但不会保存实名资料、不会进入审核队列，也不会更新提现资格或认证标识。',
     showCancel: false
   })
 }

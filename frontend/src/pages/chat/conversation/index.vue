@@ -4,7 +4,7 @@
       <view class="peer-avatar">{{ peerAvatar }}</view>
       <view class="peer-main">
         <view class="peer-name">{{ peerName }}</view>
-        <view class="peer-status">聊天记录以服务端会话为准</view>
+        <view class="peer-status">聊天记录以平台会话为准</view>
       </view>
       <view class="report tapable" @click="reportConversation">举报</view>
     </view>
@@ -13,7 +13,7 @@
       <view class="goods-icon">💬</view>
       <view class="goods-main">
         <view class="goods-title">聊天留痕</view>
-        <view class="goods-desc">仅同步真实会话消息；缺少会话或接口失败时不会展示演示聊天。如涉及交易，请以平台订单、支付和售后状态为准。</view>
+        <view class="goods-desc">仅同步真实会话消息；缺少会话或接口失败时不会展示聊天内容。如涉及交易，请以平台订单、支付和售后状态为准。</view>
       </view>
     </view>
 
@@ -62,7 +62,7 @@ const receiverId = ref<number | undefined>()
 const messages = ref<ChatMessageItem[]>([])
 const nextAfterSeq = ref(0)
 const hasMore = ref(false)
-const peerName = ref('聊天用户以服务端会话为准')
+const peerName = ref('聊天用户以平台会话为准')
 const peerAvatar = computed(() => peerName.value.slice(0, 1))
 
 async function loadCurrentUser() {
@@ -103,7 +103,7 @@ async function loadMoreMessages() {
     await markConversationDelivered(conversationId.value)
     statusText.value = response.hasMore ? '已补拉部分消息，可继续补拉' : '消息已同步'
   } catch {
-    statusText.value = '消息服务未连接，不能展示或发送演示聊天'
+    statusText.value = '消息服务未连接，不能展示或发送聊天内容'
   } finally {
     loadingMessages.value = false
   }
@@ -141,7 +141,7 @@ function sendImagePlaceholder() {
 }
 async function handleSendImage(localPath: string) {
   if (!localPath || localPath.startsWith('local://') || localPath.includes('placeholder')) {
-    statusText.value = '聊天图片票据需使用有效本地选择文件'
+    statusText.value = '聊天图片票据需使用有效选择文件'
     return
   }
   sending.value = true

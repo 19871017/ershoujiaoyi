@@ -1,10 +1,10 @@
 <template>
   <view class="page-shell notice-page">
-    <view class="hero ds-card"><view><view class="kicker">♡ 消息通知</view><view class="page-title">通知中心</view><view class="page-desc">订单、私信、审核、举报处理结果统一查看；通知内容和已读状态以服务端记录为准。</view></view><view class="hero-icon">🔔</view></view>
+    <view class="hero ds-card"><view><view class="kicker">♡ 消息通知</view><view class="page-title">通知中心</view><view class="page-desc">订单、私信、审核、举报处理结果统一查看；通知内容和已读状态以平台记录为准。</view></view><view class="hero-icon">🔔</view></view>
     <view class="tab-row"><view v-for="item in tabs" :key="item.value" class="chip tapable" :class="{ active: active === item.value }" @click="switchTab(item.value)">{{ item.label }}</view></view>
     <view v-if="loading" class="empty-card ds-card">通知加载中...</view>
     <view v-else-if="loadError" class="empty-card ds-card">{{ loadError }}</view>
-    <view v-else-if="filtered.length === 0" class="empty-card ds-card">暂无后端通知</view>
+    <view v-else-if="filtered.length === 0" class="empty-card ds-card">暂无平台通知</view>
     <view v-else class="notice-list">
       <view v-for="item in filtered" :key="item.notificationNo" class="notice-card ds-card tapable" @click="openNotice(item)">
         <view class="notice-icon">{{ iconFor(item.type) }}</view>
@@ -31,7 +31,7 @@ async function loadNotifications() {
     notices.value = await listNotifications(active.value)
   } catch {
     notices.value = []
-    loadError.value = '通知接口加载失败，未展示任何本地样例消息'
+    loadError.value = '通知接口加载失败，未展示任何默认内容消息'
   } finally { loading.value = false }
 }
 function switchTab(type: NoticeType) {
@@ -54,7 +54,7 @@ async function openNotice(item: NotificationItemResponse){
     const read = await markNotificationRead(item.notificationNo)
     notices.value = notices.value.map((notice) => notice.notificationNo === read.notificationNo ? read : notice)
   } catch {
-    uni.showToast({ title: '后端已读接口调用失败，未执行本地已读变更', icon: 'none' })
+    uni.showToast({ title: '平台已读接口调用失败，未执行已读变更', icon: 'none' })
     return
   }
   if (item.targetUrl && isSafeNotificationTargetUrl(item.targetUrl)) {

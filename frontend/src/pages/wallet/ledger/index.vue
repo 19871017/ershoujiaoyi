@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 钱包账本</view>
         <view class="page-title">全部流水</view>
-        <view class="page-desc">收入、支出、冻结、退款和礼物分账统一记录，流水数据以服务端账本为准。</view>
+        <view class="page-desc">收入、支出、冻结、退款和礼物分账统一记录，流水数据以平台账本为准。</view>
       </view>
       <view class="hero-icon">📒</view>
     </view>
@@ -40,7 +40,7 @@ async function loadLedger() {
     ledgerList.value = await getWalletLedger()
   } catch {
     ledgerList.value = []
-    loadMessage.value = '流水加载失败，未展示本地账本样例'
+    loadMessage.value = '流水加载失败，未展示默认账本'
   } finally {
     loading.value = false
   }

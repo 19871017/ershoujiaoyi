@@ -27,14 +27,10 @@
     <view v-if="activeTab === 'recharge'" class="action-card ds-card">
       <view class="section-title">充值</view>
       <view class="section-desc">{{ rechargeDesc }}</view>
-      <view v-if="isDevMode" class="dev-guard">开发模式：可创建充值单并手动模拟入账；生产构建不会显示模拟入账按钮。</view>
-      <view v-else class="dev-guard danger">生产模式：仅允许创建待支付充值单，等待正式支付通道回调，不提供前端模拟入账。</view>
+      <view class="safe-guard">充值单创建后请按安全收银台流程完成支付。</view>
       <input v-model="rechargeForm.amount" class="field" type="digit" placeholder="请输入充值金额" />
       <button class="primary-btn" :disabled="recharging" @click="handleCreateRecharge">
         {{ recharging ? '创建中...' : '创建充值单' }}
-      </button>
-      <button v-if="isDevMode && lastRecharge && lastRecharge.status === 'PENDING'" class="secondary-btn" :disabled="simulating" @click="handleSimulateSuccess">
-        {{ simulating ? '入账中...' : devManualRechargeLabel }}
       </button>
       <view v-if="lastRecharge" class="result-box">
         <view class="result-row"><text>充值单号</text><text>{{ lastRecharge.rechargeNo }}</text></view>
@@ -48,8 +44,8 @@
     <view v-if="activeTab === 'withdraw'" class="action-card ds-card">
       <view class="section-title">提现申请</view>
       <view class="section-desc">提交后立即冻结可提现余额；审核通过会从冻结资金出款，拒绝会原路解冻。</view>
-      <view class="dev-guard">资金动作均以后端账本为准：冻结、出款、解冻都会写入幂等流水。</view>
-      <view class="dev-guard danger">提现页不采集完整收款账号；仅使用后端返回的提现账户引用提交审核。</view>
+      <view class="safe-guard">资金动作均以平台账本为准：冻结、出款、解冻都会写入幂等流水。</view>
+      <view class="safe-guard danger">提现页不采集完整收款账号；仅使用平台返回的提现账户引用提交审核。</view>
       <input v-model.trim="withdrawForm.amount" class="field" type="digit" placeholder="提现金额" />
       <button class="secondary-btn" @click="openPayoutAccount">管理提现账户</button>
       <view v-if="maskedAccountNo" class="result-box">
@@ -98,7 +94,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { createRecharge, isDevRuntimeEnabled, simulateRechargeSuccess, type RechargeResponse, type RechargeStatus } from '../../api/modules/payment'
+import { createRecharge, type RechargeResponse, type RechargeStatus } from '../../api/modules/payment'
 import { createWithdrawal, getPayoutAccount, getWalletBalance, getWalletLedger, type PayoutAccountResponse, type WalletBalanceResponse, type WalletLedgerDirection, type WalletLedgerItemResponse } from '../../api/modules/wallet'
 
 const emptyBalance: WalletBalanceResponse = { rechargeBalance: '--', incomeBalance: '--', frozenBalance: '--', withdrawableBalance: '--' }
@@ -107,10 +103,8 @@ const activeTab = ref<'recharge' | 'withdraw'>('recharge')
 const balance = reactive<WalletBalanceResponse>({ ...emptyBalance })
 const loading = ref(false)
 const statusText = ref('')
-const isDevMode = isDevRuntimeEnabled()
-const rechargeForm = reactive({ amount: '', channel: isDevMode ? 'MOCK' : 'ONLINE' })
+const rechargeForm = reactive({ amount: '', channel: 'ONLINE' })
 const recharging = ref(false)
-const simulating = ref(false)
 const rechargeMessage = ref('')
 const lastRecharge = ref<RechargeResponse | null>(null)
 const withdrawForm = reactive({ amount: '', remark: '' })
@@ -123,8 +117,7 @@ const ledgerLoading = ref(false)
 const ledgerMessage = ref('')
 const recentLedgers = computed(() => ledgerList.value.slice(0, 8))
 const totalAvailable = computed(() => money(Number(balance.rechargeBalance || 0) + Number(balance.incomeBalance || 0)))
-const rechargeDesc = computed(() => isDevMode ? '开发预览：充值单创建后可通过受保护接口模拟入账。' : '生产构建：充值单只会进入待支付，必须等待真实支付网关回调入账。')
-const devManualRechargeLabel = computed(() => ['开发', '手动', '入账'].join(''))
+const rechargeDesc = computed(() => '充值单创建后进入待支付，请等待正式支付通道回调入账。')
 
 async function refreshAll() { await Promise.all([loadBalance(), loadLedger(), loadPayoutAccount()]) }
 async function loadBalance() {
@@ -171,26 +164,17 @@ async function handleCreateRecharge() {
   catch { rechargeMessage.value = '充值单创建失败' }
   finally { recharging.value = false }
 }
-async function handleSimulateSuccess() {
-  if (!isDevMode) { rechargeMessage.value = '生产构建已关闭手动入账'; return }
-  if (!lastRecharge.value) { rechargeMessage.value = '请先创建充值单'; return }
-  simulating.value = true
-  rechargeMessage.value = ''
-  try { lastRecharge.value = await simulateRechargeSuccess(lastRecharge.value.rechargeNo); rechargeMessage.value = `模拟充值成功，状态：${statusLabel(lastRecharge.value.status)}`; await refreshAll() }
-  catch { rechargeMessage.value = '模拟充值失败' }
-  finally { simulating.value = false }
-}
 async function handleCreateWithdrawal() {
   const amount = normalizeAmount(withdrawForm.amount)
   if (!isValidMoneyAmount(amount)) { withdrawMessage.value = '请输入有效提现金额'; return }
-  if (!activePayoutAccount.value?.payoutAccountId) { withdrawMessage.value = '请先在账户管理页完成后端提现账户绑定；未执行资金冻结'; return }
+  if (!activePayoutAccount.value?.payoutAccountId) { withdrawMessage.value = '请先在账户管理页完成平台提现账户绑定；未执行资金冻结'; return }
   withdrawing.value = true
   withdrawMessage.value = ''
   try {
     const withdrawal = await createWithdrawal({ amount, payoutAccountId: activePayoutAccount.value.payoutAccountId, remark: withdrawForm.remark })
-    withdrawMessage.value = `提现已提交审核：${withdrawal.withdrawalNo}，冻结状态以后端账本为准`
+    withdrawMessage.value = `提现已提交审核：${withdrawal.withdrawalNo}，冻结状态以平台账本为准`
     await refreshAll()
-  } catch { withdrawMessage.value = '提现提交失败：未执行本地资金状态变更，请确认账户绑定、余额和后端审核接口。' }
+  } catch { withdrawMessage.value = '提现提交失败：未执行资金状态变更，请确认账户绑定、余额和平台审核接口。' }
   finally { withdrawing.value = false }
 }
 onMounted(() => { void refreshAll() })
@@ -216,8 +200,8 @@ onMounted(() => { void refreshAll() })
 .field { box-sizing:border-box; width:100%; margin-top:18rpx; padding:20rpx; border-radius:20rpx; background:#fffaf6; border:1rpx solid #ffd9bd; color:#3a2a1f; font-size:27rpx; }
 .method-row { margin-top:18rpx; display:flex; gap:12rpx; }
 .primary-btn,.secondary-btn { margin-top:20rpx; border-radius:999rpx; font-size:26rpx; font-weight:950; }
-.dev-guard { margin-top:14rpx; padding:14rpx; border-radius:20rpx; background:#fff3e7; border:1rpx solid #ffd9bd; color:#9b5a32; font-size:22rpx; line-height:1.45; font-weight:850; }
-.dev-guard.danger { background:#fff7f7; border-color:#fecaca; color:#dc2626; }
+.safe-guard { margin-top:14rpx; padding:14rpx; border-radius:20rpx; background:#fff3e7; border:1rpx solid #ffd9bd; color:#9b5a32; font-size:22rpx; line-height:1.45; font-weight:850; }
+.safe-guard.danger { background:#fff7f7; border-color:#fecaca; color:#dc2626; }
 .primary-btn { color:#fff; background:#ff7a45; }
 .secondary-btn { color:#ff7a45; background:#fff3e7; }
 .result-box { margin-top:18rpx; padding:16rpx; border-radius:20rpx; background:#fffaf6; }

@@ -16,7 +16,7 @@ export function resolveOrderContactTarget(
   order: OrderContactSource,
   action: OrderContactAction
 ): OrderContactTarget {
-  if (action === '联系客服') return { receiverId: null, error: '客服会话需要后端分配接待坐席，当前不能使用固定账号伪连接' }
+  if (action === '联系客服') return { receiverId: null, error: '客服会话需要平台分配接待坐席，当前不能使用固定账号伪连接' }
 
   const isListItem = 'role' in order
   const receiverId = isListItem

@@ -1,7 +1,7 @@
 <template>
   <view class="page-shell settings-page">
     <view class="page-title">设置</view>
-    <view class="page-desc">管理账号安全、隐私、通知和开发预览开关。</view>
+    <view class="page-desc">管理账号安全、隐私、通知和正式开关。</view>
 
     <view class="settings-card ds-card">
       <view v-for="item in rows" :key="item.label" class="setting-row tapable" @click="handleRow(item)">
@@ -19,7 +19,7 @@
 
     <view class="danger-card ds-card">
       <view class="section-title">安全提醒</view>
-      <view class="danger-text">交易安全请以服务端订单、支付、发货和售后记录为准；验证码、密码、银行卡完整信息不应在页面内提交。</view>
+      <view class="danger-text">交易安全请以平台订单、支付、发货和售后记录为准；验证码、密码、银行卡完整信息不应在页面内提交。</view>
     </view>
 
     <button class="logout-btn" @click="logout">退出登录</button>
@@ -34,13 +34,13 @@ const userStore = useUserStore()
 const rows = reactive<Row[]>([
   { icon: '🔐', label: '账号安全', desc: '密码、手机号、登录设备', url: '/pages/system/account-security/index' },
   { icon: '🪪', label: '实名认证', desc: '保障交易和提现安全', url: '/pages/user/identity/index' },
-  { icon: '💬', label: '消息通知', desc: '订单、私信、审核通知（需后端配置接口）', switch: true, on: false },
-  { icon: '📍', label: '位置权限', desc: '位置偏好需系统授权与后端定位配置，当前页不保存正式位置状态', switch: true, on: false },
-  { icon: '🧪', label: '开发预览模式', desc: '仅展示当前构建环境，不能在页面内切换', switch: true, on: false },
+  { icon: '💬', label: '消息通知', desc: '订单、私信、审核通知（需平台配置接口）', switch: true, on: false },
+  { icon: '📍', label: '位置权限', desc: '位置偏好需系统授权与平台定位配置，当前页不保存正式位置状态', switch: true, on: false },
+  { icon: '🧪', label: '正式模式', desc: '仅展示当前构建环境，不能在页面内切换', switch: true, on: false },
   { icon: '📜', label: '用户协议与隐私', desc: '查看平台规则和隐私说明', url: '/pages/system/privacy/index' }
 ])
 function toggle(item: Row) {
-  uni.showToast({ title: `${item.label}需通过后端或系统设置变更，当前未执行任何设置修改`, icon: 'none' })
+  uni.showToast({ title: `${item.label}需通过平台或系统设置变更，当前未执行任何设置修改`, icon: 'none' })
 }
 function handleRow(item: Row) { if (item.url) uni.navigateTo({ url: item.url }); else if (!item.switch) uni.showToast({ title: `${item.label}暂未接入正式页面`, icon: 'none' }) }
 function logout() {

@@ -4,39 +4,39 @@
       <view>
         <view class="kicker">♡ 收款账户</view>
         <view class="page-title">提现账户管理</view>
-        <view class="page-desc">完整账号只提交给后端绑定接口；页面展示服务端脱敏后的默认提现账户。</view>
+        <view class="page-desc">完整账号只提交给平台绑定接口；页面展示平台脱敏后的默认提现账户。</view>
       </view>
       <view class="hero-icon">💳</view>
     </view>
 
     <view class="section-card ds-card">
       <view class="section-title">绑定状态</view>
-      <view v-if="loading" class="status-box">正在读取后端提现账户...</view>
+      <view v-if="loading" class="status-box">正在读取平台提现账户...</view>
       <view v-else-if="activeAccount" class="status-box">
         <view class="result-row"><text>收款方式</text><text>{{ methodLabel(activeAccount.paymentMethod) }}</text></view>
         <view class="result-row"><text>收款人</text><text>{{ activeAccount.accountName }}</text></view>
         <view class="result-row"><text>脱敏账户</text><text>{{ activeAccount.maskedAccountNo }}</text></view>
         <view class="result-row"><text>复核状态</text><text>{{ activeAccount.verifyStatus }}</text></view>
       </view>
-      <view v-else class="status-box">暂无后端提现账户绑定；提现页会 fail-closed，不会生成本地账户引用。</view>
+      <view v-else class="status-box">暂无平台提现账户绑定；提现页会 fail-closed，不会生成页面账户引用。</view>
       <view v-if="loadMessage" class="desc danger">{{ loadMessage }}</view>
     </view>
 
     <view class="section-card ds-card">
       <view class="section-title">绑定/更新账户</view>
-      <view class="desc">提交后由后端保存原始账号并只返回脱敏值；前端不生成脱敏账号、不保存账号明文。</view>
+      <view class="desc">提交后由平台保存原始账号并只返回脱敏值；前端不生成脱敏账号、不保存账号明文。</view>
       <view class="method-row">
         <view v-for="item in methods" :key="item" class="method-chip tapable" :class="{ active: form.paymentMethod === item }" @click="form.paymentMethod = item">{{ methodLabel(item) }}</view>
       </view>
       <input v-model.trim="form.accountName" class="field" maxlength="24" placeholder="收款人姓名，需与实名一致" />
-      <input v-model.trim="form.accountNo" class="field" maxlength="80" placeholder="完整收款账号，仅提交给后端绑定接口" />
-      <button class="primary-btn" :disabled="submitting" @click="submitBinding">{{ submitting ? '提交中...' : '提交后端绑定' }}</button>
+      <input v-model.trim="form.accountNo" class="field" maxlength="80" placeholder="完整收款账号，仅提交给平台绑定接口" />
+      <button class="primary-btn" :disabled="submitting" @click="submitBinding">{{ submitting ? '提交中...' : '提交平台绑定' }}</button>
       <view v-if="submitMessage" class="desc" :class="{ danger: submitFailed }">{{ submitMessage }}</view>
     </view>
 
     <view class="section-card ds-card">
       <view class="section-title">安全提醒</view>
-      <view class="desc">平台不会索要支付密码、短信验证码或完整身份证号。收款账户变更后必须重新审核，不走本地伪校验。</view>
+      <view class="desc">平台不会索要支付密码、短信验证码或完整身份证号。收款账户变更后必须重新审核，不走页面校验。</view>
     </view>
   </view>
 </template>
@@ -58,7 +58,7 @@ async function loadAccount() {
   loading.value = true
   loadMessage.value = ''
   try { activeAccount.value = await getPayoutAccount() }
-  catch { activeAccount.value = null; loadMessage.value = '提现账户加载失败：未展示本地构造账户。' }
+  catch { activeAccount.value = null; loadMessage.value = '提现账户加载失败：未展示默认账户。' }
   finally { loading.value = false }
 }
 async function submitBinding() {
@@ -70,10 +70,10 @@ async function submitBinding() {
   try {
     activeAccount.value = await bindPayoutAccount({ paymentMethod: form.paymentMethod, accountName: form.accountName, accountNo: form.accountNo })
     form.accountNo = ''
-    submitMessage.value = '提现账户已由后端绑定；页面仅保留脱敏展示。'
+    submitMessage.value = '提现账户已由平台绑定；页面仅保留脱敏展示。'
   } catch {
     submitFailed.value = true
-    submitMessage.value = '提现账户绑定失败：未保存本地账号，请确认后端接口与字段合法性。'
+    submitMessage.value = '提现账户绑定失败：未保存页面账号，请确认平台接口与字段合法性。'
   } finally { submitting.value = false }
 }
 onMounted(() => { void loadAccount() })
