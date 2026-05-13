@@ -116,6 +116,49 @@ function mockResponse<T>(url: string): T | undefined {
   ]
 
   if (url === '/api/products') return products as T
+  if (url === '/api/home/banners') {
+    return [
+      {
+        id: 1,
+        kicker: '小原圈 · 今日新鲜',
+        title: '把心爱闲置交给懂它的人',
+        description: '附近好物、日常分享、圈内互动，一屏逛完。',
+        cta: '去发现',
+        imageUrl: '/uploads/home/banner-closet.svg',
+        action: 'closet',
+        sortOrder: 10,
+        enabled: true,
+        sizeHint: '建议尺寸 750×300px（比例 5:2），JPG/PNG/WebP，单张不超过 500KB。',
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 2,
+        kicker: '圈内热度上升',
+        title: '男神女神榜正在更新',
+        description: '看人气、看动态，也看真实交易口碑。',
+        cta: '看榜单',
+        imageUrl: '/uploads/home/banner-ranking.svg',
+        action: 'ranking',
+        sortOrder: 20,
+        enabled: true,
+        sizeHint: '建议尺寸 750×300px（比例 5:2），JPG/PNG/WebP，单张不超过 500KB。',
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 3,
+        kicker: '日常生活频道',
+        title: '分享今天的小确幸',
+        description: '校园、寝室、城市日常，都可以轻松聊。',
+        cta: '去社区',
+        imageUrl: '/uploads/home/banner-community.svg',
+        action: 'forum',
+        sortOrder: 30,
+        enabled: true,
+        sizeHint: '建议尺寸 750×300px（比例 5:2），JPG/PNG/WebP，单张不超过 500KB。',
+        updatedAt: new Date().toISOString()
+      }
+    ] as T
+  }
   if (url === '/api/location/config') {
     return {
       provider: 'BAIDU',

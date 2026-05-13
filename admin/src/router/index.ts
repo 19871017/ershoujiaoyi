@@ -23,7 +23,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'audit-logs', component: () => import('../pages/audit-logs/index.vue') },
       { path: 'operators', component: () => import('../pages/operators/index.vue') },
       { path: 'operators/:userId', component: () => import('../pages/operators/index.vue') },
-      { path: 'system/location', component: () => import('../pages/system/location/index.vue') }
+      { path: 'system/location', component: () => import('../pages/system/location/index.vue') },
+      { path: 'system/banners', component: () => import('../pages/system/banners/index.vue') }
     ]
   }
 ]

@@ -167,6 +167,33 @@ export interface AdminLocationConfig {
   updatedAt?: string
 }
 
+export type AdminHomeBannerAction = 'closet' | 'ranking' | 'forum' | 'search' | 'none'
+
+export interface AdminHomeBanner {
+  id: number
+  kicker: string
+  title: string
+  description: string
+  cta: string
+  imageUrl: string
+  action: AdminHomeBannerAction
+  sortOrder: number
+  enabled: boolean
+  sizeHint: string
+  updatedAt?: string
+}
+
+export interface AdminHomeBannerRequest {
+  kicker: string
+  title: string
+  description: string
+  cta: string
+  imageUrl: string
+  action: AdminHomeBannerAction
+  sortOrder: number
+  enabled: boolean
+}
+
 export interface AdminUpdateLocationConfigRequest {
   provider: string
   enabled: boolean
@@ -423,6 +450,56 @@ export async function reviewAdminWithdrawal(
 
 export function getAdminLocationConfig() {
   return request<AdminLocationConfig>({ url: '/api/admin/location/config' })
+}
+
+export function getAdminHomeBanners() {
+  return request<AdminHomeBanner[]>({ url: '/api/admin/home/banners' })
+}
+
+export function createAdminHomeBanner(data: AdminHomeBannerRequest) {
+  validateAdminHomeBannerRequest(data)
+  return request<AdminHomeBanner>({
+    url: '/api/admin/home/banners',
+    method: 'POST',
+    data
+  })
+}
+
+export function updateAdminHomeBanner(bannerId: string | number, data: AdminHomeBannerRequest) {
+  if (!isValidAdminBannerId(bannerId)) {
+    throw new Error('轮播图编号无效')
+  }
+  validateAdminHomeBannerRequest(data)
+  return request<AdminHomeBanner>({
+    url: `/api/admin/home/banners/${encodeURIComponent(String(bannerId))}`,
+    method: 'POST',
+    data
+  })
+}
+
+export function deleteAdminHomeBanner(bannerId: string | number) {
+  if (!isValidAdminBannerId(bannerId)) {
+    throw new Error('轮播图编号无效')
+  }
+  return request<AdminHomeBanner>({
+    url: `/api/admin/home/banners/${encodeURIComponent(String(bannerId))}/delete`,
+    method: 'POST'
+  })
+}
+
+export function isValidAdminBannerId(bannerId: string | number) {
+  return /^[1-9]\d*$/.test(String(bannerId))
+}
+
+function validateAdminHomeBannerRequest(data: AdminHomeBannerRequest) {
+  if (!data || typeof data !== 'object') throw new Error('轮播图配置无效')
+  if (!data.kicker || data.kicker.trim().length > 32) throw new Error('轮播图角标无效')
+  if (!data.title || data.title.trim().length > 40) throw new Error('轮播图标题无效')
+  if (!data.description || data.description.trim().length > 80) throw new Error('轮播图说明无效')
+  if (!data.cta || data.cta.trim().length > 16) throw new Error('轮播图按钮文案无效')
+  if (!data.imageUrl || data.imageUrl.trim().length > 512 || !(data.imageUrl.startsWith('/uploads/') || data.imageUrl.startsWith('https://'))) throw new Error('轮播图图片地址无效')
+  if (!['closet', 'ranking', 'forum', 'search', 'none'].includes(data.action)) throw new Error('轮播图跳转动作无效')
+  if (!Number.isInteger(data.sortOrder) || data.sortOrder < 1 || data.sortOrder > 999) throw new Error('轮播图排序无效')
 }
 
 export function updateAdminLocationConfig(data: AdminUpdateLocationConfigRequest) {

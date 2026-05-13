@@ -63,6 +63,7 @@ class AdminControllerRbacTest {
                 orderApplicationService,
                 productApplicationService,
                 mock(UserApplicationService.class),
+                new com.secondhand.platform.modules.home.HomeBannerApplicationService(jdbcTemplate),
                 new AdminAccessGuard(new CurrentUserResolver(), jdbcTemplate),
                 jdbcTemplate
         );
@@ -415,6 +416,46 @@ class AdminControllerRbacTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].orderNo").value(order.getOrderNo()))
                 .andExpect(jsonPath("$.data[0].buyerId").value(82));
+    }
+
+    @Test
+    void adminHomeBannerRequiresSystemConfigPermissionAndPersistsAuditLog() throws Exception {
+        createActiveUser(121L);
+        grantPermission(121L, "audit:read");
+
+        mvc.perform(post("/api/admin/home/banners/1")
+                        .header("X-User-Id", "121")
+                        .header("X-Admin-Session", issueAdminSession(121L))
+                        .contentType("application/json")
+                        .content("{\"kicker\":\"首页运营\",\"title\":\"真实后台轮播\",\"description\":\"运营后台可随时替换首页轮播图。\",\"cta\":\"去看看\",\"imageUrl\":\"/uploads/home/real-banner.jpg\",\"action\":\"closet\",\"sortOrder\":10,\"enabled\":true}"))
+                .andExpect(status().isForbidden());
+
+        grantPermission(121L, "system:config");
+
+        mvc.perform(post("/api/admin/home/banners/1")
+                        .header("X-User-Id", "121")
+                        .header("X-Admin-Session", issueAdminSession(121L))
+                        .contentType("application/json")
+                        .content("{\"kicker\":\"首页运营\",\"title\":\"真实后台轮播\",\"description\":\"运营后台可随时替换首页轮播图。\",\"cta\":\"去看看\",\"imageUrl\":\"/uploads/home/real-banner.jpg\",\"action\":\"closet\",\"sortOrder\":10,\"enabled\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.title").value("真实后台轮播"))
+                .andExpect(jsonPath("$.data.sizeHint").value(org.hamcrest.Matchers.containsString("750×300px")));
+
+        org.junit.jupiter.api.Assertions.assertEquals(1,
+                jdbcTemplate.queryForObject("select count(1) from admin_audit_log where action = ? and operator_id = ? and target_id = ?", Integer.class, "HOME_BANNER_UPDATE", 121L, "home-banner-1"));
+    }
+
+    @Test
+    void adminHomeBannerRejectsPlaceholderOrExternalInsecureImageUrls() throws Exception {
+        createActiveUser(122L);
+        grantPermission(122L, "system:config");
+
+        mvc.perform(post("/api/admin/home/banners")
+                        .header("X-User-Id", "122")
+                        .header("X-Admin-Session", issueAdminSession(122L))
+                        .contentType("application/json")
+                        .content("{\"kicker\":\"首页运营\",\"title\":\"placeholder banner\",\"description\":\"运营后台轮播。\",\"cta\":\"去看看\",\"imageUrl\":\"http://example.com/banner.jpg\",\"action\":\"closet\",\"sortOrder\":40,\"enabled\":true}"))
+                .andExpect(status().isBadRequest());
     }
 
     private void grantPermission(Long userId, String permission) {

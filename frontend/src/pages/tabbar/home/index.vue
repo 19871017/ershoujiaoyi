@@ -16,18 +16,15 @@
     </view>
 
     <swiper class="banner-swiper" circular autoplay :interval="3600" :duration="520" indicator-dots indicator-color="rgba(255,255,255,.55)" indicator-active-color="#ffffff">
-      <swiper-item v-for="item in banners" :key="item.title">
-        <view class="banner-card tapable" :class="item.tone" @click="handleBanner(item.action)">
+      <swiper-item v-for="item in banners" :key="item.id">
+        <view class="banner-card tapable" @click="handleBanner(item.action)">
+          <image class="banner-bg" :src="item.imageUrl" mode="aspectFill" />
+          <view class="banner-shade"></view>
           <view class="banner-copy">
             <view class="banner-kicker">{{ item.kicker }}</view>
             <view class="banner-title">{{ item.title }}</view>
-            <view class="banner-desc">{{ item.desc }}</view>
+            <view class="banner-desc">{{ item.description }}</view>
             <view class="banner-cta">{{ item.cta }}</view>
-          </view>
-          <view class="banner-art">
-            <view class="banner-orb big"></view>
-            <view class="banner-orb small"></view>
-            <text class="banner-emoji">{{ item.emoji }}</text>
           </view>
         </view>
       </swiper-item>
@@ -112,17 +109,14 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { getHomeBanners, type HomeBannerAction, type HomeBannerResponse } from '../../../api/modules/home'
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
 import { getLocationConfig } from '../../../api/modules/location'
 
 type QuickAction = 'category' | 'wallet' | 'message' | 'publish' | 'ranking' | 'forum' | 'closet'
-type BannerAction = 'closet' | 'ranking' | 'forum'
+type BannerAction = HomeBannerAction
 
-const banners: Array<{ kicker: string; title: string; desc: string; cta: string; emoji: string; tone: string; action: BannerAction }> = [
-  { kicker: '小原圈 · 今日新鲜', title: '把心爱闲置交给懂它的人', desc: '附近好物、日常分享、圈内互动，一屏逛完。', cta: '去发现', emoji: '🛍️', tone: 'sunset', action: 'closet' },
-  { kicker: '圈内热度上升', title: '男神女神榜正在更新', desc: '看人气、看动态，也看真实交易口碑。', cta: '看榜单', emoji: '💫', tone: 'dream', action: 'ranking' },
-  { kicker: '日常生活频道', title: '分享今天的小确幸', desc: '校园、寝室、城市日常，都可以轻松聊。', cta: '去社区', emoji: '🌷', tone: 'daily', action: 'forum' }
-]
+const banners = ref<HomeBannerResponse[]>([])
 
 const quickActions: Array<{ icon: string; title: string; action: QuickAction }> = [
   { icon: '👗', title: '小原圈', action: 'closet' },
@@ -156,6 +150,14 @@ async function loadLocationConfig() {
     locationLabel.value = `${city} · 手动选择`
   } catch (error) {
     locationLabel.value = '请选择城市 · 手动选择'
+  }
+}
+
+async function loadBanners() {
+  try {
+    banners.value = await getHomeBanners()
+  } catch (error) {
+    banners.value = []
   }
 }
 
@@ -193,6 +195,7 @@ function handleBanner(action: BannerAction) {
   if (action === 'closet') goCloset()
   if (action === 'ranking') openRanking('goddess')
   if (action === 'forum') openForum()
+  if (action === 'search') openSearch()
 }
 function openSearch() { uni.navigateTo({ url: '/pages/search/result/index?keyword=%E5%BF%83%E7%88%B1%E4%B9%8B%E7%89%A9' }) }
 function openTopic(item: { id: number; title: string }) { uni.navigateTo({ url: `/pages/community/detail/index?postId=${item.id}&topic=${encodeURIComponent(item.title)}` }) }
@@ -206,6 +209,7 @@ function toneClass(id: number) { return `tone-${id % 4}` }
 function distanceFor(id: number) { return ['服务端记录', '订单为准', '售后为准', '可邮寄'][id % 4] }
 onMounted(() => {
   loadLocationConfig()
+  loadBanners()
   loadProducts()
 })
 </script>
@@ -222,20 +226,14 @@ onMounted(() => {
 .search-text { flex:1; min-width:0; color:#9b7560; font-size:24rpx; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .search-action { padding:11rpx 18rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:22rpx; font-weight:900; }
 .banner-swiper { margin-top:16rpx; height:230rpx; border-radius:34rpx; overflow:hidden; }
-.banner-card { position:relative; height:230rpx; padding:24rpx 26rpx; border-radius:34rpx; overflow:hidden; display:flex; align-items:center; justify-content:space-between; box-sizing:border-box; box-shadow:0 16rpx 32rpx rgba(255,122,69,.16); }
-.banner-card.sunset { background:linear-gradient(135deg,#ff7a45 0%,#ffb36f 48%,#ffe1b8 100%); }
-.banner-card.dream { background:linear-gradient(135deg,#7c5cff 0%,#ff8bc7 54%,#ffe5f0 100%); }
-.banner-card.daily { background:linear-gradient(135deg,#39bfa7 0%,#9be7c8 52%,#fff4c2 100%); }
+.banner-card { position:relative; height:230rpx; padding:24rpx 26rpx; border-radius:34rpx; overflow:hidden; display:flex; align-items:center; justify-content:space-between; box-sizing:border-box; box-shadow:0 16rpx 32rpx rgba(255,122,69,.16); background:linear-gradient(135deg,#ff7a45 0%,#ffb36f 48%,#ffe1b8 100%); }
+.banner-bg { position:absolute; inset:0; width:100%; height:100%; }
+.banner-shade { position:absolute; inset:0; background:linear-gradient(90deg,rgba(42,24,12,.58) 0%,rgba(42,24,12,.26) 54%,rgba(42,24,12,.06) 100%); }
 .banner-copy { position:relative; z-index:2; width:68%; color:#fff; }
 .banner-kicker { display:inline-flex; padding:6rpx 13rpx; border-radius:999rpx; background:rgba(255,255,255,.22); color:rgba(255,255,255,.94); font-size:19rpx; font-weight:950; backdrop-filter:blur(8rpx); }
 .banner-title { margin-top:12rpx; font-size:36rpx; line-height:1.13; font-weight:950; letter-spacing:-1rpx; text-shadow:0 5rpx 14rpx rgba(80,35,18,.18); }
 .banner-desc { margin-top:8rpx; width:92%; font-size:21rpx; line-height:1.35; font-weight:750; color:rgba(255,255,255,.88); }
 .banner-cta { margin-top:12rpx; display:inline-flex; padding:8rpx 18rpx; border-radius:999rpx; background:#fff; color:#ff6b3a; font-size:20rpx; font-weight:950; box-shadow:0 8rpx 18rpx rgba(80,35,18,.14); }
-.banner-art { position:absolute; right:0; top:0; width:230rpx; height:230rpx; }
-.banner-orb { position:absolute; border-radius:50%; background:rgba(255,255,255,.22); }
-.banner-orb.big { width:190rpx; height:190rpx; right:-42rpx; top:22rpx; }
-.banner-orb.small { width:78rpx; height:78rpx; right:110rpx; top:28rpx; background:rgba(255,255,255,.18); }
-.banner-emoji { position:absolute; right:48rpx; top:62rpx; font-size:82rpx; filter:drop-shadow(0 12rpx 16rpx rgba(70,30,20,.18)); }
 .quick-grid { margin-top:16rpx; display:grid; grid-template-columns:repeat(6, 1fr); gap:8rpx; }
 .quick-card { min-height:86rpx; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5rpx; border-color:#ffd9bd; background:#fff; border-radius:20rpx; }
 .quick-icon { font-size:27rpx; }

@@ -59,6 +59,7 @@ public class AdminController {
     private final OrderApplicationService orderApplicationService;
     private final ProductApplicationService productApplicationService;
     private final UserApplicationService userApplicationService;
+    private final com.secondhand.platform.modules.home.HomeBannerApplicationService homeBannerApplicationService;
     private final AdminAccessGuard adminAccessGuard;
     private final JdbcTemplate jdbcTemplate;
 
@@ -69,6 +70,7 @@ public class AdminController {
                            OrderApplicationService orderApplicationService,
                            ProductApplicationService productApplicationService,
                            UserApplicationService userApplicationService,
+                           com.secondhand.platform.modules.home.HomeBannerApplicationService homeBannerApplicationService,
                            AdminAccessGuard adminAccessGuard,
                            JdbcTemplate jdbcTemplate) {
         this.auditApplicationService = auditApplicationService;
@@ -78,6 +80,7 @@ public class AdminController {
         this.orderApplicationService = orderApplicationService;
         this.productApplicationService = productApplicationService;
         this.userApplicationService = userApplicationService;
+        this.homeBannerApplicationService = homeBannerApplicationService;
         this.adminAccessGuard = adminAccessGuard;
         this.jdbcTemplate = jdbcTemplate;
     }
@@ -173,6 +176,61 @@ public class AdminController {
     public Result<LocationConfigResponse> locationConfig(HttpServletRequest request) {
         adminAccessGuard.requireAdmin(request, "system:config");
         return Result.ok(locationApplicationService.getConfig());
+    }
+
+    @GetMapping("/home/banners")
+    public Result<List<com.secondhand.platform.modules.home.HomeBannerResponse>> homeBanners(HttpServletRequest request) {
+        adminAccessGuard.requireAdmin(request, "system:config");
+        return Result.ok(homeBannerApplicationService.adminList());
+    }
+
+    @PostMapping("/home/banners")
+    public Result<com.secondhand.platform.modules.home.HomeBannerResponse> createHomeBanner(@RequestBody(required = false) com.secondhand.platform.modules.home.AdminHomeBannerRequest body,
+                                                                                           HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "system:config");
+        var response = homeBannerApplicationService.adminCreate(body);
+        auditApplicationService.recordAdminOperation(
+                "HOME_BANNER_CREATE",
+                adminUserId,
+                "SYSTEM_CONFIG",
+                "home-banner-" + response.id(),
+                "SUCCESS",
+                "首页轮播图已新增：" + response.title()
+        );
+        return Result.ok(response);
+    }
+
+    @PostMapping("/home/banners/{bannerId}")
+    public Result<com.secondhand.platform.modules.home.HomeBannerResponse> updateHomeBanner(@PathVariable Long bannerId,
+                                                                                           @RequestBody(required = false) com.secondhand.platform.modules.home.AdminHomeBannerRequest body,
+                                                                                           HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "system:config");
+        var response = homeBannerApplicationService.adminUpdate(bannerId, body);
+        auditApplicationService.recordAdminOperation(
+                "HOME_BANNER_UPDATE",
+                adminUserId,
+                "SYSTEM_CONFIG",
+                "home-banner-" + response.id(),
+                "SUCCESS",
+                "首页轮播图已更新：" + response.title()
+        );
+        return Result.ok(response);
+    }
+
+    @PostMapping("/home/banners/{bannerId}/delete")
+    public Result<com.secondhand.platform.modules.home.HomeBannerResponse> deleteHomeBanner(@PathVariable Long bannerId,
+                                                                                           HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "system:config");
+        var response = homeBannerApplicationService.adminDelete(bannerId);
+        auditApplicationService.recordAdminOperation(
+                "HOME_BANNER_DELETE",
+                adminUserId,
+                "SYSTEM_CONFIG",
+                "home-banner-" + response.id(),
+                "SUCCESS",
+                "首页轮播图已删除：" + response.title()
+        );
+        return Result.ok(response);
     }
 
     @PostMapping("/location/config")
