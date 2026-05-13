@@ -30,28 +30,8 @@
       </swiper-item>
     </swiper>
 
-    <view class="quick-grid">
-      <view v-for="item in quickActions" :key="item.title" class="quick-card ds-card tapable" @click="handleQuick(item.action)">
-        <text class="quick-icon">{{ item.icon }}</text>
-        <text class="quick-title">{{ item.title }}</text>
-      </view>
-    </view>
-
-    <view class="closet-strip ds-card tapable" @click="goCloset">
-      <view class="closet-logo">👗</view>
-      <view class="closet-body">
-        <view class="closet-title">我的小原圈</view>
-        <view class="closet-desc">衣物、鞋袜、小用品都挂在这里，首页直接进。</view>
-      </view>
-      <view class="closet-go">进入</view>
-    </view>
-
     <view class="community-card ds-card">
       <view class="community-head">
-        <view>
-          <view class="section-title">小原圈热度</view>
-          <view class="section-subtitle">男神榜、女神榜和圈内动态都在这里</view>
-        </view>
         <view class="forum-chip tapable" @click="openForum">进圈逛逛</view>
       </view>
       <view class="rank-row">
@@ -113,19 +93,9 @@ import { getHomeBanners, type HomeBannerAction, type HomeBannerResponse } from '
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
 import { getLocationConfig } from '../../../api/modules/location'
 
-type QuickAction = 'category' | 'wallet' | 'message' | 'publish' | 'ranking' | 'forum' | 'closet'
 type BannerAction = HomeBannerAction
 
 const banners = ref<HomeBannerResponse[]>([])
-
-const quickActions: Array<{ icon: string; title: string; action: QuickAction }> = [
-  { icon: '👗', title: '小原圈', action: 'closet' },
-  { icon: '👚', title: '衣物', action: 'category' },
-  { icon: '👠', title: '鞋袜', action: 'category' },
-  { icon: '👜', title: '小用品', action: 'category' },
-  { icon: '👑', title: '女神榜', action: 'ranking' },
-  { icon: '⭐', title: '男神榜', action: 'ranking' }
-]
 
 const ranking: Array<{ logo: string; title: string; name: string; score: string; tone: string; tab: 'goddess' | 'god'; image: string }> = [
   { logo: '👑', title: '女神榜', name: '樱桃汽水少女', score: '本周 128 人喜欢', tone: 'pink', tab: 'goddess', image: 'https://images.unsplash.com/photo-1614583225154-5fcdda07019e?auto=format&fit=crop&w=420&q=80' },
@@ -181,15 +151,7 @@ async function loadProducts() {
 function showToast(title: string) { uni.showToast({ title, icon: 'none' }) }
 function goMe() { uni.switchTab({ url: '/pages/tabbar/me/index' }) }
 function goDetail(productId: number) { uni.navigateTo({ url: `/pages/product/detail/index?productId=${productId}` }) }
-function handleQuick(action: QuickAction) {
-  if (action === 'closet') goCloset()
-  if (action === 'category') uni.switchTab({ url: '/pages/tabbar/category/index' })
-  if (action === 'message') uni.switchTab({ url: '/pages/tabbar/message/index' })
-  if (action === 'publish') uni.switchTab({ url: '/pages/tabbar/publish/index' })
-  if (action === 'ranking') openRanking('goddess')
-  if (action === 'forum') openForum()
-  if (action === 'wallet') uni.navigateTo({ url: '/pages/wallet/index' })
-}
+
 function goCloset() { uni.switchTab({ url: '/pages/tabbar/category/index' }) }
 function handleBanner(action: BannerAction) {
   if (action === 'closet') goCloset()
@@ -234,16 +196,6 @@ onMounted(() => {
 .banner-title { margin-top:12rpx; font-size:36rpx; line-height:1.13; font-weight:950; letter-spacing:-1rpx; text-shadow:0 5rpx 14rpx rgba(80,35,18,.18); }
 .banner-desc { margin-top:8rpx; width:92%; font-size:21rpx; line-height:1.35; font-weight:750; color:rgba(255,255,255,.88); }
 .banner-cta { margin-top:12rpx; display:inline-flex; padding:8rpx 18rpx; border-radius:999rpx; background:#fff; color:#ff6b3a; font-size:20rpx; font-weight:950; box-shadow:0 8rpx 18rpx rgba(80,35,18,.14); }
-.quick-grid { margin-top:16rpx; display:grid; grid-template-columns:repeat(6, 1fr); gap:8rpx; }
-.quick-card { min-height:86rpx; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5rpx; border-color:#ffd9bd; background:#fff; border-radius:20rpx; }
-.quick-icon { font-size:27rpx; }
-.quick-title { font-size:18rpx; color:#7b5542; font-weight:900; }
-.closet-strip { margin-top:14rpx; padding:14rpx; display:flex; align-items:center; gap:12rpx; border-color:#ffd9bd; background:linear-gradient(135deg,#fff,#fff3e7); }
-.closet-logo { width:56rpx; height:56rpx; border-radius:20rpx; display:flex; align-items:center; justify-content:center; background:#fff; font-size:30rpx; box-shadow:0 6rpx 14rpx rgba(255,122,69,.10); }
-.closet-body { flex:1; min-width:0; }
-.closet-title { font-size:25rpx; font-weight:950; color:#3a2a1f; }
-.closet-desc { margin-top:4rpx; color:#9b7560; font-size:20rpx; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.closet-go { padding:8rpx 16rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:20rpx; font-weight:950; }
 .community-card { margin-top:16rpx; padding:16rpx; border-color:#ffd9bd; background:linear-gradient(180deg,#fff,#fffaf6); }
 .community-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12rpx; }
 .forum-chip { flex:none; padding:10rpx 16rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:20rpx; font-weight:950; box-shadow:0 6rpx 14rpx rgba(255,122,69,.16); }
@@ -282,3 +234,4 @@ onMounted(() => {
 .price { color:#ff6b3a; font-size:30rpx; font-weight:950; }
 .status { padding:6rpx 12rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:20rpx; font-weight:900; }
 </style>
+

@@ -33,235 +33,235 @@
     {
       "path": "pages/ranking/index",
       "style": {
-        "navigationBarTitleText": "男神女神榜"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/community/compose/index",
       "style": {
-        "navigationBarTitleText": "发布动态"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/community/detail/index",
       "style": {
-        "navigationBarTitleText": "帖子详情"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/product/detail/index",
       "style": {
-        "navigationBarTitleText": "宝贝详情"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/chat/session-list/index",
       "style": {
-        "navigationBarTitleText": "会话列表"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/chat/conversation/index",
       "style": {
-        "navigationBarTitleText": "聊天"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/order/list/index",
       "style": {
-        "navigationBarTitleText": "订单列表"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/order/detail/index",
       "style": {
-        "navigationBarTitleText": "订单详情"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/wallet/index",
       "style": {
-        "navigationBarTitleText": "钱包"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/gift/index",
       "style": {
-        "navigationBarTitleText": "礼物中心"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/risk/index",
       "style": {
-        "navigationBarTitleText": "举报与风控"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/auth/login/index",
       "style": {
-        "navigationBarTitleText": "登录"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/user/profile/index",
       "style": {
-        "navigationBarTitleText": "个人资料"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/user/address/index",
       "style": {
-        "navigationBarTitleText": "地址管理"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/system/settings/index",
       "style": {
-        "navigationBarTitleText": "设置"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/report/submit/index",
       "style": {
-        "navigationBarTitleText": "提交举报"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/system/empty/index",
       "style": {
-        "navigationBarTitleText": "空状态"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/order/confirm/index",
       "style": {
-        "navigationBarTitleText": "确认订单"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/payment/checkout/index",
       "style": {
-        "navigationBarTitleText": "确认支付"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/order/ship/index",
       "style": {
-        "navigationBarTitleText": "填写发货信息"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/order/logistics/index",
       "style": {
-        "navigationBarTitleText": "物流详情"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/after-sales/apply/index",
       "style": {
-        "navigationBarTitleText": "申请售后"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/after-sales/detail/index",
       "style": {
-        "navigationBarTitleText": "售后详情"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/closet/index",
       "style": {
-        "navigationBarTitleText": "我的小原圈"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/favorite/index",
       "style": {
-        "navigationBarTitleText": "我的收藏"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/wallet/ledger/index",
       "style": {
-        "navigationBarTitleText": "全部流水"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/wallet/ledger/detail/index",
       "style": {
-        "navigationBarTitleText": "流水详情"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/review/submit/index",
       "style": {
-        "navigationBarTitleText": "交易评价"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/system/account-security/index",
       "style": {
-        "navigationBarTitleText": "账号安全"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/user/identity/index",
       "style": {
-        "navigationBarTitleText": "实名认证"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/wallet/accounts/index",
       "style": {
-        "navigationBarTitleText": "收款账户"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/system/privacy/index",
       "style": {
-        "navigationBarTitleText": "协议与隐私"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/location/city/index",
       "style": {
-        "navigationBarTitleText": "选择城市"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/user/public-profile/index",
       "style": {
-        "navigationBarTitleText": "用户主页"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/search/result/index",
       "style": {
-        "navigationBarTitleText": "搜索结果"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/product/edit/index",
       "style": {
-        "navigationBarTitleText": "编辑宝贝"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/notification/index",
       "style": {
-        "navigationBarTitleText": "通知中心"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/upload/evidence/index",
       "style": {
-        "navigationBarTitleText": "上传凭证"
+        "navigationBarTitleText": ""
       }
     },
     {
       "path": "pages/payment/method/index",
       "style": {
-        "navigationBarTitleText": "支付方式"
+        "navigationBarTitleText": ""
       }
     }
   ],
@@ -295,7 +295,7 @@
   },
   "globalStyle": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "小原圈",
+    "navigationBarTitleText": "",
     "navigationBarBackgroundColor": "#fffaf6",
     "backgroundColor": "#fff7ed"
   }
