@@ -53,9 +53,9 @@
     <view v-else-if="errorMessage" class="state ds-card muted">商品接口暂时不可用，未展示本地演示宝贝</view>
     <view v-else-if="products.length === 0" class="state ds-card muted">暂未加载到后端在售宝贝</view>
 
-    <swiper v-else class="product-ticker" vertical circular autoplay :interval="2600" :duration="650">
-      <swiper-item v-for="item in products" :key="item.productId" class="product-slide">
-        <view class="product-card ds-card tapable" @click="goDetail(item.productId)">
+    <view v-else class="product-ticker">
+      <view class="product-track" :class="{ rolling: products.length > 5 }">
+        <view v-for="(item, index) in tickerProducts" :key="`${item.productId}-${index}`" class="product-card ds-card tapable" @click="goDetail(item.productId)">
           <view class="thumb" :class="toneClass(item.productId)">
             <image v-if="item.coverImageUrl" class="cover" :src="item.coverImageUrl" mode="aspectFill" />
             <text v-else>{{ iconFor(item.title) }}</text>
@@ -69,13 +69,13 @@
             </view>
           </view>
         </view>
-      </swiper-item>
-    </swiper>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { getHomeBanners, type HomeBannerAction, type HomeBannerResponse } from '../../../api/modules/home'
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
 
@@ -97,6 +97,10 @@ const forumTopics = [
 const loading = ref(false)
 const errorMessage = ref('')
 const products = ref<ProductListItemResponse[]>([])
+const tickerProducts = computed(() => {
+  if (products.value.length <= 5) return products.value
+  return [...products.value, ...products.value.slice(0, 5)]
+})
 async function loadBanners() {
   try {
     banners.value = await getHomeBanners()
@@ -182,17 +186,19 @@ onMounted(() => {
 .small { min-height:54rpx; padding:0 18rpx; font-size:21rpx; color:#ff7a45; background:#fff3e7; }
 .state { margin-bottom:12rpx; padding:18rpx; color:#9b7560; font-size:23rpx; }
 .muted { background:#fff3e7; color:#b45374; }
-.product-ticker { height:162rpx; overflow:hidden; }
-.product-slide { height:162rpx; }
-.product-card { height:150rpx; padding:12rpx; display:flex; gap:14rpx; border-color:#ffd9bd; box-sizing:border-box; }
-.thumb { width:126rpx; height:126rpx; flex:none; border-radius:26rpx; display:flex; align-items:center; justify-content:center; font-size:48rpx; overflow:hidden; }
+.product-ticker { height:530rpx; overflow:hidden; }
+.product-track { display:flex; flex-direction:column; gap:10rpx; }
+.product-track.rolling { animation:productRoll 18s linear infinite; }
+.product-card { height:98rpx; padding:9rpx 10rpx; display:flex; gap:12rpx; border-color:#ffd9bd; box-sizing:border-box; }
+.thumb { width:80rpx; height:80rpx; flex:none; border-radius:20rpx; display:flex; align-items:center; justify-content:center; font-size:34rpx; overflow:hidden; }
+@keyframes productRoll { from { transform:translateY(0); } to { transform:translateY(-540rpx); } }
 .cover { width:100%; height:100%; }
 .tone-0 { background:#fff3e7; } .tone-1 { background:#fff2e9; } .tone-2 { background:#f2edff; } .tone-3 { background:#fff7d6; }
 .product-info { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:space-between; padding:1rpx 0; }
-.product-title { font-size:27rpx; line-height:1.3; font-weight:900; color:#3a2a1f; }
-.product-meta { margin-top:7rpx; color:#9b7560; font-size:21rpx; }
+.product-title { font-size:23rpx; line-height:1.25; font-weight:900; color:#3a2a1f; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.product-meta { margin-top:3rpx; color:#9b7560; font-size:18rpx; }
 .product-bottom { display:flex; align-items:center; justify-content:space-between; gap:10rpx; }
-.price { color:#ff6b3a; font-size:30rpx; font-weight:950; }
-.status { padding:6rpx 12rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:20rpx; font-weight:900; }
+.price { color:#ff6b3a; font-size:25rpx; font-weight:950; }
+.status { padding:4rpx 10rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:17rpx; font-weight:900; }
 </style>
 
