@@ -9,12 +9,6 @@
       <view class="avatar tapable" @click="goMe">♡</view>
     </view>
 
-    <view class="search ds-card tapable" @click="openSearch">
-      <text class="search-icon">🔎</text>
-      <text class="search-text">搜索心爱之物</text>
-      <text class="search-action">找宝贝</text>
-    </view>
-
     <swiper class="banner-swiper" circular autoplay :interval="3600" :duration="520" indicator-dots indicator-color="rgba(255,255,255,.55)" indicator-active-color="#ffffff">
       <swiper-item v-for="item in banners" :key="item.id">
         <view class="banner-card tapable" @click="handleBanner(item.action)">
@@ -29,6 +23,11 @@
         </view>
       </swiper-item>
     </swiper>
+
+    <view class="search-mini tapable" @click="openSearch">
+      <text class="search-mini-icon">🔎</text>
+      <text>搜宝贝</text>
+    </view>
 
     <view class="community-card ds-card">
       <view class="community-head">
@@ -180,13 +179,10 @@ onMounted(() => {
 .home-page { padding-top:16rpx; background:radial-gradient(circle at 14% 2%, rgba(255,195,128,.30), transparent 26%), linear-gradient(180deg,#fff7ed 0%,#fffdfa 48%,#fff5ee 100%); }
 .header { display:flex; align-items:center; justify-content:space-between; gap:18rpx; }
 .eyebrow { display:inline-flex; padding:7rpx 13rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; border:1rpx solid #ffd9bd; font-size:20rpx; font-weight:900; }
-.title { margin-top:9rpx; font-size:46rpx; line-height:1.02; font-weight:950; letter-spacing:-1rpx; color:#3a2a1f; }
+.title { display:inline-flex; align-items:center; margin-top:9rpx; padding:4rpx 16rpx 8rpx 0; font-size:50rpx; line-height:1.02; font-weight:950; letter-spacing:2rpx; color:#2f2118; text-shadow:0 8rpx 18rpx rgba(255,122,69,.16); }
+.title::after { content:''; width:54rpx; height:8rpx; margin-left:12rpx; border-radius:999rpx; background:linear-gradient(90deg,#ff7a45,#ffd2a8); box-shadow:0 6rpx 14rpx rgba(255,122,69,.22); }
 .subtitle { margin-top:8rpx; color:#9b7560; font-size:22rpx; font-weight:700; }
 .avatar { width:64rpx; height:64rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffc08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:32rpx; font-weight:900; box-shadow:0 8rpx 18rpx rgba(255,122,69,.22); }
-.search { margin-top:16rpx; min-height:76rpx; padding:0 14rpx 0 18rpx; display:flex; align-items:center; gap:10rpx; border-color:#ffd9bd; }
-.search-icon { color:#ff7a45; font-size:26rpx; }
-.search-text { flex:1; min-width:0; color:#9b7560; font-size:24rpx; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.search-action { padding:11rpx 18rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:22rpx; font-weight:900; }
 .banner-swiper { margin-top:16rpx; height:230rpx; border-radius:34rpx; overflow:hidden; }
 .banner-card { position:relative; height:230rpx; padding:24rpx 26rpx; border-radius:34rpx; overflow:hidden; display:flex; align-items:center; justify-content:space-between; box-sizing:border-box; box-shadow:0 16rpx 32rpx rgba(255,122,69,.16); background:linear-gradient(135deg,#ff7a45 0%,#ffb36f 48%,#ffe1b8 100%); }
 .banner-bg { position:absolute; inset:0; width:100%; height:100%; }
@@ -196,7 +192,9 @@ onMounted(() => {
 .banner-title { margin-top:12rpx; font-size:36rpx; line-height:1.13; font-weight:950; letter-spacing:-1rpx; text-shadow:0 5rpx 14rpx rgba(80,35,18,.18); }
 .banner-desc { margin-top:8rpx; width:92%; font-size:21rpx; line-height:1.35; font-weight:750; color:rgba(255,255,255,.88); }
 .banner-cta { margin-top:12rpx; display:inline-flex; padding:8rpx 18rpx; border-radius:999rpx; background:#fff; color:#ff6b3a; font-size:20rpx; font-weight:950; box-shadow:0 8rpx 18rpx rgba(80,35,18,.14); }
-.community-card { margin-top:16rpx; padding:16rpx; border-color:#ffd9bd; background:linear-gradient(180deg,#fff,#fffaf6); }
+.search-mini { width:168rpx; height:58rpx; margin:12rpx 4rpx 0 auto; border-radius:999rpx; display:flex; align-items:center; justify-content:center; gap:7rpx; background:rgba(255,255,255,.88); border:1rpx solid #ffd9bd; color:#ff6b3a; font-size:22rpx; font-weight:950; box-shadow:0 10rpx 22rpx rgba(255,122,69,.12); }
+.search-mini-icon { font-size:21rpx; }
+.community-card { margin-top:14rpx; padding:16rpx; border-color:#ffd9bd; background:linear-gradient(180deg,#fff,#fffaf6); }
 .community-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12rpx; }
 .forum-chip { flex:none; padding:10rpx 16rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:20rpx; font-weight:950; box-shadow:0 6rpx 14rpx rgba(255,122,69,.16); }
 .rank-row { margin-top:14rpx; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10rpx; }
