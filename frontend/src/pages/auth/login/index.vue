@@ -33,10 +33,10 @@
       </view>
 
       <view v-else class="agreement-card">
-        <label class="agree-row">
-          <checkbox :checked="agreed" color="#ff7a45" @click="agreed = !agreed" />
+        <view class="agree-row tapable" @click="toggleAgreement">
+          <view class="fake-check" :class="{ checked: agreed }">{{ agreed ? '✓' : '' }}</view>
           <text>我已阅读并同意小原圈注册协议</text>
-        </label>
+        </view>
         <view class="agreement-title">注册协议规则</view>
         <view class="rule-item" v-for="rule in agreementRules" :key="rule">{{ rule }}</view>
       </view>
@@ -77,6 +77,11 @@ const agreementRules = [
 function validMobile(value: string) { return /^1\d{10}$/.test(value) }
 function switchMode(nextMode: AuthMode) {
   mode.value = nextMode
+  message.value = ''
+  isError.value = false
+}
+function toggleAgreement() {
+  agreed.value = !agreed.value
   message.value = ''
   isError.value = false
 }
@@ -136,6 +141,8 @@ async function handleSubmit() {
 .link { color:#ff7a45; font-weight:900; }
 .agreement-card { margin-top:18rpx; padding:18rpx; border:1rpx solid #ffd9bd; border-radius:22rpx; background:#fffaf6; }
 .agree-row { color:#3a2a1f; font-size:23rpx; font-weight:800; }
+.fake-check { width:34rpx; height:34rpx; border:2rpx solid #ffb08a; border-radius:10rpx; display:flex; align-items:center; justify-content:center; color:#fff; font-size:24rpx; font-weight:950; background:#fff; }
+.fake-check.checked { border-color:#ff7a45; background:#ff7a45; }
 .agreement-title { margin-top:16rpx; color:#3a2a1f; font-size:24rpx; font-weight:950; }
 .rule-item { position:relative; margin-top:10rpx; padding-left:22rpx; color:#8d6b59; font-size:22rpx; line-height:1.45; }
 .rule-item::before { content:'•'; position:absolute; left:0; color:#ff7a45; font-weight:950; }
