@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { setAdminHeaderProvider } from '../../api/http'
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:18080'
+const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
 
 async function postAdminSessionLogin(mobile: string, password: string): Promise<AdminSessionInput> {
   const response = await fetch(`${API_BASE}/api/admin/session/login`, {
