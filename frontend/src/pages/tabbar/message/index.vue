@@ -2,7 +2,6 @@
   <view class="page-shell community-page">
     <view class="hero ds-card">
       <view class="page-desc">生活日常、交易经验、避坑分享和私信会话。</view>
-      <view class="post-btn tapable" @click="openComposer">发帖</view>
     </view>
 
     <view class="notice-card ds-card tapable" @click="openNotification">
@@ -46,6 +45,8 @@
     </view>
 
     <view v-if="!loading && !loadError && filteredFeeds.length === 0" class="empty-card ds-card">暂无内容</view>
+
+    <view class="compose-fab tapable" @click="openComposer">＋</view>
   </view>
 </template>
 
@@ -118,9 +119,8 @@ onMounted(loadFeeds)
 </script>
 
 <style scoped>
-.community-page { background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 52%,#fff7ed 100%); }
-.hero { padding:14rpx; display:flex; justify-content:space-between; gap:16rpx; border-color:#ffd9bd; background:linear-gradient(135deg,#fff,#fff3e7); }
-.post-btn { align-self:flex-start; padding:10rpx 16rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:20rpx; font-weight:950; }
+.community-page { position:relative; min-height:100vh; padding-bottom:150rpx; background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 52%,#fff7ed 100%); }
+.hero { padding:14rpx; border-color:#ffd9bd; background:linear-gradient(135deg,#fff,#fff3e7); }
 .notice-card { margin-top:14rpx; padding:16rpx; display:flex; align-items:center; border-color:#ffd9bd; background:linear-gradient(135deg,#fff,#fff3e7); }
 .notice-icon { width:58rpx; height:58rpx; margin-right:12rpx; border-radius:20rpx; background:#fff; display:flex; align-items:center; justify-content:center; font-size:23rpx; box-shadow:0 8rpx 18rpx rgba(255,122,69,.12); }
 .notice-body { flex:1; min-width:0; }
@@ -142,4 +142,5 @@ onMounted(loadFeeds)
 .feed-text { margin-top:16rpx; color:#3a2a1f; font-size:23rpx; line-height:1.55; }
 .feed-actions { margin-top:12rpx; display:flex; gap:20rpx; color:#9b7560; font-size:20rpx; font-weight:900; }
 .empty-card { margin-top:18rpx; padding:24rpx; text-align:center; color:#9b7560; border-color:#ffd9bd; }
+.compose-fab { position:fixed; right:32rpx; bottom:calc(128rpx + env(safe-area-inset-bottom)); z-index:30; width:92rpx; height:92rpx; border-radius:50%; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#ff7a45,#ff3f8d); color:#fff; font-size:54rpx; line-height:1; font-weight:800; box-shadow:0 16rpx 34rpx rgba(255,85,95,.32); border:4rpx solid rgba(255,255,255,.9); }
 </style>
