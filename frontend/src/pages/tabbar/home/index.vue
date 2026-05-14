@@ -15,6 +15,31 @@
       </swiper-item>
     </swiper>
 
+    <view class="ranking-entry-row">
+      <view class="ranking-entry goddess tapable" @click="openRanking('goddess')">
+        <image class="ranking-art" src="/src/static/ranking-goddess.svg" mode="aspectFill" />
+        <view class="ranking-overlay"></view>
+        <view class="ranking-main">
+          <view class="ranking-copy">
+            <text class="ranking-title">魅力女神榜</text>
+            <text class="ranking-subtitle">CHARM QUEEN</text>
+          </view>
+        </view>
+        <view class="ranking-chip">GO</view>
+      </view>
+      <view class="ranking-entry god tapable" @click="openRanking('god')">
+        <image class="ranking-art" src="/src/static/ranking-god.svg" mode="aspectFill" />
+        <view class="ranking-overlay"></view>
+        <view class="ranking-main">
+          <view class="ranking-copy">
+            <text class="ranking-title">锋芒男神榜</text>
+            <text class="ranking-subtitle">SHARP KING</text>
+          </view>
+        </view>
+        <view class="ranking-chip">GO</view>
+      </view>
+    </view>
+
     <view class="section-head">
       <view>
         <view class="section-title">今日小原圈</view>
@@ -102,6 +127,7 @@ function showToast(title: string) { uni.showToast({ title, icon: 'none' }) }
 function goDetail(productId: number) { uni.navigateTo({ url: `/pages/product/detail/index?productId=${productId}` }) }
 
 function goCloset() { uni.switchTab({ url: '/pages/tabbar/category/index' }) }
+function openRanking(tab: 'god' | 'goddess') { uni.navigateTo({ url: `/pages/ranking/index?tab=${tab}` }) }
 function handleBanner(action: BannerAction) {
   if (action === 'closet') goCloset()
   if (action === 'ranking') openForum()
@@ -134,6 +160,18 @@ onMounted(() => {
 .banner-title { margin-top:12rpx; font-size:36rpx; line-height:1.13; font-weight:950; letter-spacing:-1rpx; text-shadow:0 5rpx 14rpx rgba(80,35,18,.18); }
 .banner-desc { margin-top:8rpx; width:92%; font-size:21rpx; line-height:1.35; font-weight:750; color:rgba(255,255,255,.88); }
 .banner-cta { margin-top:12rpx; display:inline-flex; padding:8rpx 18rpx; border-radius:999rpx; background:#fff; color:#ff6b3a; font-size:20rpx; font-weight:950; box-shadow:0 8rpx 18rpx rgba(80,35,18,.14); }
+.ranking-entry-row { margin:16rpx 0 12rpx; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14rpx; }
+.ranking-entry { position:relative; min-height:138rpx; padding:16rpx 14rpx 14rpx; border-radius:34rpx; overflow:hidden; display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; color:#fff; box-sizing:border-box; isolation:isolate; box-shadow:0 18rpx 34rpx rgba(255,122,69,.18); }
+.ranking-entry::after { content:''; position:absolute; inset:1rpx; z-index:2; border-radius:33rpx; border:1rpx solid rgba(255,255,255,.45); background:linear-gradient(145deg,rgba(255,255,255,.18),rgba(255,255,255,.02) 42%,rgba(255,255,255,.14)); pointer-events:none; }
+.ranking-entry.god { box-shadow:0 18rpx 34rpx rgba(76,103,255,.18); }
+.ranking-art { position:absolute; inset:0; z-index:0; width:100%; height:100%; }
+.ranking-overlay { position:absolute; inset:0; z-index:1; background:linear-gradient(90deg,rgba(36,16,18,.60) 0%,rgba(36,16,18,.18) 54%,rgba(36,16,18,.04) 100%); }
+.ranking-entry.god .ranking-overlay { background:linear-gradient(90deg,rgba(7,12,45,.62) 0%,rgba(7,12,45,.16) 54%,rgba(7,12,45,.04) 100%); }
+.ranking-main { position:relative; z-index:3; display:flex; align-items:center; gap:11rpx; min-width:0; }
+.ranking-copy { display:flex; flex-direction:column; gap:6rpx; min-width:0; }
+.ranking-title { font-size:26rpx; line-height:1.08; font-weight:950; letter-spacing:-.2rpx; text-shadow:0 4rpx 12rpx rgba(0,0,0,.28); }
+.ranking-subtitle { font-size:13rpx; line-height:1; font-weight:950; letter-spacing:1.2rpx; color:rgba(255,255,255,.82); text-shadow:0 3rpx 8rpx rgba(0,0,0,.22); }
+.ranking-chip { position:relative; z-index:3; margin-left:auto; min-width:42rpx; height:24rpx; padding:0 9rpx; border-radius:999rpx; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.92); background:rgba(255,255,255,.20); box-shadow:inset 0 0 0 1rpx rgba(255,255,255,.32), 0 6rpx 14rpx rgba(0,0,0,.10); font-size:13rpx; line-height:24rpx; font-weight:950; letter-spacing:.8rpx; backdrop-filter:blur(6rpx); }
 .section-head { margin:22rpx 0 12rpx; display:flex; align-items:flex-end; justify-content:space-between; }
 .section-title { font-size:31rpx; font-weight:950; color:#3a2a1f; }
 .section-subtitle { margin-top:5rpx; color:#9b7560; font-size:21rpx; }
