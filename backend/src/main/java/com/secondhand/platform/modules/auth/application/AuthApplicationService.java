@@ -39,29 +39,31 @@ public class AuthApplicationService {
 
     @Transactional
     public AuthTokenResponse login(LoginRequest request) {
-        return login(request, null, false);
+        return login(request, null);
     }
 
     @Transactional
     public AuthTokenResponse login(LoginRequest request, String clientIp) {
-        return login(request, clientIp, true);
-    }
-
-    private AuthTokenResponse login(LoginRequest request, String clientIp, boolean enforceRegistrationLimit) {
         validateLoginRequest(request);
         String normalizedMobile = request.getMobile().trim();
         UserAuthRow user = findByMobile(normalizedMobile);
-        if (user == null) {
-            if (enforceRegistrationLimit) {
-                enforceDailyRegistrationLimit(clientIp);
-            }
-            user = createUser(normalizedMobile, passwordHash(request.getPassword()));
-            if (enforceRegistrationLimit) {
-                recordDailyRegistration(clientIp);
-            }
-        } else if (!verifyPassword(request.getPassword(), user.passwordHash())) {
+        if (user == null || !verifyPassword(request.getPassword(), user.passwordHash())) {
             throw new IllegalArgumentException("mobile or password invalid");
         }
+        return issueSession(user.id());
+    }
+
+    @Transactional
+    public AuthTokenResponse register(LoginRequest request, String clientIp) {
+        validateLoginRequest(request);
+        String normalizedMobile = request.getMobile().trim();
+        UserAuthRow existingUser = findByMobile(normalizedMobile);
+        if (existingUser != null) {
+            throw new IllegalStateException("mobile already registered");
+        }
+        enforceDailyRegistrationLimit(clientIp);
+        UserAuthRow user = createUser(normalizedMobile, passwordHash(request.getPassword()));
+        recordDailyRegistration(clientIp);
         return issueSession(user.id());
     }
 

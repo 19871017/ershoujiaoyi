@@ -31,8 +31,8 @@ class AuthApplicationServiceTest {
     }
 
     @Test
-    void loginShouldCreateUserAccountAndProfileWhenMobileIsNew() {
-        AuthTokenResponse response = service.login(login("13800138000", "pass-123456"));
+    void registerShouldCreateUserAccountAndProfileWhenMobileIsNew() {
+        AuthTokenResponse response = service.register(login("13800138000", "pass-123456"), "203.0.113.1");
 
         assertTrue(response.getAccessToken().startsWith("usr_"));
         assertTrue(response.getRefreshToken().startsWith("usr_"));
@@ -44,9 +44,19 @@ class AuthApplicationServiceTest {
     }
 
     @Test
+    void loginShouldRejectUnknownMobileInsteadOfRegisteringImplicitly() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.login(login("13800138009", "pass-123456"), "203.0.113.2"));
+
+        assertEquals("mobile or password invalid", error.getMessage());
+        assertEquals(0, count("user_account"));
+        assertEquals(0, count("user_profile"));
+    }
+
+    @Test
     void loginShouldStorePasswordWithPerUserSaltNotDeterministicSha256() {
-        service.login(login("13800138002", "pass-123456"));
-        service.login(login("13800138003", "pass-123456"));
+        service.register(login("13800138002", "pass-123456"), "203.0.113.12");
+        service.register(login("13800138003", "pass-123456"), "203.0.113.13");
 
         String firstHash = jdbcTemplate.queryForObject(
                 "SELECT password_hash FROM user_account WHERE phone = ?", String.class, "13800138002");
@@ -62,7 +72,7 @@ class AuthApplicationServiceTest {
 
     @Test
     void loginShouldIssuePersistedOpaqueSessionTokensInsteadOfDeterministicDevTokens() {
-        AuthTokenResponse first = service.login(login("13800138004", "pass-123456"));
+        AuthTokenResponse first = service.register(login("13800138004", "pass-123456"), "203.0.113.14");
         AuthTokenResponse second = service.login(login("13800138004", "pass-123456"));
 
         assertTrue(first.getAccessToken().matches("^usr_[a-f0-9]{32}$"));
@@ -76,7 +86,7 @@ class AuthApplicationServiceTest {
 
     @Test
     void repeatedLoginShouldReuseExistingUserWithoutDuplicatingRows() {
-        AuthTokenResponse first = service.login(login("13800138001", "pass-123456"));
+        AuthTokenResponse first = service.register(login("13800138001", "pass-123456"), "203.0.113.15");
         AuthTokenResponse second = service.login(login("13800138001", "pass-123456"));
 
         assertFalse(first.getAccessToken().equals(second.getAccessToken()));
@@ -86,10 +96,10 @@ class AuthApplicationServiceTest {
 
     @Test
     void newRegistrationShouldBeLimitedToOneAccountPerClientIpPerDay() {
-        service.login(login("13800138011", "pass-123456"), "203.0.113.8");
+        service.register(login("13800138011", "pass-123456"), "203.0.113.8");
 
         IllegalStateException error = assertThrows(IllegalStateException.class,
-                () -> service.login(login("13800138012", "pass-123456"), "203.0.113.8"));
+                () -> service.register(login("13800138012", "pass-123456"), "203.0.113.8"));
 
         assertEquals("daily registration limit exceeded", error.getMessage());
         assertEquals(1, count("user_account"));
@@ -100,10 +110,10 @@ class AuthApplicationServiceTest {
 
     @Test
     void ipRegistrationLimitShouldNotBlockExistingUserLoginOrDifferentIp() {
-        service.login(login("13800138013", "pass-123456"), "203.0.113.9");
+        service.register(login("13800138013", "pass-123456"), "203.0.113.9");
 
         AuthTokenResponse existingUserLogin = service.login(login("13800138013", "pass-123456"), "203.0.113.9");
-        AuthTokenResponse differentIpRegistration = service.login(login("13800138014", "pass-123456"), "203.0.113.10");
+        AuthTokenResponse differentIpRegistration = service.register(login("13800138014", "pass-123456"), "203.0.113.10");
 
         assertTrue(existingUserLogin.getAccessToken().startsWith("usr_"));
         assertTrue(differentIpRegistration.getAccessToken().startsWith("usr_"));

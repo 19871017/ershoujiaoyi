@@ -21,8 +21,24 @@ public class AuthController {
         return Result.ok(authApplicationService.login(request, resolveClientIp(httpRequest)));
     }
 
+    @PostMapping("/register")
+    public Result<AuthTokenResponse> register(@RequestBody LoginRequest request, jakarta.servlet.http.HttpServletRequest httpRequest) {
+        return Result.ok(authApplicationService.register(request, resolveClientIp(httpRequest)));
+    }
+
     private String resolveClientIp(jakarta.servlet.http.HttpServletRequest request) {
-        String remoteAddr = request == null ? null : request.getRemoteAddr();
+        if (request == null) {
+            return "unknown";
+        }
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (forwardedFor != null && !forwardedFor.isBlank()) {
+            return forwardedFor.split(",")[0].trim();
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.trim();
+        }
+        String remoteAddr = request.getRemoteAddr();
         if (remoteAddr == null || remoteAddr.isBlank()) {
             return "unknown";
         }

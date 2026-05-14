@@ -82,7 +82,8 @@ public class GlobalExceptionHandler {
             "city invalid",
             "bio invalid",
             "identity fields must be server-derived",
-            "daily registration limit exceeded"
+            "daily registration limit exceeded",
+            "mobile already registered"
     );
 
     @ExceptionHandler(SecurityException.class)
