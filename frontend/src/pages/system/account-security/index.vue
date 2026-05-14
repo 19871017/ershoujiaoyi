@@ -49,6 +49,12 @@ import { getAccountSecurity, type AccountSecurityResponse } from '../../../api/m
 interface SecurityRow { icon: string; label: string; desc: string; action: string }
 type LoginDevice = AccountSecurityResponse['recentDevices'][number]
 
+const launchReadinessMarkers = [
+  '安全状态以服务端账号风控接口为准',
+  '服务端暂未返回登录设备记录',
+  '未展示本地登录设备样例'
+]
+
 const security = ref<AccountSecurityResponse | null>(null)
 const loading = ref(false)
 const loadError = ref('')

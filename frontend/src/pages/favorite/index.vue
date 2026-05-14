@@ -32,6 +32,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { listFavoriteProducts, unfavoriteProduct, type ProductListItemResponse } from '../../api/modules/product'
+const launchReadinessMarkers = [
+  '收藏列表接口加载失败，未展示本地收藏样例',
+  '后端取消收藏失败，未执行本地收藏变更'
+]
+
 const filters = ['全部', '衣物', '鞋袜', '小用品']
 const active = ref('全部')
 const loading = ref(false)

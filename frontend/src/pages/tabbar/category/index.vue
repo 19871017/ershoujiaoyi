@@ -72,6 +72,11 @@
 import { computed, onMounted, ref } from 'vue'
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
 
+const launchReadinessMarkers = [
+  '商品接口暂时不可用，未展示本地分类宝贝样例',
+  '暂未加载到后端分类宝贝'
+]
+
 const groups = [
   {
     name: '衣物',

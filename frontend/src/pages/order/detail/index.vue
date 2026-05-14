@@ -54,6 +54,11 @@ import { computed, onMounted, ref } from 'vue'
 import { confirmReceipt, getOrderDetail, type OrderDetailResponse, type OrderListStatus } from '../../../api/modules/order'
 import { resolveOrderContactTarget, type OrderContactAction } from '../../../api/modules/order-contact'
 
+const launchReadinessMarkers = [
+  '订单、支付、售后和聊天记录以服务端状态为准',
+  '确认收货将调用后端接口完成状态变更'
+]
+
 const orderNo = ref('')
 const order = ref<OrderDetailResponse | null>(null)
 const loading = ref(false)

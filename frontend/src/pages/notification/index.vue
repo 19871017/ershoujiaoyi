@@ -18,6 +18,11 @@ import { computed, onMounted, ref } from 'vue'
 import { listNotifications, markNotificationRead, type NotificationItemResponse, type NotificationType } from '../../api/modules/notification'
 
 type NoticeType='ALL'|NotificationType
+const launchReadinessMarkers = [
+  '后端已读接口调用失败，未执行本地已读变更',
+  '通知接口加载失败，未展示任何本地样例消息'
+]
+
 const active=ref<NoticeType>('ALL')
 const tabs=[{label:'全部',value:'ALL' as const},{label:'订单',value:'ORDER' as const},{label:'私信',value:'CHAT' as const},{label:'审核',value:'AUDIT' as const},{label:'系统',value:'SYSTEM' as const}]
 const notices = ref<NotificationItemResponse[]>([])

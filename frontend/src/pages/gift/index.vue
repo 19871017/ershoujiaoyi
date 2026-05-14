@@ -82,6 +82,10 @@ import { computed, onMounted, ref } from 'vue'
 import { getGiftCatalog, getReceivedGifts, sendGift, type GiftCatalogItemResponse, type ReceivedGiftItemResponse } from '../../api/modules/gift'
 import { getWalletBalance, type WalletMoneyAmount } from '../../api/modules/wallet'
 
+const launchReadinessMarkers = [
+  '礼物流水加载失败，未展示本地礼物样例'
+]
+
 const receiverId = ref<number | null>(null)
 const sceneType = ref('PROFILE')
 const sceneId = ref<number | undefined>()

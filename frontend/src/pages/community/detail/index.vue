@@ -57,6 +57,11 @@ import { followPublicProfile, getPublicProfile, unfollowPublicProfile } from '..
 
 interface CommentItem { id: string; avatar: string; name: string; text: string }
 
+const launchReadinessMarkers = [
+  '缺少后端作者ID，未执行任何关注变更',
+  '关注状态没有提交成功，未执行本地关注变更'
+]
+
 const topic = ref('')
 const postId = ref('')
 const liked = ref(false)

@@ -44,6 +44,12 @@ import { computed, onMounted, ref } from 'vue'
 import { listMyProducts, updateProductVisibility, type ProductListItemResponse, type ProductAuditState, type ProductCreateStatus } from '../../api/modules/product'
 
 type TabValue = 'ALL' | ProductCreateStatus
+const launchReadinessMarkers = [
+  '无法加载后端卖家商品列表，未展示本地商品样例',
+  '商品缺少后端 productId，未打开本地商品详情',
+  '商品缺少后端 productId，未进入本地编辑页'
+]
+
 const tabs: Array<{ label: string; value: TabValue }> = [
   { label: '全部', value: 'ALL' },
   { label: '在售', value: 'ACTIVE' },

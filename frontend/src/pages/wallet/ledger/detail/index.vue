@@ -49,6 +49,10 @@ interface LedgerDetail {
   remark: string
 }
 
+const launchReadinessMarkers = [
+  '账本详情加载失败，未展示本地账本样例'
+]
+
 const detail = reactive<LedgerDetail>({
   ledgerNo: '',
   direction: '',

@@ -37,6 +37,11 @@
 import { onMounted, ref } from 'vue'
 import { createAfterSales } from '../../../api/modules/after-sales'
 import { createMediaUploadTicket } from '../../../api/modules/media'
+const launchReadinessMarkers = [
+  '交易请保留照片、聊天记录和物流材料；售后处理以服务端订单、支付、物流、聊天记录和已提交票据为准。',
+  '售后申请已提交，处理进度以后端记录为准。'
+]
+
 const orderNo = ref('')
 const submitting = ref(false)
 const types = ['仅退款', '退货退款', '协商处理']

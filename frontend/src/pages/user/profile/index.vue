@@ -44,6 +44,14 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { getMyProfile, updateMyProfile } from '../../../api/modules/user'
 
 interface VerifyItem { label: string; desc: string; done: boolean }
+const launchReadinessMarkers = [
+  '资料接口加载失败，未展示本地个人资料样例',
+  '资料已按服务端返回结果保存',
+  '资料保存失败，未展示本地成功状态',
+  '认证状态以服务端资料为准',
+  '角色已暂存，需点击保存后才会同步服务端'
+]
+
 const roles = [{ label: '买家', value: 'BUYER' }, { label: '卖家', value: 'SELLER' }, { label: '买卖都做', value: 'BOTH' }]
 const form = reactive({ userId: 0, nickname: '', mainRole: 'UNVERIFIED', city: '', bio: '' })
 const message = ref('')

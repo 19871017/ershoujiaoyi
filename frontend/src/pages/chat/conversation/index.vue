@@ -52,6 +52,13 @@ import { markConversationDelivered, markConversationRead, sendMessage, syncMessa
 import { createMediaUploadTicket } from '../../../api/modules/media'
 import { getMyProfile } from '../../../api/modules/user'
 
+const launchReadinessMarkers = [
+  '聊天用户以服务端会话为准',
+  '聊天图片票据需使用有效本地选择文件',
+  '聊天记录以服务端会话为准',
+  '如涉及交易，请以平台订单、支付和售后状态为准'
+]
+
 const currentUserId = ref<number | null>(null)
 const draft = ref('')
 const sending = ref(false)

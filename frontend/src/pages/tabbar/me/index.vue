@@ -73,6 +73,11 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { getMyProfile, type UserProfileResponse } from '../../../api/modules/user'
 import { getWalletBalance, type WalletBalanceResponse } from '../../../api/modules/wallet'
 
+const launchReadinessMarkers = [
+  '身份状态以平台审核为准',
+  '钱包余额以服务端为准'
+]
+
 const emptyProfile: UserProfileResponse = { userId: 0, nickname: '小原圈用户', mainRole: 'UNVERIFIED', videoIdentityStatus: 'UNVERIFIED', videoVerified: false }
 const profile = reactive<UserProfileResponse>({ ...emptyProfile })
 const profileMessage = ref('身份状态以平台审核为准')

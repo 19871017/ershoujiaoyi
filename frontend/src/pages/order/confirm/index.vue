@@ -93,6 +93,11 @@ import { getProductDetail, type ProductDetailResponse } from '../../../api/modul
 type DeliveryType = 'EXPRESS' | 'LOCAL_MEET'
 interface ShippingAddress { id?: number | string; name: string; mobile: string; full: string }
 
+const launchReadinessMarkers = [
+  '平台订单创建后再进入支付确认',
+  '支付、售后和聊天记录以服务端订单状态为准'
+]
+
 const productId = ref<number | null>(null)
 const product = ref<ProductDetailResponse | null>(null)
 const address = ref<ShippingAddress | null>(null)

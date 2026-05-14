@@ -55,6 +55,12 @@ import { listProducts, type ProductListItemResponse } from '../../../api/modules
 
 type BannerAction = HomeBannerAction
 
+const launchReadinessMarkers = [
+  '暂未加载到后端在售宝贝',
+  '商品接口暂时不可用，未展示本地演示宝贝',
+  '件后端在售宝贝'
+]
+
 const banners = ref<HomeBannerResponse[]>([])
 
 const forumTopics = [

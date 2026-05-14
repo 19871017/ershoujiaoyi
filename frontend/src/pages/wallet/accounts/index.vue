@@ -44,6 +44,10 @@
 import { onMounted, reactive, ref } from 'vue'
 import { bindPayoutAccount, getPayoutAccount, type PayoutAccountResponse } from '../../../api/modules/wallet'
 
+const launchReadinessMarkers = [
+  '提现账户绑定失败：未保存本地账号'
+]
+
 const methods = ['ALIPAY', 'BANK_CARD']
 const form = reactive({ paymentMethod: 'ALIPAY', accountName: '', accountNo: '' })
 const activeAccount = ref<PayoutAccountResponse | null>(null)

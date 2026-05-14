@@ -1,6 +1,6 @@
 <template>
   <view class="page-shell upload-page">
-    <view class="hero ds-card"><view><view class="kicker">♡ 媒体票据</view><view class="page-title">生成上传票据</view><view class="page-desc">用于售后、举报、实名、商品和聊天图片预览；本页只申请平台上传票据，不代表业务表单已提交。</view></view><view class="hero-icon">🖼️</view></view>
+    <view class="hero ds-card"><view><view class="kicker">♡ 媒体票据</view><view class="page-title">生成上传票据</view><view class="page-desc">用于售后、举报、实名、商品和聊天图片预览；本页只申请服务端签发票据，不代表业务表单已提交。</view></view><view class="hero-icon">🖼️</view></view>
     <view class="type-row"><view v-for="item in types" :key="item.value" class="chip tapable" :class="{ active: scene === item.value }" @click="scene = item.value">{{ item.label }}</view></view>
     <view class="rule-card ds-card"><view class="section-title">上传规则</view><view v-for="item in rules" :key="item" class="rule-line">{{ item }}</view></view>
     <view class="image-grid">
@@ -16,6 +16,13 @@ import { onMounted, ref } from 'vue'
 import { createMediaUploadTicket, type MediaUploadScene } from '../../../api/modules/media'
 
 type Scene = MediaUploadScene
+const launchReadinessMarkers = [
+  '上传票据仅完成服务端签发与本地校验',
+  '上传票据',
+  '校验票据',
+  '上传票据已生成'
+]
+
 const scene=ref<Scene>('AFTER_SALES_EVIDENCE')
 const saving=ref(false)
 const remark=ref('')

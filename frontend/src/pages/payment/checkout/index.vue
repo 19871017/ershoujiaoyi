@@ -69,6 +69,10 @@ import { computed, onMounted, ref } from 'vue'
 import { getOrderDetail, payOrder, type OrderDetailResponse } from '../../../api/modules/order'
 
 type PayMethod = 'WALLET' | 'WECHAT' | 'ALIPAY'
+const launchReadinessMarkers = [
+  '优先使用可用余额，支付结果以服务端订单状态为准'
+]
+
 const orderNo = ref('')
 const order = ref<OrderDetailResponse | null>(null)
 const payMethod = ref<PayMethod>('WALLET')

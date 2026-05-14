@@ -33,6 +33,12 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { getMyProfile, updateMyProfile } from '../../../api/modules/user'
 
+const launchReadinessMarkers = [
+  '城市偏好已保存至服务端资料',
+  '城市偏好保存失败，未修改服务端资料',
+  '资料接口加载失败，未展示本地城市偏好样例'
+]
+
 const keyword = ref('')
 const selected = ref('')
 const saving = ref(false)

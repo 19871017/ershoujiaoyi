@@ -65,6 +65,11 @@ import { listProducts, type ProductListItemResponse } from '../../../api/modules
 
 type Sort = 'latest' | 'priceAsc' | 'priceDesc'
 
+const launchReadinessMarkers = [
+  '商品接口暂时不可用，未展示本地搜索宝贝样例',
+  '仅展示后端返回的在售商品'
+]
+
 const keyword = ref('')
 const category = ref('全部')
 const sort = ref<Sort>('latest')
