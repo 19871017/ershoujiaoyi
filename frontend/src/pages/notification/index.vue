@@ -1,10 +1,13 @@
 <template>
   <view class="page-shell notice-page">
-    <view class="hero ds-card"><view><view class="kicker">♡ 消息通知</view><view class="page-title">通知中心</view><view class="page-desc">订单、私信、审核、举报处理结果统一查看；通知内容和已读状态以平台记录为准。</view></view><view class="hero-icon">🔔</view></view>
+    <view class="hero ds-card"><view><view class="kicker">♡ 消息通知</view><view class="page-title">通知中心</view><view class="page-desc">订单、私信、审核和举报处理结果会集中显示。</view></view><view class="hero-icon">🔔</view></view>
     <view class="tab-row"><view v-for="item in tabs" :key="item.value" class="chip tapable" :class="{ active: active === item.value }" @click="switchTab(item.value)">{{ item.label }}</view></view>
     <view v-if="loading" class="empty-card ds-card">通知加载中...</view>
-    <view v-else-if="loadError" class="empty-card ds-card">{{ loadError }}</view>
-    <view v-else-if="filtered.length === 0" class="empty-card ds-card">暂无平台通知</view>
+    <view v-else-if="loadError" class="empty-card ds-card">
+      <view>{{ loadError }}</view>
+      <view class="retry-btn tapable" @click="loadNotifications">重新加载</view>
+    </view>
+    <view v-else-if="filtered.length === 0" class="empty-card ds-card">暂无通知</view>
     <view v-else class="notice-list">
       <view v-for="item in filtered" :key="item.notificationNo" class="notice-card ds-card tapable" @click="openNotice(item)">
         <view class="notice-icon">{{ iconFor(item.type) }}</view>
@@ -19,8 +22,8 @@ import { listNotifications, markNotificationRead, type NotificationItemResponse,
 
 type NoticeType='ALL'|NotificationType
 const launchReadinessMarkers = [
-  '后端已读接口调用失败，未执行本地已读变更',
-  '通知接口加载失败，未展示任何本地样例消息'
+  '已读状态暂时无法更新，请稍后重试',
+  '通知暂时不可用，请稍后刷新'
 ]
 
 const active=ref<NoticeType>('ALL')
@@ -36,7 +39,7 @@ async function loadNotifications() {
     notices.value = await listNotifications(active.value)
   } catch {
     notices.value = []
-    loadError.value = '通知接口加载失败，未展示任何默认内容消息'
+    loadError.value = '通知暂时不可用，请稍后刷新'
   } finally { loading.value = false }
 }
 function switchTab(type: NoticeType) {
@@ -54,12 +57,19 @@ function isSafeNotificationTargetUrl(value?: string | null) {
   if (!value) return false
   return /^\/pages\/[A-Za-z0-9/_-]+\/index(?:\?[A-Za-z0-9%=&_.:-]+)?$/.test(value)
 }
+function isValidNotificationNo(value?: string | null) {
+  return /^[A-Za-z0-9_-]{6,64}$/.test(String(value || ''))
+}
 async function openNotice(item: NotificationItemResponse){
+  if (!isValidNotificationNo(item.notificationNo)) {
+    uni.showToast({ title: '通知编号无效，未更新已读状态', icon: 'none' })
+    return
+  }
   try {
     const read = await markNotificationRead(item.notificationNo)
     notices.value = notices.value.map((notice) => notice.notificationNo === read.notificationNo ? read : notice)
   } catch {
-    uni.showToast({ title: '平台已读接口调用失败，未执行已读变更', icon: 'none' })
+    uni.showToast({ title: '已读状态暂时无法更新，请稍后重试', icon: 'none' })
     return
   }
   if (item.targetUrl && isSafeNotificationTargetUrl(item.targetUrl)) {
@@ -71,5 +81,5 @@ async function openNotice(item: NotificationItemResponse){
 onMounted(() => { void loadNotifications() })
 </script>
 <style scoped>
-.notice-page{background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%)}.hero,.notice-card,.empty-card{margin-top:18rpx;padding:22rpx;border-color:#ffd9bd}.hero{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#fff,#fff3e7)}.kicker{color:#ff7a45;font-size:22rpx;font-weight:950}.hero-icon{width:82rpx;height:82rpx;border-radius:28rpx;background:#ff7a45;color:#fff;display:flex;align-items:center;justify-content:center;font-size:36rpx}.tab-row{margin-top:18rpx;display:flex;gap:12rpx;overflow-x:auto}.chip{flex:none;padding:13rpx 20rpx;border-radius:999rpx;background:#fff;border:1rpx solid #ffd9bd;color:#9b7560;font-size:22rpx;font-weight:900}.chip.active{background:#3a2a1f;color:#fff;border-color:#3a2a1f}.notice-card{display:flex;gap:16rpx}.empty-card{color:#9b7560;font-size:24rpx;text-align:center}.notice-icon{width:76rpx;height:76rpx;border-radius:26rpx;background:#fff3e7;display:flex;align-items:center;justify-content:center;font-size:34rpx}.main{flex:1;min-width:0}.title-row{display:flex;justify-content:space-between;gap:12rpx}.title{color:#3a2a1f;font-size:27rpx;font-weight:950}.dot{padding:5rpx 10rpx;border-radius:999rpx;background:#ff7a45;color:#fff;font-size:18rpx}.desc{margin-top:8rpx;color:#7b5542;font-size:23rpx;line-height:1.45}.time{margin-top:8rpx;color:#b9856a;font-size:20rpx}
+.notice-page{background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%)}.hero,.notice-card,.empty-card{margin-top:18rpx;padding:22rpx;border-color:#ffd9bd}.hero{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#fff,#fff3e7)}.kicker{color:#ff7a45;font-size:22rpx;font-weight:950}.hero-icon{width:82rpx;height:82rpx;border-radius:28rpx;background:#ff7a45;color:#fff;display:flex;align-items:center;justify-content:center;font-size:36rpx}.tab-row{margin-top:18rpx;display:flex;gap:12rpx;overflow-x:auto}.chip{flex:none;padding:13rpx 20rpx;border-radius:999rpx;background:#fff;border:1rpx solid #ffd9bd;color:#9b7560;font-size:22rpx;font-weight:900}.chip.active{background:#3a2a1f;color:#fff;border-color:#3a2a1f}.notice-card{display:flex;gap:16rpx}.empty-card{color:#9b7560;font-size:24rpx;text-align:center}.retry-btn{display:inline-flex;margin-top:16rpx;padding:10rpx 22rpx;border-radius:999rpx;background:#ff7a45;color:#fff;font-size:21rpx;font-weight:950}.notice-icon{width:76rpx;height:76rpx;border-radius:26rpx;background:#fff3e7;display:flex;align-items:center;justify-content:center;font-size:34rpx}.main{flex:1;min-width:0}.title-row{display:flex;justify-content:space-between;gap:12rpx}.title{color:#3a2a1f;font-size:27rpx;font-weight:950}.dot{padding:5rpx 10rpx;border-radius:999rpx;background:#ff7a45;color:#fff;font-size:18rpx}.desc{margin-top:8rpx;color:#7b5542;font-size:23rpx;line-height:1.45}.time{margin-top:8rpx;color:#b9856a;font-size:20rpx}
 </style>

@@ -30,10 +30,12 @@ const required = [
   'await listNotifications(active.value)',
   'await markNotificationRead(item.notificationNo)',
   'isSafeNotificationTargetUrl',
+  'isValidNotificationNo',
   "item.targetUrl && isSafeNotificationTargetUrl(item.targetUrl)",
   '通知跳转地址无效，未打开页面',
-  '后端已读接口调用失败，未执行本地已读变更',
-  '通知接口加载失败，未展示任何本地样例消息'
+  '通知编号无效，未更新已读状态',
+  '已读状态暂时无法更新，请稍后重试',
+  '通知暂时不可用，请稍后刷新'
 ]
 
 for (const marker of required) {
