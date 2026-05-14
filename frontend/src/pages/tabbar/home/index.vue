@@ -1,19 +1,23 @@
 <template>
   <view class="page-shell home-page">
-    <swiper class="banner-swiper" circular autoplay :interval="3600" :duration="520" indicator-dots indicator-color="rgba(255,255,255,.55)" indicator-active-color="#ffffff">
-      <swiper-item v-for="item in banners" :key="item.id">
-        <view class="banner-card tapable" @click="handleBanner(item.action)">
-          <image class="banner-bg" :src="item.imageUrl" mode="aspectFill" />
-          <view class="banner-shade"></view>
-          <view class="banner-copy">
-            <view class="banner-kicker">{{ item.kicker }}</view>
-            <view class="banner-title">{{ item.title }}</view>
-            <view class="banner-desc">{{ item.description }}</view>
-            <view class="banner-cta">{{ item.cta }}</view>
-          </view>
+    <view class="brand-hero tapable" @click="openSearch" aria-label="XYQ brand banner">
+      <view class="hero-orbit hero-orbit-a"></view>
+      <view class="hero-orbit hero-orbit-b"></view>
+      <view class="hero-glow"></view>
+      <view class="hero-logo">
+        <view class="logo-ring">
+          <text class="logo-letter">XYQ</text>
         </view>
-      </swiper-item>
-    </swiper>
+      </view>
+      <view class="hero-visual">
+        <view class="visual-card card-main"></view>
+        <view class="visual-card card-soft"></view>
+        <view class="visual-dot dot-a"></view>
+        <view class="visual-dot dot-b"></view>
+        <view class="visual-line line-a"></view>
+        <view class="visual-line line-b"></view>
+      </view>
+    </view>
 
     <view class="section-head">
       <view>
@@ -50,23 +54,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { getHomeBanners, type HomeBannerAction, type HomeBannerResponse } from '../../../api/modules/home'
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
-
-type BannerAction = HomeBannerAction
 
 const launchReadinessMarkers = [
   '暂未加载到后端在售宝贝',
   '商品接口暂时不可用，未展示本地演示宝贝',
   '件后端在售宝贝'
-]
-
-const banners = ref<HomeBannerResponse[]>([])
-
-const forumTopics = [
-  { icon: '🌷', title: '日常生活', count: '2.1k', id: 1 },
-  { icon: '🧺', title: '闲置避坑', count: '896', id: 2 },
-  { icon: '💗', title: '圈内经验', count: '518', id: 3 }
 ]
 
 const loading = ref(false)
@@ -76,15 +69,6 @@ const tickerProducts = computed(() => {
   if (products.value.length <= 5) return products.value
   return [...products.value, ...products.value.slice(0, 5)]
 })
-async function loadBanners() {
-  try {
-    banners.value = await getHomeBanners()
-  } catch (error) {
-    banners.value = []
-  }
-}
-
-
 async function loadProducts() {
   loading.value = true
   errorMessage.value = ''
@@ -98,19 +82,9 @@ async function loadProducts() {
     loading.value = false
   }
 }
-function showToast(title: string) { uni.showToast({ title, icon: 'none' }) }
 function goDetail(productId: number) { uni.navigateTo({ url: `/pages/product/detail/index?productId=${productId}` }) }
 
-function goCloset() { uni.switchTab({ url: '/pages/tabbar/category/index' }) }
-function handleBanner(action: BannerAction) {
-  if (action === 'closet') goCloset()
-  if (action === 'ranking') openForum()
-  if (action === 'forum') openForum()
-  if (action === 'search') openSearch()
-}
 function openSearch() { uni.navigateTo({ url: '/pages/search/result/index?keyword=%E5%BF%83%E7%88%B1%E4%B9%8B%E7%89%A9' }) }
-function openTopic(item: { id: number; title: string }) { uni.navigateTo({ url: `/pages/community/detail/index?postId=${item.id}&topic=${encodeURIComponent(item.title)}` }) }
-function openForum() { uni.switchTab({ url: '/pages/tabbar/message/index' }); showToast('已进入') }
 function statusLabel(status: string) { return status === 'created' || status === 'ACTIVE' ? '在售' : status }
 function compactPrice(price: string) { return Number(price).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
 function iconFor(title: string) { if (title.includes('裙')) return '👗'; if (title.includes('鞋')) return '👠'; if (title.includes('袜')) return '🧦'; return '👜' }
@@ -118,22 +92,31 @@ function tagFor(title: string) { if (title.includes('裙')) return '衣物'; if 
 function toneClass(id: number) { return `tone-${id % 4}` }
 function distanceFor(id: number) { return ['平台记录', '订单为准', '售后为准', '可邮寄'][id % 4] }
 onMounted(() => {
-  loadBanners()
   loadProducts()
 })
 </script>
 
 <style scoped>
 .home-page { padding-top:16rpx; background:radial-gradient(circle at 14% 2%, rgba(255,195,128,.30), transparent 26%), linear-gradient(180deg,#fff7ed 0%,#fffdfa 48%,#fff5ee 100%); }
-.banner-swiper { height:230rpx; border-radius:34rpx; overflow:hidden; }
-.banner-card { position:relative; height:230rpx; padding:24rpx 26rpx; border-radius:34rpx; overflow:hidden; display:flex; align-items:center; justify-content:space-between; box-sizing:border-box; box-shadow:0 16rpx 32rpx rgba(255,122,69,.16); background:linear-gradient(135deg,#ff7a45 0%,#ffb36f 48%,#ffe1b8 100%); }
-.banner-bg { position:absolute; inset:0; width:100%; height:100%; }
-.banner-shade { position:absolute; inset:0; background:linear-gradient(90deg,rgba(42,24,12,.58) 0%,rgba(42,24,12,.26) 54%,rgba(42,24,12,.06) 100%); }
-.banner-copy { position:relative; z-index:2; width:68%; color:#fff; }
-.banner-kicker { display:inline-flex; padding:6rpx 13rpx; border-radius:999rpx; background:rgba(255,255,255,.22); color:rgba(255,255,255,.94); font-size:19rpx; font-weight:950; backdrop-filter:blur(8rpx); }
-.banner-title { margin-top:12rpx; font-size:36rpx; line-height:1.13; font-weight:950; letter-spacing:-1rpx; text-shadow:0 5rpx 14rpx rgba(80,35,18,.18); }
-.banner-desc { margin-top:8rpx; width:92%; font-size:21rpx; line-height:1.35; font-weight:750; color:rgba(255,255,255,.88); }
-.banner-cta { margin-top:12rpx; display:inline-flex; padding:8rpx 18rpx; border-radius:999rpx; background:#fff; color:#ff6b3a; font-size:20rpx; font-weight:950; box-shadow:0 8rpx 18rpx rgba(80,35,18,.14); }
+.brand-hero { position:relative; height:220rpx; border-radius:34rpx; overflow:hidden; display:flex; align-items:center; justify-content:space-between; padding:0 30rpx; box-sizing:border-box; background:linear-gradient(132deg,#ff7a45 0%,#ffb66c 48%,#fff0ce 100%); box-shadow:0 18rpx 36rpx rgba(255,122,69,.18), inset 0 0 0 1rpx rgba(255,255,255,.45); }
+.brand-hero::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,rgba(82,36,15,.18),rgba(255,255,255,.04) 56%,rgba(255,255,255,.38)); pointer-events:none; }
+.hero-logo { position:relative; z-index:3; width:148rpx; height:148rpx; border-radius:44rpx; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.22); box-shadow:0 16rpx 30rpx rgba(115,52,20,.16); backdrop-filter:blur(10rpx); transform:rotate(-5deg); }
+.logo-ring { width:112rpx; height:112rpx; border-radius:36rpx; display:flex; align-items:center; justify-content:center; background:linear-gradient(145deg,#fffdf8,#fff3e4); border:3rpx solid rgba(255,255,255,.84); box-shadow:inset 0 -8rpx 16rpx rgba(255,122,69,.10); }
+.logo-letter { color:#ff6b3a; font-size:28rpx; line-height:1; font-weight:950; letter-spacing:-1rpx; }
+.hero-visual { position:absolute; z-index:2; right:18rpx; top:18rpx; width:420rpx; height:184rpx; }
+.hero-glow { position:absolute; right:-64rpx; top:-80rpx; width:310rpx; height:310rpx; border-radius:50%; background:rgba(255,255,255,.42); filter:blur(18rpx); }
+.hero-orbit { position:absolute; border:2rpx solid rgba(255,255,255,.34); border-radius:999rpx; transform:rotate(-16deg); }
+.hero-orbit-a { right:16rpx; top:28rpx; width:410rpx; height:118rpx; }
+.hero-orbit-b { right:-54rpx; bottom:16rpx; width:330rpx; height:96rpx; opacity:.55; }
+.visual-card { position:absolute; border-radius:28rpx; background:rgba(255,255,255,.44); box-shadow:0 12rpx 28rpx rgba(135,65,22,.12); backdrop-filter:blur(8rpx); }
+.card-main { right:58rpx; top:16rpx; width:210rpx; height:132rpx; transform:rotate(8deg); }
+.card-soft { right:176rpx; bottom:8rpx; width:150rpx; height:92rpx; transform:rotate(-10deg); opacity:.70; }
+.visual-dot { position:absolute; border-radius:999rpx; background:#fff; box-shadow:0 8rpx 18rpx rgba(110,48,18,.12); }
+.dot-a { right:292rpx; top:18rpx; width:28rpx; height:28rpx; }
+.dot-b { right:42rpx; bottom:30rpx; width:22rpx; height:22rpx; background:#ffefe0; }
+.visual-line { position:absolute; height:12rpx; border-radius:999rpx; background:rgba(255,255,255,.62); }
+.line-a { right:96rpx; top:58rpx; width:120rpx; transform:rotate(8deg); }
+.line-b { right:116rpx; top:88rpx; width:76rpx; transform:rotate(8deg); opacity:.70; }
 .section-head { margin:22rpx 0 12rpx; display:flex; align-items:flex-end; justify-content:space-between; }
 .section-title { font-size:31rpx; font-weight:950; color:#3a2a1f; }
 .section-subtitle { margin-top:5rpx; color:#9b7560; font-size:21rpx; }
