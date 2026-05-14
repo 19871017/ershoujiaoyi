@@ -19,11 +19,16 @@ const ENABLE_DEV_HEADERS = import.meta.env.VITE_ENABLE_DEV_HEADERS === 'true'
 const ENABLE_LAN_API_FALLBACK = import.meta.env.VITE_ENABLE_LAN_API_FALLBACK === 'true'
 const DEV_USER_ID = import.meta.env.VITE_DEV_USER_ID ?? '1'
 
+function isLanHost(host: string) {
+  return /^(10|172\.(1[6-9]|2\d|3[0-1])|192\.168)\.\d{1,3}\.\d{1,3}$/.test(host)
+}
+
 function resolveApiBaseUrl() {
   if (API_BASE_URL.trim()) return API_BASE_URL.trim().replace(/\/$/, '')
   if (!ENABLE_LAN_API_FALLBACK || typeof window === 'undefined' || !window.location?.hostname) return ''
   const host = window.location.hostname
   if (!host || host === 'localhost' || host === '127.0.0.1') return ''
+  if (!isLanHost(host)) return ''
   return `http://${host}:18080`
 }
 
