@@ -15,14 +15,14 @@
     </view>
 
     <view class="topic-grid">
-      <view v-for="item in topics" :key="item.title" class="topic-card ds-card tapable" :class="{ active: activeTopic === item.title }" @click="activeTopic = item.title">
+      <view v-for="item in topics" :key="item.title" class="topic-card ds-card tapable" :class="{ active: activeTopic === item.title }" @click="selectTopic(item.title)">
         <view class="topic-icon">{{ item.icon }}</view>
         <view class="topic-title">{{ item.title }}</view>
       </view>
     </view>
 
     <view class="filter-row">
-      <view v-for="item in filters" :key="item" class="filter tapable" :class="{ active: activeFilter === item }" @click="activeFilter = item">{{ item }}</view>
+      <view v-for="item in filters" :key="item" class="filter tapable" :class="{ active: activeFilter === item }" @click="selectFilter(item)">{{ item }}</view>
     </view>
 
     <view v-if="loadError" class="empty-card ds-card">{{ loadError }}</view>
@@ -53,7 +53,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { likeCommunityPost, listCommunityPosts, unlikeCommunityPost, type CommunityPostResponse } from '../../../api/modules/community'
 
-const filters = ['全部', '话题', '私信', '交易']
+const filters = ['全部', '生活日常', '闲置避坑', '交易经验', '求购心愿']
 const activeFilter = ref('全部')
 const activeTopic = ref('生活日常')
 const topics = [
@@ -64,7 +64,10 @@ const topics = [
 const feeds = ref<CommunityPostResponse[]>([])
 const loading = ref(false)
 const loadError = ref('')
-const filteredFeeds = computed(() => feeds.value.filter((item) => (activeFilter.value === '全部' || item.topic === activeFilter.value) && item.topic === activeTopic.value))
+const filteredFeeds = computed(() => feeds.value.filter((item) => {
+  const selected = activeFilter.value === '全部' ? activeTopic.value : activeFilter.value
+  return item.topic === selected
+}))
 
 async function loadFeeds() {
   loading.value = true
@@ -73,7 +76,7 @@ async function loadFeeds() {
     feeds.value = await listCommunityPosts(20)
   } catch {
     feeds.value = []
-    loadError.value = '内容暂时不可用'
+    loadError.value = '社区内容暂时不可用，未展示本地帖子样例'
   } finally {
     loading.value = false
   }
@@ -83,6 +86,8 @@ function goSessions() { uni.navigateTo({ url: '/pages/chat/session-list/index' }
 function openNotification() { uni.navigateTo({ url: '/pages/notification/index' }) }
 function showToast(title: string) { uni.showToast({ title, icon: 'none' }) }
 function openComposer() { uni.navigateTo({ url: '/pages/community/compose/index' }) }
+function selectTopic(title: string) { activeTopic.value = title; activeFilter.value = '全部' }
+function selectFilter(title: string) { activeFilter.value = title; if (title !== '全部') activeTopic.value = title }
 function isValidCommunityPostId(value: number | string | null | undefined) { return /^[1-9]\d{0,18}$/.test(String(value || '')) }
 function openPost(item: CommunityPostResponse) {
   if (!isValidCommunityPostId(item.postId)) {
@@ -91,7 +96,7 @@ function openPost(item: CommunityPostResponse) {
   }
   uni.navigateTo({ url: `/pages/community/detail/index?postId=${item.postId}&topic=${encodeURIComponent(item.topic)}` })
 }
-function toggleFollow() { showToast('关注功能暂时不可用') }
+function toggleFollow() { showToast('关注接口暂未接通后端，未执行任何关注变更') }
 async function toggleLikeFeed(item: CommunityPostResponse) {
   if (!isValidCommunityPostId(item.postId)) {
     showToast('缺少有效动态编号，未执行点赞变更')
@@ -103,7 +108,7 @@ async function toggleLikeFeed(item: CommunityPostResponse) {
     item.likeCount = saved.likeCount
     item.likedByMe = saved.likedByMe
   } catch {
-    showToast('点赞没有提交成功，未执行点赞变更')
+    showToast('点赞没有提交成功，未执行本地点赞变更')
   }
 }
 function avatarOf(item: CommunityPostResponse) { return (item.title || item.topic || '原').slice(0, 1) }

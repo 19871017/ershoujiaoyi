@@ -116,7 +116,7 @@ async function submitPost() {
       success: (res) => { if (res.confirm && created.postId > 0) uni.navigateTo({ url: `/pages/community/detail/index?postId=${created.postId}` }) }
     })
   } catch (error) {
-    submitMessage.value = '发布没有提交成功，未进入广场'
+    submitMessage.value = '发布没有提交成功，未进入社区广场'
     uni.showToast({ title: error instanceof Error ? error.message : '发布失败，请稍后重试', icon: 'none' })
   } finally {
     submitting.value = false
