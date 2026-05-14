@@ -22,7 +22,7 @@
         <view class="credit">{{ profileStatusText }}</view>
         <view class="tag-row">
           <text class="mini-tag">{{ trustTagText }}</text>
-          <text class="mini-tag soft">身份状态以平台审核为准</text>
+          <text class="mini-tag soft">认证资料可继续完善</text>
         </view>
         <view class="state-tip">{{ profileMessage }}</view>
       </view>
@@ -80,11 +80,11 @@ const launchReadinessMarkers = [
 
 const emptyProfile: UserProfileResponse = { userId: 0, nickname: '小原圈用户', mainRole: 'UNVERIFIED', videoIdentityStatus: 'UNVERIFIED', videoVerified: false }
 const profile = reactive<UserProfileResponse>({ ...emptyProfile })
-const profileMessage = ref('身份状态以平台审核为准')
+const profileMessage = ref('完善认证资料，让买家更放心')
 const profileLoaded = ref(false)
 const emptyBalance: WalletBalanceResponse = { rechargeBalance: '--', incomeBalance: '--', frozenBalance: '--', withdrawableBalance: '--' }
 const balance = reactive<WalletBalanceResponse>({ ...emptyBalance })
-const walletMessage = ref('钱包余额以平台为准')
+const walletMessage = ref('余额安全托管中')
 const orderStatus = computed(() => [
   { icon: '💳', label: '待付款', count: 0 },
   { icon: '📦', label: '待发货', count: 0 },
@@ -97,10 +97,10 @@ const menus = [
   { icon: '🏦', label: '提现审核', desc: '查看提现进度', url: '/pages/wallet/index?tab=withdraw' },
   { icon: '💳', label: '收款账户', desc: '提现银行卡和支付宝账户', url: '/pages/wallet/accounts/index' },
   { icon: '🪪', label: '视频认证', desc: '通过后主页展示视频认证卖家', url: '/pages/user/identity/index?tab=video' },
-  { icon: '📍', label: '地址管理', desc: '收货与发货信息以平台记录为准', url: '/pages/user/address/index' },
+  { icon: '📍', label: '地址管理', desc: '管理收货与发货信息', url: '/pages/user/address/index' },
   { icon: '🎁', label: '收到的礼物', desc: '礼物分账和收入记录', url: '/pages/gift/index' },
   { icon: '🛡️', label: '举报与风控', desc: '提交举报、查看安全提示', url: '/pages/risk/index' },
-  { icon: '⚙️', label: '设置', desc: '账号安全、隐私和正式', url: '/pages/system/settings/index' }
+  { icon: '⚙️', label: '设置', desc: '账号安全与隐私设置', url: '/pages/system/settings/index' }
 ]
 const avatarText = computed(() => (profile.nickname || '原').slice(-1))
 const totalAvailable = computed(() => {
@@ -111,7 +111,7 @@ const totalAvailable = computed(() => {
 const profileStatusText = computed(() => {
   const identityText = profile.mainRole === 'VERIFIED' ? '实名已核验' : '实名待核验'
   const videoText = profile.videoVerified ? '视频认证已通过' : `视频认证${statusLabel(profile.videoIdentityStatus)}`
-  return `${identityText} · ${videoText} · 信用分待平台计算`
+  return `${identityText} · ${videoText}`
 })
 const trustTagText = computed(() => profile.videoVerified ? '视频认证卖家' : '普通用户')
 function statusLabel(status: string) {
@@ -121,20 +121,20 @@ async function loadProfile() {
   try {
     Object.assign(profile, await getMyProfile())
     profileLoaded.value = true
-    profileMessage.value = '资料已从平台加载，身份状态以平台审核为准'
+    profileMessage.value = profile.videoVerified ? '你的认证资料已完善' : '继续完成认证，提升主页可信度'
   } catch {
     Object.assign(profile, emptyProfile)
     profileLoaded.value = false
-    profileMessage.value = '资料加载失败，未展示认证或信用分数据'
+    profileMessage.value = '资料暂时不可用，请稍后刷新'
   }
 }
 async function loadWalletBalance() {
   try {
     Object.assign(balance, await getWalletBalance())
-    walletMessage.value = '钱包余额以平台为准'
+    walletMessage.value = '可进入钱包查看流水和提现'
   } catch {
     Object.assign(balance, emptyBalance)
-    walletMessage.value = '余额加载失败，未展示钱包数据'
+    walletMessage.value = '余额暂时不可用，请稍后重试'
   }
 }
 function showToast(title: string) { uni.showToast({ title, icon: 'none' }) }

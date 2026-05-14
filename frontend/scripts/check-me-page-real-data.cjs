@@ -29,8 +29,8 @@ const requiredMarkers = [
   'getWalletBalance',
   '身份状态以平台审核为准',
   '钱包余额以服务端为准',
-  '资料加载失败',
-  '余额加载失败'
+  '资料暂时不可用，请稍后刷新',
+  '余额暂时不可用，请稍后重试'
 ]
 
 for (const marker of requiredMarkers) {
