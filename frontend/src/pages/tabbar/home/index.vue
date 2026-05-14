@@ -33,7 +33,7 @@
         <view class="ranking-glow glow-b"></view>
         <view class="ranking-content">
           <view class="ranking-kicker">GOD</view>
-          <view class="ranking-title">锋芒男神榜</view>
+          <view class="ranking-title">多金男神榜</view>
           <view class="ranking-desc">平台互动排名</view>
         </view>
         <view class="ranking-go">GO</view>
