@@ -24,7 +24,7 @@
 
       <view class="form-section">
         <view class="field-label">宝贝标题</view>
-        <input :value="form.title" class="field-input" maxlength="40" placeholder="请填写真实宝贝标题" confirm-type="next" @input="handleTextInput('title', $event)" @blur="trimTextField('title')" />
+        <input v-model="form.title" class="field-input" maxlength="40" placeholder="请填写真实宝贝标题" confirm-type="next" @blur="trimTextField('title')" />
         <view class="field-hint">{{ form.title.length }}/40</view>
       </view>
 
@@ -37,11 +37,11 @@
       <view class="row">
         <view class="form-section half">
           <view class="field-label">售价</view>
-          <input :value="form.price" class="field-input" type="text" inputmode="decimal" placeholder="¥ 0.00" confirm-type="next" @input="handlePriceInput" />
+          <input v-model="form.price" class="field-input" type="text" inputmode="decimal" placeholder="¥ 0.00" confirm-type="next" @blur="normalizePrice" />
         </view>
         <view class="form-section half">
           <view class="field-label">所在位置</view>
-          <input :value="form.location" class="field-input" :maxlength="locationMaxLength" placeholder="填写真实可公开的城市/区域" confirm-type="done" @input="handleTextInput('location', $event)" @blur="trimTextField('location')" />
+          <input v-model="form.location" class="field-input" :maxlength="locationMaxLength" placeholder="填写真实可公开的城市/区域" confirm-type="done" @blur="trimTextField('location')" />
           <view class="location-actions">
             <button class="mini-btn" :disabled="!profileCity" @click="useProfileCity">资料城市</button>
             <button class="mini-btn" :disabled="locating" @click="detectCurrentCity">{{ locating ? '定位中' : '定位' }}</button>
@@ -153,38 +153,14 @@ function imageContentType(path: string) {
 
 type TextFieldKey = 'title' | 'location'
 
-type InputValue = string | number
-
-type UniInputEvent = {
-  detail?: { value?: InputValue }
-  target?: { value?: InputValue }
-  currentTarget?: { value?: InputValue }
-}
-
-type InputEventPayload = InputValue | Event | UniInputEvent
-
 type GetLocationResult = { latitude: number; longitude: number }
-
-function inputValue(event: InputEventPayload) {
-  if (typeof event === 'string' || typeof event === 'number') return String(event)
-  const uniEvent = event as UniInputEvent
-  const detailValue = uniEvent.detail?.value
-  if (typeof detailValue === 'string' || typeof detailValue === 'number') return String(detailValue)
-  const targetValue = uniEvent.target?.value ?? uniEvent.currentTarget?.value
-  if (typeof targetValue === 'string' || typeof targetValue === 'number') return String(targetValue)
-  return ''
-}
-
-function handleTextInput(field: TextFieldKey, event: InputEventPayload) {
-  form[field] = inputValue(event)
-}
 
 function trimTextField(field: TextFieldKey) {
   form[field] = form[field].trim()
 }
 
-function handlePriceInput(event: InputEventPayload) {
-  const value = inputValue(event)
+function normalizePrice() {
+  const value = form.price
     .replace(/[^\d.]/g, '')
     .replace(/(\.\d{2}).+$/, '$1')
   const dotIndex = value.indexOf('.')
@@ -236,6 +212,7 @@ async function detectCurrentCity() {
 function validateForm() {
   trimTextField('title')
   trimTextField('location')
+  normalizePrice()
   form.tradeRule = platformTradeRule
   if (!form.title || form.title.length < 4) return '标题至少 4 个字'
   if (!form.description || form.description.length < 10) return '描述至少 10 个字，写清楚成色和尺码'
