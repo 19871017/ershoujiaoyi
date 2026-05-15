@@ -32,7 +32,7 @@ const routes: RouteRecordRaw[] = [
 export const adminRoutes = routes
 
 const router = createRouter({
-  history: typeof window === 'undefined' ? createMemoryHistory() : createWebHistory(),
+  history: typeof window === 'undefined' ? createMemoryHistory() : createWebHistory('/admin/'),
   routes
 })
 
