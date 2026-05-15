@@ -12,6 +12,7 @@ public class UserRankingResponse {
     private final int popularityScore;
     private final int safetyScore;
     private final int guardianScore;
+    private final int giftScore;
     private final boolean followedByMe;
 
     public UserRankingResponse(Long userId, int rank, String nickname, String gender, String city, String bio, String mainRole, int followerCount, boolean followedByMe) {
@@ -19,6 +20,10 @@ public class UserRankingResponse {
     }
 
     public UserRankingResponse(Long userId, int rank, String nickname, String gender, String city, String bio, String mainRole, int followerCount, int popularityScore, int safetyScore, int guardianScore, boolean followedByMe) {
+        this(userId, rank, nickname, gender, city, bio, mainRole, followerCount, popularityScore, safetyScore, guardianScore, popularityScore, followedByMe);
+    }
+
+    public UserRankingResponse(Long userId, int rank, String nickname, String gender, String city, String bio, String mainRole, int followerCount, int popularityScore, int safetyScore, int guardianScore, int giftScore, boolean followedByMe) {
         this.userId = userId;
         this.rank = rank;
         this.nickname = nickname;
@@ -30,6 +35,7 @@ public class UserRankingResponse {
         this.popularityScore = popularityScore;
         this.safetyScore = safetyScore;
         this.guardianScore = guardianScore;
+        this.giftScore = giftScore;
         this.followedByMe = followedByMe;
     }
 
@@ -44,5 +50,6 @@ public class UserRankingResponse {
     public int getPopularityScore() { return popularityScore; }
     public int getSafetyScore() { return safetyScore; }
     public int getGuardianScore() { return guardianScore; }
+    public int getGiftScore() { return giftScore; }
     public boolean isFollowedByMe() { return followedByMe; }
 }

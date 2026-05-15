@@ -30,20 +30,20 @@ if (source.includes('const rankings = reactive<RankingUser[]>([') || source.incl
 if (source.includes('榜单接口尚未接入') || source.includes('未接入前不展示本地榜单用户')) {
   failures.push('ranking page must not tell users the ranking API is not connected after /api/user/rankings is wired')
 }
-if (!source.includes('后端榜单暂无上榜用户，未展示本地预览榜单')) {
+if (!source.includes("loadError.value = '暂无上榜用户'")) {
   failures.push('ranking page must keep a backend-empty fail-closed message when no ranking rows are returned')
 }
 if (!source.includes('const rankings = ref<RankingUser[]>([])')) {
   failures.push('ranking page must initialize leaderboard rows as an empty backend-derived ref')
 }
-if (!source.includes('listUserRankings(activeGender.value, 20)') || !source.includes("loadError.value = '后端榜单加载失败，未展示本地预览榜单'")) {
-  failures.push('ranking page must load backend rankings and fail closed instead of static ranking rows')
+if (!source.includes('listUserRankings(activeGender.value, 100)') || !source.includes("loadError.value = '榜单加载失败，请稍后重试'")) {
+  failures.push('ranking page must load backend rankings with top 100 and fail closed instead of static ranking rows')
 }
-if (!source.includes('const stats = computed(() => [') || !source.includes("{ value: `${rankings.value.length}`, label: '后端上榜用户' }")) {
+if (!source.includes('const stats = computed(() => [') || !source.includes("{ value: `${rankings.value.length}`, label: '上榜用户' }") || !source.includes("{ value: '100', label: '榜单名额' }")) {
   failures.push('ranking page stats must aggregate backend-loaded leaderboard rows only')
 }
-if (!source.includes('实名、信用、成交等信任指标必须由后端审计数据提供')) {
-  failures.push('ranking page must explicitly state that identity/credit/deal trust metrics require backend audit data')
+if (!source.includes('1 元礼物 = 1 分') || !source.includes('giftScore')) {
+  failures.push('ranking page must use gift score copy and data as the only ranking metric')
 }
 
 const previewTrustCopyPatterns = [
@@ -54,8 +54,8 @@ const previewTrustCopyPatterns = [
 for (const { label, pattern } of previewTrustCopyPatterns) {
   if (pattern.test(source)) failures.push(`ranking page preview/static copy must not assert transaction/location trust signal without backend state: ${label}`)
 }
-if (!source.includes('交易状态以服务端订单、支付和售后记录为准')) {
-  failures.push('ranking page safety copy must use neutral backend-record wording for transactions')
+if (/交易|成交|买卖|实名|信用|信任|安全榜|守护榜|规则/.test(source)) {
+  failures.push('ranking page must not show transaction, trust, safety, guardian, or rule copy')
 }
 
 const forbiddenLocalFollowMarkers = [
@@ -89,10 +89,10 @@ for (const marker of navigationRiskMarkers) {
   if (source.includes(marker)) failures.push(`ranking preview users must not be used as real sensitive navigation ids: ${marker}`)
 }
 
-if (!source.includes("if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少后端用户编号，未进入会话'")) {
+if (!source.includes("if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少平台用户编号，未进入会话'")) {
   failures.push('ranking chat action must validate backend user ids before routing into IM')
 }
-if (!source.includes("if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少后端用户编号，未打开主页'")) {
+if (!source.includes("if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少平台用户编号，未打开主页'")) {
   failures.push('ranking profile action must validate backend user ids before routing into public profile')
 }
 if (!source.includes('/pages/chat/conversation/index?receiverId=${item.id}') || !source.includes('/pages/user/public-profile/index?userId=${item.id}')) {

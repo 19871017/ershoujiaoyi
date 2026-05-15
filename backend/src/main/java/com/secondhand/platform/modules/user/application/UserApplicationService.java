@@ -171,7 +171,7 @@ public class UserApplicationService {
         if (!Set.of("goddess", "god").contains(normalizedGender)) {
             throw new IllegalArgumentException("gender invalid");
         }
-        if (limit <= 0 || limit > 50) {
+        if (limit <= 0 || limit > 100) {
             throw new IllegalArgumentException("limit invalid");
         }
         String profileGender = "goddess".equals(normalizedGender) ? "goddess" : "god";
@@ -183,19 +183,23 @@ public class UserApplicationService {
                        p.city,
                        p.bio,
                        p.main_role,
-                       COUNT(f.id) AS follower_count,
-                       COUNT(f.id) AS popularity_score,
-                       0 AS safety_score,
-                       0 AS guardian_score,
+                       COUNT(DISTINCT f.id) AS follower_count,
+                       COALESCE(g.gift_score, 0) AS gift_score,
                        CASE WHEN ? = TRUE AND EXISTS (
                            SELECT 1 FROM user_follow vf WHERE vf.follower_id = ? AND vf.followed_id = a.id
                        ) THEN TRUE ELSE FALSE END AS followed_by_me
                 FROM user_account a
                 JOIN user_profile p ON p.user_id = a.id
                 LEFT JOIN user_follow f ON f.followed_id = a.id
+                LEFT JOIN (
+                    SELECT receiver_id, FLOOR(COALESCE(SUM(total_amount), 0)) AS gift_score
+                    FROM gift_order
+                    WHERE status = 'SUCCESS'
+                    GROUP BY receiver_id
+                ) g ON g.receiver_id = a.id
                 WHERE a.status = 'ACTIVE' AND LOWER(p.gender) = ?
-                GROUP BY a.id, a.nickname, p.gender, p.city, p.bio, p.main_role
-                ORDER BY follower_count DESC, a.id ASC
+                GROUP BY a.id, a.nickname, p.gender, p.city, p.bio, p.main_role, g.gift_score
+                ORDER BY gift_score DESC, a.id ASC
                 LIMIT ?
                 """, (rs, rowNum) -> new UserRankingResponse(
                         rs.getLong("id"),
@@ -206,9 +210,10 @@ public class UserApplicationService {
                         rs.getString("bio"),
                         rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role"),
                         rs.getInt("follower_count"),
-                        rs.getInt("popularity_score"),
-                        rs.getInt("safety_score"),
-                        rs.getInt("guardian_score"),
+                        rs.getInt("gift_score"),
+                        rs.getInt("gift_score"),
+                        rs.getInt("gift_score"),
+                        rs.getInt("gift_score"),
                         rs.getBoolean("followed_by_me")
                 ), hasViewer, hasViewer ? viewerId : -1L, profileGender, limit);
         return List.copyOf(rows);

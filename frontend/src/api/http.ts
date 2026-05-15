@@ -146,9 +146,9 @@ function mockResponse<T>(url: string): T | undefined {
       },
       {
         id: 2,
-        kicker: '圈内热度上升',
-        title: '圈内人气正在更新',
-        description: '看人气、看动态，也看真实交易口碑。',
+        kicker: '礼物积分上升',
+        title: '男神女神礼物榜',
+        description: '1 元礼物 = 1 分，按礼物积分看榜单。',
         cta: '去看看',
         imageUrl: '/uploads/home/banner-ranking.svg',
         action: 'ranking',

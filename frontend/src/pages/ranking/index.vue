@@ -4,8 +4,8 @@
       <view class="hero-glow" />
       <view class="hero-top">
         <view>
-          <view class="kicker">♡ 圈内人气榜</view>
-          <view class="page-desc">榜单数据来自平台互动热度；暂无真实数据时保持空态。</view>
+          <view class="kicker">♡ 礼物积分榜</view>
+          <view class="page-desc">男神女神榜只按礼物积分排名，1 元礼物 = 1 分。</view>
         </view>
         <view class="crown">👑</view>
       </view>
@@ -18,15 +18,9 @@
     </view>
 
     <view class="tabs ds-card">
-      <view v-for="item in genderTabs" :key="item.value" class="tab tapable" :class="{ active: activeGender === item.value }" @click="activeGender = item.value">
+      <view v-for="item in genderTabs" :key="item.value" class="tab tapable" :class="{ active: activeGender === item.value }" @click="switchGender(item.value)">
         <text class="tab-icon">{{ item.icon }}</text>
         <text>{{ item.label }}</text>
-      </view>
-    </view>
-
-    <view class="sub-tabs">
-      <view v-for="item in rankTypes" :key="item.value" class="sub-tab tapable" :class="{ active: activeType === item.value }" @click="activeType = item.value">
-        {{ item.label }}
       </view>
     </view>
 
@@ -34,9 +28,8 @@
       <view class="podium-title-row">
         <view>
           <view class="section-title">{{ currentTitle }}</view>
-          <view class="section-desc">{{ currentDesc }}</view>
+          <view class="section-desc">1 元礼物 = 1 分，按收到礼物总金额计算前 100 名。</view>
         </view>
-        <view class="rule-chip tapable" @click="showRule">规则</view>
       </view>
       <view class="podium-row">
         <view v-for="item in podiumList" :key="item.id" class="podium-item tapable" :class="[`rank-${item.rank}`, item.gender]" @click="openProfile(item)">
@@ -51,17 +44,17 @@
     <view class="filter-card ds-card">
       <view class="filter-head">
         <view>
-          <view class="section-title">完整榜单</view>
-          <view class="section-desc">暂无平台榜单数据时，本页保持空态；实名、信用、成交等信任指标必须由平台审计数据提供。</view>
+          <view class="section-title">完整榜单 Top 100</view>
+          <view class="section-desc">只展示礼物积分，其他指标不再参与榜单。</view>
         </view>
-        <view class="city-chip">{{ cityFilter }}</view>
+        <view class="city-chip">1 元 = 1 分</view>
       </view>
     </view>
 
     <view v-if="loadError" class="empty ds-card">
       <view class="empty-icon">📊</view>
-      <view class="section-title">榜单暂无平台数据</view>
-      <view class="section-desc">{{ loadError }}；交易状态以平台订单、支付和售后记录为准。</view>
+      <view class="section-title">榜单暂无礼物数据</view>
+      <view class="section-desc">{{ loadError }}</view>
     </view>
 
     <view class="rank-list">
@@ -77,13 +70,9 @@
             <view class="verify">平台返回</view>
           </view>
           <view class="user-desc">{{ item.bio }}</view>
-          <view class="tag-row">
-            <text v-for="tag in item.tags" :key="tag" class="tag">{{ tag }}</text>
-          </view>
           <view class="metric-row">
-            <text>人气 {{ item.popularity }}</text>
-            <text>关注者 {{ item.guardian }}</text>
-            <text>平台数据</text>
+            <text>礼物积分 {{ item.giftScore }}</text>
+            <text>1 元 = 1 分</text>
           </view>
         </view>
         <view class="user-actions">
@@ -93,13 +82,6 @@
       </view>
     </view>
 
-    <view class="safe-note ds-card">
-      <view class="safe-icon">🛡️</view>
-      <view>
-        <view class="safe-title">榜单安全说明</view>
-        <view class="safe-desc">榜单只展示平台返回的互动热度，不展示静态实名、信用或成交指标；交易状态以平台订单、支付和售后记录为准。</view>
-      </view>
-    </view>
   </view>
 </template>
 
@@ -109,7 +91,6 @@ import { listUserRankings, type RankingGender, type UserRankingResponse } from '
 import { followPublicProfile, unfollowPublicProfile } from '../../api/modules/user'
 
 type Gender = RankingGender
-type RankType = 'popular' | 'deal' | 'guardian'
 interface RankingUser {
   id: number
   rank: number
@@ -118,15 +99,11 @@ interface RankingUser {
   name: string
   bio: string
   city: string
-  tags: string[]
-  popularity: number
-  guardian: number
+  giftScore: number
   viewerFollows: boolean
 }
 
 const activeGender = ref<Gender>('goddess')
-const activeType = ref<RankType>('popular')
-const cityFilter = ref('全部')
 const loadError = ref('')
 const rankings = ref<RankingUser[]>([])
 const followingIds = ref<Set<number>>(new Set())
@@ -134,36 +111,25 @@ const genderTabs = [
   { value: 'goddess' as const, label: '女生', icon: '👑' },
   { value: 'god' as const, label: '男生', icon: '✨' }
 ]
-const rankTypes = [
-  { value: 'popular' as const, label: '人气榜' },
-  { value: 'deal' as const, label: '安全榜' },
-  { value: 'guardian' as const, label: '守护榜' }
-]
 const stats = computed(() => [
   { value: `${rankings.value.length}`, label: '上榜用户' },
-  { value: `${filteredRankings.value.length}`, label: '已加载条目' },
-  { value: '0', label: '信任指标' }
+  { value: `${totalGiftScore.value}`, label: '礼物积分' },
+  { value: '100', label: '榜单名额' }
 ])
-const currentTitle = computed(() => `${activeGender.value === 'goddess' ? '女生' : '男生'} · ${rankTypes.find((item) => item.value === activeType.value)?.label}`)
-const currentDesc = computed(() => {
-  if (activeType.value === 'popular') return '展示平台返回的真实互动热度；暂无数据时保持空态'
-  if (activeType.value === 'deal') return '实名、信用、成交等信任指标必须由平台审计数据提供'
-  return '守护热度必须由平台互动与审核记录提供'
-})
-const filteredRankings = computed(() => {
-  const list = rankings.value.filter((item) => item.gender === activeGender.value && (cityFilter.value === '全部' || item.city === cityFilter.value))
-  const key = activeType.value === 'popular' ? 'popularity' : 'guardian'
-  return [...list].sort((a, b) => b[key] - a[key]).map((item, index) => ({ ...item, rank: index + 1 }))
-})
+const currentTitle = computed(() => `${activeGender.value === 'goddess' ? '女神' : '男神'}礼物榜`)
+const totalGiftScore = computed(() => rankings.value.reduce((sum, item) => sum + item.giftScore, 0))
+const filteredRankings = computed(() => rankings.value
+  .filter((item) => item.gender === activeGender.value)
+  .sort((a, b) => b.giftScore - a.giftScore || a.id - b.id)
+  .slice(0, 100)
+  .map((item, index) => ({ ...item, rank: index + 1 })))
 const podiumList = computed(() => {
   const top = filteredRankings.value.slice(0, 3)
   return top.length === 3 ? [top[1]!, top[0]!, top[2]!] : top
 })
 function medalFor(rank: number) { return rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}` }
 function scoreText(item: RankingUser) {
-  if (activeType.value === 'popular') return `${item.popularity} 热度`
-  if (activeType.value === 'deal') return `${item.guardian} 安全热度`
-  return `${item.guardian} 守护`
+  return `${item.giftScore} 分`
 }
 function toRankingUser(item: UserRankingResponse): RankingUser {
   return {
@@ -174,12 +140,16 @@ function toRankingUser(item: UserRankingResponse): RankingUser {
     name: item.nickname || '平台用户',
     bio: item.bio || '个人介绍以平台资料为准',
     city: item.city || '全部',
-    tags: item.mainRole ? [`角色 ${item.mainRole}`] : [],
-    popularity: item.popularityScore,
-    guardian: activeType.value === 'deal' ? item.safetyScore : item.guardianScore,
+    giftScore: item.giftScore ?? item.popularityScore,
     viewerFollows: item.followedByMe
   }
 }
+function switchGender(gender: Gender) {
+  if (activeGender.value === gender) return
+  activeGender.value = gender
+  loadRankings()
+}
+
 async function toggleFollow(item: RankingUser) {
   if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少平台用户编号，无法提交关注请求', icon: 'none' })
   if (followingIds.value.has(item.id)) return
@@ -204,11 +174,10 @@ function openProfile(item: RankingUser) {
   if (!item.id || item.id <= 0) return uni.showToast({ title: '缺少平台用户编号，未打开主页', icon: 'none' })
   uni.navigateTo({ url: `/pages/user/public-profile/index?userId=${item.id}` })
 }
-function showRule() { uni.showModal({ title: '榜单规则', content: '榜单只展示平台用户资料和关注计数；实名、信用分、成交数必须由平台审计数据提供，当前不在本页展示。', showCancel: false }) }
 async function loadRankings() {
   try {
     loadError.value = ''
-    const rows = await listUserRankings(activeGender.value, 20)
+    const rows = await listUserRankings(activeGender.value, 100)
     rankings.value = rows.map(toRankingUser)
     if (rankings.value.length === 0) loadError.value = '暂无上榜用户'
   } catch {

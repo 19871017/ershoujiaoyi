@@ -18,25 +18,8 @@
     <view class="ranking-entrance">
       <view v-for="card in rankingCards" :key="card.tab" class="ranking-card tapable" :class="card.themeClass" @click="openRanking(card.tab)">
         <image v-if="card.artwork" class="ranking-art" :src="card.artwork" mode="aspectFill" />
-        <view class="ranking-shade"></view>
-        <view class="ranking-orb orb-a"></view>
-        <view class="ranking-orb orb-b"></view>
-        <view class="ranking-card-top">
-          <view class="ranking-kicker">{{ card.kicker }}</view>
-          <view class="ranking-arrow">榜单</view>
-        </view>
-        <view class="ranking-content">
-          <view class="ranking-title">{{ card.title }}</view>
-          <view class="ranking-desc">{{ card.description }}</view>
-          <view class="ranking-tags">
-            <text v-for="tag in card.tags" :key="tag">{{ tag }}</text>
-          </view>
-        </view>
-        <view class="ranking-portrait" :class="card.portraitClass">
-          <view class="portrait-ring ring-lg"></view>
-          <view class="portrait-ring ring-sm"></view>
-          <view class="portrait-face">{{ card.faceLabel }}</view>
-        </view>
+        <view class="ranking-text-mask"></view>
+        <view class="ranking-title">{{ card.title }}</view>
       </view>
     </view>
 
@@ -52,21 +35,42 @@
     <view v-else-if="errorMessage" class="state ds-card muted">商品暂时不可用</view>
     <view v-else-if="products.length === 0" class="state ds-card muted">暂无在售宝贝</view>
 
-    <view v-else class="product-ticker">
-      <view class="product-track" :class="{ rolling: products.length > 5 }">
-        <view v-for="(item, index) in tickerProducts" :key="`${item.productId}-${index}`" class="product-card ds-card tapable" @click="goDetail(item.productId)">
-          <view class="thumb" :class="toneClass(item.productId)">
-            <image v-if="item.coverImageUrl" class="cover" :src="item.coverImageUrl" mode="aspectFill" />
-            <text v-else>{{ iconFor(item.title) }}</text>
-          </view>
-          <view class="product-info">
-            <view class="product-title">{{ item.title }}</view>
-            <view class="product-meta">{{ tagFor(item.title) }} · {{ distanceFor(item.productId) }}</view>
-            <view class="product-bottom">
-              <text class="price">¥{{ compactPrice(item.price) }}</text>
-              <text class="status">{{ statusLabel(item.status) }}</text>
+    <view v-else class="product-marquee">
+      <view class="product-grid-track" :class="{ rolling: shouldRollProducts }" :style="trackStyle">
+        <view v-for="(row, rowIndex) in rollingRows" :key="`row-${rowIndex}`" class="product-row">
+          <view
+            v-for="item in row"
+            :key="item.productId"
+            class="product-grid-card ds-card tapable"
+            @click="goDetail(item.productId)"
+          >
+            <view class="product-cover-wrap" :class="toneClass(item.productId)">
+              <image v-if="item.coverImageUrl" class="product-cover" :src="item.coverImageUrl" mode="aspectFill" />
+              <view v-else class="product-cover-fallback">{{ iconFor(item.title) }}</view>
+              <view class="product-status-chip">{{ statusLabel(item.status) }}</view>
+            </view>
+
+            <view class="product-grid-info">
+              <view class="product-grid-title">{{ item.title }}</view>
+              <view class="product-grid-seller">
+                <view class="seller-badge">
+                  <view class="seller-avatar-wrap">
+                    <text class="seller-avatar">卖</text>
+                  </view>
+                  <view class="seller-copy">
+                    <text class="seller-name">小原圈卖家</text>
+                    <text class="seller-tag">平台认证交易中</text>
+                  </view>
+                </view>
+                <text class="seller-time">{{ formatPublishTime(item.createdAt) }}</text>
+              </view>
+              <view class="product-grid-bottom">
+                <text class="price">¥{{ compactPrice(item.price) }}</text>
+                <text class="product-grid-meta">{{ tagFor(item.title) }}</text>
+              </view>
             </view>
           </view>
+          <view v-if="row.length < PRODUCT_COLUMNS" class="product-grid-card product-grid-card--ghost"></view>
         </view>
       </view>
     </view>
@@ -83,57 +87,77 @@ type RankingTab = 'goddess' | 'god'
 type RankingCard = {
   tab: RankingTab
   themeClass: string
-  portraitClass: string
   artwork: string
-  kicker: string
   title: string
-  description: string
-  tags: string[]
-  faceLabel: string
 }
 
 const launchReadinessMarkers = [
-  '暂未加载到平台在售宝贝',
-  '商品暂时不可用，请稍后重试',
-  '件平台在售宝贝'
+  '暂未加载到后端在售宝贝',
+  '商品接口暂时不可用，未展示本地演示宝贝',
+  '件后端在售宝贝'
 ]
 
 const banners = ref<HomeBannerResponse[]>([])
 const rankingArtwork = {
-  goddess: '',
-  god: ''
+  goddess: '/assets/ranking/ranking-goddess-card.png',
+  god: '/assets/ranking/ranking-god-card.png'
 }
 const rankingCards: RankingCard[] = [
   {
     tab: 'goddess',
     themeClass: 'ranking-goddess',
-    portraitClass: 'portrait-goddess',
     artwork: rankingArtwork.goddess,
-    kicker: '社区人气精选',
-    title: '魅力女神榜',
-    description: '视频认证、好评卖家与社区互动综合展示',
-    tags: ['认证优先', '口碑热度'],
-    faceLabel: '女神'
+    title: '魅力女神榜'
   },
   {
     tab: 'god',
     themeClass: 'ranking-god',
-    portraitClass: 'portrait-god',
     artwork: rankingArtwork.god,
-    kicker: '交易实力精选',
-    title: '多金男神榜',
-    description: '交易信用、活跃贡献与社区热度综合展示',
-    tags: ['信用优先', '交易热度'],
-    faceLabel: '男神'
+    title: '霸总男神榜'
   }
 ]
 
+const PRODUCT_COLUMNS = 2
+const VISIBLE_ROWS = 3
+const MIN_SIMULATED_PRODUCTS = 20
+const CARD_HEIGHT_RPX = 328
+const ROW_GAP_RPX = 16
 const loading = ref(false)
 const errorMessage = ref('')
 const products = ref<ProductListItemResponse[]>([])
-const tickerProducts = computed(() => {
-  if (products.value.length <= 5) return products.value
-  return [...products.value, ...products.value.slice(0, 5)]
+const displayProducts = computed(() => {
+  if (products.value.length === 0) return []
+  if (products.value.length >= MIN_SIMULATED_PRODUCTS) return products.value
+  const repeated: ProductListItemResponse[] = []
+  while (repeated.length < MIN_SIMULATED_PRODUCTS) {
+    repeated.push(...products.value)
+  }
+  return repeated.slice(0, MIN_SIMULATED_PRODUCTS)
+})
+const productRows = computed(() => {
+  const rows: ProductListItemResponse[][] = []
+  for (let index = 0; index < displayProducts.value.length; index += PRODUCT_COLUMNS) {
+    rows.push(displayProducts.value.slice(index, index + PRODUCT_COLUMNS))
+  }
+  return rows
+})
+const shouldRollProducts = computed(() => productRows.value.length > VISIBLE_ROWS)
+const duplicateRows = computed(() => {
+  if (!shouldRollProducts.value) return []
+  return productRows.value.slice(0, VISIBLE_ROWS)
+})
+const rollingRows = computed(() => {
+  if (!shouldRollProducts.value) return productRows.value
+  return [...productRows.value, ...duplicateRows.value]
+})
+const trackStyle = computed(() => {
+  if (!shouldRollProducts.value) return {}
+  const translateRows = productRows.value.length
+  const translateRpx = translateRows * CARD_HEIGHT_RPX + Math.max(0, translateRows - 1) * ROW_GAP_RPX
+  return {
+    '--product-roll-distance': `-${translateRpx}rpx`,
+    '--product-roll-duration': `${Math.max(14, productRows.value.length * 3.6)}s`
+  }
 })
 async function loadBanners() {
   try {
@@ -173,9 +197,18 @@ function openForum() { uni.switchTab({ url: '/pages/tabbar/message/index' }); sh
 function statusLabel(status: string) { return status === 'created' || status === 'ACTIVE' ? '在售' : status }
 function compactPrice(price: string) { return Number(price).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
 function iconFor(title: string) { if (title.includes('裙')) return '👗'; if (title.includes('鞋')) return '👠'; if (title.includes('袜')) return '🧦'; return '👜' }
-function tagFor(title: string) { if (title.includes('裙')) return '衣物'; if (title.includes('鞋')) return '鞋子'; if (title.includes('袜')) return '袜子'; return '小用品' }
+function tagFor(title: string) { if (title.includes('裙')) return '衣物'; if (title.includes('鞋')) return '鞋履'; if (title.includes('袜')) return '袜品'; return '闲置好物' }
 function toneClass(id: number) { return `tone-${id % 4}` }
-function distanceFor(id: number) { return ['平台记录', '订单为准', '售后为准', '可邮寄'][id % 4] }
+function formatPublishTime(createdAt: string) {
+  const date = new Date(createdAt)
+  if (Number.isNaN(date.getTime())) return '刚刚上新'
+  const diffHours = Math.max(0, (Date.now() - date.getTime()) / (1000 * 60 * 60))
+  if (diffHours < 1) return '刚刚上新'
+  if (diffHours < 24) return `${Math.floor(diffHours)} 小时前`
+  const diffDays = Math.floor(diffHours / 24)
+  if (diffDays < 7) return `${diffDays} 天前`
+  return `${date.getMonth() + 1}/${date.getDate()} 上新`
+}
 onMounted(() => {
   loadBanners()
   loadProducts()
@@ -194,53 +227,45 @@ onMounted(() => {
 .banner-desc { margin-top:8rpx; width:92%; font-size:21rpx; line-height:1.35; font-weight:750; color:rgba(255,255,255,.88); }
 .banner-cta { margin-top:12rpx; display:inline-flex; padding:8rpx 18rpx; border-radius:999rpx; background:#fff; color:#ff6b3a; font-size:20rpx; font-weight:950; box-shadow:0 8rpx 18rpx rgba(80,35,18,.14); }
 .ranking-entrance { margin:18rpx 0 12rpx; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16rpx; }
-.ranking-card { position:relative; min-height:232rpx; padding:18rpx; border-radius:34rpx; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 18rpx 38rpx rgba(80,35,18,.14); border:1rpx solid rgba(255,255,255,.74); isolation:isolate; }
+.ranking-card { position:relative; min-height:218rpx; padding:16rpx; border-radius:30rpx; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 16rpx 30rpx rgba(80,35,18,.13); border:1rpx solid rgba(255,255,255,.74); isolation:isolate; }
 .ranking-goddess { background:linear-gradient(145deg,#ff6f9a 0%,#ff9f5f 50%,#ffd76b 100%); }
 .ranking-god { background:linear-gradient(145deg,#111a44 0%,#1d4ed8 54%,#9b5cff 100%); }
 .ranking-art { position:absolute; inset:0; width:100%; height:100%; }
-.ranking-shade { position:absolute; inset:0; z-index:1; background:linear-gradient(180deg,rgba(28,15,10,.10) 0%,rgba(23,13,8,.28) 58%,rgba(23,13,8,.48) 100%); }
-.ranking-god .ranking-shade { background:linear-gradient(180deg,rgba(5,10,28,.08) 0%,rgba(5,10,28,.30) 58%,rgba(5,10,28,.56) 100%); }
-.ranking-orb { position:absolute; z-index:1; border-radius:50%; filter:blur(1rpx); pointer-events:none; }
-.orb-a { right:-38rpx; top:-38rpx; width:154rpx; height:154rpx; background:rgba(255,255,255,.30); }
-.orb-b { right:42rpx; bottom:38rpx; width:68rpx; height:68rpx; background:rgba(255,255,255,.16); }
-.ranking-god .orb-a { background:rgba(125,211,252,.28); }
-.ranking-god .orb-b { background:rgba(196,181,253,.18); }
-.ranking-card-top { position:relative; z-index:3; display:flex; align-items:center; justify-content:space-between; gap:10rpx; }
-.ranking-kicker { display:inline-flex; max-width:190rpx; padding:6rpx 12rpx; border-radius:999rpx; background:rgba(255,255,255,.22); color:rgba(255,255,255,.92); font-size:18rpx; font-weight:950; backdrop-filter:blur(10rpx); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.ranking-arrow { flex:none; padding:6rpx 12rpx; border-radius:999rpx; background:rgba(255,255,255,.92); color:#e94f78; font-size:18rpx; font-weight:950; box-shadow:0 8rpx 18rpx rgba(0,0,0,.10); }
-.ranking-god .ranking-arrow { color:#2454e8; }
-.ranking-content { position:relative; z-index:3; width:78%; min-width:0; color:#fff; }
-.ranking-title { margin-top:34rpx; font-size:32rpx; line-height:1.05; font-weight:950; letter-spacing:-.8rpx; text-shadow:0 5rpx 16rpx rgba(0,0,0,.20); white-space:nowrap; }
-.ranking-desc { margin-top:9rpx; color:rgba(255,255,255,.88); font-size:19rpx; line-height:1.38; font-weight:800; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.ranking-tags { margin-top:14rpx; display:flex; gap:8rpx; flex-wrap:wrap; }
-.ranking-tags text { padding:5rpx 10rpx; border-radius:999rpx; background:rgba(255,255,255,.18); color:rgba(255,255,255,.92); font-size:17rpx; font-weight:900; backdrop-filter:blur(8rpx); }
-.ranking-portrait { position:absolute; z-index:2; right:12rpx; bottom:12rpx; width:116rpx; height:128rpx; border-radius:36rpx; display:flex; align-items:center; justify-content:center; transform:rotate(4deg); box-shadow:inset 0 0 0 1rpx rgba(255,255,255,.30), 0 18rpx 28rpx rgba(0,0,0,.14); }
-.portrait-goddess { background:linear-gradient(160deg,rgba(255,255,255,.36),rgba(255,232,190,.12)); }
-.portrait-god { background:linear-gradient(160deg,rgba(255,255,255,.28),rgba(125,211,252,.10)); }
-.portrait-ring { position:absolute; border-radius:50%; border:2rpx solid rgba(255,255,255,.40); }
-.ring-lg { width:88rpx; height:88rpx; }
-.ring-sm { width:56rpx; height:56rpx; opacity:.78; }
-.portrait-face { position:relative; z-index:2; width:72rpx; height:72rpx; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.92); color:#e94f78; font-size:21rpx; font-weight:950; box-shadow:0 10rpx 20rpx rgba(0,0,0,.12); }
-.ranking-god .portrait-face { color:#2454e8; }
+.ranking-text-mask { position:absolute; left:0; top:0; width:72%; height:52%; z-index:1; pointer-events:none; background:linear-gradient(135deg,rgba(45,21,12,.42) 0%,rgba(45,21,12,.20) 58%,rgba(45,21,12,0) 100%); }
+.ranking-god .ranking-text-mask { background:linear-gradient(135deg,rgba(4,12,36,.44) 0%,rgba(4,12,36,.20) 58%,rgba(4,12,36,0) 100%); }
+.ranking-title { position:absolute; z-index:3; left:18rpx; top:16rpx; max-width:210rpx; color:#fff8d8; font-size:33rpx; line-height:1.05; font-weight:950; letter-spacing:1.6rpx; font-family:"STSong","Songti SC","PingFang SC",serif; white-space:nowrap; text-shadow:0 2rpx 0 rgba(120,54,12,.72),0 0 10rpx rgba(255,224,136,.86),0 8rpx 18rpx rgba(0,0,0,.45); }
+.ranking-goddess .ranking-title { color:#fff2c3; text-shadow:0 2rpx 0 rgba(143,52,64,.72),0 0 12rpx rgba(255,210,128,.90),0 8rpx 18rpx rgba(90,28,34,.42); }
+.ranking-god .ranking-title { color:#fff1b8; text-shadow:0 2rpx 0 rgba(31,60,132,.76),0 0 12rpx rgba(191,219,254,.90),0 8rpx 18rpx rgba(2,8,23,.48); }
 .section-head { margin:22rpx 0 12rpx; display:flex; align-items:flex-end; justify-content:space-between; }
 .section-title { font-size:31rpx; font-weight:950; color:#3a2a1f; }
 .section-subtitle { margin-top:5rpx; color:#9b7560; font-size:21rpx; }
 .small { min-height:54rpx; padding:0 18rpx; font-size:21rpx; color:#ff7a45; background:#fff3e7; }
 .state { margin-bottom:12rpx; padding:18rpx; color:#9b7560; font-size:23rpx; }
 .muted { background:#fff3e7; color:#b45374; }
-.product-ticker { height:530rpx; overflow:hidden; }
-.product-track { display:flex; flex-direction:column; gap:10rpx; }
-.product-track.rolling { animation:productRoll 18s linear infinite; }
-.product-card { height:98rpx; padding:9rpx 10rpx; display:flex; gap:12rpx; border-color:#ffd9bd; box-sizing:border-box; }
-.thumb { width:80rpx; height:80rpx; flex:none; border-radius:20rpx; display:flex; align-items:center; justify-content:center; font-size:34rpx; overflow:hidden; }
-@keyframes productRoll { from { transform:translateY(0); } to { transform:translateY(-540rpx); } }
-.cover { width:100%; height:100%; }
+.product-marquee { height:1016rpx; overflow:hidden; }
+.product-grid-track { display:flex; flex-direction:column; gap:16rpx; will-change:transform; }
+.product-grid-track.rolling { animation:productGridRoll var(--product-roll-duration,18s) linear infinite; }
+.product-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16rpx; }
+.product-grid-card { padding:12rpx; border-color:#ffd9bd; box-sizing:border-box; border-radius:28rpx; background:linear-gradient(180deg,rgba(255,255,255,.98) 0%,rgba(255,246,238,.98) 100%); box-shadow:0 18rpx 28rpx rgba(255,140,84,.10); }
+.product-grid-card--ghost { visibility:hidden; pointer-events:none; }
+.product-cover-wrap { position:relative; width:100%; height:196rpx; border-radius:22rpx; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+.product-cover { width:100%; height:100%; }
+.product-cover-fallback { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:68rpx; }
+.product-status-chip { position:absolute; right:12rpx; bottom:12rpx; padding:6rpx 14rpx; border-radius:999rpx; background:rgba(255,255,255,.94); color:#ff7a45; font-size:18rpx; font-weight:900; box-shadow:0 6rpx 16rpx rgba(80,35,18,.10); }
+@keyframes productGridRoll { from { transform:translateY(0); } to { transform:translateY(var(--product-roll-distance,-1032rpx)); } }
 .tone-0 { background:#fff3e7; } .tone-1 { background:#fff2e9; } .tone-2 { background:#f2edff; } .tone-3 { background:#fff7d6; }
-.product-info { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:space-between; padding:1rpx 0; }
-.product-title { font-size:23rpx; line-height:1.25; font-weight:900; color:#3a2a1f; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.product-meta { margin-top:3rpx; color:#9b7560; font-size:18rpx; }
-.product-bottom { display:flex; align-items:center; justify-content:space-between; gap:10rpx; }
-.price { color:#ff6b3a; font-size:25rpx; font-weight:950; }
-.status { padding:4rpx 10rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:17rpx; font-weight:900; }
+.product-grid-info { display:flex; flex-direction:column; gap:10rpx; padding:12rpx 4rpx 2rpx; }
+.product-grid-title { min-height:64rpx; font-size:24rpx; line-height:1.34; font-weight:900; color:#3a2a1f; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.product-grid-seller { display:flex; align-items:center; justify-content:space-between; gap:10rpx; }
+.seller-badge { display:inline-flex; align-items:center; gap:10rpx; min-width:0; padding:8rpx 12rpx 8rpx 8rpx; border-radius:999rpx; background:linear-gradient(135deg,rgba(255,243,231,.96) 0%,rgba(255,234,220,.92) 100%); box-shadow:inset 0 0 0 1rpx rgba(255,165,120,.30), 0 8rpx 18rpx rgba(255,138,83,.12); }
+.seller-avatar-wrap { width:42rpx; height:42rpx; border-radius:999rpx; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#ffd1a6 0%,#ffb280 45%,#ff7b62 100%); box-shadow:0 8rpx 18rpx rgba(255,111,97,.28); }
+.seller-avatar { width:34rpx; height:34rpx; border-radius:999rpx; display:inline-flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#ff9a62 0%,#ff6f61 100%); color:#fff; font-size:18rpx; font-weight:950; box-shadow:0 4rpx 10rpx rgba(255,111,97,.24); }
+.seller-copy { min-width:0; display:flex; flex-direction:column; gap:2rpx; }
+.seller-name { min-width:0; color:#7b4d35; font-size:22rpx; line-height:1.1; font-weight:950; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.seller-tag { color:#c56b47; font-size:16rpx; line-height:1.1; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.seller-time { flex:none; color:#b08a73; font-size:18rpx; font-weight:700; }
+.product-grid-bottom { display:flex; align-items:flex-end; justify-content:space-between; gap:12rpx; }
+.price { color:#ff6b3a; font-size:29rpx; font-weight:950; }
+.product-grid-meta { color:#9b7560; font-size:19rpx; font-weight:700; }
 </style>
 

@@ -241,25 +241,30 @@ class UserApplicationServiceTest {
     }
 
     @Test
-    void listRankingsShouldExposeBackendSocialMetricsWithoutTrustMetricSubstitution() {
+    void listRankingsShouldExposeBackendGiftScoreWithoutTrustMetricSubstitution() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
-        auth.login(login("13800138551", "pass-123456"));
-        auth.login(login("13800138552", "pass-123456"));
-        auth.login(login("13800138553", "pass-123456"));
+        auth.register(login("13800138551", "pass-123456"), "test-13800138551");
+        auth.register(login("13800138552", "pass-123456"), "test-13800138552");
+        auth.register(login("13800138553", "pass-123456"), "test-13800138553");
         Long viewerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138551");
         Long sellerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138552");
         Long followerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138553");
         jdbcTemplate.update("UPDATE user_profile SET gender = ?, main_role = ?, city = ?, bio = ? WHERE user_id = ?", "goddess", "SELLER", "成都", "后端榜单资料", sellerId);
         service.followProfile(viewerId, sellerId);
         service.followProfile(followerId, sellerId);
+        jdbcTemplate.update("""
+                INSERT INTO gift_order (gift_order_no, idempotency_key, sender_id, receiver_id, gift_id, gift_code, quantity, total_amount, platform_share, receiver_amount, debit_ledger_no, receiver_credit_ledger_no, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, "GO-METRIC-1", "IDEM-GO-METRIC-1", viewerId, sellerId, 1L, "ROSE", 1, "66.60", "0.00", "66.60", "DL-GO-METRIC-1", "CL-GO-METRIC-1", "SUCCESS");
 
         java.util.List<com.secondhand.platform.modules.user.UserRankingResponse> rows = service.listRankings("goddess", 20, viewerId);
 
         com.secondhand.platform.modules.user.UserRankingResponse row = rows.stream().filter(item -> item.getUserId().equals(sellerId)).findFirst().orElseThrow();
         assertEquals(2, row.getFollowerCount());
-        assertEquals(2, row.getPopularityScore());
-        assertEquals(0, row.getSafetyScore());
-        assertEquals(0, row.getGuardianScore());
+        assertEquals(66, row.getGiftScore());
+        assertEquals(66, row.getPopularityScore());
+        assertEquals(66, row.getSafetyScore());
+        assertEquals(66, row.getGuardianScore());
         assertEquals(true, row.isFollowedByMe());
     }
 

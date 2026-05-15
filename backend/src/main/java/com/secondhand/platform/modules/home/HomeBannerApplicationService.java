@@ -218,7 +218,7 @@ public class HomeBannerApplicationService {
             return;
         }
         insertDefault(1L, "小原圈 · 今日新鲜", "把心爱闲置交给懂它的人", "附近好物、日常分享、圈内互动，一屏逛完。", "去发现", "/uploads/home/banner-closet.svg", "closet", 10);
-        insertDefault(2L, "圈内热度上升", "男神女神榜正在更新", "看人气、看动态，也看真实交易口碑。", "看榜单", "/uploads/home/banner-ranking.svg", "ranking", 20);
+        insertDefault(2L, "礼物积分上升", "男神女神礼物榜", "1 元礼物 = 1 分，按礼物积分看榜单。", "看榜单", "/uploads/home/banner-ranking.svg", "ranking", 20);
         insertDefault(3L, "日常生活频道", "分享今天的小确幸", "校园、寝室、城市日常，都可以轻松聊。", "去社区", "/uploads/home/banner-community.svg", "forum", 30);
     }
 

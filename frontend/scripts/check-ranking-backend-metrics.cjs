@@ -6,20 +6,14 @@ const sourcePath = path.join(root, 'src/pages/ranking/index.vue')
 const source = fs.readFileSync(sourcePath, 'utf8')
 const failures = []
 
-if (!source.includes('item.popularityScore')) {
-  failures.push('ranking page must render popularity from backend popularityScore, not locally inferred followerCount')
+if (!source.includes('item.giftScore ?? item.popularityScore')) {
+  failures.push('ranking page must render gift score from backend giftScore with popularityScore compatibility fallback')
 }
-if (!source.includes('item.safetyScore')) {
-  failures.push('ranking page must render safety from backend safetyScore, not followerCount substitution')
+if (/guardian:\s*item\.|popularity:\s*item\.|safetyScore|guardianScore|followerCount/.test(source)) {
+  failures.push('ranking page must not render old popularity/safety/guardian/follower metrics')
 }
-if (!source.includes('item.guardianScore')) {
-  failures.push('ranking page must render guardian from backend guardianScore, not followerCount substitution')
-}
-if (/guardian:\s*item\.followerCount/.test(source) || /popularity:\s*item\.followerCount/.test(source)) {
-  failures.push('ranking page must not map multiple ranking metrics to followerCount')
-}
-if (source.includes("{ value: 'deal' as const, label: '安全榜' }") && !source.includes('safetyScore')) {
-  failures.push('safety leaderboard tab must have an explicit backend metric field or stay unavailable')
+if (source.includes("{ value: 'deal' as const") || source.includes("{ value: 'guardian' as const")) {
+  failures.push('ranking page must not keep safety or guardian leaderboard tabs')
 }
 
 if (!source.includes('followingIds.value = new Set([...followingIds.value, item.id])')) {

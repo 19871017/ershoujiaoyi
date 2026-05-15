@@ -14,9 +14,10 @@ export interface UserRankingResponse {
   popularityScore: number
   safetyScore: number
   guardianScore: number
+  giftScore?: number
   followedByMe: boolean
 }
 
-export function listUserRankings(gender: RankingGender, limit = 20) {
+export function listUserRankings(gender: RankingGender, limit = 100) {
   return get<UserRankingResponse[]>('/api/user/rankings', { gender, limit })
 }
