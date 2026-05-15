@@ -30,11 +30,13 @@ public class AdminSessionController {
             "finance:read",
             "finance:review",
             "user:read",
+            "user:risk-control",
             "order:read",
             "after-sales:read",
             "after-sales:review",
             "system:config",
-            "audit:log"
+            "audit:log",
+            "operator:grant"
     );
 
     private final JdbcTemplate jdbcTemplate;

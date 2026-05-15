@@ -68,7 +68,8 @@ const PROTECTED_ROUTE_PERMISSIONS: RoutePermissionRule[] = [
   { pattern: /^\/after-sales(?:\/|$)/, permission: 'after-sales:read' },
   { pattern: /^\/audit-logs(?:\/|$)/, permission: 'audit:log' },
   { pattern: /^\/operators(?:\/|$)/, permission: 'operator:grant' },
-  { pattern: /^\/system\/location(?:\/|$)/, permission: 'system:config' }
+  { pattern: /^\/system\/location(?:\/|$)/, permission: 'system:config' },
+  { pattern: /^\/system\/banners(?:\/|$)/, permission: 'system:config' }
 ]
 
 export interface AdminMenuItem {
@@ -85,7 +86,8 @@ export const ADMIN_DASHBOARD_ACTIONS: AdminMenuItem[] = [
   { path: '/users', label: '用户检索', permission: 'user:read' },
   { path: '/audit-logs', label: '审计日志', permission: 'audit:log' },
   { path: '/operators', label: '运营授权', permission: 'operator:grant' },
-  { path: '/system/location', label: '位置配置', permission: 'system:config' }
+  { path: '/system/location', label: '位置配置', permission: 'system:config' },
+  { path: '/system/banners', label: '首页轮播', permission: 'system:config' }
 ]
 
 export interface AdminSession {
@@ -118,8 +120,8 @@ function hasOnlyExpectedSessionKeys(input: AdminSessionInput | null | undefined)
 }
 
 export function normalizeAdminSession(input: AdminSessionInput | null | undefined): AdminSession | null {
-  if (!hasOnlyExpectedSessionKeys(input)) return null
-  const username = input?.username?.trim()
+  if (!hasOnlyExpectedSessionKeys(input) || !input) return null
+  const username = input.username?.trim()
   const userId = input?.userId?.trim()
   const sessionId = input?.sessionId?.trim()
   const expiresAt = input?.expiresAt?.trim()
