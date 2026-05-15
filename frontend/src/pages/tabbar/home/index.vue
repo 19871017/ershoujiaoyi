@@ -16,27 +16,27 @@
     </swiper>
 
     <view class="ranking-entrance">
-      <view class="ranking-card ranking-goddess tapable" @click="openRanking('goddess')">
-        <image v-if="rankingArtwork.goddess" class="ranking-art" :src="rankingArtwork.goddess" mode="aspectFill" />
+      <view v-for="card in rankingCards" :key="card.tab" class="ranking-card tapable" :class="card.themeClass" @click="openRanking(card.tab)">
+        <image v-if="card.artwork" class="ranking-art" :src="card.artwork" mode="aspectFill" />
         <view class="ranking-shade"></view>
-        <view class="ranking-glow glow-a"></view>
-        <view class="ranking-content">
-          <view class="ranking-kicker">GODDESS</view>
-          <view class="ranking-title">魅力女神榜</view>
-          <view class="ranking-desc">真实热度上榜</view>
+        <view class="ranking-orb orb-a"></view>
+        <view class="ranking-orb orb-b"></view>
+        <view class="ranking-card-top">
+          <view class="ranking-kicker">{{ card.kicker }}</view>
+          <view class="ranking-arrow">榜单</view>
         </view>
-        <view class="ranking-go">GO</view>
-      </view>
-      <view class="ranking-card ranking-god tapable" @click="openRanking('god')">
-        <image v-if="rankingArtwork.god" class="ranking-art" :src="rankingArtwork.god" mode="aspectFill" />
-        <view class="ranking-shade"></view>
-        <view class="ranking-glow glow-b"></view>
         <view class="ranking-content">
-          <view class="ranking-kicker">GOD</view>
-          <view class="ranking-title">多金男神榜</view>
-          <view class="ranking-desc">平台互动排名</view>
+          <view class="ranking-title">{{ card.title }}</view>
+          <view class="ranking-desc">{{ card.description }}</view>
+          <view class="ranking-tags">
+            <text v-for="tag in card.tags" :key="tag">{{ tag }}</text>
+          </view>
         </view>
-        <view class="ranking-go">GO</view>
+        <view class="ranking-portrait" :class="card.portraitClass">
+          <view class="portrait-ring ring-lg"></view>
+          <view class="portrait-ring ring-sm"></view>
+          <view class="portrait-face">{{ card.faceLabel }}</view>
+        </view>
       </view>
     </view>
 
@@ -79,6 +79,18 @@ import { getHomeBanners, type HomeBannerAction, type HomeBannerResponse } from '
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
 
 type BannerAction = HomeBannerAction
+type RankingTab = 'goddess' | 'god'
+type RankingCard = {
+  tab: RankingTab
+  themeClass: string
+  portraitClass: string
+  artwork: string
+  kicker: string
+  title: string
+  description: string
+  tags: string[]
+  faceLabel: string
+}
 
 const launchReadinessMarkers = [
   '暂未加载到后端在售宝贝',
@@ -91,6 +103,30 @@ const rankingArtwork = {
   goddess: '',
   god: ''
 }
+const rankingCards: RankingCard[] = [
+  {
+    tab: 'goddess',
+    themeClass: 'ranking-goddess',
+    portraitClass: 'portrait-goddess',
+    artwork: rankingArtwork.goddess,
+    kicker: '社区人气精选',
+    title: '魅力女神榜',
+    description: '视频认证、好评卖家与社区互动综合展示',
+    tags: ['认证优先', '口碑热度'],
+    faceLabel: '女神'
+  },
+  {
+    tab: 'god',
+    themeClass: 'ranking-god',
+    portraitClass: 'portrait-god',
+    artwork: rankingArtwork.god,
+    kicker: '交易实力精选',
+    title: '多金男神榜',
+    description: '交易信用、活跃贡献与社区热度综合展示',
+    tags: ['信用优先', '交易热度'],
+    faceLabel: '男神'
+  }
+]
 
 const loading = ref(false)
 const errorMessage = ref('')
@@ -157,20 +193,35 @@ onMounted(() => {
 .banner-title { margin-top:12rpx; font-size:36rpx; line-height:1.13; font-weight:950; letter-spacing:-1rpx; text-shadow:0 5rpx 14rpx rgba(80,35,18,.18); }
 .banner-desc { margin-top:8rpx; width:92%; font-size:21rpx; line-height:1.35; font-weight:750; color:rgba(255,255,255,.88); }
 .banner-cta { margin-top:12rpx; display:inline-flex; padding:8rpx 18rpx; border-radius:999rpx; background:#fff; color:#ff6b3a; font-size:20rpx; font-weight:950; box-shadow:0 8rpx 18rpx rgba(80,35,18,.14); }
-.ranking-entrance { margin:18rpx 0 10rpx; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14rpx; }
-.ranking-card { position:relative; min-height:132rpx; padding:17rpx 15rpx 15rpx; border-radius:30rpx; overflow:hidden; box-sizing:border-box; display:flex; align-items:flex-end; justify-content:space-between; box-shadow:0 14rpx 28rpx rgba(80,35,18,.12); border:1rpx solid rgba(255,255,255,.7); }
-.ranking-goddess { background:radial-gradient(circle at 84% 8%, rgba(255,246,196,.72), transparent 34%), linear-gradient(135deg,#ff6f91 0%,#ff9a62 52%,#ffd36a 100%); }
-.ranking-god { background:radial-gradient(circle at 82% 10%, rgba(125,211,252,.46), transparent 34%), linear-gradient(135deg,#172554 0%,#2563eb 54%,#7c3aed 100%); }
+.ranking-entrance { margin:18rpx 0 12rpx; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16rpx; }
+.ranking-card { position:relative; min-height:232rpx; padding:18rpx; border-radius:34rpx; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 18rpx 38rpx rgba(80,35,18,.14); border:1rpx solid rgba(255,255,255,.74); isolation:isolate; }
+.ranking-goddess { background:linear-gradient(145deg,#ff6f9a 0%,#ff9f5f 50%,#ffd76b 100%); }
+.ranking-god { background:linear-gradient(145deg,#111a44 0%,#1d4ed8 54%,#9b5cff 100%); }
 .ranking-art { position:absolute; inset:0; width:100%; height:100%; }
-.ranking-shade { position:absolute; inset:0; background:linear-gradient(90deg,rgba(23,13,8,.58) 0%,rgba(23,13,8,.24) 54%,rgba(23,13,8,.04) 100%); }
-.ranking-glow { position:absolute; right:-28rpx; top:-28rpx; width:96rpx; height:96rpx; border-radius:50%; background:rgba(255,255,255,.30); filter:blur(1rpx); }
-.glow-b { background:rgba(147,197,253,.28); }
-.ranking-content { position:relative; z-index:2; min-width:0; color:#fff; }
-.ranking-kicker { display:inline-flex; padding:4rpx 10rpx; border-radius:999rpx; background:rgba(255,255,255,.20); color:rgba(255,255,255,.86); font-size:16rpx; font-weight:950; letter-spacing:.8rpx; backdrop-filter:blur(8rpx); }
-.ranking-title { margin-top:8rpx; font-size:28rpx; line-height:1.05; font-weight:950; letter-spacing:-.5rpx; text-shadow:0 4rpx 12rpx rgba(0,0,0,.18); white-space:nowrap; }
-.ranking-desc { margin-top:6rpx; color:rgba(255,255,255,.84); font-size:18rpx; font-weight:850; white-space:nowrap; }
-.ranking-go { position:relative; z-index:2; flex:none; width:44rpx; height:44rpx; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.92); color:#ff6b3a; font-size:15rpx; font-weight:950; box-shadow:0 8rpx 18rpx rgba(0,0,0,.14); }
-.ranking-god .ranking-go { color:#2563eb; }
+.ranking-shade { position:absolute; inset:0; z-index:1; background:linear-gradient(180deg,rgba(28,15,10,.10) 0%,rgba(23,13,8,.28) 58%,rgba(23,13,8,.48) 100%); }
+.ranking-god .ranking-shade { background:linear-gradient(180deg,rgba(5,10,28,.08) 0%,rgba(5,10,28,.30) 58%,rgba(5,10,28,.56) 100%); }
+.ranking-orb { position:absolute; z-index:1; border-radius:50%; filter:blur(1rpx); pointer-events:none; }
+.orb-a { right:-38rpx; top:-38rpx; width:154rpx; height:154rpx; background:rgba(255,255,255,.30); }
+.orb-b { right:42rpx; bottom:38rpx; width:68rpx; height:68rpx; background:rgba(255,255,255,.16); }
+.ranking-god .orb-a { background:rgba(125,211,252,.28); }
+.ranking-god .orb-b { background:rgba(196,181,253,.18); }
+.ranking-card-top { position:relative; z-index:3; display:flex; align-items:center; justify-content:space-between; gap:10rpx; }
+.ranking-kicker { display:inline-flex; max-width:190rpx; padding:6rpx 12rpx; border-radius:999rpx; background:rgba(255,255,255,.22); color:rgba(255,255,255,.92); font-size:18rpx; font-weight:950; backdrop-filter:blur(10rpx); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ranking-arrow { flex:none; padding:6rpx 12rpx; border-radius:999rpx; background:rgba(255,255,255,.92); color:#e94f78; font-size:18rpx; font-weight:950; box-shadow:0 8rpx 18rpx rgba(0,0,0,.10); }
+.ranking-god .ranking-arrow { color:#2454e8; }
+.ranking-content { position:relative; z-index:3; width:78%; min-width:0; color:#fff; }
+.ranking-title { margin-top:34rpx; font-size:32rpx; line-height:1.05; font-weight:950; letter-spacing:-.8rpx; text-shadow:0 5rpx 16rpx rgba(0,0,0,.20); white-space:nowrap; }
+.ranking-desc { margin-top:9rpx; color:rgba(255,255,255,.88); font-size:19rpx; line-height:1.38; font-weight:800; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.ranking-tags { margin-top:14rpx; display:flex; gap:8rpx; flex-wrap:wrap; }
+.ranking-tags text { padding:5rpx 10rpx; border-radius:999rpx; background:rgba(255,255,255,.18); color:rgba(255,255,255,.92); font-size:17rpx; font-weight:900; backdrop-filter:blur(8rpx); }
+.ranking-portrait { position:absolute; z-index:2; right:12rpx; bottom:12rpx; width:116rpx; height:128rpx; border-radius:36rpx; display:flex; align-items:center; justify-content:center; transform:rotate(4deg); box-shadow:inset 0 0 0 1rpx rgba(255,255,255,.30), 0 18rpx 28rpx rgba(0,0,0,.14); }
+.portrait-goddess { background:linear-gradient(160deg,rgba(255,255,255,.36),rgba(255,232,190,.12)); }
+.portrait-god { background:linear-gradient(160deg,rgba(255,255,255,.28),rgba(125,211,252,.10)); }
+.portrait-ring { position:absolute; border-radius:50%; border:2rpx solid rgba(255,255,255,.40); }
+.ring-lg { width:88rpx; height:88rpx; }
+.ring-sm { width:56rpx; height:56rpx; opacity:.78; }
+.portrait-face { position:relative; z-index:2; width:72rpx; height:72rpx; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.92); color:#e94f78; font-size:21rpx; font-weight:950; box-shadow:0 10rpx 20rpx rgba(0,0,0,.12); }
+.ranking-god .portrait-face { color:#2454e8; }
 .section-head { margin:22rpx 0 12rpx; display:flex; align-items:flex-end; justify-content:space-between; }
 .section-title { font-size:31rpx; font-weight:950; color:#3a2a1f; }
 .section-subtitle { margin-top:5rpx; color:#9b7560; font-size:21rpx; }
