@@ -24,7 +24,7 @@
 
       <view class="form-section">
         <view class="field-label">宝贝标题</view>
-        <input :value="form.title" class="field-input" maxlength="40" placeholder="请填写真实宝贝标题" confirm-type="next" @input="handleTextInput('title', $event)" />
+        <input :value="form.title" class="field-input" maxlength="40" placeholder="请填写真实宝贝标题" confirm-type="next" @input="handleTextInput('title', $event)" @blur="trimTextField('title')" />
         <view class="field-hint">{{ form.title.length }}/40</view>
       </view>
 
@@ -37,11 +37,15 @@
       <view class="row">
         <view class="form-section half">
           <view class="field-label">售价</view>
-          <input :value="form.price" class="field-input" type="digit" inputmode="decimal" placeholder="¥ 0.00" confirm-type="next" @input="handlePriceInput" />
+          <input :value="form.price" class="field-input" type="text" inputmode="decimal" placeholder="¥ 0.00" confirm-type="next" @input="handlePriceInput" />
         </view>
         <view class="form-section half">
           <view class="field-label">所在位置</view>
-          <input :value="form.location" class="field-input" maxlength="24" placeholder="填写真实可公开的城市/区域" confirm-type="done" @input="handleTextInput('location', $event)" />
+          <input :value="form.location" class="field-input" :maxlength="locationMaxLength" placeholder="填写真实可公开的城市/区域" confirm-type="done" @input="handleTextInput('location', $event)" @blur="trimTextField('location')" />
+          <view class="location-actions">
+            <button class="mini-btn" :disabled="!profileCity" @click="useProfileCity">资料城市</button>
+            <button class="mini-btn" :disabled="locating" @click="detectCurrentCity">{{ locating ? '定位中' : '定位' }}</button>
+          </view>
         </view>
       </view>
 
@@ -74,14 +78,17 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
+import { reverseGeocode } from '../../../api/modules/location'
 import { createMediaUploadTicket } from '../../../api/modules/media'
 import { createProduct } from '../../../api/modules/product'
+import { getMyProfile } from '../../../api/modules/user'
 
 const categories = ['衣物', '鞋袜', '小用品']
 const conditions = ['全新未拆', '几乎全新', '轻微使用', '有瑕疵已说明']
 const platformTradeRule = '按平台订单流程交易'
 const tradeOptions = [platformTradeRule]
+const locationMaxLength = 24
 
 const form = reactive({
   category: '衣物',
@@ -94,6 +101,8 @@ const form = reactive({
   imageUrls: [] as string[]
 })
 const submitting = ref(false)
+const locating = ref(false)
+const profileCity = ref('')
 const errorMessage = ref('')
 const successMessage = ref('')
 
@@ -144,20 +153,37 @@ function imageContentType(path: string) {
 
 type TextFieldKey = 'title' | 'location'
 
-type UniInputEvent = { detail?: { value?: string } }
+type InputValue = string | number
 
-function inputValue(event: Event | UniInputEvent) {
-  const detailValue = (event as UniInputEvent).detail?.value
-  if (typeof detailValue === 'string') return detailValue
-  const targetValue = ((event as Event).target as HTMLInputElement | null)?.value
-  return typeof targetValue === 'string' ? targetValue : ''
+type UniInputEvent = {
+  detail?: { value?: InputValue }
+  target?: { value?: InputValue }
+  currentTarget?: { value?: InputValue }
 }
 
-function handleTextInput(field: TextFieldKey, event: Event | UniInputEvent) {
-  form[field] = inputValue(event).trim()
+type InputEventPayload = InputValue | Event | UniInputEvent
+
+type GetLocationResult = { latitude: number; longitude: number }
+
+function inputValue(event: InputEventPayload) {
+  if (typeof event === 'string' || typeof event === 'number') return String(event)
+  const uniEvent = event as UniInputEvent
+  const detailValue = uniEvent.detail?.value
+  if (typeof detailValue === 'string' || typeof detailValue === 'number') return String(detailValue)
+  const targetValue = uniEvent.target?.value ?? uniEvent.currentTarget?.value
+  if (typeof targetValue === 'string' || typeof targetValue === 'number') return String(targetValue)
+  return ''
 }
 
-function handlePriceInput(event: Event | UniInputEvent) {
+function handleTextInput(field: TextFieldKey, event: InputEventPayload) {
+  form[field] = inputValue(event)
+}
+
+function trimTextField(field: TextFieldKey) {
+  form[field] = form[field].trim()
+}
+
+function handlePriceInput(event: InputEventPayload) {
   const value = inputValue(event)
     .replace(/[^\d.]/g, '')
     .replace(/(\.\d{2}).+$/, '$1')
@@ -165,7 +191,51 @@ function handlePriceInput(event: Event | UniInputEvent) {
   form.price = dotIndex === -1 ? value : `${value.slice(0, dotIndex + 1)}${value.slice(dotIndex + 1).replace(/\./g, '')}`
 }
 
+function getCurrentLocation() {
+  return new Promise<GetLocationResult>((resolve, reject) => {
+    uni.getLocation({ type: 'wgs84', success: resolve, fail: reject })
+  })
+}
+
+function normalizeLocation(value: string) {
+  return value.trim().slice(0, locationMaxLength)
+}
+
+async function loadProfileCity() {
+  try {
+    const profile = await getMyProfile()
+    profileCity.value = normalizeLocation(profile.city || '')
+    if (!form.location && profileCity.value) form.location = profileCity.value
+  } catch {
+    profileCity.value = ''
+  }
+}
+
+function useProfileCity() {
+  if (!profileCity.value) return
+  form.location = profileCity.value
+}
+
+async function detectCurrentCity() {
+  if (locating.value) return
+  locating.value = true
+  try {
+    const location = await getCurrentLocation()
+    const result = await reverseGeocode({ latitude: location.latitude, longitude: location.longitude })
+    const city = normalizeLocation([result.city, result.district].filter(Boolean).join('') || result.address || result.province || '')
+    if (!city) throw new Error('定位结果为空')
+    form.location = city
+    showToast('已填入当前城市')
+  } catch {
+    showToast('定位失败，请手动填写城市/区域')
+  } finally {
+    locating.value = false
+  }
+}
+
 function validateForm() {
+  trimTextField('title')
+  trimTextField('location')
   form.tradeRule = platformTradeRule
   if (!form.title || form.title.length < 4) return '标题至少 4 个字'
   if (!form.description || form.description.length < 10) return '描述至少 10 个字，写清楚成色和尺码'
@@ -214,6 +284,8 @@ async function submitProduct() {
   }
 }
 
+onMounted(loadProfileCity)
+
 function showToast(title: string) { uni.showToast({ title, icon: 'none' }) }
 </script>
 
@@ -236,6 +308,9 @@ function showToast(title: string) { uni.showToast({ title, icon: 'none' }) }
 .field-textarea { min-height:118rpx; line-height:1.55; font-weight:650; }
 .field-hint { margin-top:8rpx; text-align:right; color:#c49aac; font-size:20rpx; }
 .row { display:flex; gap:10rpx; } .half { flex:1; }
+.location-actions { margin-top:8rpx; display:flex; gap:8rpx; }
+.mini-btn { flex:1; margin:0; padding:0 10rpx; height:48rpx; line-height:48rpx; border-radius:999rpx; background:#fff3e7; color:#9b7560; font-size:20rpx; font-weight:900; }
+.mini-btn[disabled] { opacity:.45; }
 .chips { display:flex; flex-wrap:wrap; gap:9rpx; }
 .chip { padding:10rpx 14rpx; border-radius:999rpx; background:#fff3e7; color:#9b7560; font-size:20rpx; font-weight:900; }
 .chip.active { background:#3a2a1f; color:#fff; }
