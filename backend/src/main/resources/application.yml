@@ -1,6 +1,9 @@
 server:
   port: ${SERVER_PORT:8080}
 
+media:
+  storage-root: ${MEDIA_STORAGE_ROOT:/www/wwwroot/esxz-old/current}
+
 spring:
   application:
     name: backend
@@ -15,3 +18,7 @@ spring:
       encoding: UTF-8
       schema-locations: ${DB_SCHEMA_LOCATIONS:classpath:db/schema.sql}
       data-locations: ${DB_DATA_LOCATIONS:classpath:db/data.sql}
+  servlet:
+    multipart:
+      max-file-size: 80MB
+      max-request-size: 80MB

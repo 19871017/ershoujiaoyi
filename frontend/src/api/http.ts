@@ -7,6 +7,14 @@ export interface HttpOptions {
   header?: Record<string, string>
 }
 
+export interface UploadOptions {
+  url: string
+  filePath: string
+  name?: string
+  formData?: Record<string, string>
+  header?: Record<string, string>
+}
+
 export interface ApiResult<T> {
   success: boolean
   message: string
@@ -237,6 +245,48 @@ export function get<T = unknown>(url: string, data?: unknown, header?: Record<st
 
 export function post<T = unknown>(url: string, data?: unknown, header?: Record<string, string>) {
   return request<T>({ url, method: 'POST', data, header })
+}
+
+type UploadFileResult = { statusCode: number; data: unknown }
+type UploadFileClient = {
+  uploadFile(options: UploadOptions & {
+    success: (res: UploadFileResult) => void
+    fail: (error: unknown) => void
+  }): void
+}
+
+export function upload<T = unknown>(options: UploadOptions): Promise<T> {
+  return new Promise((resolve, reject) => {
+    ;(uni as unknown as UploadFileClient).uploadFile({
+      url: `${RESOLVED_API_BASE_URL}${options.url}`,
+      filePath: options.filePath,
+      name: options.name ?? 'file',
+      formData: options.formData ?? {},
+      header: { ...DEV_HEADERS, ...authHeaders(), ...(options.header ?? {}) },
+      success: (res) => {
+        let result: unknown
+        try {
+          result = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
+        } catch {
+          result = undefined
+        }
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          reject(toError(isApiResult<T>(result) ? result.message : undefined, `上传失败：HTTP ${res.statusCode}`))
+          return
+        }
+        if (!isApiResult<T>(result)) {
+          reject(toError(undefined, '上传响应格式异常，请稍后重试'))
+          return
+        }
+        if (!result.success) {
+          reject(toError(result.message, '上传失败，请重新选择视频后再试'))
+          return
+        }
+        resolve(result.data)
+      },
+      fail: reject
+    })
+  })
 }
 
 export function put<T = unknown>(url: string, data?: unknown, header?: Record<string, string>) {

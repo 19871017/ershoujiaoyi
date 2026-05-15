@@ -47,7 +47,7 @@ public class AuditApplicationService {
                 || safeVideoUrl.toLowerCase(Locale.ROOT).contains("preview")) {
             throw new IllegalArgumentException("video identity url invalid");
         }
-        mediaUploadTicketService.requireIssuedStorageUrl(userId, AUDIT_TYPE_VIDEO_IDENTITY, safeVideoUrl);
+        mediaUploadTicketService.requireUploadedStorageUrl(userId, AUDIT_TYPE_VIDEO_IDENTITY, safeVideoUrl);
         Integer existing = jdbcTemplate.queryForObject("select count(1) from user_profile where user_id = ?", Integer.class, userId);
         if (existing == null || existing == 0) {
             throw new IllegalArgumentException("user profile not found");

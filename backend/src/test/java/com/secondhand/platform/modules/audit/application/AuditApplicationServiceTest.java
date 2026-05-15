@@ -66,7 +66,7 @@ class AuditApplicationServiceTest {
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138888");
         jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, video_identity_status, video_verified) VALUES (?,?,?,?)", userId, "VERIFIED", "UNVERIFIED", false);
 
-        String videoUrl = serviceMedia().issue(userId, "VIDEO_IDENTITY", "video/mp4", 5_000_000L, "u1.mp4").storageUrl();
+        String videoUrl = uploadedVideoUrl(userId, "u1.mp4");
         AuditRecordResponse created = service.submitVideoIdentity(userId, videoUrl, "真人认证视频");
 
         assertEquals(AuditApplicationService.AUDIT_TYPE_VIDEO_IDENTITY, created.auditType());
@@ -88,7 +88,7 @@ class AuditApplicationServiceTest {
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800139999");
         jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, video_identity_status, video_verified) VALUES (?,?,?,?)", userId, "VERIFIED", "UNVERIFIED", false);
 
-        String videoUrl = serviceMedia().issue(userId, "VIDEO_IDENTITY", "video/mp4", 5_000_000L, "u2.mp4").storageUrl();
+        String videoUrl = uploadedVideoUrl(userId, "u2.mp4");
         AuditRecordResponse created = service.submitVideoIdentity(userId, videoUrl, "真人认证视频");
         service.reject(created.auditNo(), "画面不清晰");
 
@@ -282,6 +282,13 @@ class AuditApplicationServiceTest {
         assertEquals(1, summary.activeUsers());
         assertEquals(1, summary.todayOrders());
         assertEquals(0, new BigDecimal("199.50").compareTo(summary.grossMerchandiseValue()));
+    }
+
+    private String uploadedVideoUrl(Long userId, String filename) {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        String videoUrl = serviceMedia().issue(userId, "VIDEO_IDENTITY", "video/mp4", 5_000_000L, filename).storageUrl();
+        jdbcTemplate.update("update media_upload_ticket set status = 'UPLOADED' where storage_url = ?", videoUrl);
+        return videoUrl;
     }
 
     private MediaUploadTicketService serviceMedia() {

@@ -1,18 +1,25 @@
 package com.secondhand.platform.modules.media.application;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class MediaUploadTicketService {
@@ -28,9 +35,16 @@ public class MediaUploadTicketService {
     private static final String SCENE_CHAT_IMAGE = "CHAT_IMAGE";
 
     private final JdbcTemplate jdbcTemplate;
+    private final Path storageRoot;
 
     public MediaUploadTicketService(JdbcTemplate jdbcTemplate) {
+        this(jdbcTemplate, Path.of(System.getProperty("java.io.tmpdir"), "xiaoyuanquan-media-test").toString());
+    }
+
+    @Autowired
+    public MediaUploadTicketService(JdbcTemplate jdbcTemplate, @Value("${media.storage-root:}") String storageRoot) {
         this.jdbcTemplate = jdbcTemplate;
+        this.storageRoot = resolveStorageRoot(storageRoot);
     }
 
     @Transactional
@@ -62,6 +76,49 @@ public class MediaUploadTicketService {
     }
 
     public MediaUploadTicketResponse requireIssuedStorageUrl(Long userId, String scene, String storageUrl) {
+        return requireStorageUrl(userId, scene, storageUrl, List.of("ISSUED", "UPLOADED"));
+    }
+
+    public MediaUploadTicketResponse requireUploadedStorageUrl(Long userId, String scene, String storageUrl) {
+        return requireStorageUrl(userId, scene, storageUrl, List.of("UPLOADED"));
+    }
+
+    @Transactional
+    public MediaUploadTicketResponse storeUploadedFile(Long userId, String ticketNo, String uploadToken, MultipartFile file) {
+        validateUserId(userId);
+        String safeTicketNo = requireText(ticketNo, "ticketNo required");
+        String safeUploadToken = requireText(uploadToken, "uploadToken required");
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("upload file required");
+        }
+        UploadTicketRow ticket = loadIssuedTicketForUpload(userId, safeTicketNo);
+        if (!ticket.uploadTokenHash().equals(sha256(safeUploadToken))) {
+            throw new IllegalArgumentException("upload token invalid");
+        }
+        String uploadedContentType = requireText(file.getContentType(), "upload file contentType required").toLowerCase(Locale.ROOT);
+        String uploadedFilename = requireText(file.getOriginalFilename(), "upload filename required");
+        if (!uploadedContentType.equals(ticket.contentType())) {
+            throw new IllegalArgumentException("upload file contentType mismatch");
+        }
+        if (file.getSize() <= 0 || file.getSize() > ticket.fileSize()) {
+            throw new IllegalArgumentException("upload file size invalid");
+        }
+        validateSceneAndMedia(ticket.scene(), uploadedContentType, file.getSize(), uploadedFilename);
+        Path target = storagePathFor(ticket.storageUrl());
+        try {
+            Files.createDirectories(target.getParent());
+            file.transferTo(target);
+        } catch (IOException e) {
+            throw new IllegalStateException("upload file save failed", e);
+        }
+        int changed = jdbcTemplate.update("update media_upload_ticket set status = ? where ticket_no = ? and owner_user_id = ? and status = ?", "UPLOADED", safeTicketNo, userId, "ISSUED");
+        if (changed != 1) {
+            throw new IllegalStateException("upload ticket status update failed");
+        }
+        return requireUploadedStorageUrl(userId, ticket.scene(), ticket.storageUrl());
+    }
+
+    private MediaUploadTicketResponse requireStorageUrl(Long userId, String scene, String storageUrl, List<String> statuses) {
         validateUserId(userId);
         String safeScene = requireText(scene, "upload scene required").toUpperCase(Locale.ROOT);
         String safeStorageUrl = requireText(storageUrl, "storageUrl required");
@@ -69,11 +126,14 @@ public class MediaUploadTicketService {
             throw new IllegalArgumentException("storageUrl must be issued by upload ticket");
         }
         try {
+            String placeholders = String.join(",", statuses.stream().map(status -> "?").toList());
+            List<Object> args = new ArrayList<>(List.of(userId, safeScene, safeStorageUrl));
+            args.addAll(statuses);
             return jdbcTemplate.queryForObject("""
                     select ticket_no, owner_user_id, scene, content_type, file_size, storage_url, status, expires_at
                     from media_upload_ticket
-                    where owner_user_id = ? and scene = ? and storage_url = ? and status = 'ISSUED' and expires_at > CURRENT_TIMESTAMP
-                    """, (rs, rowNum) -> new MediaUploadTicketResponse(
+                    where owner_user_id = ? and scene = ? and storage_url = ? and status in (%s) and expires_at > CURRENT_TIMESTAMP
+                    """.formatted(placeholders), (rs, rowNum) -> new MediaUploadTicketResponse(
                     rs.getString("ticket_no"),
                     rs.getLong("owner_user_id"),
                     rs.getString("scene"),
@@ -83,10 +143,48 @@ public class MediaUploadTicketService {
                     null,
                     rs.getString("status"),
                     toLocalDateTime(rs.getTimestamp("expires_at"))
-            ), userId, safeScene, safeStorageUrl);
+            ), args.toArray());
         } catch (EmptyResultDataAccessException e) {
             throw new IllegalArgumentException("upload ticket not found");
         }
+    }
+
+    private UploadTicketRow loadIssuedTicketForUpload(Long userId, String ticketNo) {
+        try {
+            return jdbcTemplate.queryForObject("""
+                    select scene, content_type, file_size, storage_url, upload_token_hash
+                    from media_upload_ticket
+                    where owner_user_id = ? and ticket_no = ? and status = 'ISSUED' and expires_at > CURRENT_TIMESTAMP
+                    """, (rs, rowNum) -> new UploadTicketRow(
+                    rs.getString("scene"),
+                    rs.getString("content_type"),
+                    rs.getLong("file_size"),
+                    rs.getString("storage_url"),
+                    rs.getString("upload_token_hash")
+            ), userId, ticketNo);
+        } catch (EmptyResultDataAccessException e) {
+            throw new IllegalArgumentException("upload ticket not found");
+        }
+    }
+
+    private Path storagePathFor(String storageUrl) {
+        String safeStorageUrl = requireText(storageUrl, "storageUrl required");
+        if (!safeStorageUrl.startsWith("/uploads/")) {
+            throw new IllegalArgumentException("storageUrl invalid");
+        }
+        Path uploadsRoot = storageRoot.resolve("uploads").normalize();
+        Path target = storageRoot.resolve(safeStorageUrl.substring(1)).normalize();
+        if (!target.startsWith(uploadsRoot)) {
+            throw new IllegalArgumentException("storageUrl invalid");
+        }
+        return target;
+    }
+
+    private Path resolveStorageRoot(String configuredRoot) {
+        if (configuredRoot == null || configuredRoot.isBlank()) {
+            throw new IllegalStateException("media.storage-root required");
+        }
+        return Path.of(configuredRoot).toAbsolutePath().normalize();
     }
 
     private void validateSceneAndMedia(String scene, String contentType, Long fileSize, String filename) {
@@ -162,6 +260,15 @@ public class MediaUploadTicketService {
 
     private LocalDateTime toLocalDateTime(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toLocalDateTime();
+    }
+
+    private record UploadTicketRow(
+            String scene,
+            String contentType,
+            Long fileSize,
+            String storageUrl,
+            String uploadTokenHash
+    ) {
     }
 
     private String sha256(String value) {

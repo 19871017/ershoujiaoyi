@@ -53,7 +53,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { createMediaUploadTicket } from '../../../api/modules/media'
+import { createMediaUploadTicket, uploadMediaTicketFile } from '../../../api/modules/media'
 import { getMyProfile, submitVideoIdentity, type UserProfileResponse } from '../../../api/modules/user'
 
 const form = reactive({ name: '', idTail: '' })
@@ -82,6 +82,7 @@ function chooseVideo() {
         uni.showToast({ title: '视频资料无效，请重新选择', icon: 'none' })
         return
       }
+      uni.showLoading({ title: '上传视频中' })
       try {
         const ticket = await createMediaUploadTicket({
           scene: 'VIDEO_IDENTITY',
@@ -89,11 +90,14 @@ function chooseVideo() {
           fileSize: Math.max(1, res.size ?? 1),
           filename: fileNameFromPath(res.tempFilePath)
         })
-        videoUrl.value = ticket.storageUrl
-        uni.showToast({ title: '已生成上传票据', icon: 'none' })
+        const uploaded = await uploadMediaTicketFile(ticket, res.tempFilePath)
+        videoUrl.value = uploaded.storageUrl
+        uni.showToast({ title: '视频已上传', icon: 'none' })
       } catch (error) {
         videoUrl.value = ''
-        uni.showToast({ title: error instanceof Error ? error.message : '上传凭证生成失败', icon: 'none' })
+        uni.showToast({ title: error instanceof Error ? error.message : '视频上传失败', icon: 'none' })
+      } finally {
+        uni.hideLoading()
       }
     },
     fail() {

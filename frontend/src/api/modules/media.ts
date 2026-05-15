@@ -1,4 +1,4 @@
-import { post } from '../http'
+import { post, upload } from '../http'
 
 export type MediaUploadScene =
   | 'VIDEO_IDENTITY'
@@ -29,4 +29,13 @@ export interface MediaUploadTicketResponse {
 
 export function createMediaUploadTicket(data: CreateMediaUploadTicketRequest) {
   return post<MediaUploadTicketResponse>('/api/media/upload-tickets', data)
+}
+
+export function uploadMediaTicketFile(ticket: MediaUploadTicketResponse, filePath: string): Promise<MediaUploadTicketResponse> {
+  return upload<MediaUploadTicketResponse>({
+    url: `/api/media/upload-tickets/${encodeURIComponent(ticket.ticketNo)}/file`,
+    filePath,
+    name: 'file',
+    header: { 'X-Upload-Token': ticket.uploadToken }
+  })
 }
