@@ -29,14 +29,17 @@ import { ADMIN_DASHBOARD_ACTIONS, menuAllowsSession, useAuthStore, type AdminMen
 
 const router = useRouter()
 const auth = useAuthStore()
-const allMenus: AdminMenuItem[] = [
-  { path: '/dashboard', label: '仪表盘', permission: null },
+const moduleMenus = new Map([
   ...ADMIN_DASHBOARD_ACTIONS,
   { path: '/users', label: '用户管理', permission: 'user:read' },
   { path: '/audit-logs', label: '审计日志', permission: 'audit:log' },
   { path: '/operators', label: '运营授权', permission: 'operator:grant' },
   { path: '/system/location', label: '位置配置', permission: 'system:config' },
   { path: '/system/banners', label: '首页轮播', permission: 'system:config' }
+].map((item) => [item.path, item] as const))
+const allMenus: AdminMenuItem[] = [
+  { path: '/dashboard', label: '仪表盘', permission: null },
+  ...moduleMenus.values()
 ]
 const menus = computed(() => allMenus.filter((item) => menuAllowsSession(item, auth.session)))
 
