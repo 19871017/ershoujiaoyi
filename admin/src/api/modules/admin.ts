@@ -140,9 +140,9 @@ export interface AuditRecordResponse {
   status: AuditStatus
   reason?: string
   description?: string
-  reviewerRemark?: string
+  reviewRemark?: string
   createdAt?: string
-  updatedAt?: string
+  reviewedAt?: string | null
 }
 
 export interface AdminDashboardSummary {
@@ -211,8 +211,10 @@ export function getAdminAuditList() {
   return request<AuditRecordResponse[]>({ url: '/api/admin/audit' })
 }
 
-export function isValidAdminAuditNo(auditNo: string) {
-  return /^AU-\d{8}-\d{4,}$/.test(auditNo)
+const ADMIN_AUDIT_NO_PATTERN = /^AU-(?:\d{8}-\d{4,}|[A-Z]{3}-[1-9]\d{9,16}-\d{1,6})$/
+
+export function isValidAdminAuditNo(auditNo: string): boolean {
+  return ADMIN_AUDIT_NO_PATTERN.test(auditNo)
 }
 
 export function isValidAdminWithdrawalNo(withdrawalNo: string) {

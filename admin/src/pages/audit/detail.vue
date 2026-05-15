@@ -23,10 +23,15 @@
       <dl class="detail-grid">
         <div><dt>目标编号</dt><dd>{{ detail.targetId || '暂无' }}</dd></div>
         <div><dt>提交时间</dt><dd>{{ detail.createdAt || '暂无' }}</dd></div>
-        <div><dt>更新时间</dt><dd>{{ detail.updatedAt || '暂无' }}</dd></div>
-        <div><dt>审核备注</dt><dd>{{ detail.reviewerRemark || '暂无' }}</dd></div>
+        <div><dt>复核时间</dt><dd>{{ detail.reviewedAt || '未复核' }}</dd></div>
+        <div><dt>审核备注</dt><dd>{{ detail.reviewRemark || '暂无' }}</dd></div>
       </dl>
-      <p class="detail-desc">{{ detail.reason || detail.description || '无补充说明' }}</p>
+      <div v-if="videoEvidenceUrl" class="media-panel">
+        <strong>视频认证资料</strong>
+        <video class="audit-video" :src="videoEvidenceUrl" controls playsinline></video>
+        <a class="detail-link" :href="videoEvidenceUrl" target="_blank" rel="noopener noreferrer">新窗口打开视频</a>
+      </div>
+      <p class="detail-desc">{{ detailSummary }}</p>
     </article>
   </section>
 </template>
@@ -44,6 +49,17 @@ const error = ref('')
 const safeAuditNo = computed(() => {
   const value = String(route.params.auditNo || '')
   return isValidAdminAuditNo(value) ? value : ''
+})
+const videoEvidenceUrl = computed(() => {
+  const current = detail.value
+  const reason = current?.reason || ''
+  return current?.auditType === 'VIDEO_IDENTITY' && reason.startsWith('/uploads/') ? reason : ''
+})
+const detailSummary = computed(() => {
+  const current = detail.value
+  if (!current) return ''
+  if (current.auditType === 'VIDEO_IDENTITY') return current.description || '视频认证资料以平台上传票据为准。'
+  return current.reason || current.description || '无补充说明'
 })
 
 async function load() {

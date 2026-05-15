@@ -291,16 +291,17 @@ describe('admin finance api', () => {
   })
 
   it('loads audit detail only for positive backend audit numbers', async () => {
+    const auditNo = 'AU-VID-1770000000000-12345'
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         data: {
-          auditNo: 'AU-20260510-0001',
-          auditType: 'REPORT',
-          targetType: 'PRODUCT',
+          auditNo,
+          auditType: 'VIDEO_IDENTITY',
+          targetType: 'VIDEO_IDENTITY',
           targetId: '42',
           status: 'PENDING',
-          reason: '举报原因',
+          reason: '/uploads/video-identity/42/check.mp4',
           description: '手机号已脱敏',
           createdAt: '2026-05-10T12:00:00'
         }
@@ -308,11 +309,12 @@ describe('admin finance api', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const detail = await getAdminAuditDetail('AU-20260510-0001')
+    const detail = await getAdminAuditDetail(auditNo)
 
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/audit/AU-20260510-0001'), expect.any(Object))
-    expect(detail.auditNo).toBe('AU-20260510-0001')
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining(`/api/admin/audit/${auditNo}`), expect.any(Object))
+    expect(detail.auditNo).toBe(auditNo)
     expect(isValidAdminAuditNo('AU-20260510-0001')).toBe(true)
+    expect(isValidAdminAuditNo(auditNo)).toBe(true)
     expect(isValidAdminAuditNo('preview-audit')).toBe(false)
     expect(isValidAdminAuditNo('AUDIT-GOODS-1')).toBe(false)
     await expect(getAdminAuditDetail('preview-audit')).rejects.toThrow('审核编号无效')

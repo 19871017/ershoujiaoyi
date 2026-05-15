@@ -66,6 +66,9 @@ button { cursor: pointer; border: 0; }
 .detail-grid div { background: #f9fafb; border-radius: 12px; padding: 12px; }
 .detail-grid dt { color: #6b7280; font-size: 12px; margin-bottom: 4px; }
 .detail-grid dd { margin: 0; font-weight: 700; }
+.detail-link { color: #2563eb; font-weight: 700; }
+.media-panel { margin-top: 16px; display: grid; gap: 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px; }
+.audit-video { width: min(100%, 720px); max-height: 420px; border-radius: 12px; background: #111827; }
 .safe-note { margin: 18px 0 0; color: #6b7280; }
 .config-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 18px; margin-bottom: 16px; }
 .panel-head { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 16px; }
