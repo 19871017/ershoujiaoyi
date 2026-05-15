@@ -70,7 +70,7 @@ import { getOrderDetail, payOrder, type OrderDetailResponse } from '../../../api
 
 type PayMethod = 'WALLET' | 'WECHAT' | 'ALIPAY'
 const launchReadinessMarkers = [
-  '优先使用可用余额，支付结果以服务端订单状态为准'
+  '优先使用可用余额，支付结果以平台订单状态为准'
 ]
 
 const orderNo = ref('')

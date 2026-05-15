@@ -1,7 +1,7 @@
 <template>
   <section class="page-shell user-page">
     <div class="page-title">用户管理</div>
-    <div class="page-desc">按后端用户 ID 读取真实用户资料；手机号仅展示脱敏值，无有效编号或接口失败时不展示本地样例。</div>
+    <div class="page-desc">按用户 ID 读取用户资料；手机号仅展示脱敏值。</div>
 
     <form class="lookup-card" @submit.prevent="loadDetail">
       <label>
@@ -29,7 +29,7 @@
       </button>
     </div>
     <div v-if="loading" class="empty">用户详情加载中...</div>
-    <div v-else-if="!detail" class="empty">请输入后端用户 ID 查询详情；不会展示预览或本地构造资料。</div>
+    <div v-else-if="!detail" class="empty">请输入用户 ID 查询详情。</div>
 
     <article v-else class="detail-card">
       <div class="detail-head">
@@ -48,7 +48,7 @@
         <div><dt>创建时间</dt><dd>{{ detail.createdAt || '暂无' }}</dd></div>
       </dl>
       <p class="safe-note">{{ detail.bio || '暂无补充简介' }}</p>
-      <p class="safe-note">用户资料以服务端记录为准；本页仅展示脱敏联系方式与后端返回资料，不使用本地构造资料。</p>
+      <p class="safe-note">用户资料以平台记录为准；本页仅展示脱敏联系方式与平台返回资料。</p>
     </article>
   </section>
 </template>
@@ -73,14 +73,14 @@ async function loadDetail() {
   error.value = ''
   loading.value = true
   if (!isValidAdminUserId(safeId)) {
-    error.value = '用户编号无效：已阻止预览、占位或非后端用户 ID 查询。'
+    error.value = '用户编号无效，请输入正确的用户 ID。'
     loading.value = false
     return
   }
   try {
     detail.value = await getAdminUserDetail(safeId)
   } catch {
-    error.value = '用户详情加载失败：未展示本地构造资料，请确认管理员权限、后端服务与 /api/admin/users/{userId} 可用。'
+    error.value = '用户详情加载失败，请确认管理员权限与用户编号。'
   } finally {
     loading.value = false
   }
@@ -94,10 +94,10 @@ async function loadUsers() {
   try {
     users.value = await searchAdminUsers({ keyword: safeKeyword, limit: 20 })
     if (users.value.length === 0) {
-      error.value = '未检索到后端用户记录；不会展示本地构造用户。'
+      error.value = '未检索到符合条件的用户记录。'
     }
   } catch {
-    error.value = '用户检索失败：已阻止预览/占位查询，且不会展示本地构造资料。'
+    error.value = '用户检索失败，请确认查询条件、管理员权限与服务状态。'
   } finally {
     searching.value = false
   }

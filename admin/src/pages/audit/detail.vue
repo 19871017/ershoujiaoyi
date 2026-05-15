@@ -1,7 +1,7 @@
 <template>
   <section class="page-shell">
     <div class="page-title">审核详情</div>
-    <div class="page-desc">从后端 /api/admin/audit/{auditNo} 读取持久化审核记录；无有效编号或接口失败时不展示本地样例。</div>
+    <div class="page-desc">读取持久化审核记录，展示目标、状态与备注。</div>
 
     <div class="toolbar">
       <RouterLink class="secondary-btn" to="/audit">返回审核工作台</RouterLink>
@@ -10,7 +10,7 @@
 
     <div v-if="error" class="alert">{{ error }}</div>
     <div v-if="loading" class="empty">审核详情加载中...</div>
-    <div v-else-if="!detail" class="empty">请输入有效后端审核编号；不会展示预览或本地审核样例。</div>
+    <div v-else-if="!detail" class="empty">请输入有效审核编号。</div>
 
     <article v-else class="detail-card">
       <header class="detail-head">
@@ -50,7 +50,7 @@ async function load() {
   detail.value = null
   error.value = ''
   if (!safeAuditNo.value) {
-    error.value = '审核编号无效：已阻止预览、占位或非后端编号加载。'
+    error.value = '审核编号无效，请输入正确的审核编号。'
     return
   }
   loading.value = true
@@ -58,7 +58,7 @@ async function load() {
     detail.value = await getAdminAuditDetail(safeAuditNo.value)
   } catch {
     detail.value = null
-    error.value = '审核详情加载失败：请确认后端详情接口、管理员权限与审核编号。'
+    error.value = '审核详情加载失败，请确认管理员权限与审核编号。'
   } finally {
     loading.value = false
   }

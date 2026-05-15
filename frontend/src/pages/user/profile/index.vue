@@ -27,7 +27,7 @@
 
     <view class="verify-card ds-card">
       <view class="section-title">认证状态</view>
-      <view v-if="!verifies.length" class="empty-text">认证状态以平台资料为准，当前未展示页面认证默认内容。</view>
+      <view v-if="!verifies.length" class="empty-text">认证状态以平台资料为准，当前暂无认证记录。</view>
       <view v-for="item in verifies" :key="item.label" class="verify-row">
         <view>
           <view class="verify-title">{{ item.label }}</view>
@@ -45,18 +45,18 @@ import { getMyProfile, updateMyProfile } from '../../../api/modules/user'
 
 interface VerifyItem { label: string; desc: string; done: boolean }
 const launchReadinessMarkers = [
-  '资料接口加载失败，未展示本地个人资料样例',
-  '资料已按服务端返回结果保存',
-  '资料保存失败，未展示本地成功状态',
-  '认证状态以服务端资料为准',
-  '角色已暂存，需点击保存后才会同步服务端'
+  '资料加载失败，请稍后重试',
+  '资料已按平台返回结果保存',
+  '资料保存失败，请稍后重试',
+  '认证状态以平台资料为准',
+  '角色已暂存，需点击保存后才会同步平台'
 ]
 
 const roles = [{ label: '买家', value: 'BUYER' }, { label: '卖家', value: 'SELLER' }, { label: '买卖都做', value: 'BOTH' }]
 const form = reactive({ userId: 0, nickname: '', mainRole: 'UNVERIFIED', city: '', bio: '' })
 const message = ref('')
 const saving = ref(false)
-const loadMessage = ref('资料接口加载中，仅展示平台返回的个人资料')
+const loadMessage = ref('个人资料加载中...')
 const avatarText = computed(() => (form.nickname || '衣').slice(0, 1))
 const displayNickname = computed(() => form.nickname || '个人资料暂不可用')
 const verifies = computed<VerifyItem[]>(() => [])
@@ -82,7 +82,7 @@ async function saveProfile() {
     message.value = '资料已按平台返回结果保存'
     uni.showToast({ title: '资料已保存', icon: 'success' })
   } catch {
-    message.value = '资料保存失败，未展示成功状态'
+    message.value = '资料保存失败，请稍后重试'
     uni.showToast({ title: '保存失败，未修改平台资料', icon: 'none' })
   } finally {
     saving.value = false
@@ -96,14 +96,14 @@ async function loadProfile() {
     form.mainRole = profile.mainRole || 'UNVERIFIED'
     form.city = profile.city || ''
     form.bio = profile.bio || ''
-    loadMessage.value = '已加载平台个人资料；保存修改将提交到平台资料接口'
+    loadMessage.value = '已加载平台个人资料；保存修改将提交到平台资料'
   } catch {
     form.userId = 0
     form.nickname = ''
     form.mainRole = 'UNVERIFIED'
     form.city = ''
     form.bio = ''
-    loadMessage.value = '资料接口加载失败，未展示默认个人资料'
+    loadMessage.value = '个人资料加载失败，请稍后重试'
   }
 }
 onMounted(loadProfile)

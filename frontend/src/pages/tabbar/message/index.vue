@@ -77,7 +77,7 @@ async function loadFeeds() {
     feeds.value = await listCommunityPosts(20)
   } catch {
     feeds.value = []
-    loadError.value = '社区内容暂时不可用，未展示本地帖子样例'
+    loadError.value = '社区内容暂时不可用，请稍后重试'
   } finally {
     loading.value = false
   }
@@ -97,7 +97,7 @@ function openPost(item: CommunityPostResponse) {
   }
   uni.navigateTo({ url: `/pages/community/detail/index?postId=${item.postId}&topic=${encodeURIComponent(item.topic)}` })
 }
-function toggleFollow() { showToast('关注接口暂未接通后端，未执行任何关注变更') }
+function toggleFollow() { showToast('关注功能暂时不可用，请稍后重试') }
 async function toggleLikeFeed(item: CommunityPostResponse) {
   if (!isValidCommunityPostId(item.postId)) {
     showToast('缺少有效动态编号，未执行点赞变更')
@@ -109,7 +109,7 @@ async function toggleLikeFeed(item: CommunityPostResponse) {
     item.likeCount = saved.likeCount
     item.likedByMe = saved.likedByMe
   } catch {
-    showToast('点赞没有提交成功，未执行本地点赞变更')
+    showToast('点赞没有提交成功，请稍后重试')
   }
 }
 function avatarOf(item: CommunityPostResponse) { return (item.title || item.topic || '原').slice(0, 1) }

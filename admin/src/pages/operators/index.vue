@@ -1,7 +1,7 @@
 <template>
   <section class="page-shell">
     <div class="page-title">运营经理授权</div>
-    <div class="page-desc">仅最高授权管理员可访问；通过后端 /api/admin/operators/{userId}/permissions 读取与更新权限，所有变更写入审计日志。</div>
+    <div class="page-desc">仅最高授权管理员可访问；读取与更新运营权限，所有变更写入审计日志。</div>
 
     <form class="toolbar" @submit.prevent="loadOperator">
       <input v-model="operatorId" placeholder="运营经理用户 ID" />
@@ -90,7 +90,7 @@ async function loadOperator() {
     selectedPermissions.value = [...data.permissions]
     clearAllConfirmText.value = ''
   } catch {
-    error.value = '运营经理权限加载失败：未使用本地样例，请确认用户存在、账号启用且当前会话具备 operator:grant。'
+    error.value = '运营经理权限加载失败，请确认用户存在、账号启用且当前会话具备 operator:grant。'
   } finally {
     loading.value = false
   }
@@ -110,9 +110,9 @@ async function savePermissions() {
     operator.value = data
     selectedPermissions.value = [...data.permissions]
     clearAllConfirmText.value = ''
-    success.value = '运营经理授权已保存，后端已记录管理员操作审计。'
+    success.value = '运营经理授权已保存，系统已记录管理员操作审计。'
   } catch {
-    error.value = '运营经理授权保存失败：未执行本地授权变更，请检查权限码与后端服务。'
+    error.value = '运营经理授权保存失败，请检查权限码与服务状态。'
   } finally {
     saving.value = false
   }

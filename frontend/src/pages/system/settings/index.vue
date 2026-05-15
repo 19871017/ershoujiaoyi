@@ -34,15 +34,15 @@ const userStore = useUserStore()
 const rows = reactive<Row[]>([
   { icon: '🔐', label: '账号安全', desc: '密码、手机号、登录设备', url: '/pages/system/account-security/index' },
   { icon: '🪪', label: '实名认证', desc: '保障交易和提现安全', url: '/pages/user/identity/index' },
-  { icon: '💬', label: '消息通知', desc: '订单、私信、审核通知（需平台配置接口）', switch: true, on: false },
+  { icon: '💬', label: '消息通知', desc: '订单、私信、审核通知', switch: true, on: false },
   { icon: '📍', label: '位置权限', desc: '位置偏好需系统授权与平台定位配置，当前页不保存正式位置状态', switch: true, on: false },
-  { icon: '🧪', label: '正式模式', desc: '仅展示当前构建环境，不能在页面内切换', switch: true, on: false },
+  { icon: '🧪', label: '运行模式', desc: '当前环境由平台配置控制，页面内不可切换', switch: true, on: false },
   { icon: '📜', label: '用户协议与隐私', desc: '查看平台规则和隐私说明', url: '/pages/system/privacy/index' }
 ])
 function toggle(item: Row) {
   uni.showToast({ title: `${item.label}需通过平台或系统设置变更，当前未执行任何设置修改`, icon: 'none' })
 }
-function handleRow(item: Row) { if (item.url) uni.navigateTo({ url: item.url }); else if (!item.switch) uni.showToast({ title: `${item.label}暂未接入正式页面`, icon: 'none' }) }
+function handleRow(item: Row) { if (item.url) uni.navigateTo({ url: item.url }); else if (!item.switch) uni.showToast({ title: `${item.label}暂不可用，请稍后重试`, icon: 'none' }) }
 function logout() {
   uni.showModal({
     title: '退出登录',

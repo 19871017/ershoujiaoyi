@@ -91,7 +91,7 @@ async function loadConversations() {
     conversations.value = response.conversations
   } catch {
     conversations.value = []
-    errorText.value = '会话接口暂时不可用，未展示任何示例会话'
+    errorText.value = '会话暂时不可用，请稍后重试'
   } finally {
     loading.value = false
   }
@@ -104,7 +104,7 @@ async function handleMarkRead(item: ChatConversationItem) {
     item.readSeq = response.readSeq
     item.unreadCount = response.unreadCount
   } catch {
-    uni.showToast({ title: '已读接口暂时不可用，未执行任何会话变更', icon: 'none' })
+    uni.showToast({ title: '已读状态暂时不可更新，请稍后重试', icon: 'none' })
   } finally {
     markingId.value = null
   }

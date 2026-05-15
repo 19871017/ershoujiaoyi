@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 我的心愿夹</view>
         <view class="page-title">我的收藏</view>
-        <view class="page-desc">仅展示平台收藏接口返回的商品，加载失败不展示默认收藏。</view>
+        <view class="page-desc">仅展示平台收藏商品，加载失败时请稍后重试。</view>
       </view>
       <view class="hero-icon">💗</view>
     </view>
@@ -14,7 +14,7 @@
 
     <view v-if="loading" class="empty-card ds-card">收藏列表加载中...</view>
     <view v-else-if="loadMessage" class="empty-card ds-card danger">{{ loadMessage }}</view>
-    <view v-else-if="filtered.length === 0" class="empty-card ds-card">暂无平台收藏商品，未展示默认收藏</view>
+    <view v-else-if="filtered.length === 0" class="empty-card ds-card">暂无收藏商品</view>
 
     <view class="fav-grid">
       <view v-for="item in filtered" :key="item.productId" class="fav-card ds-card tapable" @click="openProduct(item.productId)">
@@ -33,8 +33,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { listFavoriteProducts, unfavoriteProduct, type ProductListItemResponse } from '../../api/modules/product'
 const launchReadinessMarkers = [
-  '收藏列表接口加载失败，未展示本地收藏样例',
-  '后端取消收藏失败，未执行本地收藏变更'
+  '收藏列表加载失败，请稍后重试',
+  '取消收藏失败，请稍后重试'
 ]
 
 const filters = ['全部', '衣物', '鞋袜', '小用品']
@@ -48,17 +48,17 @@ const filtered = computed(() => {
   return favorites.value.filter((item) => `${item.title}${item.productNo}${item.status}${item.auditState}`.toLowerCase().includes(categoryText))
 })
 function openProduct(productId: number) {
-  if (!productId || productId <= 0) { uni.showToast({ title: '收藏商品缺少平台 productId，未打开默认内容', icon: 'none' }); return }
+  if (!productId || productId <= 0) { uni.showToast({ title: '收藏商品编号无效，暂无法打开商品详情', icon: 'none' }); return }
   uni.navigateTo({ url: `/pages/product/detail/index?productId=${productId}` })
 }
 async function unfav(productId: number) {
-  if (!productId || productId <= 0) { uni.showToast({ title: '收藏商品缺少平台 productId，未执行任何变更', icon: 'none' }); return }
+  if (!productId || productId <= 0) { uni.showToast({ title: '收藏商品编号无效，暂无法取消收藏', icon: 'none' }); return }
   try {
     await unfavoriteProduct(productId)
     favorites.value = favorites.value.filter((item) => item.productId !== productId)
     uni.showToast({ title: '平台已确认取消收藏', icon: 'none' })
   } catch {
-    uni.showToast({ title: '平台取消收藏失败，未执行收藏变更', icon: 'none' })
+    uni.showToast({ title: '取消收藏失败，请稍后重试', icon: 'none' })
   }
 }
 function iconFor(title: string) { if (title.includes('裙')) return '👗'; if (title.includes('鞋')) return '👠'; if (title.includes('袜')) return '🧦'; return '👜' }
@@ -71,7 +71,7 @@ async function loadFavorites() {
     favorites.value = await listFavoriteProducts()
   } catch (error) {
     favorites.value = []
-    loadMessage.value = `收藏列表接口加载失败，未展示默认收藏：${error instanceof Error ? error.message : '请稍后重试'}`
+    loadMessage.value = `收藏列表加载失败：${error instanceof Error ? error.message : '请稍后重试'}`
   } finally {
     loading.value = false
   }

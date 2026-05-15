@@ -8,7 +8,7 @@
     </div>
     <div v-if="error" class="alert">{{ error }}</div>
     <div v-if="loading" class="empty">审核记录加载中...</div>
-    <div v-else-if="audits.length === 0" class="empty">暂无后端审核记录。</div>
+    <div v-else-if="audits.length === 0" class="empty">暂无审核记录。</div>
     <article v-for="item in audits" :key="item.auditNo" class="audit-card">
       <div class="audit-main">
         <strong>{{ item.auditNo }}</strong>
@@ -48,7 +48,7 @@ async function load() {
     audits.value = await getAdminAuditList()
   } catch {
     audits.value = []
-    error.value = '审核列表加载失败：请确认后端服务、管理员权限与 /api/admin/audit 可用。'
+    error.value = '审核列表加载失败，请确认管理员权限与服务状态。'
   } finally {
     loading.value = false
   }
@@ -71,7 +71,7 @@ async function review(item: AuditRecordResponse, action: 'approve' | 'reject') {
     const updated = action === 'approve' ? await approveAdminAudit(item.auditNo, remark) : await rejectAdminAudit(item.auditNo, remark)
     audits.value = audits.value.map((row) => row.auditNo === item.auditNo ? updated : row)
   } catch {
-    error.value = '审核操作失败：未做本地假成功，请检查后端审核接口。'
+    error.value = '审核操作失败，请确认审核服务状态。'
   } finally {
     reviewingAuditNo.value = ''
   }

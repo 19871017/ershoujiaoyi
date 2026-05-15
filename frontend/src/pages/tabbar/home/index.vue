@@ -93,9 +93,9 @@ type RankingCard = {
 }
 
 const launchReadinessMarkers = [
-  '暂未加载到后端在售宝贝',
-  '商品接口暂时不可用，未展示本地演示宝贝',
-  '件后端在售宝贝'
+  '暂未加载到平台在售宝贝',
+  '商品暂时不可用，请稍后重试',
+  '件平台在售宝贝'
 ]
 
 const banners = ref<HomeBannerResponse[]>([])

@@ -1,13 +1,13 @@
 <template>
   <section class="page-shell location-page">
     <div class="page-title">位置配置</div>
-    <div class="page-desc">读取并保存后端 /api/admin/location/config；地图服务密钥只提交给后端，不在配置详情中回显。</div>
+    <div class="page-desc">读取并保存位置服务配置；地图服务密钥只提交给平台，不在配置详情中回显。</div>
 
     <div class="config-panel">
       <div class="panel-head">
         <div>
           <strong>当前位置服务状态</strong>
-          <span>配置状态以后端 system_config 记录为准</span>
+          <span>配置状态以平台记录为准</span>
         </div>
         <button class="ghost-btn" :disabled="loading" @click="loadConfig">{{ loading ? '刷新中...' : '刷新配置' }}</button>
       </div>
@@ -18,19 +18,19 @@
       <dl v-if="config" class="detail-grid">
         <div><dt>服务商</dt><dd>{{ config.provider }}</dd></div>
         <div><dt>启用状态</dt><dd>{{ config.enabled ? '已启用' : '未启用' }}</dd></div>
-        <div><dt>密钥配置</dt><dd>{{ config.configured ? '后端已配置' : '后端未配置' }}</dd></div>
+        <div><dt>密钥配置</dt><dd>{{ config.configured ? '已配置' : '未配置' }}</dd></div>
         <div><dt>默认城市</dt><dd>{{ config.defaultProvince }} {{ config.defaultCity }}</dd></div>
         <div><dt>坐标系</dt><dd>{{ config.coordinateType }}</dd></div>
         <div><dt>更新时间</dt><dd>{{ config.updatedAt || '暂无' }}</dd></div>
       </dl>
-      <div v-else-if="!loading" class="empty">暂未读取到后端位置配置；不会展示本地样例配置。</div>
+      <div v-else-if="!loading" class="empty">暂未读取到位置配置。</div>
     </div>
 
     <form class="config-panel" @submit.prevent="saveConfig">
       <div class="panel-head">
         <div>
           <strong>更新位置配置</strong>
-          <span>失败时不做本地成功态；密钥输入框保存后会清空</span>
+          <span>密钥输入框保存后会清空</span>
         </div>
       </div>
       <div class="form-grid">
@@ -61,14 +61,14 @@
         </label>
         <label>
           <span>百度 AK（可选，仅提交不回显）</span>
-          <input v-model.trim="form.baiduAk" type="password" autocomplete="off" placeholder="留空则不变更后端密钥" />
+          <input v-model.trim="form.baiduAk" type="password" autocomplete="off" placeholder="留空则不变更平台密钥" />
         </label>
         <label class="toggle-row">
           <input v-model="form.enabled" type="checkbox" />
           <span>启用位置服务</span>
         </label>
       </div>
-      <p class="safe-note">安全提示：本页不展示服务商密钥；保存成功只采用后端返回配置刷新页面状态。</p>
+      <p class="safe-note">安全提示：本页不展示服务商密钥；保存成功只采用平台返回配置刷新页面状态。</p>
       <label class="confirm-row">
         <span>二次确认</span>
         <input v-model.trim="locationConfirmText" autocomplete="off" placeholder="输入 保存位置配置 后才能提交" />
@@ -115,7 +115,7 @@ async function loadConfig() {
     fillForm(next)
   } catch {
     config.value = null
-    error.value = '位置配置加载失败：请确认管理员权限、后端服务与 /api/admin/location/config 可用。'
+    error.value = '位置配置加载失败，请确认管理员权限与服务状态。'
   } finally {
     loading.value = false
   }
@@ -141,7 +141,7 @@ async function saveConfig() {
     fillForm(next)
     locationConfirmText.value = ''
   } catch {
-    error.value = '位置配置保存失败：未写入本地成功态，请检查管理员权限、字段合法性和后端接口。'
+    error.value = '位置配置保存失败，请检查管理员权限、字段合法性和服务状态。'
   } finally {
     saving.value = false
   }

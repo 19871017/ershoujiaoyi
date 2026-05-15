@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 收款账户</view>
         <view class="page-title">提现账户管理</view>
-        <view class="page-desc">完整账号只提交给平台绑定接口；页面展示平台脱敏后的默认提现账户。</view>
+        <view class="page-desc">完整账号只提交给平台绑定；页面展示平台脱敏后的提现账户。</view>
       </view>
       <view class="hero-icon">💳</view>
     </view>
@@ -29,7 +29,7 @@
         <view v-for="item in methods" :key="item" class="method-chip tapable" :class="{ active: form.paymentMethod === item }" @click="form.paymentMethod = item">{{ methodLabel(item) }}</view>
       </view>
       <input v-model.trim="form.accountName" class="field" maxlength="24" placeholder="收款人姓名，需与实名一致" />
-      <input v-model.trim="form.accountNo" class="field" maxlength="80" placeholder="完整收款账号，仅提交给平台绑定接口" />
+      <input v-model.trim="form.accountNo" class="field" maxlength="80" placeholder="完整收款账号，仅提交给平台绑定" />
       <button class="primary-btn" :disabled="submitting" @click="submitBinding">{{ submitting ? '提交中...' : '提交平台绑定' }}</button>
       <view v-if="submitMessage" class="desc" :class="{ danger: submitFailed }">{{ submitMessage }}</view>
     </view>
@@ -45,7 +45,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { bindPayoutAccount, getPayoutAccount, type PayoutAccountResponse } from '../../../api/modules/wallet'
 
 const launchReadinessMarkers = [
-  '提现账户绑定失败：未保存本地账号'
+  '提现账户绑定失败，请稍后重试'
 ]
 
 const methods = ['ALIPAY', 'BANK_CARD']
@@ -62,7 +62,7 @@ async function loadAccount() {
   loading.value = true
   loadMessage.value = ''
   try { activeAccount.value = await getPayoutAccount() }
-  catch { activeAccount.value = null; loadMessage.value = '提现账户加载失败：未展示默认账户。' }
+  catch { activeAccount.value = null; loadMessage.value = '提现账户加载失败，请稍后重试。' }
   finally { loading.value = false }
 }
 async function submitBinding() {
@@ -77,7 +77,7 @@ async function submitBinding() {
     submitMessage.value = '提现账户已由平台绑定；页面仅保留脱敏展示。'
   } catch {
     submitFailed.value = true
-    submitMessage.value = '提现账户绑定失败：未保存页面账号，请确认平台接口与字段合法性。'
+    submitMessage.value = '提现账户绑定失败，请确认字段合法性后重试。'
   } finally { submitting.value = false }
 }
 onMounted(() => { void loadAccount() })

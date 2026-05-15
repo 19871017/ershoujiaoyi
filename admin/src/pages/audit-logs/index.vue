@@ -1,7 +1,7 @@
 <template>
   <section class="page-shell">
     <div class="page-title">审计日志</div>
-    <div class="page-desc">读取后端 /api/admin/audit-logs 操作日志；仅展示脱敏摘要，不展示访问密钥、完整收款账号或本地样例。</div>
+    <div class="page-desc">读取后台操作日志；仅展示脱敏摘要，不展示访问密钥或完整收款账号。</div>
 
     <form class="toolbar" @submit.prevent="loadLogs">
       <label>
@@ -17,7 +17,7 @@
 
     <div v-if="error" class="alert">{{ error }}</div>
     <div v-if="loading" class="empty">审计日志加载中...</div>
-    <div v-else-if="logs.length === 0" class="empty">暂无后端审计日志；不会展示本地演示操作。</div>
+    <div v-else-if="logs.length === 0" class="empty">暂无审计日志。</div>
 
     <article v-for="item in logs" :key="item.logId" class="audit-card">
       <div class="audit-main">
@@ -49,7 +49,7 @@ async function loadLogs() {
   logs.value = []
   const cursor = afterId.value.trim()
   if (cursor && !isValidAdminAuditLogId(cursor)) {
-    error.value = '审计日志游标无效：已阻止预览、占位或非后端日志 ID 查询。'
+    error.value = '审计日志游标无效，请输入正确的日志 ID。'
     return
   }
   loading.value = true
@@ -57,7 +57,7 @@ async function loadLogs() {
     logs.value = await getAdminAuditLogs({ afterId: cursor || undefined, limit: limit.value })
   } catch {
     logs.value = []
-    error.value = '审计日志加载失败：未展示本地样例，请确认管理员权限、后端服务与 /api/admin/audit-logs 可用。'
+    error.value = '审计日志加载失败，请确认管理员权限与服务状态。'
   } finally {
     loading.value = false
   }

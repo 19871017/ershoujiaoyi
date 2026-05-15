@@ -91,12 +91,12 @@ const activeImageIndex = ref(0)
 const favorited = ref(false)
 const favoriteLoading = ref(false)
 const safeRules = [
-  { icon: '🛡️', title: '平台交易', desc: '订单、支付和售后状态以服务端记录为准' },
-  { icon: '💬', title: '会话记录', desc: '沟通内容以服务端会话记录为准' },
-  { icon: '📦', title: '交付确认', desc: '交付与收货状态以服务端订单记录为准' }
+  { icon: '🛡️', title: '平台交易', desc: '订单、支付和售后状态以平台记录为准' },
+  { icon: '💬', title: '会话记录', desc: '沟通内容以平台会话记录为准' },
+  { icon: '📦', title: '交付确认', desc: '交付与收货状态以平台订单记录为准' }
 ]
 const confirmItems = reactive([
-  { key: 'rule', label: '已阅读订单、支付和售后状态以服务端记录为准', checked: true },
+  { key: 'rule', label: '已阅读订单、支付和售后状态以平台记录为准', checked: true },
   { key: 'condition', label: '已确认商品成色和瑕疵说明', checked: false },
   { key: 'address', label: '已确认收货信息；正式交付状态以平台订单记录为准', checked: false }
 ])
@@ -105,8 +105,8 @@ const activeImage = computed(() => displayImages.value[activeImageIndex.value] |
 const statusText = computed(() => detail.value?.status === 'created' ? '在售' : detail.value?.status || '未知')
 const auditText = computed(() => detail.value?.auditState === 'pending' ? '审核中' : detail.value?.auditState || '审核状态')
 const sellerName = computed(() => detail.value?.sellerId ? `卖家 ${detail.value.sellerId}` : '商品卖家')
-const sellerCity = computed(() => '卖家城市以服务端资料为准')
-const sellerTrustText = computed(() => '商品卖家信息以服务端返回为准 · 暂无服务端信用/成交统计')
+const sellerCity = computed(() => '卖家城市以平台资料为准')
+const sellerTrustText = computed(() => '商品卖家信息以平台返回为准 · 暂无信用/成交统计')
 const sellerTags = computed(() => [] as string[])
 function readProductId() {
   const pages = getCurrentPages()
@@ -121,7 +121,7 @@ async function loadDetail() {
   if (!productId.value) { errorMessage.value = '缺少商品ID'; return }
   loading.value = true
   try { detail.value = await getProductDetail(productId.value) }
-  catch (error) { errorMessage.value = error instanceof Error ? error.message : '商品详情加载失败，不能展示默认内容商品'; detail.value = null }
+  catch (error) { errorMessage.value = error instanceof Error ? error.message : '商品详情加载失败，请稍后重试'; detail.value = null }
   finally { loading.value = false }
 }
 async function createAndPay() {
@@ -154,10 +154,10 @@ function reportProduct() {
   }
   uni.navigateTo({ url: `/pages/report/submit/index?targetType=GOODS&targetId=${encodeURIComponent(String(reportTargetId))}` })
 }
-function shareProduct() { uni.showToast({ title: '分享接口暂未接入，未生成正式分享记录', icon: 'none' }) }
+function shareProduct() { uni.showToast({ title: '分享功能暂时不可用，请稍后重试', icon: 'none' }) }
 async function toggleFavorite() {
   if (!detail.value?.productId || detail.value.productId <= 0) {
-    uni.showToast({ title: '商品缺少后端 productId，未执行收藏变更', icon: 'none' })
+    uni.showToast({ title: '商品编号无效，未执行收藏变更', icon: 'none' })
     return
   }
   if (favoriteLoading.value) return
@@ -167,14 +167,14 @@ async function toggleFavorite() {
     if (wasFavorited) {
       await unfavoriteProduct(detail.value.productId)
       favorited.value = false
-      uni.showToast({ title: '取消收藏已提交后端', icon: 'none' })
+      uni.showToast({ title: '取消收藏已同步', icon: 'none' })
     } else {
       await favoriteProduct(detail.value.productId)
       favorited.value = true
-      uni.showToast({ title: '收藏已提交后端', icon: 'none' })
+      uni.showToast({ title: '收藏已同步', icon: 'none' })
     }
   } catch {
-    uni.showToast({ title: '收藏接口调用失败，未执行本地收藏变更', icon: 'none' })
+    uni.showToast({ title: '收藏失败，请稍后重试', icon: 'none' })
   } finally {
     favoriteLoading.value = false
   }

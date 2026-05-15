@@ -1,7 +1,7 @@
 <template>
   <section class="page-shell after-sales-page">
     <div class="page-title">售后管理</div>
-    <div class="page-desc">默认从后端读取待处理售后列表；详情与审核按后端售后编号执行，无有效编号或接口失败时不展示本地样例，也不执行本地处理成功态。</div>
+    <div class="page-desc">默认读取待处理售后列表；详情与审核按售后编号执行。</div>
 
     <div class="lookup-card">
       <label>
@@ -18,7 +18,7 @@
 
     <div v-if="listError" class="alert">{{ listError }}</div>
     <div v-if="loadingList" class="empty">售后列表加载中...</div>
-    <div v-else-if="rows.length === 0" class="empty">后端未返回售后记录；本页不展示预览或本地售后样例。</div>
+    <div v-else-if="rows.length === 0" class="empty">暂无售后记录。</div>
     <div v-else class="table-card">
       <table>
         <thead>
@@ -54,7 +54,7 @@
 
     <div v-if="detailError" class="alert">{{ detailError }}</div>
     <div v-if="loadingDetail" class="empty">售后详情加载中...</div>
-    <div v-else-if="!detail" class="empty">请选择列表记录或输入后端售后编号查询详情。</div>
+    <div v-else-if="!detail" class="empty">请选择列表记录或输入售后编号查询详情。</div>
 
     <article v-else class="detail-card">
       <div class="detail-head">
@@ -73,11 +73,11 @@
         <div><dt>上传票据数量</dt><dd>{{ detail.evidenceUrls?.length || 0 }}</dd></div>
       </dl>
       <p class="safe-note">{{ detail.description || '暂无补充说明' }}</p>
-      <p class="safe-note">售后处理以服务端订单、支付、物流、聊天记录和已提交票据为准；审核成功只以后端响应为准。</p>
+      <p class="safe-note">售后处理以平台订单、支付、物流、聊天记录和已提交票据为准；审核成功只以平台响应为准。</p>
       <div class="review-panel">
         <label>
           <span>审核备注</span>
-          <textarea v-model.trim="reviewRemark" :disabled="afterSalesReviewing || !canReviewDetail" maxlength="200" placeholder="选填，仅提交给后端售后审核接口"></textarea>
+          <textarea v-model.trim="reviewRemark" :disabled="afterSalesReviewing || !canReviewDetail" maxlength="200" placeholder="选填，仅提交给平台售后审核"></textarea>
         </label>
         <label class="confirm-field">
           <span>售后审核二次确认</span>
@@ -93,7 +93,7 @@
           </button>
         </div>
         <p v-if="!canReviewAfterSales(auth.session)" class="safe-note">当前管理员仅可查看售后记录；缺少 after-sales:review 权限时不会提交通过/拒绝操作。</p>
-        <p class="safe-note">审核结果只以后端 /api/admin/after-sales 审核响应为准；失败时不会本地改写售后状态。</p>
+        <p class="safe-note">审核结果以平台审核响应为准。</p>
       </div>
     </article>
   </section>
@@ -136,7 +136,7 @@ async function loadList() {
   try {
     rows.value = await getAdminAfterSalesList({ status: statusFilter.value, limit: 20 })
   } catch {
-    listError.value = '售后列表加载失败：未展示本地样例，请确认管理员权限、后端服务与 /api/admin/after-sales 可用。'
+    listError.value = '售后列表加载失败，请确认管理员权限与服务状态。'
   } finally {
     loadingList.value = false
   }
@@ -159,14 +159,14 @@ async function loadDetail() {
   afterSalesConfirmText.value = ''
   reviewRemark.value = ''
   if (!isValidAdminAfterSalesNo(safeNo)) {
-    detailError.value = '售后编号无效：已阻止预览、占位或非后端编号查询。'
+    detailError.value = '售后编号无效，请输入正确的售后编号。'
     loadingDetail.value = false
     return
   }
   try {
     detail.value = await getAdminAfterSalesDetail(safeNo)
   } catch {
-    detailError.value = '售后详情加载失败：未展示本地样例，请确认管理员权限、后端服务与 /api/admin/after-sales/{afterSalesNo} 可用。'
+    detailError.value = '售后详情加载失败，请确认管理员权限与售后编号。'
   } finally {
     loadingDetail.value = false
   }
@@ -177,15 +177,15 @@ async function submitReview(action: 'approve' | 'reject') {
   detailError.value = ''
   if (afterSalesReviewing.value) return
   if (!isValidAdminAfterSalesNo(safeNo) || !detail.value) {
-    detailError.value = '售后编号无效：已阻止本地审核提交。'
+    detailError.value = '售后编号无效，请输入正确的售后编号。'
     return
   }
   if (!canReviewAfterSales(auth.session)) {
-    detailError.value = '当前管理员缺少售后审核权限：未执行任何本地变更。'
+    detailError.value = '当前管理员缺少售后审核权限：未提交审核变更。'
     return
   }
   if (!canReviewDetail.value) {
-    detailError.value = '当前售后状态不可审核：未执行任何本地变更。'
+    detailError.value = '当前售后状态不可审核：未提交审核变更。'
     return
   }
   if (afterSalesConfirmText.value !== expectedAfterSalesConfirmText.value) {
@@ -200,7 +200,7 @@ async function submitReview(action: 'approve' | 'reject') {
     reviewRemark.value = ''
     afterSalesConfirmText.value = ''
   } catch {
-    detailError.value = '售后审核提交失败：未执行任何本地状态变更，请确认权限、编号与后端接口。'
+    detailError.value = '售后审核提交失败，请确认权限、编号与服务状态。'
   } finally {
     afterSalesReviewing.value = false
   }

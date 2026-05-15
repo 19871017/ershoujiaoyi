@@ -150,7 +150,7 @@ function handleAction(item: OrderListItemResponse, action: string) {
   else showUnavailableAction(action)
 }
 function showUnavailableAction(action: string) {
-  uni.showToast({ title: `${action}暂未接通平台，未执行任何订单变更`, icon: 'none' })
+  uni.showToast({ title: `${action}暂不可用，请稍后重试`, icon: 'none' })
 }
 function openOrderContact(item: OrderListItemResponse, action: OrderContactAction) {
   const target = resolveOrderContactTarget(item, action)

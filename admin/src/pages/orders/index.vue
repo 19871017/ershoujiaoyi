@@ -1,7 +1,7 @@
 <template>
   <section class="page-shell order-page">
     <div class="page-title">订单管理</div>
-    <div class="page-desc">按后端订单编号读取真实订单详情；无有效编号或接口失败时不展示本地示例，也不执行本地订单状态变更。</div>
+    <div class="page-desc">按订单编号读取订单详情。</div>
 
     <form class="lookup-card" @submit.prevent="loadDetail">
       <label>
@@ -41,7 +41,7 @@
 
     <div v-if="error" class="alert">{{ error }}</div>
     <div v-if="loading" class="empty">订单详情加载中...</div>
-    <div v-else-if="!detail" class="empty">请输入后端订单编号查询详情；接口不可用时不会展示本地构造订单。</div>
+    <div v-else-if="!detail" class="empty">请输入订单编号查询详情。</div>
 
     <article v-else class="detail-card">
       <div class="detail-head">
@@ -58,14 +58,14 @@
         <div><dt>订单金额</dt><dd>¥{{ detail.amount }}</dd></div>
         <div><dt>售后编号</dt><dd>{{ detail.afterSalesNo || '暂无' }}</dd></div>
         <div><dt>售后状态</dt><dd>{{ detail.afterSalesStatus || '暂无' }}</dd></div>
-        <div><dt>配送方式</dt><dd>{{ detail.shippingType || '以后端记录为准' }}</dd></div>
+        <div><dt>配送方式</dt><dd>{{ detail.shippingType || '以平台记录为准' }}</dd></div>
         <div><dt>物流公司</dt><dd>{{ detail.shippingCompany || '暂无' }}</dd></div>
         <div><dt>物流单号</dt><dd>{{ detail.trackingNo || '暂无' }}</dd></div>
         <div><dt>创建时间</dt><dd>{{ detail.createdAt || '暂无' }}</dd></div>
         <div><dt>付款时间</dt><dd>{{ detail.paidAt || '暂无' }}</dd></div>
         <div><dt>完成时间</dt><dd>{{ detail.completedAt || '暂无' }}</dd></div>
       </dl>
-      <p class="safe-note">订单、支付、发货和售后状态以服务端记录为准；本页当前仅查询详情，不提供本地改价、发货或结算成功态。</p>
+      <p class="safe-note">订单、支付、发货和售后状态以平台记录为准；本页当前仅查询详情，不提供改价、发货或结算操作。</p>
     </article>
   </section>
 </template>
@@ -91,7 +91,7 @@ async function loadList() {
   try {
     list.value = await getAdminOrderList({ status: statusFilter.value, limit: 20 })
   } catch {
-    error.value = '订单列表加载失败：未展示本地构造订单，请确认管理员权限、后端服务与 /api/admin/orders 可用。'
+    error.value = '订单列表加载失败，请确认管理员权限与服务状态。'
   } finally {
     listLoading.value = false
   }
@@ -108,14 +108,14 @@ async function loadDetail() {
   error.value = ''
   detail.value = null
   if (!isValidAdminOrderNo(safeNo)) {
-    error.value = '订单编号无效：已阻止预览、占位或非后端编号查询。'
+    error.value = '订单编号无效，请输入正确的订单编号。'
     loading.value = false
     return
   }
   try {
     detail.value = await getAdminOrderDetail(safeNo)
   } catch {
-    error.value = '订单详情加载失败：未展示本地构造订单，请确认管理员权限、后端服务与 /api/admin/orders/{orderNo} 可用。'
+    error.value = '订单详情加载失败，请确认管理员权限与订单编号。'
   } finally {
     loading.value = false
   }

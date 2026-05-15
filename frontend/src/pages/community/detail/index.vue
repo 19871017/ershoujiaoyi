@@ -58,8 +58,8 @@ import { followPublicProfile, getPublicProfile, unfollowPublicProfile } from '..
 interface CommentItem { id: string; avatar: string; name: string; text: string }
 
 const launchReadinessMarkers = [
-  '缺少后端作者ID，未执行任何关注变更',
-  '关注状态没有提交成功，未执行本地关注变更'
+  '缺少作者编号，未执行任何关注变更',
+  '关注状态没有提交成功，请稍后重试'
 ]
 
 const topic = ref('')
@@ -85,7 +85,7 @@ const comments = reactive<CommentItem[]>([])
 
 const productTitle = computed(() => productId.value ? `关联商品：${relatedProductTitle.value || '平台商品'}` : '该动态没有关联商品')
 const productDesc = computed(() => {
-  if (!productId.value) return '关联商品必须由动态详情接口返回，当前不打开默认内容商品'
+  if (!productId.value) return '关联商品暂未加载，当前无法打开商品详情'
   const price = relatedProductPrice.value === null || relatedProductPrice.value === undefined || relatedProductPrice.value === '' ? '价格以平台为准' : `¥${relatedProductPrice.value}`
   return `商品编号 ${productId.value} · ${price}`
 })
@@ -103,7 +103,7 @@ function isValidCommunityPostId(value: string) { return /^[1-9]\d{0,18}$/.test(v
 function isValidBackendUserId(value: number | null) { return typeof value === 'number' && Number.isInteger(value) && value > 0 }
 async function loadDetail() {
   if (!isValidCommunityPostId(postId.value)) {
-    errorText.value = '缺少有效动态编号，动态详情接口未加载，未展示默认内容'
+    errorText.value = '缺少有效动态编号，动态详情暂时不可用'
     return
   }
   const numericPostId = Number(postId.value)
@@ -131,7 +131,7 @@ async function loadDetail() {
     })))
     await hydrateAuthorFollowState()
   } catch {
-    errorText.value = '动态详情加载失败，未展示静态作者、评论或关联商品默认内容'
+    errorText.value = '动态详情加载失败，请稍后重试'
   }
 }
 async function hydrateAuthorFollowState() {
@@ -168,7 +168,7 @@ async function sendComment() {
 }
 function openProduct() {
   if (!productId.value) {
-    uni.showToast({ title: '缺少关联商品，未打开默认内容商品', icon: 'none' })
+    uni.showToast({ title: '缺少关联商品，暂无法打开商品详情', icon: 'none' })
     return
   }
   uni.navigateTo({ url: `/pages/product/detail/index?productId=${productId.value}` })

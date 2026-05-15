@@ -75,7 +75,7 @@ import { getWalletBalance, type WalletBalanceResponse } from '../../../api/modul
 
 const launchReadinessMarkers = [
   '身份状态以平台审核为准',
-  '钱包余额以服务端为准'
+  '钱包余额以平台账本为准'
 ]
 
 const emptyProfile: UserProfileResponse = { userId: 0, nickname: '小原圈用户', mainRole: 'UNVERIFIED', videoIdentityStatus: 'UNVERIFIED', videoVerified: false }

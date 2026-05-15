@@ -1,7 +1,7 @@
 <template>
   <section class="page-shell dashboard-page">
     <div class="page-title">后台仪表盘</div>
-    <div class="page-desc">从后端 /api/admin/dashboard 聚合真实审核、提现、售后、用户和订单状态；失败时不展示假数据。</div>
+    <div class="page-desc">聚合真实审核、提现、售后、用户和订单状态；加载失败时不展示统计。</div>
     <div v-if="error" class="alert">{{ error }}</div>
     <div class="stat-grid dashboard-grid">
       <div class="stat-card"><strong>{{ display(summary?.pendingAudits) }}</strong><span>待审核</span></div>
@@ -13,7 +13,7 @@
       <div class="stat-card"><strong>{{ display(summary?.todayOrders) }}</strong><span>今日订单</span></div>
       <div class="stat-card"><strong>{{ money(summary?.grossMerchandiseValue) }}</strong><span>今日成交额</span></div>
     </div>
-    <p class="safe-note">仪表盘只展示服务端聚合记录；不会从本地审核列表推导财务、售后、订单或用户指标。</p>
+    <p class="safe-note">仪表盘展示平台聚合的审核、财务、售后、订单与用户指标。</p>
     <div class="actions dashboard-actions">
       <RouterLink v-for="item in dashboardActions" :key="item.path" class="primary-link" :to="item.path">{{ item.label }}</RouterLink>
     </div>
@@ -43,7 +43,7 @@ onMounted(async () => {
   try {
     summary.value = await getAdminDashboard()
   } catch {
-    error.value = '后台数据加载失败：未展示本地聚合假数据，请确认后端服务和管理员访问权限。'
+    error.value = '后台数据加载失败，请确认服务状态和管理员访问权限。'
   }
 })
 </script>

@@ -28,7 +28,7 @@
       </view>
 
       <view v-if="loading" class="state-tip">加载分类宝贝中...</view>
-      <view v-else-if="errorText" class="state-tip danger">商品接口暂时不可用，未展示默认分类宝贝</view>
+      <view v-else-if="errorText" class="state-tip danger">商品暂时不可用，请稍后重试</view>
       <view v-else-if="products.length === 0" class="state-tip">暂未加载到平台分类宝贝</view>
 
       <view class="sub-grid compact">
@@ -73,8 +73,8 @@ import { computed, onMounted, ref } from 'vue'
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
 
 const launchReadinessMarkers = [
-  '商品接口暂时不可用，未展示本地分类宝贝样例',
-  '暂未加载到后端分类宝贝'
+  '商品暂时不可用，请稍后重试',
+  '暂未加载到平台分类宝贝'
 ]
 
 const groups = [

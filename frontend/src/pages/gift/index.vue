@@ -52,7 +52,7 @@
       <view class="section-head">
         <view>
           <view class="section-title">礼物流水</view>
-          <view class="section-desc">仅展示平台已持久化的收礼记录，失败时不展示默认内容。</view>
+          <view class="section-desc">仅展示平台已持久化的收礼记录，加载失败时请稍后重试。</view>
         </view>
         <view class="settle-chip">累计入账 ¥{{ totalIncome }}</view>
       </view>
@@ -70,7 +70,7 @@
     <view class="section-card ds-card">
       <view class="section-title">感谢互动</view>
       <view class="thanks-card">
-        <view>感谢消息必须进入真实会话；没有平台收礼记录时不使用固定账号伪跳转。</view>
+        <view>感谢消息必须进入真实会话；没有平台收礼记录时暂无法发起感谢私信。</view>
         <button class="secondary-btn" @click="sendThanks">去私信感谢</button>
       </view>
     </view>
@@ -83,7 +83,7 @@ import { getGiftCatalog, getReceivedGifts, sendGift, type GiftCatalogItemRespons
 import { getWalletBalance, type WalletMoneyAmount } from '../../api/modules/wallet'
 
 const launchReadinessMarkers = [
-  '礼物流水加载失败，未展示本地礼物样例'
+  '礼物流水加载失败，请稍后重试'
 ]
 
 const receiverId = ref<number | null>(null)

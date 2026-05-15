@@ -13,13 +13,13 @@
 
     <view v-if="loadError" class="empty-card ds-card">
       <view class="empty-title">卖家商品列表加载失败</view>
-      <view class="empty-desc">无法加载平台卖家商品列表，未展示默认商品。</view>
+      <view class="empty-desc">无法加载平台卖家商品列表，请稍后重试。</view>
       <button class="retry-btn" @click="loadProducts">重试加载</button>
     </view>
 
     <view v-else-if="!filtered.length" class="empty-card ds-card">
       <view class="empty-title">暂无平台商品</view>
-      <view class="empty-desc">商品列表为空或暂未接入卖家专属筛选，当前不使用固定商品号/默认示例填充。</view>
+      <view class="empty-desc">当前筛选下暂无商品。</view>
     </view>
 
     <view v-else class="product-list">
@@ -45,9 +45,9 @@ import { listMyProducts, updateProductVisibility, type ProductListItemResponse, 
 
 type TabValue = 'ALL' | ProductCreateStatus
 const launchReadinessMarkers = [
-  '无法加载后端卖家商品列表，未展示本地商品样例',
-  '商品缺少后端 productId，未打开本地商品详情',
-  '商品缺少后端 productId，未进入本地编辑页'
+  '卖家商品列表加载失败，请稍后重试',
+  '商品编号缺失，暂时无法打开详情',
+  '商品编号缺失，暂时无法编辑'
 ]
 
 const tabs: Array<{ label: string; value: TabValue }> = [
@@ -80,14 +80,14 @@ function auditLabel(auditState: ProductAuditState) { return ({ pending: '待审'
 function productIcon(item: ProductListItemResponse) { return item.coverImageUrl ? '🖼️' : '📦' }
 function openDetail(item: ProductListItemResponse) {
   if (!item.productId || item.productId <= 0) {
-    uni.showToast({ title: '商品缺少平台 productId，未打开页面商品详情', icon: 'none' })
+    uni.showToast({ title: '商品编号无效，暂无法打开商品详情', icon: 'none' })
     return
   }
   uni.navigateTo({ url: `/pages/product/detail/index?productId=${item.productId}` })
 }
 async function toggleOnline(item: ProductListItemResponse) {
   if (!item.productId || item.productId <= 0) {
-    uni.showToast({ title: '商品缺少平台 productId，未执行任何商品变更', icon: 'none' })
+    uni.showToast({ title: '商品编号无效，暂无法更新商品状态', icon: 'none' })
     return
   }
   if (item.auditState !== 'APPROVED') {
@@ -107,7 +107,7 @@ async function toggleOnline(item: ProductListItemResponse) {
 }
 function editProduct(item: ProductListItemResponse) {
   if (!item.productId || item.productId <= 0) {
-    uni.showToast({ title: '商品缺少平台 productId，未进入编辑页', icon: 'none' })
+    uni.showToast({ title: '商品编号无效，暂无法进入编辑页', icon: 'none' })
     return
   }
   uni.navigateTo({ url: `/pages/product/edit/index?productId=${item.productId}` })

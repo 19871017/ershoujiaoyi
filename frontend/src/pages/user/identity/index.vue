@@ -37,8 +37,8 @@
       <view class="upload tapable" @click="choose">
         <view class="upload-icon">＋</view>
         <view>
-          <view class="upload-title">实名认证凭证上传接口尚未接入</view>
-          <view class="upload-desc">当前仅保留表单校验；不会生成凭证数量，也不会提交正式实名审核。</view>
+          <view class="upload-title">实名认证资料提交暂不可用</view>
+          <view class="upload-desc">当前仅校验填写格式；暂不提交实名审核。</view>
         </view>
       </view>
       <button class="primary-btn" @click="submit">校验实名认证草稿</button>
@@ -66,8 +66,8 @@ const videoStatusClass = computed(() => profile.videoVerified ? 'approved' : pro
 
 function choose() {
   uni.showModal({
-    title: '实名认证接口尚未接入',
-    content: '证件类实名资料需要独立的平台上传票据和审核接口；当前未生成凭证数量，未提交正式实名审核。',
+    title: '实名认证提交暂不可用',
+    content: '证件类实名资料暂无法提交，请先完成视频认证或稍后再试。',
     showCancel: false
   })
 }
@@ -148,8 +148,8 @@ function submit() {
   if (!form.name || form.name.length < 2) return uni.showToast({ title: '请填写真实姓名', icon: 'none' })
   if (!/^\d{4}$/.test(form.idTail)) return uni.showToast({ title: '请填写证件号码后四位', icon: 'none' })
   uni.showModal({
-    title: '实名认证接口尚未接入',
-    content: '实名认证草稿已通过格式校验，但不会保存实名资料、不会进入审核队列，也不会更新提现资格或认证标识。',
+    title: '实名认证提交暂不可用',
+    content: '实名认证草稿已通过格式校验；实名审核提交暂不可用。',
     showCancel: false
   })
 }

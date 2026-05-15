@@ -1,7 +1,7 @@
 <template>
   <section class="page-shell banner-page">
     <div class="page-title">首页轮播图</div>
-    <div class="page-desc">后台更换首页首屏轮播图；用户端读取 /api/home/banners，失败不展示本地假成功图。</div>
+    <div class="page-desc">后台更换首页首屏轮播图，用户端展示已启用配置。</div>
 
     <div class="config-panel">
       <div class="panel-head">
@@ -11,10 +11,10 @@
         </div>
         <button class="ghost-btn" :disabled="loading" @click="loadBanners">{{ loading ? '刷新中...' : '刷新列表' }}</button>
       </div>
-      <div class="safe-note">上传后请填写后端返回的 /uploads/ 路径或 HTTPS 图片地址；禁止 demo/mock/placeholder 临时图进入线上配置。</div>
+      <div class="safe-note">上传后请填写平台返回的 /uploads/ 路径或 HTTPS 图片地址；请勿使用临时或无效图片地址。</div>
       <div v-if="error" class="alert">{{ error }}</div>
       <div v-if="loading && banners.length === 0" class="empty">轮播图加载中...</div>
-      <div v-if="!loading && banners.length === 0" class="empty">暂无后端轮播图配置。</div>
+      <div v-if="!loading && banners.length === 0" class="empty">暂无轮播图配置。</div>
       <div class="banner-list">
         <article v-for="item in banners" :key="item.id" class="banner-row">
           <img :src="item.imageUrl" :alt="item.title" />
@@ -35,7 +35,7 @@
       <div class="panel-head">
         <div>
           <strong>{{ form.id ? '编辑轮播图' : '新增轮播图' }}</strong>
-          <span>标题/图片/跳转动作保存后立即以服务端配置为准</span>
+          <span>标题、图片和跳转动作保存后立即以平台配置为准</span>
         </div>
         <button v-if="form.id" type="button" class="ghost-btn" @click="resetForm">新增一张</button>
       </div>
@@ -169,7 +169,7 @@ async function loadBanners() {
     if (!form.id) resetForm()
   } catch {
     banners.value = []
-    error.value = '首页轮播图加载失败：请确认管理员权限、后端服务与 /api/admin/home/banners 可用。'
+    error.value = '首页轮播图加载失败，请确认管理员权限与服务状态。'
   } finally {
     loading.value = false
   }
@@ -191,7 +191,7 @@ async function saveBanner() {
     await loadBanners()
     confirmText.value = ''
   } catch (err) {
-    error.value = err instanceof Error ? err.message : '首页轮播保存失败：未写入本地成功态，请检查字段与后端接口。'
+    error.value = err instanceof Error ? err.message : '首页轮播保存失败，请检查字段、权限与服务状态。'
   } finally {
     saving.value = false
   }
@@ -204,7 +204,7 @@ async function remove(item: AdminHomeBanner) {
     await deleteAdminHomeBanner(item.id)
     await loadBanners()
   } catch {
-    error.value = '首页轮播删除失败：未写入本地成功态，请检查权限与后端接口。'
+    error.value = '首页轮播删除失败，请检查权限与服务状态。'
   }
 }
 

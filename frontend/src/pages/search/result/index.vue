@@ -30,11 +30,11 @@
     <view v-if="loading" class="empty ds-card">
       <view class="empty-icon">🔎</view>
       <view class="section-title">搜索加载中...</view>
-      <view class="section-desc">正在读取平台商品接口。</view>
+      <view class="section-desc">正在读取平台商品。</view>
     </view>
     <view v-else-if="loadMessage" class="empty ds-card danger">
       <view class="empty-icon">⚠️</view>
-      <view class="section-title">商品接口暂时不可用，未展示默认搜索宝贝</view>
+      <view class="section-title">商品搜索暂时不可用，请稍后重试</view>
       <view class="section-desc">{{ loadMessage }}</view>
     </view>
     <view v-else-if="filtered.length === 0" class="empty ds-card">
@@ -66,8 +66,8 @@ import { listProducts, type ProductListItemResponse } from '../../../api/modules
 type Sort = 'latest' | 'priceAsc' | 'priceDesc'
 
 const launchReadinessMarkers = [
-  '商品接口暂时不可用，未展示本地搜索宝贝样例',
-  '仅展示后端返回的在售商品'
+  '商品搜索暂时不可用，请稍后重试',
+  '仅展示平台返回的在售商品'
 ]
 
 const keyword = ref('')

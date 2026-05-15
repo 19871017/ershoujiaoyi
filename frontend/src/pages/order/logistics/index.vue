@@ -47,8 +47,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { getOrderDetail, type OrderDetailResponse } from '../../../api/modules/order'
 const launchReadinessMarkers = [
-  '配送/交付方式以服务端订单记录为准',
-  '订单已创建，后续履约状态以服务端订单、支付和物流记录为准。'
+  '配送/交付方式以平台订单记录为准',
+  '订单已创建，后续履约状态以平台订单、支付和物流记录为准。'
 ]
 
 const orderNo = ref('')

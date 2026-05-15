@@ -13,7 +13,7 @@
       <view class="goods-icon">💬</view>
       <view class="goods-main">
         <view class="goods-title">聊天留痕</view>
-        <view class="goods-desc">仅同步真实会话消息；缺少会话或接口失败时不会展示聊天内容。如涉及交易，请以平台订单、支付和售后状态为准。</view>
+        <view class="goods-desc">仅同步真实会话消息；缺少会话或加载失败时不会展示聊天内容。如涉及交易，请以平台订单、支付和售后状态为准。</view>
       </view>
     </view>
 
@@ -53,9 +53,9 @@ import { createMediaUploadTicket } from '../../../api/modules/media'
 import { getMyProfile } from '../../../api/modules/user'
 
 const launchReadinessMarkers = [
-  '聊天用户以服务端会话为准',
-  '聊天图片票据需使用有效本地选择文件',
-  '聊天记录以服务端会话为准',
+  '聊天用户以平台会话为准',
+  '聊天图片票据需使用有效选择文件',
+  '聊天记录以平台会话为准',
   '如涉及交易，请以平台订单、支付和售后状态为准'
 ]
 

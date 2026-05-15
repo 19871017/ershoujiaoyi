@@ -1,6 +1,6 @@
 <template>
   <view class="page-shell upload-page">
-    <view class="hero ds-card"><view><view class="kicker">♡ 媒体票据</view><view class="page-title">生成上传票据</view><view class="page-desc">用于售后、举报、实名、商品和聊天图片预览；本页只申请服务端签发票据，不代表业务表单已提交。</view></view><view class="hero-icon">🖼️</view></view>
+    <view class="hero ds-card"><view><view class="kicker">♡ 媒体票据</view><view class="page-title">生成上传票据</view><view class="page-desc">用于售后、举报、实名、商品和聊天图片上传；本页只申请平台签发票据，不代表业务表单已提交。</view></view><view class="hero-icon">🖼️</view></view>
     <view class="type-row"><view v-for="item in types" :key="item.value" class="chip tapable" :class="{ active: scene === item.value }" @click="scene = item.value">{{ item.label }}</view></view>
     <view class="rule-card ds-card"><view class="section-title">上传规则</view><view v-for="item in rules" :key="item" class="rule-line">{{ item }}</view></view>
     <view class="image-grid">
@@ -17,7 +17,7 @@ import { createMediaUploadTicket, type MediaUploadScene } from '../../../api/mod
 
 type Scene = MediaUploadScene
 const launchReadinessMarkers = [
-  '上传票据仅完成服务端签发与本地校验',
+  '上传票据仅完成平台签发与文件校验',
   '上传票据',
   '校验票据',
   '上传票据已生成'
@@ -36,7 +36,7 @@ const legacySceneMap: Record<string, Scene> = {
   PRODUCT: 'PRODUCT_IMAGE',
   CHAT: 'CHAT_IMAGE'
 }
-const rules=['最多 9 张，建议使用清晰原图','不展示真实证件完整号码，敏感信息需打码','上传票据仅完成平台签发与页面校验，不代表举报、售后、聊天或审核已提交','提交正式业务表单前需先向平台申请上传票据，拒绝临时路径和占位图']
+const rules=['最多 9 张，建议使用清晰原图','不展示真实证件完整号码，敏感信息需打码','上传票据仅完成平台签发与页面校验，不代表举报、售后、聊天或审核已提交','提交正式业务表单前需先向平台申请上传票据，拒绝临时路径和无效图片']
 function normalizeScene(value?: string | null) { const normalized = value ? (legacySceneMap[value] || value) : ''; return supportedScenes.includes(normalized as Scene) ? normalized as Scene : undefined }
 function readQuery(){const pages=getCurrentPages(); const current=pages.length?pages[pages.length-1] as unknown as {options?:Record<string,string>}:undefined; const hash=typeof window!=='undefined'?new URLSearchParams(window.location.hash.split('?')[1]||''):undefined; const value=normalizeScene(current?.options?.scene||hash?.get('scene')); if(value) scene.value=value}
 function chooseMedia(){ scene.value === 'VIDEO_IDENTITY' ? chooseVideoIdentity() : chooseImage() }

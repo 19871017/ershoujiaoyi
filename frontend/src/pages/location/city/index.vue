@@ -34,9 +34,9 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { getMyProfile, updateMyProfile } from '../../../api/modules/user'
 
 const launchReadinessMarkers = [
-  '城市偏好已保存至服务端资料',
-  '城市偏好保存失败，未修改服务端资料',
-  '资料接口加载失败，未展示本地城市偏好样例'
+  '城市偏好已保存至平台资料',
+  '城市偏好保存失败，未修改平台资料',
+  '城市偏好加载失败，请稍后重试'
 ]
 
 const keyword = ref('')
@@ -56,7 +56,7 @@ async function loadProfile() {
   } catch {
     Object.assign(profile, { userId: 0, nickname: '', mainRole: 'UNVERIFIED', city: '', bio: '' })
     selected.value = ''
-    uni.showToast({ title: '资料接口加载失败，未展示页面城市偏好默认内容', icon: 'none' })
+    uni.showToast({ title: '城市偏好加载失败，请稍后重试', icon: 'none' })
   }
 }
 async function saveCity() {
