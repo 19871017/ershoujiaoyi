@@ -8,7 +8,10 @@
         <view>
           <view class="hero-title">{{ pageTitle }}</view>
         </view>
-        <view class="crown">{{ activeGender === 'goddess' ? '👑' : '💎' }}</view>
+        <view class="hero-badge" :class="heroBadgeClass">
+          <view class="hero-badge-icon">{{ heroBadgeIcon }}</view>
+          <view class="hero-badge-text">{{ heroBadgeText }}</view>
+        </view>
       </view>
       <view class="hero-stats">
         <view v-for="item in stats" :key="item.label" class="stat-card">
@@ -124,6 +127,9 @@ const periodTabs = [
 const isGoddess = computed(() => activeGender.value === 'goddess')
 const pageTitle = computed(() => isGoddess.value ? '女神榜' : '男神榜')
 const heroThemeClass = computed(() => isGoddess.value ? 'hero-goddess' : 'hero-god')
+const heroBadgeClass = computed(() => isGoddess.value ? 'hero-badge-goddess' : 'hero-badge-god')
+const heroBadgeIcon = computed(() => isGoddess.value ? '✦' : '◆')
+const heroBadgeText = computed(() => isGoddess.value ? '魅力焦点' : '锋芒焦点')
 const heroArtwork = computed(() => `url(${isGoddess.value ? rankingGoddessCard : rankingGodCard})`)
 const currentPeriodLabel = computed(() => periodTabs.find((item) => item.value === activePeriod.value)?.label ?? '周榜')
 const rankMetricLabel = computed(() => isGoddess.value ? '收到礼物' : '消费金额')
@@ -239,11 +245,17 @@ onMounted(() => {
 .hero-goddess .hero-overlay { background:linear-gradient(90deg,rgba(255,250,252,.97) 0%,rgba(255,245,248,.84) 38%,rgba(255,236,242,.34) 64%,rgba(255,241,236,.1) 100%); }
 .hero-god .hero-overlay { background:linear-gradient(90deg,rgba(248,250,255,.97) 0%,rgba(241,245,255,.84) 38%,rgba(232,240,255,.34) 64%,rgba(237,243,255,.1) 100%); }
 .hero-glow { position:absolute; right:-80rpx; top:-80rpx; width:230rpx; height:230rpx; border-radius:50%; background:rgba(255,122,69,.14); filter:blur(2rpx); }
-.hero-top { position:relative; z-index:1; display:flex; justify-content:space-between; gap:20rpx; }
-.hero-title { color:#3a2a1f; font-size:40rpx; font-weight:950; }
-.crown { width:92rpx; height:92rpx; border-radius:32rpx; display:flex; align-items:center; justify-content:center; background:#fff; font-size:48rpx; box-shadow:0 12rpx 26rpx rgba(255,122,69,.16); }
+.hero-top { position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start; gap:20rpx; }
+.hero-title { color:#3a2a1f; font-size:40rpx; font-weight:950; text-shadow:0 4rpx 18rpx rgba(255,255,255,.3); }
+.hero-badge { min-width:118rpx; padding:14rpx 16rpx 12rpx; border-radius:30rpx; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4rpx; border:1rpx solid rgba(255,255,255,.55); background:rgba(255,255,255,.5); backdrop-filter:blur(10rpx); box-shadow:0 16rpx 34rpx rgba(111,78,55,.12); }
+.hero-badge-goddess { background:linear-gradient(180deg,rgba(255,255,255,.68) 0%,rgba(255,240,246,.5) 100%); border-color:rgba(255,221,233,.95); }
+.hero-badge-god { background:linear-gradient(180deg,rgba(255,255,255,.7) 0%,rgba(236,243,255,.52) 100%); border-color:rgba(215,228,255,.96); }
+.hero-badge-icon { color:#ff7a45; font-size:28rpx; font-weight:900; line-height:1; }
+.hero-badge-god .hero-badge-icon { color:#5b7cfa; }
+.hero-badge-text { color:#7b5542; font-size:18rpx; font-weight:900; letter-spacing:2rpx; line-height:1.1; }
+.hero-badge-god .hero-badge-text { color:#475f9d; }
 .hero-stats { position:relative; z-index:1; margin-top:22rpx; display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12rpx; }
-.stat-card { padding:16rpx 10rpx; border-radius:24rpx; background:rgba(255,255,255,.82); text-align:center; border:1rpx solid rgba(255,217,189,.9); }
+.stat-card { padding:16rpx 10rpx; border-radius:24rpx; background:rgba(255,255,255,.76); text-align:center; border:1rpx solid rgba(255,255,255,.72); backdrop-filter:blur(12rpx); box-shadow:0 10rpx 22rpx rgba(111,78,55,.08); }
 .stat-value { color:#3a2a1f; font-size:28rpx; font-weight:950; }
 .stat-label { margin-top:4rpx; color:#9b7560; font-size:18rpx; font-weight:800; }
 .period-tabs { margin-top:20rpx; padding:8rpx; display:grid; grid-template-columns:repeat(3,1fr); gap:10rpx; border-color:#ffd9bd; }
