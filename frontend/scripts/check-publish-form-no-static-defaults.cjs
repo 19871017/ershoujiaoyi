@@ -2,7 +2,7 @@ const fs = require('fs')
 const path = require('path')
 
 const root = path.resolve(__dirname, '..')
-const publishPath = path.join(root, 'src/pages/tabbar/publish/index.vue')
+const publishPath = path.join(root, 'src/pages/product/publish/index.vue')
 const source = fs.readFileSync(publishPath, 'utf8')
 const formBlock = source.match(/const form = reactive\(\{[\s\S]*?\n\}\)/)?.[0] || ''
 
@@ -26,8 +26,8 @@ if (!/imageUrls:\s*\[\]\s+as\s+string\[\]/.test(source)) {
   failures.push('publish imageUrls should start as an empty array and only contain storage URLs from PRODUCT_IMAGE tickets')
 }
 
-if (!/createProduct\(/.test(source) || !/createMediaUploadTicket\(/.test(source)) {
-  failures.push('publish page must continue to use real product API and media upload-ticket API')
+if (!/createProduct\(/.test(source) || !/createMediaUploadTicket\(/.test(source) || !/uploadMediaTicketFile\(/.test(source)) {
+  failures.push('publish page must continue to use real product API and completed media upload flow')
 }
 
 if (failures.length) {

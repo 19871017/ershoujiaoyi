@@ -247,6 +247,12 @@
       }
     },
     {
+      "path": "pages/product/publish/index",
+      "style": {
+        "navigationBarTitleText": ""
+      }
+    },
+    {
       "path": "pages/notification/index",
       "style": {
         "navigationBarTitleText": ""
@@ -281,7 +287,7 @@
       },
       {
         "pagePath": "pages/tabbar/publish/index",
-        "text": "上新"
+        "text": "商家秀"
       },
       {
         "pagePath": "pages/tabbar/message/index",

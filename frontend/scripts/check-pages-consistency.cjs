@@ -2,7 +2,6 @@ const fs = require('fs')
 const path = require('path')
 
 const root = path.resolve(__dirname, '..')
-const readJson = (relative) => JSON.parse(fs.readFileSync(path.join(root, relative), 'utf8'))
 const rootPagesRaw = fs.readFileSync(path.join(root, 'pages.json'), 'utf8')
 const srcPagesRaw = fs.readFileSync(path.join(root, 'src/pages.json'), 'utf8')
 
@@ -14,7 +13,7 @@ function fail(message) {
 
 if (rootPagesRaw !== srcPagesRaw) fail('frontend/pages.json and frontend/src/pages.json differ')
 
-const pagesConfig = readJson('src/pages.json')
+const pagesConfig = JSON.parse(srcPagesRaw)
 const configuredPaths = pagesConfig.pages.map((page) => page.path)
 const actualIndexPaths = []
 function walk(dir) {
@@ -39,7 +38,7 @@ for (const route of actualIndexPaths) {
 }
 
 const tabLabels = pagesConfig.tabBar.list.map((item) => item.text).join('/')
-if (tabLabels !== '首页/宝贝/上新/社区/我的') fail(`unexpected tab labels: ${tabLabels}`)
+if (tabLabels !== '首页/宝贝/商家秀/社区/我的') fail(`unexpected tab labels: ${tabLabels}`)
 
 const tabPaths = new Set(pagesConfig.tabBar.list.map((item) => item.pagePath))
 for (const page of pagesConfig.pages) {
