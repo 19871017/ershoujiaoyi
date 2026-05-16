@@ -30,20 +30,23 @@ if (source.includes('const rankings = reactive<RankingUser[]>([') || source.incl
 if (source.includes('榜单接口尚未接入') || source.includes('未接入前不展示本地榜单用户')) {
   failures.push('ranking page must not tell users the ranking API is not connected after /api/user/rankings is wired')
 }
-if (!source.includes("loadError.value = '暂无上榜用户'")) {
-  failures.push('ranking page must keep a backend-empty fail-closed message when no ranking rows are returned')
-}
 if (!source.includes('const rankings = ref<RankingUser[]>([])')) {
   failures.push('ranking page must initialize leaderboard rows as an empty backend-derived ref')
 }
-if (!source.includes('listUserRankings(activeGender.value, 100)') || !source.includes("loadError.value = '榜单加载失败，请稍后重试'")) {
-  failures.push('ranking page must load backend rankings with top 100 and fail closed instead of static ranking rows')
+if (!source.includes('listUserRankings(activeGender.value, activePeriod.value, 100)') || !source.includes("loadError.value = '榜单加载失败，请稍后重试'")) {
+  failures.push('ranking page must load backend rankings with period-aware top 100 queries and fail closed instead of static ranking rows')
 }
-if (!source.includes('const stats = computed(() => [') || !source.includes("{ value: `${rankings.value.length}`, label: '上榜用户' }") || !source.includes("{ value: '100', label: '榜单名额' }")) {
+if (!source.includes('当前榜单还没有女神收礼数据') || !source.includes('当前榜单还没有男神消费数据')) {
+  failures.push('ranking page must keep backend-empty fail-closed messages for both goddess and god rankings when no rows are returned')
+}
+if (!source.includes('const stats = computed(() => [') || !source.includes("{ value: `${filteredRankings.value.length}`, label: '上榜人数' }") || !source.includes('giftScore')) {
   failures.push('ranking page stats must aggregate backend-loaded leaderboard rows only')
 }
-if (!source.includes('1 元礼物 = 1 分') || !source.includes('giftScore')) {
-  failures.push('ranking page must use gift score copy and data as the only ranking metric')
+if (!source.includes('const periodTabs = [') || !source.includes("{ value: 'day' as const, label: '日榜' }") || !source.includes("{ value: 'week' as const, label: '周榜' }") || !source.includes("{ value: 'all' as const, label: '总榜' }")) {
+  failures.push('ranking page must expose backend-driven day/week/all period tabs')
+}
+if (!source.includes('item.giftScore ?? item.popularityScore')) {
+  failures.push('ranking page must use gift score data as the ranking metric with compatibility fallback')
 }
 
 const previewTrustCopyPatterns = [
