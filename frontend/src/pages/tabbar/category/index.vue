@@ -83,9 +83,9 @@ const groups = [
     icon: '👗',
     desc: '上衣、下衣、套装',
     items: [
-      { name: '上衣', icon: '🎽' },
-      { name: '下衣', icon: '👖' },
-      { name: '套装', icon: '🧸' }
+      { name: '上衣', icon: '👙' },
+      { name: '下衣', icon: '🩲' },
+      { name: '套装', icon: '👙🩲' }
     ]
   },
   {
