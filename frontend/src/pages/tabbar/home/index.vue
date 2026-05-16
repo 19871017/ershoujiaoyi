@@ -35,8 +35,17 @@
     <view v-else-if="errorMessage" class="state ds-card muted">商品暂时不可用</view>
     <view v-else-if="products.length === 0" class="state ds-card muted">暂无在售宝贝</view>
 
-    <view v-else class="product-marquee">
-      <view class="product-grid-track" :class="{ rolling: shouldRollProducts }" :style="trackStyle">
+    <scroll-view
+      v-else
+      scroll-y
+      class="product-marquee"
+      :scroll-top="productScrollTop"
+      @scroll="handleProductScroll"
+      @touchstart="handleUserInteract"
+      @touchmove="handleUserInteract"
+      @touchend="handleUserInteractEnd"
+    >
+      <view class="product-grid-track">
         <view v-for="(row, rowIndex) in rollingRows" :key="`row-${rowIndex}`" class="product-row">
           <view
             v-for="item in row"
@@ -73,12 +82,12 @@
           <view v-if="row.length < PRODUCT_COLUMNS" class="product-grid-card product-grid-card--ghost"></view>
         </view>
       </view>
-    </view>
+    </scroll-view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getHomeBanners, type HomeBannerAction, type HomeBannerResponse } from '../../../api/modules/home'
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
 
@@ -125,6 +134,12 @@ const ROW_GAP_RPX = 16
 const loading = ref(false)
 const errorMessage = ref('')
 const products = ref<ProductListItemResponse[]>([])
+const isUserInteracting = ref(false)
+const productScrollTop = ref(0)
+let resumeRollTimer: ReturnType<typeof setTimeout> | null = null
+let productRollTimer: ReturnType<typeof setInterval> | null = null
+let autoScrollTimer: ReturnType<typeof setTimeout> | null = null
+let autoScrolling = false
 const displayProducts = computed(() => {
   if (products.value.length === 0) return []
   if (products.value.length >= MIN_SIMULATED_PRODUCTS) return products.value
@@ -150,15 +165,15 @@ const rollingRows = computed(() => {
   if (!shouldRollProducts.value) return productRows.value
   return [...productRows.value, ...duplicateRows.value]
 })
-const trackStyle = computed(() => {
-  if (!shouldRollProducts.value) return {}
-  const translateRows = productRows.value.length
-  const translateRpx = translateRows * CARD_HEIGHT_RPX + Math.max(0, translateRows - 1) * ROW_GAP_RPX
-  return {
-    '--product-roll-distance': `-${translateRpx}rpx`,
-    '--product-roll-duration': `${Math.max(14, productRows.value.length * 3.6)}s`
-  }
+const productRollDistancePx = computed(() => {
+  if (!shouldRollProducts.value) return 0
+  const rows = productRows.value.length
+  return rpxToPx(rows * CARD_HEIGHT_RPX + Math.max(0, rows - 1) * ROW_GAP_RPX)
 })
+const productRollStepPx = computed(() => rpxToPx(CARD_HEIGHT_RPX + ROW_GAP_RPX))
+function rpxToPx(value: number) {
+  return (uni as unknown as { upx2px: (size: number) => number }).upx2px(value)
+}
 async function loadBanners() {
   try {
     banners.value = await getHomeBanners()
@@ -209,9 +224,49 @@ function formatPublishTime(createdAt: string) {
   if (diffDays < 7) return `${diffDays} 天前`
   return `${date.getMonth() + 1}/${date.getDate()} 上新`
 }
+function scheduleResumeRoll() {
+  if (resumeRollTimer) clearTimeout(resumeRollTimer)
+  resumeRollTimer = setTimeout(() => {
+    isUserInteracting.value = false
+  }, 6000)
+}
+function handleUserInteract() {
+  if (!shouldRollProducts.value) return
+  isUserInteracting.value = true
+  scheduleResumeRoll()
+}
+function handleUserInteractEnd() {
+  if (!shouldRollProducts.value) return
+  scheduleResumeRoll()
+}
+function handleProductScroll(event: { detail?: { scrollTop?: number } }) {
+  const nextTop = event.detail?.scrollTop
+  if (typeof nextTop === 'number') productScrollTop.value = nextTop
+  if (autoScrolling) return
+  handleUserInteract()
+}
+function startProductRoll() {
+  if (productRollTimer) clearInterval(productRollTimer)
+  productRollTimer = setInterval(() => {
+    if (!shouldRollProducts.value || isUserInteracting.value) return
+    const distance = productRollDistancePx.value
+    if (distance <= 0) return
+    const nextTop = productScrollTop.value + productRollStepPx.value
+    autoScrolling = true
+    productScrollTop.value = nextTop >= distance ? 0 : nextTop
+    if (autoScrollTimer) clearTimeout(autoScrollTimer)
+    autoScrollTimer = setTimeout(() => { autoScrolling = false }, 80)
+  }, 2600)
+}
 onMounted(() => {
   loadBanners()
   loadProducts()
+  startProductRoll()
+})
+onBeforeUnmount(() => {
+  if (resumeRollTimer) clearTimeout(resumeRollTimer)
+  if (productRollTimer) clearInterval(productRollTimer)
+  if (autoScrollTimer) clearTimeout(autoScrollTimer)
 })
 </script>
 
@@ -243,8 +298,7 @@ onMounted(() => {
 .state { margin-bottom:12rpx; padding:18rpx; color:#9b7560; font-size:23rpx; }
 .muted { background:#fff3e7; color:#b45374; }
 .product-marquee { height:1016rpx; overflow:hidden; }
-.product-grid-track { display:flex; flex-direction:column; gap:16rpx; will-change:transform; }
-.product-grid-track.rolling { animation:productGridRoll var(--product-roll-duration,18s) linear infinite; }
+.product-grid-track { display:flex; flex-direction:column; gap:16rpx; }
 .product-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16rpx; }
 .product-grid-card { padding:12rpx; border-color:#ffd9bd; box-sizing:border-box; border-radius:28rpx; background:linear-gradient(180deg,rgba(255,255,255,.98) 0%,rgba(255,246,238,.98) 100%); box-shadow:0 18rpx 28rpx rgba(255,140,84,.10); }
 .product-grid-card--ghost { visibility:hidden; pointer-events:none; }
@@ -252,7 +306,6 @@ onMounted(() => {
 .product-cover { width:100%; height:100%; }
 .product-cover-fallback { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:68rpx; }
 .product-status-chip { position:absolute; right:12rpx; bottom:12rpx; padding:6rpx 14rpx; border-radius:999rpx; background:rgba(255,255,255,.94); color:#ff7a45; font-size:18rpx; font-weight:900; box-shadow:0 6rpx 16rpx rgba(80,35,18,.10); }
-@keyframes productGridRoll { from { transform:translateY(0); } to { transform:translateY(var(--product-roll-distance,-1032rpx)); } }
 .tone-0 { background:#fff3e7; } .tone-1 { background:#fff2e9; } .tone-2 { background:#f2edff; } .tone-3 { background:#fff7d6; }
 .product-grid-info { display:flex; flex-direction:column; gap:10rpx; padding:12rpx 4rpx 2rpx; }
 .product-grid-title { min-height:64rpx; font-size:24rpx; line-height:1.34; font-weight:900; color:#3a2a1f; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
