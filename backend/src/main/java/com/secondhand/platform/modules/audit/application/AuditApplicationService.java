@@ -1,5 +1,6 @@
 package com.secondhand.platform.modules.audit.application;
 
+import com.secondhand.platform.shared.contracts.user.IdentityType;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -270,13 +271,27 @@ public class AuditApplicationService {
             return;
         }
         long userId = Long.parseLong(response.targetId());
+        if (!isLatestVideoIdentityAudit(response)) {
+            return;
+        }
         if (STATUS_APPROVED.equals(status)) {
-            jdbcTemplate.update("update user_profile set video_identity_status = ?, video_verified = ?, updated_at = CURRENT_TIMESTAMP where user_id = ?", STATUS_APPROVED, true, userId);
+            jdbcTemplate.update("update user_profile set main_role = ?, video_identity_status = ?, video_verified = ?, updated_at = CURRENT_TIMESTAMP where user_id = ?", IdentityType.SELLER.name(), STATUS_APPROVED, true, userId);
             return;
         }
         if (STATUS_REJECTED.equals(status)) {
-            jdbcTemplate.update("update user_profile set video_identity_status = ?, video_verified = ?, updated_at = CURRENT_TIMESTAMP where user_id = ?", STATUS_REJECTED, false, userId);
+            jdbcTemplate.update("update user_profile set main_role = ?, video_identity_status = ?, video_verified = ?, updated_at = CURRENT_TIMESTAMP where user_id = ?", IdentityType.BUYER.name(), STATUS_REJECTED, false, userId);
         }
+    }
+
+    private boolean isLatestVideoIdentityAudit(AuditRecordResponse response) {
+        Integer newerRows = jdbcTemplate.queryForObject("""
+                select count(1)
+                from audit_record
+                where audit_type = ? and target_id = ? and id > (
+                    select id from audit_record where audit_no = ?
+                )
+                """, Integer.class, AUDIT_TYPE_VIDEO_IDENTITY, response.targetId(), response.auditNo());
+        return newerRows == null || newerRows == 0;
     }
 
     private void recordAdminAuditLog(AuditRecordResponse response, String status, String remark, Long operatorId) {

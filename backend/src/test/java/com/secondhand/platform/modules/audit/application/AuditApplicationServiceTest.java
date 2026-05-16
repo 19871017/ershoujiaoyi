@@ -79,6 +79,7 @@ class AuditApplicationServiceTest {
 
         assertEquals("APPROVED", jdbcTemplate.queryForObject("SELECT video_identity_status FROM user_profile WHERE user_id = ?", String.class, userId));
         assertEquals(true, jdbcTemplate.queryForObject("SELECT video_verified FROM user_profile WHERE user_id = ?", Boolean.class, userId));
+        assertEquals("SELLER", jdbcTemplate.queryForObject("SELECT main_role FROM user_profile WHERE user_id = ?", String.class, userId));
     }
 
     @Test
@@ -86,7 +87,7 @@ class AuditApplicationServiceTest {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
         jdbcTemplate.update("INSERT INTO user_account (user_no, phone, password_hash, nickname, status) VALUES (?,?,?,?,?)", "U-VIDEO-2", "13800139999", "hash", "待审核卖家", "ACTIVE");
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800139999");
-        jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, video_identity_status, video_verified) VALUES (?,?,?,?)", userId, "VERIFIED", "UNVERIFIED", false);
+        jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, main_role, video_identity_status, video_verified) VALUES (?,?,?,?,?)", userId, "VERIFIED", "SELLER", "UNVERIFIED", false);
 
         String videoUrl = uploadedVideoUrl(userId, "u2.mp4");
         AuditRecordResponse created = service.submitVideoIdentity(userId, videoUrl, "真人认证视频");
@@ -94,6 +95,24 @@ class AuditApplicationServiceTest {
 
         assertEquals("REJECTED", jdbcTemplate.queryForObject("SELECT video_identity_status FROM user_profile WHERE user_id = ?", String.class, userId));
         assertEquals(false, jdbcTemplate.queryForObject("SELECT video_verified FROM user_profile WHERE user_id = ?", Boolean.class, userId));
+        assertEquals("BUYER", jdbcTemplate.queryForObject("SELECT main_role FROM user_profile WHERE user_id = ?", String.class, userId));
+    }
+
+    @Test
+    void olderVideoIdentityReviewShouldNotOverrideLatestSellerStatus() {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        jdbcTemplate.update("INSERT INTO user_account (user_no, phone, password_hash, nickname, status) VALUES (?,?,?,?,?)", "U-VIDEO-3", "13800139998", "hash", "多次认证卖家", "ACTIVE");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800139998");
+        jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, main_role, video_identity_status, video_verified) VALUES (?,?,?,?,?)", userId, "VERIFIED", "BUYER", "UNVERIFIED", false);
+
+        AuditRecordResponse older = service.submitVideoIdentity(userId, uploadedVideoUrl(userId, "older.mp4"), "旧视频");
+        AuditRecordResponse latest = service.submitVideoIdentity(userId, uploadedVideoUrl(userId, "latest.mp4"), "新视频");
+        service.approve(latest.auditNo(), "新视频通过");
+        service.reject(older.auditNo(), "旧视频不清晰");
+
+        assertEquals("APPROVED", jdbcTemplate.queryForObject("SELECT video_identity_status FROM user_profile WHERE user_id = ?", String.class, userId));
+        assertEquals(true, jdbcTemplate.queryForObject("SELECT video_verified FROM user_profile WHERE user_id = ?", Boolean.class, userId));
+        assertEquals("SELLER", jdbcTemplate.queryForObject("SELECT main_role FROM user_profile WHERE user_id = ?", String.class, userId));
     }
 
     @Test

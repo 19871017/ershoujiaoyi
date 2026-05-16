@@ -18,6 +18,7 @@ import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 
 class ProductApplicationServiceTest {
     private EmbeddedDatabase database;
+    private JdbcTemplate jdbcTemplate;
     private ProductApplicationService service;
 
     @BeforeEach
@@ -27,7 +28,10 @@ class ProductApplicationServiceTest {
                 .generateUniqueName(true)
                 .addScript("db/schema.sql")
                 .build();
-        service = new ProductApplicationService(new JdbcTemplate(database), new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database)));
+        jdbcTemplate = new JdbcTemplate(database);
+        service = new ProductApplicationService(jdbcTemplate, new com.secondhand.platform.modules.media.application.MediaUploadTicketService(jdbcTemplate));
+        upsertProfile(1L, "SELLER", "APPROVED", true);
+        upsertProfile(7L, "SELLER", "APPROVED", true);
     }
 
     @Test
@@ -110,6 +114,15 @@ class ProductApplicationServiceTest {
     }
 
     @Test
+    void buyerCannotCreateProductUntilSellerCertificationApproved() {
+        upsertProfile(21L, "BUYER", "UNVERIFIED", false);
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.createProduct(21L, product(21L, "未认证发布商品", "79.00")));
+
+        assertEquals("seller certification required", error.getMessage());
+    }
+
+    @Test
     void productImagesShouldRequireIssuedProductImageTickets() {
         CreateProductRequest unsafe = product("带图测试", "99.00");
         unsafe.setImageUrls(List.of("https://img.example.com/unissued.jpg"));
@@ -129,6 +142,7 @@ class ProductApplicationServiceTest {
 
     @Test
     void publicSellerProductsShouldReturnOnlyVisibleApprovedProductsOwnedBySeller() {
+        upsertProfile(2L, "SELLER", "APPROVED", true);
         CreateProductResponse sellerProduct = service.createProduct(1L, product("卖家公开商品", "109.00"));
         service.approveForSale(sellerProduct.getProductId());
         CreateProductResponse hiddenPendingProduct = service.createProduct(1L, product("卖家待审商品", "89.00"));
@@ -194,6 +208,17 @@ class ProductApplicationServiceTest {
     }
 
     @Test
+    void approveForSaleShouldRejectProductWhenSellerCertificationWasRevoked() {
+        CreateProductResponse response = service.createProduct(1L, product("认证后撤销商品", "88.00"));
+        upsertProfile(1L, "BUYER", "REJECTED", false);
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.approveForSale(response.getProductId()));
+
+        assertEquals("seller certification required", error.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> service.detailProduct(response.getProductId()));
+    }
+
+    @Test
     void visibilityToggleRejectsPendingLockedAndSoldProducts() {
         CreateProductResponse pending = service.createProduct(1L, product("待审不可上架", "88.00"));
         assertThrows(IllegalArgumentException.class, () -> service.updateVisibility(1L, pending.getProductId(), true));
@@ -208,7 +233,20 @@ class ProductApplicationServiceTest {
     }
 
     private JdbcTemplate jdbcTemplate() {
-        return new JdbcTemplate(database);
+        return jdbcTemplate;
+    }
+
+    private void upsertProfile(long userId, String role, String videoStatus, boolean videoVerified) {
+        Integer accountRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_account WHERE id = ?", Integer.class, userId);
+        if (accountRows == null || accountRows == 0) {
+            jdbcTemplate.update("INSERT INTO user_account (id, user_no, phone, password_hash, nickname, status) VALUES (?, ?, ?, ?, ?, ?)", userId, "U-PRODUCT-" + userId, "1380013" + String.format("%04d", userId), "hash", "商品用户" + userId, "ACTIVE");
+        }
+        Integer profileRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_profile WHERE user_id = ?", Integer.class, userId);
+        if (profileRows == null || profileRows == 0) {
+            jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, main_role, video_identity_status, video_verified) VALUES (?, ?, ?, ?, ?)", userId, "VERIFIED", role, videoStatus, videoVerified);
+            return;
+        }
+        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", role, videoStatus, videoVerified, userId);
     }
 
     private CreateProductRequest product(String title, String price) {

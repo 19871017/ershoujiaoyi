@@ -50,6 +50,7 @@ public class ProductApplicationService {
         if (request.getPrice() == null || request.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("product price must be positive");
         }
+        requireCertifiedSeller(sellerId);
         BigDecimal price = money(request.getPrice());
         String title = request.getTitle().trim();
         String productNo = generateNo("GD", title, price, request.getImageUrls() == null ? List.of() : request.getImageUrls());
@@ -275,6 +276,7 @@ public class ProductApplicationService {
         if (STATUS_SOLD.equals(product.status())) {
             throw new IllegalArgumentException("product-already-sold");
         }
+        requireCertifiedSeller(product.sellerId());
         jdbcTemplate.update(
                 "update product_item set product_status = ?, audit_status = ?, visible = true, updated_at = CURRENT_TIMESTAMP where id = ?",
                 STATUS_ACTIVE,
@@ -321,6 +323,22 @@ public class ProductApplicationService {
     private void requirePositiveId(Long value, String message) {
         if (value == null || value <= 0) {
             throw new IllegalArgumentException(message);
+        }
+    }
+
+    private void requireCertifiedSeller(Long sellerId) {
+        List<Boolean> rows = jdbcTemplate.query("""
+                SELECT CASE WHEN a.status = 'ACTIVE'
+                         AND UPPER(COALESCE(p.main_role, 'BUYER')) IN ('SELLER', 'BOTH')
+                         AND p.video_identity_status = 'APPROVED'
+                         AND p.video_verified = TRUE
+                    THEN TRUE ELSE FALSE END AS can_publish
+                FROM user_account a
+                JOIN user_profile p ON p.user_id = a.id
+                WHERE a.id = ?
+                """, (rs, rowNum) -> rs.getBoolean("can_publish"), sellerId);
+        if (rows.isEmpty() || !rows.get(0)) {
+            throw new IllegalArgumentException("seller certification required");
         }
     }
 
