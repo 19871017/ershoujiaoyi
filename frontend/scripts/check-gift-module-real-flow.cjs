@@ -32,8 +32,8 @@ const requiredGiftPage = [
   'receiverId.value',
   'requestNo =',
   'giftList.value = []',
-  '礼物流水加载失败，未展示本地礼物样例',
-  '送礼失败，未扣款也未展示成功状态',
+  '礼物暂不可用',
+  '送礼失败，请稍后重试',
   '请选择礼物接收人',
   '送出礼物',
 ]

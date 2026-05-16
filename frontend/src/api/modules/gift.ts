@@ -28,8 +28,21 @@ export interface ReceivedGiftItemResponse {
   createdAt: string
 }
 
+export interface RecentGiftFeedItemResponse {
+  giftOrderNo: string
+  senderId: number
+  senderName: string
+  receiverId: number
+  receiverName: string
+  giftId: number
+  giftName: string
+  giftIcon: string
+  quantity: number
+  totalAmount: WalletMoneyAmount
+  createdAt: string
+}
+
 export interface SendGiftRequest {
-  /** 平台会忽略该字段，发送人以当前登录用户/请求头为准 */
   senderId?: number
   receiverId: number
   giftCode?: string
@@ -37,9 +50,7 @@ export interface SendGiftRequest {
   quantity?: number
   sceneType?: string
   sceneId?: number
-  /** 平台强制 requestNo/clientGiftId 至少一个，用于防重复点击重复扣款 */
   clientGiftId?: string
-  /** 平台强制 requestNo/clientGiftId 至少一个，用于防重复点击重复扣款 */
   requestNo?: string
 }
 
@@ -63,6 +74,10 @@ export function getGiftCatalog() {
 
 export function getReceivedGifts() {
   return get<ReceivedGiftItemResponse[]>('/api/gifts/received')
+}
+
+export function getRecentGiftFeed() {
+  return get<RecentGiftFeedItemResponse[]>('/api/gifts/recent')
 }
 
 export function sendGift(data: SendGiftRequest) {
