@@ -27,6 +27,7 @@ public class AuthApplicationService {
     private static final int PBKDF2_ITERATIONS = 120_000;
     private static final int PBKDF2_KEY_LENGTH = 256;
     private static final int PASSWORD_SALT_BYTES = 16;
+    private static final List<String> ALLOWED_GENDERS = List.of("god", "goddess");
     private static final String REGISTRATION_IP_LIMIT_KEY_PREFIX = "auth.registration.ip.";
     private static final DateTimeFormatter REGISTRATION_DAY_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -57,17 +58,18 @@ public class AuthApplicationService {
     public AuthTokenResponse register(LoginRequest request, String clientIp) {
         validateLoginRequest(request);
         String normalizedMobile = request.getMobile().trim();
+        String normalizedGender = normalizeRegistrationGender(request.getGender());
         UserAuthRow existingUser = findByMobile(normalizedMobile);
         if (existingUser != null) {
             throw new IllegalStateException("mobile already registered");
         }
         enforceDailyRegistrationLimit(clientIp);
-        UserAuthRow user = createUser(normalizedMobile, passwordHash(request.getPassword()));
+        UserAuthRow user = createUser(normalizedMobile, passwordHash(request.getPassword()), normalizedGender);
         recordDailyRegistration(clientIp);
         return issueSession(user.id());
     }
 
-    private UserAuthRow createUser(String mobile, String passwordHash) {
+    private UserAuthRow createUser(String mobile, String passwordHash, String gender) {
         String userNo = "U" + sha256("user:" + mobile).substring(0, 18).toUpperCase(Locale.ROOT);
         String nickname = "小原圈用户" + mobile.substring(mobile.length() - 4);
         jdbcTemplate.update("""
@@ -77,9 +79,20 @@ public class AuthApplicationService {
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, mobile);
         jdbcTemplate.update("""
                 INSERT INTO user_profile (user_id, gender, city, bio, identity_status, main_role, video_identity_status, video_verified, created_at, updated_at)
-                VALUES (?, NULL, NULL, NULL, 'UNVERIFIED', 'BUYER', 'UNVERIFIED', FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """, userId);
+                VALUES (?, ?, NULL, NULL, 'UNVERIFIED', 'BUYER', 'UNVERIFIED', FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, userId, gender);
         return new UserAuthRow(userId, userNo, mobile, passwordHash, nickname, "ACTIVE");
+    }
+
+    private String normalizeRegistrationGender(String gender) {
+        if (gender == null || gender.isBlank()) {
+            throw new IllegalArgumentException("gender required");
+        }
+        String normalized = gender.trim().toLowerCase(Locale.ROOT);
+        if (!ALLOWED_GENDERS.contains(normalized)) {
+            throw new IllegalArgumentException("gender invalid");
+        }
+        return normalized;
     }
 
     private UserAuthRow findByMobile(String mobile) {

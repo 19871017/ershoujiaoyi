@@ -1,5 +1,6 @@
 package com.secondhand.platform.modules.user.application;
 
+import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
 import com.secondhand.platform.modules.user.AccountSecurityResponse;
 import com.secondhand.platform.modules.user.AdminUserDetailResponse;
 import com.secondhand.platform.modules.user.UpdateUserProfileRequest;
@@ -15,10 +16,14 @@ import org.springframework.stereotype.Service;
 @Service
 public class UserApplicationService {
     private static final Set<String> ALLOWED_ROLES = Set.of("BUYER", "SELLER", "BOTH");
-    private final JdbcTemplate jdbcTemplate;
+    private static final Set<String> ALLOWED_GENDERS = Set.of("god", "goddess");
 
-    public UserApplicationService(JdbcTemplate jdbcTemplate) {
+    private final JdbcTemplate jdbcTemplate;
+    private final MediaUploadTicketService mediaUploadTicketService;
+
+    public UserApplicationService(JdbcTemplate jdbcTemplate, MediaUploadTicketService mediaUploadTicketService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.mediaUploadTicketService = mediaUploadTicketService;
     }
 
     public UserProfileResponse currentUserProfile(Long userId) {
@@ -45,15 +50,27 @@ public class UserApplicationService {
         if (!ALLOWED_ROLES.contains(mainRole)) {
             throw new IllegalArgumentException("mainRole invalid");
         }
+        String gender = normalizeRequired(request.getGender(), 1, 16, "gender invalid").toLowerCase(Locale.ROOT);
+        if (!ALLOWED_GENDERS.contains(gender)) {
+            throw new IllegalArgumentException("gender invalid");
+        }
         String city = normalizeOptional(request.getCity(), 24, "city invalid");
         String bio = normalizeOptional(request.getBio(), 60, "bio invalid");
+        String avatarUrl = normalizeOptional(request.getAvatarUrl(), 512, "avatarUrl invalid");
         ensureActiveUser(userId);
+        if (avatarUrl != null) {
+            avatarUrl = mediaUploadTicketService.requireUploadedStorageUrl(userId, "COMMUNITY_IMAGE", avatarUrl).storageUrl();
+        }
         jdbcTemplate.update("""
-                UPDATE user_account SET nickname = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'ACTIVE'
-                """, nickname, userId);
+                UPDATE user_account
+                SET nickname = ?, avatar_url = COALESCE(?, avatar_url), updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND status = 'ACTIVE'
+                """, nickname, avatarUrl, userId);
         jdbcTemplate.update("""
-                UPDATE user_profile SET main_role = ?, city = ?, bio = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?
-                """, mainRole, city, bio, userId);
+                UPDATE user_profile
+                SET gender = ?, main_role = ?, city = ?, bio = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = ?
+                """, gender, mainRole, city, bio, userId);
         return currentUserProfile(userId);
     }
 
@@ -228,7 +245,7 @@ public class UserApplicationService {
             throw new IllegalArgumentException("userId required");
         }
         List<UserProfileResponse> rows = jdbcTemplate.query("""
-                SELECT a.id, a.nickname, p.identity_status, p.main_role, p.city, p.bio, p.video_identity_status, p.video_verified
+                SELECT a.id, a.user_no, a.nickname, a.avatar_url, p.identity_status, p.main_role, p.gender, p.city, p.bio, p.video_identity_status, p.video_verified
                 FROM user_account a
                 LEFT JOIN user_profile p ON p.user_id = a.id
                 WHERE a.id = ? AND a.status = 'ACTIVE'
@@ -237,8 +254,11 @@ public class UserApplicationService {
                     boolean approvedVideo = "APPROVED".equals(videoStatus) && rs.getBoolean("video_verified");
                     return new UserProfileResponse(
                             rs.getLong("id"),
+                            rs.getString("user_no"),
                             rs.getString("nickname"),
+                            rs.getString("avatar_url"),
                             rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role"),
+                            rs.getString("gender"),
                             rs.getString("city"),
                             rs.getString("bio"),
                             videoStatus,

@@ -2,8 +2,11 @@ package com.secondhand.platform.modules.user;
 
 public class UserProfileResponse {
     private Long userId;
+    private String userNo;
     private String nickname;
+    private String avatarUrl;
     private String mainRole;
+    private String gender;
     private String city;
     private String bio;
     private String videoIdentityStatus;
@@ -11,21 +14,24 @@ public class UserProfileResponse {
     private boolean followedByMe;
 
     public UserProfileResponse(Long userId, String nickname, String mainRole) {
-        this(userId, nickname, mainRole, null, null, "UNVERIFIED", false, false);
+        this(userId, null, nickname, null, mainRole, null, null, null, "UNVERIFIED", false, false);
     }
 
     public UserProfileResponse(Long userId, String nickname, String mainRole, String videoIdentityStatus, boolean videoVerified) {
-        this(userId, nickname, mainRole, null, null, videoIdentityStatus, videoVerified, false);
+        this(userId, null, nickname, null, mainRole, null, null, null, videoIdentityStatus, videoVerified, false);
     }
 
     public UserProfileResponse(Long userId, String nickname, String mainRole, String videoIdentityStatus, boolean videoVerified, boolean followedByMe) {
-        this(userId, nickname, mainRole, null, null, videoIdentityStatus, videoVerified, followedByMe);
+        this(userId, null, nickname, null, mainRole, null, null, null, videoIdentityStatus, videoVerified, followedByMe);
     }
 
-    public UserProfileResponse(Long userId, String nickname, String mainRole, String city, String bio, String videoIdentityStatus, boolean videoVerified, boolean followedByMe) {
+    public UserProfileResponse(Long userId, String userNo, String nickname, String avatarUrl, String mainRole, String gender, String city, String bio, String videoIdentityStatus, boolean videoVerified, boolean followedByMe) {
         this.userId = userId;
+        this.userNo = userNo;
         this.nickname = nickname;
+        this.avatarUrl = avatarUrl;
         this.mainRole = mainRole;
+        this.gender = gender;
         this.city = city;
         this.bio = bio;
         this.videoIdentityStatus = videoIdentityStatus == null ? "UNVERIFIED" : videoIdentityStatus;
@@ -37,12 +43,24 @@ public class UserProfileResponse {
         return userId;
     }
 
+    public String getUserNo() {
+        return userNo;
+    }
+
     public String getNickname() {
         return nickname;
     }
 
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
     public String getMainRole() {
         return mainRole;
+    }
+
+    public String getGender() {
+        return gender;
     }
 
     public String getCity() {

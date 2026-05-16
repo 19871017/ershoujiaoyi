@@ -2,6 +2,8 @@ package com.secondhand.platform.modules.user;
 
 public class UpdateUserProfileRequest {
     private String nickname;
+    private String avatarUrl;
+    private String gender;
     private String city;
     private String bio;
     private String mainRole;
@@ -12,6 +14,22 @@ public class UpdateUserProfileRequest {
 
     public void setNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
     }
 
     public String getCity() {

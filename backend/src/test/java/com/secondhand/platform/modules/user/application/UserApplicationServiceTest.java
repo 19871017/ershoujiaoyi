@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.secondhand.platform.modules.auth.LoginRequest;
 import com.secondhand.platform.modules.auth.application.AuthApplicationService;
+import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
 import com.secondhand.platform.modules.user.UserProfileResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,13 +27,13 @@ class UserApplicationServiceTest {
                 .addScript("db/schema.sql")
                 .build();
         jdbcTemplate = new JdbcTemplate(database);
-        service = new UserApplicationService(jdbcTemplate);
+        service = new UserApplicationService(jdbcTemplate, new MediaUploadTicketService(jdbcTemplate, System.getProperty("java.io.tmpdir")));
     }
 
     @Test
     void accountSecurityShouldReturnMaskedPhoneAndEmptyBackendDeviceState() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
-        auth.login(login("13800138666", "pass-123456"));
+        auth.register(login("13800138666", "pass-123456"), "test-13800138666");
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138666");
 
         com.secondhand.platform.modules.user.AccountSecurityResponse security = service.accountSecurity(userId);
@@ -46,7 +47,7 @@ class UserApplicationServiceTest {
     @Test
     void accountSecurityShouldRejectMissingOrInactiveUsersWithoutLeakingRawPhone() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
-        auth.login(login("13800138667", "pass-123456"));
+        auth.register(login("13800138667", "pass-123456"), "test-13800138667");
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138667");
         jdbcTemplate.update("UPDATE user_account SET status = ? WHERE id = ?", "DISABLED", userId);
 
@@ -57,7 +58,7 @@ class UserApplicationServiceTest {
     @Test
     void currentUserProfileShouldReadPersistedAccountAndProfile() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
-        auth.login(login("13800138002", "pass-123456"));
+        auth.register(login("13800138002", "pass-123456"), "test-13800138002");
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138002");
         jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, city = ? WHERE user_id = ?", "VERIFIED", "SELLER", "广州", userId);
 
@@ -71,13 +72,15 @@ class UserApplicationServiceTest {
     @Test
     void updateProfileShouldPersistAllowedFieldsAndReturnServerState() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
-        auth.login(login("13800138077", "pass-123456"));
+        auth.register(login("13800138077", "pass-123456"), "test-13800138077");
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138077");
+        jdbcTemplate.update("UPDATE user_account SET avatar_url = ? WHERE id = ?", "/uploads/avatar/existing.jpg", userId);
         com.secondhand.platform.modules.user.UpdateUserProfileRequest request = new com.secondhand.platform.modules.user.UpdateUserProfileRequest();
         request.setNickname("雨哥生产化小店");
         request.setMainRole("SELLER");
         request.setCity("杭州");
         request.setBio("只展示真实后端资料");
+        request.setGender("goddess");
 
         UserProfileResponse updated = service.updateProfile(userId, request);
 
@@ -85,13 +88,14 @@ class UserApplicationServiceTest {
         assertEquals("SELLER", updated.getMainRole());
         assertEquals("杭州", updated.getCity());
         assertEquals("只展示真实后端资料", updated.getBio());
+        assertEquals("/uploads/avatar/existing.jpg", updated.getAvatarUrl());
         assertEquals("雨哥生产化小店", jdbcTemplate.queryForObject("SELECT nickname FROM user_account WHERE id = ?", String.class, userId));
     }
 
     @Test
     void updateProfileShouldValidateInputAndKeepPersistedStateUnchanged() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
-        auth.login(login("13800138078", "pass-123456"));
+        auth.register(login("13800138078", "pass-123456"), "test-13800138078");
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138078");
         com.secondhand.platform.modules.user.UpdateUserProfileRequest request = new com.secondhand.platform.modules.user.UpdateUserProfileRequest();
         request.setNickname("   ");
@@ -109,7 +113,7 @@ class UserApplicationServiceTest {
     @Test
     void currentUserProfileShouldExposeVideoVerificationStatus() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
-        auth.login(login("13800138088", "pass-123456"));
+        auth.register(login("13800138088", "pass-123456"), "test-13800138088");
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138088");
         jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "APPROVED", true, userId);
 
@@ -123,8 +127,8 @@ class UserApplicationServiceTest {
     @Test
     void publicProfileShouldExposeOnlyApprovedVideoVerification() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
-        auth.login(login("13800138111", "pass-123456"));
-        auth.login(login("13800138112", "pass-123456"));
+        auth.register(login("13800138111", "pass-123456"), "test-13800138111");
+        auth.register(login("13800138112", "pass-123456"), "test-13800138112");
         Long approvedUserId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138111");
         Long pendingUserId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138112");
         jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "APPROVED", true, approvedUserId);
@@ -142,8 +146,8 @@ class UserApplicationServiceTest {
     @Test
     void publicProfileShouldExposeViewerScopedFollowStateAfterFollow() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
-        auth.login(login("13800138221", "pass-123456"));
-        auth.login(login("13800138222", "pass-123456"));
+        auth.register(login("13800138221", "pass-123456"), "test-13800138221");
+        auth.register(login("13800138222", "pass-123456"), "test-13800138222");
         Long viewerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138221");
         Long sellerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138222");
 
@@ -168,9 +172,9 @@ class UserApplicationServiceTest {
     @Test
     void unfollowProfileShouldRemoveOnlyViewerScopedRelationshipIdempotently() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
-        auth.login(login("13800138241", "pass-123456"));
-        auth.login(login("13800138242", "pass-123456"));
-        auth.login(login("13800138243", "pass-123456"));
+        auth.register(login("13800138241", "pass-123456"), "test-13800138241");
+        auth.register(login("13800138242", "pass-123456"), "test-13800138242");
+        auth.register(login("13800138243", "pass-123456"), "test-13800138243");
         Long viewerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138241");
         Long sellerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138242");
         Long otherViewerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138243");
@@ -194,7 +198,7 @@ class UserApplicationServiceTest {
     @Test
     void followProfileShouldRejectSelfOrMissingUsers() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
-        auth.login(login("13800138231", "pass-123456"));
+        auth.register(login("13800138231", "pass-123456"), "test-13800138231");
         Long viewerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138231");
 
         assertThrows(IllegalArgumentException.class, () -> service.followProfile(viewerId, viewerId));
@@ -212,7 +216,7 @@ class UserApplicationServiceTest {
     @Test
     void adminUserDetailShouldReturnMaskedPersistedUserProfileOnly() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
-        auth.login(login("13800138331", "pass-123456"));
+        auth.register(login("13800138331", "pass-123456"), "test-13800138331");
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138331");
         jdbcTemplate.update("UPDATE user_profile SET main_role = ?, city = ?, bio = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?",
                 "SELLER", "上海", "后台用户资料", "APPROVED", true, userId);
@@ -231,7 +235,7 @@ class UserApplicationServiceTest {
     @Test
     void adminUserDetailShouldRejectInvalidIdsAndInactiveUsers() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
-        auth.login(login("13800138332", "pass-123456"));
+        auth.register(login("13800138332", "pass-123456"), "test-13800138332");
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138332");
         jdbcTemplate.update("UPDATE user_account SET status = ? WHERE id = ?", "DISABLED", userId);
 
@@ -271,8 +275,8 @@ class UserApplicationServiceTest {
     @Test
     void adminUserSearchShouldReturnMaskedActiveUsersByKeywordWithoutRawPhone() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
-        auth.login(login("13800138441", "pass-123456"));
-        auth.login(login("13800138442", "pass-123456"));
+        auth.register(login("13800138441", "pass-123456"), "test-13800138441");
+        auth.register(login("13800138442", "pass-123456"), "test-13800138442");
         Long sellerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138441");
         Long disabledId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138442");
         jdbcTemplate.update("UPDATE user_account SET nickname = ? WHERE id = ?", "后台检索用户", sellerId);
@@ -306,6 +310,7 @@ class UserApplicationServiceTest {
         LoginRequest request = new LoginRequest();
         request.setMobile(mobile);
         request.setPassword(password);
+        request.setGender("goddess");
         return request;
     }
 }

@@ -3,6 +3,7 @@ package com.secondhand.platform.modules.auth;
 public class LoginRequest {
     private String mobile;
     private String password;
+    private String gender;
 
     public String getMobile() {
         return mobile;
@@ -18,5 +19,13 @@ public class LoginRequest {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
     }
 }

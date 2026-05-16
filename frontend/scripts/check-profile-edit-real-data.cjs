@@ -27,15 +27,17 @@ for (const marker of forbiddenMarkers) {
 }
 
 const requiredMarkers = [
-  '资料接口加载失败，未展示本地个人资料样例',
-  'updateMyProfile({ nickname: form.nickname, mainRole: form.mainRole, city: form.city, bio: form.bio })',
-  '资料已按服务端返回结果保存',
-  '资料保存失败，未展示本地成功状态',
-  '认证状态以服务端资料为准',
-  'const form = reactive({ userId: 0, nickname: \'\', mainRole: \'UNVERIFIED\', city: \'\', bio: \'\' })',
-  'const verifies = computed<VerifyItem[]>(() => []',
-  'function chooseRole(role: string)',
-  '角色已暂存，需点击保存后才会同步服务端'
+  'getMyProfile',
+  'updateMyProfile({',
+  "mainRole: form.videoVerified ? form.mainRole : 'BUYER'",
+  "scene: 'COMMUNITY_IMAGE'",
+  'uploadMediaTicketFile(ticket, path)',
+  "function showToast(title: string, icon: 'success' | 'none' = 'none')",
+  "showToast('暂不可改号')",
+  "showToast('资料暂不可用')",
+  "showToast('已保存', 'success')",
+  "showToast('保存失败')",
+  "showToast('头像已更新', 'success')"
 ]
 
 for (const marker of requiredMarkers) {

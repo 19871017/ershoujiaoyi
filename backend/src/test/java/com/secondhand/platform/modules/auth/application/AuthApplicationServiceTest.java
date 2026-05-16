@@ -130,6 +130,7 @@ class AuthApplicationServiceTest {
         LoginRequest request = new LoginRequest();
         request.setMobile(mobile);
         request.setPassword(password);
+        request.setGender("goddess");
         return request;
     }
 

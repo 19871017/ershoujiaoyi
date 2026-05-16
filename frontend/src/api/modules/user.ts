@@ -1,9 +1,14 @@
 import { del, get, post } from '../http'
 
+export type UserGender = 'god' | 'goddess' | string
+
 export interface UserProfileResponse {
   userId: number
+  userNo?: string
   nickname: string
+  avatarUrl?: string
   mainRole: string
+  gender?: UserGender
   city?: string
   bio?: string
   videoIdentityStatus: 'UNVERIFIED' | 'PENDING' | 'APPROVED' | 'REJECTED' | string
@@ -30,6 +35,8 @@ export interface SubmitVideoIdentityRequest {
 
 export interface UpdateUserProfileRequest {
   nickname: string
+  avatarUrl?: string
+  gender: 'god' | 'goddess' | string
   mainRole: 'BUYER' | 'SELLER' | 'BOTH' | string
   city?: string
   bio?: string

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.secondhand.platform.modules.auth.LoginRequest;
 import com.secondhand.platform.modules.auth.application.AuthApplicationService;
+import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
 import com.secondhand.platform.modules.user.UserRankingResponse;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,13 +29,14 @@ class UserRankingApplicationServiceTest {
                 .addScript("db/schema.sql")
                 .build();
         jdbcTemplate = new JdbcTemplate(database);
-        service = new UserApplicationService(jdbcTemplate);
+        service = new UserApplicationService(jdbcTemplate, new MediaUploadTicketService(jdbcTemplate, System.getProperty("java.io.tmpdir")));
         auth = new AuthApplicationService(jdbcTemplate);
     }
 
     @Test
     void listRankingShouldReturnBackendProfilesSortedByGiftScoreWithViewerState() {
         Long viewerId = loginUser("13800139001");
+        jdbcTemplate.update("UPDATE user_profile SET gender = ? WHERE user_id = ?", "god", viewerId);
         Long firstId = loginUser("13800139002");
         Long secondId = loginUser("13800139003");
         Long thirdId = loginUser("13800139004");
@@ -92,6 +94,7 @@ class UserRankingApplicationServiceTest {
         LoginRequest request = new LoginRequest();
         request.setMobile(mobile);
         request.setPassword("pass-123456");
+        request.setGender("goddess");
         auth.register(request, "test-" + mobile);
         return jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, mobile);
     }
