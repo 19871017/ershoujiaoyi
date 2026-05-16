@@ -261,7 +261,7 @@ class UserApplicationServiceTest {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, "GO-METRIC-1", "IDEM-GO-METRIC-1", viewerId, sellerId, 1L, "ROSE", 1, "66.60", "0.00", "66.60", "DL-GO-METRIC-1", "CL-GO-METRIC-1", "SUCCESS");
 
-        java.util.List<com.secondhand.platform.modules.user.UserRankingResponse> rows = service.listRankings("goddess", 20, viewerId);
+        java.util.List<com.secondhand.platform.modules.user.UserRankingResponse> rows = service.listRankings("goddess", "all", 20, viewerId);
 
         com.secondhand.platform.modules.user.UserRankingResponse row = rows.stream().filter(item -> item.getUserId().equals(sellerId)).findFirst().orElseThrow();
         assertEquals(2, row.getFollowerCount());

@@ -1,11 +1,13 @@
 import { get } from '../http'
 
 export type RankingGender = 'goddess' | 'god'
+export type RankingPeriod = 'day' | 'week' | 'all'
 
 export interface UserRankingResponse {
   userId: number
   rank: number
   nickname: string
+  avatarUrl?: string | null
   gender: RankingGender | string
   city?: string
   bio?: string
@@ -18,6 +20,6 @@ export interface UserRankingResponse {
   followedByMe: boolean
 }
 
-export function listUserRankings(gender: RankingGender, limit = 100) {
-  return get<UserRankingResponse[]>('/api/user/rankings', { gender, limit })
+export function listUserRankings(gender: RankingGender, period: RankingPeriod = 'all', limit = 100) {
+  return get<UserRankingResponse[]>('/api/user/rankings', { gender, period, limit })
 }

@@ -183,19 +183,29 @@ public class UserApplicationService {
         return List.copyOf(rows);
     }
 
-    public List<UserRankingResponse> listRankings(String gender, int limit, Long viewerId) {
-        String normalizedGender = normalizeRequired(gender, 1, 16, "gender invalid").toLowerCase();
-        if (!Set.of("goddess", "god").contains(normalizedGender)) {
+    public List<UserRankingResponse> listRankings(String gender, String period, int limit, Long viewerId) {
+        String normalizedGender = normalizeRequired(gender, 1, 16, "gender invalid").toLowerCase(Locale.ROOT);
+        if (!ALLOWED_GENDERS.contains(normalizedGender)) {
             throw new IllegalArgumentException("gender invalid");
+        }
+        String normalizedPeriod = normalizeRequired(period, 1, 16, "period invalid").toLowerCase(Locale.ROOT);
+        if (!Set.of("day", "week", "all").contains(normalizedPeriod)) {
+            throw new IllegalArgumentException("period invalid");
         }
         if (limit <= 0 || limit > 100) {
             throw new IllegalArgumentException("limit invalid");
         }
-        String profileGender = "goddess".equals(normalizedGender) ? "goddess" : "god";
         boolean hasViewer = viewerId != null && viewerId > 0;
-        List<UserRankingResponse> rows = jdbcTemplate.query("""
+        String ownerField = "goddess".equals(normalizedGender) ? "receiver_id" : "sender_id";
+        String periodFilter = switch (normalizedPeriod) {
+            case "day" -> " AND created_at >= DATEADD('DAY', -1, CURRENT_TIMESTAMP)";
+            case "week" -> " AND created_at >= DATEADD('DAY', -7, CURRENT_TIMESTAMP)";
+            default -> "";
+        };
+        String rankingSql = String.format("""
                 SELECT a.id,
                        a.nickname,
+                       a.avatar_url,
                        p.gender,
                        p.city,
                        p.bio,
@@ -209,19 +219,21 @@ public class UserApplicationService {
                 JOIN user_profile p ON p.user_id = a.id
                 LEFT JOIN user_follow f ON f.followed_id = a.id
                 LEFT JOIN (
-                    SELECT receiver_id, FLOOR(COALESCE(SUM(total_amount), 0)) AS gift_score
+                    SELECT %s AS owner_user_id, FLOOR(COALESCE(SUM(total_amount), 0)) AS gift_score
                     FROM gift_order
-                    WHERE status = 'SUCCESS'
-                    GROUP BY receiver_id
-                ) g ON g.receiver_id = a.id
+                    WHERE status = 'SUCCESS'%s
+                    GROUP BY %s
+                ) g ON g.owner_user_id = a.id
                 WHERE a.status = 'ACTIVE' AND LOWER(p.gender) = ?
-                GROUP BY a.id, a.nickname, p.gender, p.city, p.bio, p.main_role, g.gift_score
+                GROUP BY a.id, a.nickname, a.avatar_url, p.gender, p.city, p.bio, p.main_role, g.gift_score
                 ORDER BY gift_score DESC, a.id ASC
                 LIMIT ?
-                """, (rs, rowNum) -> new UserRankingResponse(
+                """, ownerField, periodFilter, ownerField);
+        List<UserRankingResponse> rows = jdbcTemplate.query(rankingSql, (rs, rowNum) -> new UserRankingResponse(
                         rs.getLong("id"),
                         rowNum + 1,
                         rs.getString("nickname"),
+                        rs.getString("avatar_url"),
                         rs.getString("gender"),
                         rs.getString("city"),
                         rs.getString("bio"),
@@ -232,7 +244,7 @@ public class UserApplicationService {
                         rs.getInt("gift_score"),
                         rs.getInt("gift_score"),
                         rs.getBoolean("followed_by_me")
-                ), hasViewer, hasViewer ? viewerId : -1L, profileGender, limit);
+                ), hasViewer, hasViewer ? viewerId : -1L, normalizedGender, limit);
         return List.copyOf(rows);
     }
 

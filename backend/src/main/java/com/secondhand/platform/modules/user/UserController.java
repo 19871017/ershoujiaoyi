@@ -43,10 +43,11 @@ public class UserController {
 
     @GetMapping("/rankings")
     public Result<List<UserRankingResponse>> rankings(@org.springframework.web.bind.annotation.RequestParam(defaultValue = "goddess") String gender,
+                                                      @org.springframework.web.bind.annotation.RequestParam(defaultValue = "all") String period,
                                                       @org.springframework.web.bind.annotation.RequestParam(defaultValue = "100") Integer limit,
                                                       HttpServletRequest request) {
         Long viewerId = resolveOptionalViewer(request);
-        return Result.ok(userApplicationService.listRankings(gender, limit == null ? 100 : limit, viewerId));
+        return Result.ok(userApplicationService.listRankings(gender, period, limit == null ? 100 : limit, viewerId));
     }
 
     @PostMapping("/me/profile")

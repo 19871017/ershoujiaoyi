@@ -51,7 +51,7 @@ class UserRankingApplicationServiceTest {
         insertGiftOrder(viewerId, firstId, "GO-RANK-1", "88.90");
         insertGiftOrder(viewerId, secondId, "GO-RANK-2", "12.00");
 
-        List<UserRankingResponse> rankings = service.listRankings("goddess", 10, viewerId);
+        List<UserRankingResponse> rankings = service.listRankings("goddess", "all", 10, viewerId);
 
         assertEquals(2, rankings.size());
         assertEquals(firstId, rankings.get(0).getUserId());
@@ -71,12 +71,13 @@ class UserRankingApplicationServiceTest {
 
     @Test
     void listRankingShouldRejectInvalidParamsAndNeverReturnPreviewUsers() {
-        assertThrows(IllegalArgumentException.class, () -> service.listRankings("preview", 10, 1L));
-        assertThrows(IllegalArgumentException.class, () -> service.listRankings("goddess", 0, 1L));
+        assertThrows(IllegalArgumentException.class, () -> service.listRankings("preview", "all", 10, 1L));
+        assertThrows(IllegalArgumentException.class, () -> service.listRankings("goddess", "month", 10, 1L));
+        assertThrows(IllegalArgumentException.class, () -> service.listRankings("goddess", "all", 0, 1L));
 
         Long userId = loginUser("13800139005");
         jdbcTemplate.update("UPDATE user_profile SET gender = ? WHERE user_id = ?", "goddess", userId);
-        List<UserRankingResponse> rankings = service.listRankings("goddess", 10, null);
+        List<UserRankingResponse> rankings = service.listRankings("goddess", "all", 10, null);
 
         assertEquals(1, rankings.size());
         assertFalse(rankings.get(0).getNickname().contains("预览"));
