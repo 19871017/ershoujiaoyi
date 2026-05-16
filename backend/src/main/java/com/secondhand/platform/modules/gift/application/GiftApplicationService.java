@@ -2,6 +2,7 @@ package com.secondhand.platform.modules.gift.application;
 
 import com.secondhand.platform.modules.gift.GiftCatalogItemResponse;
 import com.secondhand.platform.modules.gift.ReceivedGiftItemResponse;
+import com.secondhand.platform.modules.gift.RecentGiftFeedItemResponse;
 import com.secondhand.platform.modules.gift.SendGiftResponse;
 import com.secondhand.platform.modules.wallet_ledger.application.CreditCommand;
 import com.secondhand.platform.modules.wallet_ledger.application.DebitCommand;
@@ -65,6 +66,20 @@ public class GiftApplicationService {
                 ORDER BY created_at DESC, id DESC
                 LIMIT 50
                 """, (rs, rowNum) -> mapReceivedGift(rs), receiverId);
+    }
+
+    public List<RecentGiftFeedItemResponse> listRecentGiftFeed() {
+        return jdbcTemplate.query("""
+                SELECT g.gift_order_no, g.sender_id, COALESCE(sender.nickname, sender.user_no, CONCAT('用户', g.sender_id)) AS sender_name,
+                       g.receiver_id, COALESCE(receiver.nickname, receiver.user_no, CONCAT('用户', g.receiver_id)) AS receiver_name,
+                       g.gift_id, g.gift_code, g.quantity, g.total_amount, g.created_at
+                FROM gift_order g
+                LEFT JOIN user_account sender ON sender.id = g.sender_id
+                LEFT JOIN user_account receiver ON receiver.id = g.receiver_id
+                WHERE g.status = 'SUCCESS'
+                ORDER BY g.created_at DESC, g.id DESC
+                LIMIT 20
+                """, (rs, rowNum) -> mapRecentGiftFeedItem(rs));
     }
 
     @Transactional
@@ -166,8 +181,8 @@ public class GiftApplicationService {
                 rs.getLong("sender_id"),
                 rs.getLong("gift_id"),
                 giftCode,
-                gift == null ? giftCode : gift.name(),
-                gift == null ? "🎁" : gift.icon(),
+                giftName(gift, giftCode),
+                giftIcon(gift),
                 rs.getInt("quantity"),
                 rs.getBigDecimal("total_amount").setScale(MONEY_SCALE, RoundingMode.UNNECESSARY),
                 rs.getBigDecimal("platform_share").setScale(MONEY_SCALE, RoundingMode.UNNECESSARY),
@@ -176,6 +191,32 @@ public class GiftApplicationService {
                 rs.getString("status"),
                 rs.getTimestamp("created_at").toLocalDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         );
+    }
+
+    private RecentGiftFeedItemResponse mapRecentGiftFeedItem(ResultSet rs) throws SQLException {
+        String giftCode = rs.getString("gift_code");
+        GiftConfig gift = GIFTS_BY_CODE.get(giftCode);
+        return new RecentGiftFeedItemResponse(
+                rs.getString("gift_order_no"),
+                rs.getLong("sender_id"),
+                rs.getString("sender_name"),
+                rs.getLong("receiver_id"),
+                rs.getString("receiver_name"),
+                rs.getLong("gift_id"),
+                giftName(gift, giftCode),
+                giftIcon(gift),
+                rs.getInt("quantity"),
+                rs.getBigDecimal("total_amount").setScale(MONEY_SCALE, RoundingMode.UNNECESSARY),
+                rs.getTimestamp("created_at").toLocalDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        );
+    }
+
+    private String giftName(GiftConfig gift, String giftCode) {
+        return gift == null ? giftCode : gift.name();
+    }
+
+    private String giftIcon(GiftConfig gift) {
+        return gift == null ? "🎁" : gift.icon();
     }
 
     private void insertGiftOrder(Long senderId, SendGiftRequest request, int quantity, SendGiftResponse response, String idempotencyKey) {

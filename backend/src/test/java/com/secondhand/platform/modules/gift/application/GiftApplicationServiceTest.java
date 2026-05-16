@@ -112,6 +112,29 @@ class GiftApplicationServiceTest {
         assertMoney("0.80", walletLedgerService.getBalance(2L).getIncomeBalance());
     }
 
+    @Test
+    void recentGiftFeedShouldReturnPersistedGiftOrdersWithUserNames() {
+        seedUser(1L, "小雨", "U-GIFT-1");
+        seedUser(2L, "暖暖", "U-GIFT-2");
+        seedUser(3L, "星星", "U-GIFT-3");
+        seedRecharge(1L, "100.00");
+        seedRecharge(3L, "100.00");
+
+        SendGiftResponse first = service.sendGift(1L, giftRequest(2L, "ROSE", 1, "recent-001", null));
+        SendGiftResponse latest = service.sendGift(3L, giftRequest(2L, "CROWN", 1, "recent-002", null));
+
+        var feed = service.listRecentGiftFeed();
+
+        assertEquals(2, feed.size());
+        assertEquals(latest.getGiftOrderNo(), feed.get(0).getGiftOrderNo());
+        assertEquals("星星", feed.get(0).getSenderName());
+        assertEquals("暖暖", feed.get(0).getReceiverName());
+        assertEquals("小原皇冠", feed.get(0).getGiftName());
+        assertEquals("👑", feed.get(0).getGiftIcon());
+        assertMoney("68.00", feed.get(0).getTotalAmount());
+        assertEquals(first.getGiftOrderNo(), feed.get(1).getGiftOrderNo());
+    }
+
     private int orderCount(String giftOrderNo) {
         Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM gift_order WHERE gift_order_no = ?", Integer.class, giftOrderNo);
         return count == null ? 0 : count;
@@ -126,6 +149,11 @@ class GiftApplicationServiceTest {
         command.setBalanceType("RECHARGE");
         command.setAmount(new BigDecimal(amount));
         walletLedgerService.credit(command);
+    }
+
+    private void seedUser(Long userId, String nickname, String userNo) {
+        jdbcTemplate.update("INSERT INTO user_account (id, user_no, phone, password_hash, nickname, status) VALUES (?, ?, ?, ?, ?, ?)",
+                userId, userNo, "1380014" + String.format("%04d", userId), "hash", nickname, "ACTIVE");
     }
 
     private SendGiftRequest giftRequest(Long receiverId, String giftCode, Integer quantity, String requestNo, String clientGiftId) {
