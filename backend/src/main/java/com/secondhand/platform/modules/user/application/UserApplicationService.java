@@ -210,6 +210,8 @@ public class UserApplicationService {
                        p.city,
                        p.bio,
                        p.main_role,
+                       p.video_identity_status,
+                       p.video_verified,
                        COUNT(DISTINCT f.id) AS follower_count,
                        COALESCE(g.gift_score, 0) AS gift_score,
                        CASE WHEN ? = TRUE AND EXISTS (
@@ -225,26 +227,32 @@ public class UserApplicationService {
                     GROUP BY %s
                 ) g ON g.owner_user_id = a.id
                 WHERE a.status = 'ACTIVE' AND LOWER(p.gender) = ?
-                GROUP BY a.id, a.nickname, a.avatar_url, p.gender, p.city, p.bio, p.main_role, g.gift_score
+                GROUP BY a.id, a.nickname, a.avatar_url, p.gender, p.city, p.bio, p.main_role, p.video_identity_status, p.video_verified, g.gift_score
                 ORDER BY gift_score DESC, a.id ASC
                 LIMIT ?
                 """, ownerField, periodFilter, ownerField);
-        List<UserRankingResponse> rows = jdbcTemplate.query(rankingSql, (rs, rowNum) -> new UserRankingResponse(
-                        rs.getLong("id"),
-                        rowNum + 1,
-                        rs.getString("nickname"),
-                        rs.getString("avatar_url"),
-                        rs.getString("gender"),
-                        rs.getString("city"),
-                        rs.getString("bio"),
-                        rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role"),
-                        rs.getInt("follower_count"),
-                        rs.getInt("gift_score"),
-                        rs.getInt("gift_score"),
-                        rs.getInt("gift_score"),
-                        rs.getInt("gift_score"),
-                        rs.getBoolean("followed_by_me")
-                ), hasViewer, hasViewer ? viewerId : -1L, normalizedGender, limit);
+        List<UserRankingResponse> rows = jdbcTemplate.query(rankingSql, (rs, rowNum) -> {
+            String videoStatus = rs.getString("video_identity_status") == null ? "UNVERIFIED" : rs.getString("video_identity_status");
+            boolean approvedVideo = "APPROVED".equalsIgnoreCase(videoStatus) && rs.getBoolean("video_verified");
+            return new UserRankingResponse(
+                    rs.getLong("id"),
+                    rowNum + 1,
+                    rs.getString("nickname"),
+                    rs.getString("avatar_url"),
+                    rs.getString("gender"),
+                    rs.getString("city"),
+                    rs.getString("bio"),
+                    rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role"),
+                    videoStatus,
+                    approvedVideo,
+                    rs.getInt("follower_count"),
+                    rs.getInt("gift_score"),
+                    rs.getInt("gift_score"),
+                    rs.getInt("gift_score"),
+                    rs.getInt("gift_score"),
+                    rs.getBoolean("followed_by_me")
+            );
+        }, hasViewer, hasViewer ? viewerId : -1L, normalizedGender, limit);
         return List.copyOf(rows);
     }
 

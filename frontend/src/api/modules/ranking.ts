@@ -12,6 +12,8 @@ export interface UserRankingResponse {
   city?: string
   bio?: string
   mainRole?: string
+  videoIdentityStatus?: string
+  videoVerified?: boolean
   followerCount: number
   popularityScore: number
   safetyScore: number

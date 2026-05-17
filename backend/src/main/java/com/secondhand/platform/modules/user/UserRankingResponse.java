@@ -9,6 +9,8 @@ public class UserRankingResponse {
     private final String city;
     private final String bio;
     private final String mainRole;
+    private final String videoIdentityStatus;
+    private final boolean videoVerified;
     private final int followerCount;
     private final int popularityScore;
     private final int safetyScore;
@@ -29,6 +31,10 @@ public class UserRankingResponse {
     }
 
     public UserRankingResponse(Long userId, int rank, String nickname, String avatarUrl, String gender, String city, String bio, String mainRole, int followerCount, int popularityScore, int safetyScore, int guardianScore, int giftScore, boolean followedByMe) {
+        this(userId, rank, nickname, avatarUrl, gender, city, bio, mainRole, "UNVERIFIED", false, followerCount, popularityScore, safetyScore, guardianScore, giftScore, followedByMe);
+    }
+
+    public UserRankingResponse(Long userId, int rank, String nickname, String avatarUrl, String gender, String city, String bio, String mainRole, String videoIdentityStatus, boolean videoVerified, int followerCount, int popularityScore, int safetyScore, int guardianScore, int giftScore, boolean followedByMe) {
         this.userId = userId;
         this.rank = rank;
         this.nickname = nickname;
@@ -37,6 +43,8 @@ public class UserRankingResponse {
         this.city = city;
         this.bio = bio;
         this.mainRole = mainRole;
+        this.videoIdentityStatus = videoIdentityStatus == null ? "UNVERIFIED" : videoIdentityStatus;
+        this.videoVerified = videoVerified;
         this.followerCount = followerCount;
         this.popularityScore = popularityScore;
         this.safetyScore = safetyScore;
@@ -53,6 +61,8 @@ public class UserRankingResponse {
     public String getCity() { return city; }
     public String getBio() { return bio; }
     public String getMainRole() { return mainRole; }
+    public String getVideoIdentityStatus() { return videoIdentityStatus; }
+    public boolean isVideoVerified() { return videoVerified; }
     public int getFollowerCount() { return followerCount; }
     public int getPopularityScore() { return popularityScore; }
     public int getSafetyScore() { return safetyScore; }

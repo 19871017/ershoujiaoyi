@@ -250,10 +250,13 @@ class UserApplicationServiceTest {
         auth.register(login("13800138551", "pass-123456"), "test-13800138551");
         auth.register(login("13800138552", "pass-123456"), "test-13800138552");
         auth.register(login("13800138553", "pass-123456"), "test-13800138553");
+        auth.register(login("13800138554", "pass-123456"), "test-13800138554");
         Long viewerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138551");
         Long sellerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138552");
         Long followerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138553");
-        jdbcTemplate.update("UPDATE user_profile SET gender = ?, main_role = ?, city = ?, bio = ? WHERE user_id = ?", "goddess", "SELLER", "成都", "后端榜单资料", sellerId);
+        Long pendingSellerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138554");
+        jdbcTemplate.update("UPDATE user_profile SET gender = ?, main_role = ?, city = ?, bio = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "goddess", "SELLER", "成都", "后端榜单资料", "APPROVED", true, sellerId);
+        jdbcTemplate.update("UPDATE user_profile SET gender = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "goddess", "SELLER", "PENDING", true, pendingSellerId);
         service.followProfile(viewerId, sellerId);
         service.followProfile(followerId, sellerId);
         jdbcTemplate.update("""
@@ -264,11 +267,16 @@ class UserApplicationServiceTest {
         java.util.List<com.secondhand.platform.modules.user.UserRankingResponse> rows = service.listRankings("goddess", "all", 20, viewerId);
 
         com.secondhand.platform.modules.user.UserRankingResponse row = rows.stream().filter(item -> item.getUserId().equals(sellerId)).findFirst().orElseThrow();
+        com.secondhand.platform.modules.user.UserRankingResponse pendingRow = rows.stream().filter(item -> item.getUserId().equals(pendingSellerId)).findFirst().orElseThrow();
         assertEquals(2, row.getFollowerCount());
         assertEquals(66, row.getGiftScore());
         assertEquals(66, row.getPopularityScore());
         assertEquals(66, row.getSafetyScore());
         assertEquals(66, row.getGuardianScore());
+        assertEquals("APPROVED", row.getVideoIdentityStatus());
+        assertEquals(true, row.isVideoVerified());
+        assertEquals("PENDING", pendingRow.getVideoIdentityStatus());
+        assertEquals(false, pendingRow.isVideoVerified());
         assertEquals(true, row.isFollowedByMe());
     }
 

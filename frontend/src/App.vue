@@ -235,7 +235,7 @@ uni-tabbar .uni-tabbar__label::before {
 
 uni-tabbar .uni-tabbar__item:nth-of-type(2) .uni-tabbar__label::before { content: '🏠'; }
 uni-tabbar .uni-tabbar__item:nth-of-type(3) .uni-tabbar__label::before { content: '🎀'; }
-uni-tabbar .uni-tabbar__item:nth-of-type(4) .uni-tabbar__label::before { content: '+'; background: linear-gradient(135deg,#ff7a45,#ffc08a); color: #fff; box-shadow: 0 8rpx 18rpx rgba(255,122,69,.24); }
+uni-tabbar .uni-tabbar__item:nth-of-type(4) .uni-tabbar__label::before { content: '👑'; background: linear-gradient(135deg,#ff7a45,#ff3f8d 52%,#ffc08a); color: #fff; box-shadow: 0 8rpx 18rpx rgba(255,63,141,.24); }
 uni-tabbar .uni-tabbar__item:nth-of-type(5) .uni-tabbar__label::before { content: '💬'; }
 uni-tabbar .uni-tabbar__item:nth-of-type(6) .uni-tabbar__label::before { content: '👤'; }
 
