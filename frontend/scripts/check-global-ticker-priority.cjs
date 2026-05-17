@@ -32,12 +32,23 @@ if (!tickerSource.includes('getRecentGiftFeed')) {
   failures.push(`${tickerFile}: global ticker must use the real recent gift feed`)
 }
 
-if (!tickerSource.includes("const ENABLE_MOCK_DATA = import.meta.env.VITE_ENABLE_MOCK_DATA === 'true'")) {
-  failures.push(`${tickerFile}: mock ticker demo must be gated by VITE_ENABLE_MOCK_DATA`)
+const giftFeedLoadsDirectly = tickerSource.includes('getRecentGiftFeed().catch((error) => {')
+const giftFeedIsLoginGated = [
+  '(userStore.token || ENABLE_MOCK_DATA) ? getRecentGiftFeed()',
+  'userStore.token ? getRecentGiftFeed()'
+].some((gatedGiftFeedCall) => tickerSource.includes(gatedGiftFeedCall))
+const tickerTextScrolls = tickerSource.includes('<text class="ticker-text">{{ item.text }}</text>') && tickerSource.includes('@keyframes ticker-scroll')
+
+if (!giftFeedLoadsDirectly) {
+  failures.push(`${tickerFile}: recent gift feed must be loaded from the public backend endpoint without login gating`)
 }
 
-if (!tickerSource.includes('(userStore.token || ENABLE_MOCK_DATA) ? getRecentGiftFeed()')) {
-  failures.push(`${tickerFile}: mock mode should show virtual gift ticker without requiring login while production remains token-gated`)
+if (giftFeedIsLoginGated) {
+  failures.push(`${tickerFile}: global ticker must not hide recent gift feed behind login-only gating`)
+}
+
+if (!tickerTextScrolls) {
+  failures.push(`${tickerFile}: ticker text must scroll horizontally so a single pinned announcement still visibly rotates`)
 }
 
 if (!httpSource.includes("url === '/api/announcements/ticker'")) {

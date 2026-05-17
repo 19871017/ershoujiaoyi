@@ -14,7 +14,7 @@
             :key="item.id"
             class="ticker-line"
           >
-            {{ item.text }}
+            <text class="ticker-text">{{ item.text }}</text>
           </view>
         </view>
       </view>
@@ -38,7 +38,6 @@ type TickerItem = {
 }
 
 const DEFAULT_ANNOUNCEMENT_TARGET_URL = '/pages/notification/index'
-const ENABLE_MOCK_DATA = import.meta.env.VITE_ENABLE_MOCK_DATA === 'true'
 const userStore = useUserStore()
 const items = ref<TickerItem[]>([])
 const currentIndex = ref(0)
@@ -126,10 +125,10 @@ async function loadTicker() {
         console.warn('announcement ticker unavailable', error)
         return null
       }),
-      (userStore.token || ENABLE_MOCK_DATA) ? getRecentGiftFeed().catch((error) => {
+      getRecentGiftFeed().catch((error) => {
         console.warn('recent gift feed unavailable', error)
         return []
-      }) : Promise.resolve([]),
+      }),
       userStore.token ? listNotifications('ALL').catch((error) => {
         console.warn('ticker notifications unavailable', error)
         return []
@@ -329,7 +328,20 @@ onBeforeUnmount(() => {
   font-weight: 900;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+.ticker-text {
+  display: inline-block;
+  min-width: 100%;
+  padding-left: 100%;
+  animation: ticker-scroll 12s linear infinite;
+}
+@keyframes ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
 }
 .ticker-arrow {
   position: relative;
