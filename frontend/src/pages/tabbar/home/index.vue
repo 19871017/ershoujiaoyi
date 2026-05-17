@@ -86,6 +86,8 @@ import GlobalTicker from '../../../components/GlobalTicker.vue'
 import homeBannerCloset from '../../../assets/home/home-banner-closet.png'
 import homeBannerRanking from '../../../assets/home/home-banner-ranking.png'
 import homeBannerCommunity from '../../../assets/home/home-banner-community.png'
+import rankingGoddessArtwork from '../../../assets/ranking/ranking-goddess-desktop.png'
+import rankingGodArtwork from '../../../assets/ranking/ranking-god-desktop.png'
 
 type BannerAction = HomeBannerAction
 type RankingTab = 'goddess' | 'god'
@@ -115,8 +117,8 @@ const decoratedBanners = computed(() => banners.value.map((item) => ({
   imageUrl: homeBannerArtwork[item.action] || item.imageUrl
 })))
 const rankingArtwork = {
-  goddess: '/assets/ranking/ranking-goddess-desktop.png',
-  god: '/assets/ranking/ranking-god-desktop.png'
+  goddess: rankingGoddessArtwork,
+  god: rankingGodArtwork
 }
 const rankingCards: RankingCard[] = [
   {
