@@ -49,6 +49,7 @@
     "check:lan-api-base": "node scripts/check-lan-api-base.cjs",
     "check:global-ticker-priority": "node scripts/check-global-ticker-priority.cjs",
     "check:registration-gender": "node scripts/check-registration-gender-real-flow.cjs",
+    "check:product-seller-permission": "node scripts/check-product-seller-permission.cjs",
     "check:user-no-admin-entry": "node scripts/check-user-no-admin-entry.cjs"
   },
   "dependencies": {
