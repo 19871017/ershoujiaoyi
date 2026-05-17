@@ -12,7 +12,7 @@
             <text>按后端榜单展示</text>
           </view>
         </view>
-        <button class="publish-btn" @click="goPublishForm">我要上新</button>
+        <button class="publish-btn" @click="goPublishForm">{{ publishButtonText }}</button>
       </view>
       <view class="podium-row">
         <view
@@ -54,7 +54,11 @@
       </view>
     </view>
 
-    <view v-if="loadError" class="empty-card ds-card">
+    <view v-if="loading" class="empty-card ds-card">
+      <view class="empty-title">加载认证商家中...</view>
+    </view>
+
+    <view v-else-if="loadError" class="empty-card ds-card">
       <view class="empty-title">商家秀暂时不可用</view>
       <button class="retry-btn" @click="loadData">重试</button>
     </view>
@@ -102,6 +106,7 @@ interface MerchantShowUser {
 }
 
 const merchants = ref<MerchantShowUser[]>([])
+const loading = ref(false)
 const loadError = ref(false)
 const canPublish = ref(false)
 const podiumList = computed(() => {
@@ -109,6 +114,7 @@ const podiumList = computed(() => {
   return top.length === 3 ? [top[1]!, top[0]!, top[2]!] : top
 })
 const spotlightMerchants = computed(() => merchants.value.slice(0, 2))
+const publishButtonText = computed(() => canPublish.value ? '我要上新' : '卖家认证')
 
 onMounted(() => {
   void loadData()
@@ -116,6 +122,7 @@ onMounted(() => {
 })
 
 async function loadData() {
+  loading.value = true
   loadError.value = false
   try {
     const rows = await listUserRankings('goddess', 'week', 100)
@@ -123,6 +130,8 @@ async function loadData() {
   } catch {
     merchants.value = []
     loadError.value = true
+  } finally {
+    loading.value = false
   }
 }
 
