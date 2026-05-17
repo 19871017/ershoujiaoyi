@@ -72,6 +72,11 @@ const DEV_HEADERS: Record<string, string> = ENABLE_DEV_HEADERS
   ? { 'X-User-Id': DEV_USER_ID, 'X-Dev-Mode': 'enabled' }
   : {}
 const MOCK_SELLER_IDS = [8, 12, 18] as const
+const MOCK_ASSET_BASE = '/assets/mock'
+
+function mockAsset(name: string) {
+  return `${MOCK_ASSET_BASE}/${name}`
+}
 
 function isApiResult<T>(data: unknown): data is ApiResult<T> {
   return Boolean(data && typeof data === 'object' && 'success' in data && 'message' in data && 'data' in data)
@@ -99,12 +104,12 @@ function mockNow(offsetMinutes = 0) {
 
 function mockProducts(): ProductListItemResponse[] {
   return [
-    { productId: 9001, productNo: 'MOCK-DRESS-001', title: '奶油白法式连衣裙 只穿过一次', price: '129.00', coverImageUrl: '', status: 'ACTIVE', auditState: 'APPROVED', visible: true, createdAt: '2026-05-07T10:00:00' },
-    { productId: 9002, productNo: 'MOCK-SHOES-002', title: '小香风玛丽珍鞋 37码', price: '88.00', coverImageUrl: '', status: 'ACTIVE', auditState: 'APPROVED', visible: true, createdAt: '2026-05-07T09:30:00' },
-    { productId: 9003, productNo: 'MOCK-SOCKS-003', title: '蝴蝶结长袜三双装 未拆封', price: '29.00', coverImageUrl: '', status: 'ACTIVE', auditState: 'APPROVED', visible: true, createdAt: '2026-05-06T21:10:00' },
-    { productId: 9004, productNo: 'MOCK-BAG-004', title: '粉色腋下包 轻微使用痕迹', price: '66.00', coverImageUrl: '', status: 'ACTIVE', auditState: 'APPROVED', visible: true, createdAt: '2026-05-06T18:30:00' },
-    { productId: 9005, productNo: 'MOCK-CAMERA-005', title: '富士拍立得 mini 12 粉色', price: '299.00', coverImageUrl: '', status: 'ACTIVE', auditState: 'APPROVED', visible: true, createdAt: '2026-05-06T16:18:00' },
-    { productId: 9006, productNo: 'MOCK-PERFUME-006', title: '祖玛珑蓝风铃分装 30ml', price: '79.00', coverImageUrl: '', status: 'ACTIVE', auditState: 'APPROVED', visible: true, createdAt: '2026-05-06T13:02:00' }
+    { productId: 9001, productNo: 'MOCK-DRESS-001', title: '奶油白法式连衣裙 只穿过一次', price: '129.00', coverImageUrl: mockAsset('product-dress.svg'), status: 'ACTIVE', auditState: 'APPROVED', visible: true, createdAt: '2026-05-07T10:00:00' },
+    { productId: 9002, productNo: 'MOCK-SHOES-002', title: '小香风玛丽珍鞋 37码', price: '88.00', coverImageUrl: mockAsset('product-shoes.svg'), status: 'ACTIVE', auditState: 'APPROVED', visible: true, createdAt: '2026-05-07T09:30:00' },
+    { productId: 9003, productNo: 'MOCK-SOCKS-003', title: '蝴蝶结长袜三双装 未拆封', price: '29.00', coverImageUrl: mockAsset('product-bikini.svg'), status: 'ACTIVE', auditState: 'APPROVED', visible: true, createdAt: '2026-05-06T21:10:00' },
+    { productId: 9004, productNo: 'MOCK-BAG-004', title: '粉色腋下包 轻微使用痕迹', price: '66.00', coverImageUrl: mockAsset('product-bag.svg'), status: 'ACTIVE', auditState: 'APPROVED', visible: true, createdAt: '2026-05-06T18:30:00' },
+    { productId: 9005, productNo: 'MOCK-CAMERA-005', title: '富士拍立得 mini 12 粉色', price: '299.00', coverImageUrl: mockAsset('product-camera.svg'), status: 'ACTIVE', auditState: 'APPROVED', visible: true, createdAt: '2026-05-06T16:18:00' },
+    { productId: 9006, productNo: 'MOCK-PERFUME-006', title: '祖玛珑蓝风铃分装 30ml', price: '79.00', coverImageUrl: mockAsset('product-perfume.svg'), status: 'ACTIVE', auditState: 'APPROVED', visible: true, createdAt: '2026-05-06T13:02:00' }
   ]
 }
 
@@ -132,9 +137,9 @@ function mockProductDetails(products: ProductListItemResponse[]): ProductDetailR
 function mockProfiles(): Record<number, UserProfileResponse> {
   return {
     1: { userId: 1, userNo: 'XYQ10001', nickname: '雨哥体验号', avatarUrl: '', mainRole: 'BUYER', gender: 'god', city: '杭州', bio: '演示环境买家账号', videoIdentityStatus: 'UNVERIFIED', videoVerified: false },
-    8: { userId: 8, userNo: 'XYQ20008', nickname: '桃桃', avatarUrl: '', mainRole: 'SELLER', gender: 'goddess', city: '上海', bio: '认证商家｜穿搭和轻奢闲置', videoIdentityStatus: 'APPROVED', videoVerified: true, followedByMe: true },
-    12: { userId: 12, userNo: 'XYQ20012', nickname: '可心', avatarUrl: '', mainRole: 'SELLER', gender: 'goddess', city: '苏州', bio: '礼物互动很活跃的认证卖家', videoIdentityStatus: 'APPROVED', videoVerified: true, followedByMe: false },
-    18: { userId: 18, userNo: 'XYQ20018', nickname: '晚晚', avatarUrl: '', mainRole: 'SELLER', gender: 'goddess', city: '成都', bio: '美妆、包包、香水都在更', videoIdentityStatus: 'APPROVED', videoVerified: true, followedByMe: false },
+    8: { userId: 8, userNo: 'XYQ20008', nickname: '桃桃', avatarUrl: mockAsset('avatar-taotao.svg'), mainRole: 'SELLER', gender: 'goddess', city: '上海', bio: '认证商家｜穿搭和轻奢闲置', videoIdentityStatus: 'APPROVED', videoVerified: true, followedByMe: true },
+    12: { userId: 12, userNo: 'XYQ20012', nickname: '可心', avatarUrl: mockAsset('avatar-kexin.svg'), mainRole: 'SELLER', gender: 'goddess', city: '苏州', bio: '礼物互动很活跃的认证卖家', videoIdentityStatus: 'APPROVED', videoVerified: true, followedByMe: false },
+    18: { userId: 18, userNo: 'XYQ20018', nickname: '晚晚', avatarUrl: mockAsset('avatar-wanwan.svg'), mainRole: 'SELLER', gender: 'goddess', city: '成都', bio: '美妆、包包、香水都在更', videoIdentityStatus: 'APPROVED', videoVerified: true, followedByMe: false },
     21: { userId: 21, userNo: 'XYQ30021', nickname: '阿澈', avatarUrl: '', mainRole: 'BUYER', gender: 'god', city: '南京', bio: '喜欢收相机和球鞋', videoIdentityStatus: 'UNVERIFIED', videoVerified: false }
   }
 }
@@ -174,9 +179,9 @@ function mockNotifications(): NotificationItemResponse[] {
 
 function mockCommunityPosts(): CommunityPostResponse[] {
   return [
-    { postNo: 'POST-1001', postId: 1001, authorId: 8, title: '今天整理出三件适合约会的小裙子', topic: '生活日常', content: '奶油白、藕粉和浅蓝都拍了细节图，晚上会上新一部分，先来社区放个预告。', imageUrls: [], status: 'PUBLISHED', likeCount: 28, commentCount: 6, likedByMe: true, createdAt: '2026-05-16T20:30:00', authorName: '桃桃', authorAvatar: '', city: '上海', relatedProductId: 9001, relatedProductTitle: '奶油白法式连衣裙 只穿过一次', relatedProductPrice: '129.00' },
-    { postNo: 'POST-1002', postId: 1002, authorId: 12, title: '求购一只成色好的粉色腋下包', topic: '求购心愿', content: '预算 100 左右，最好容量能放下手机和口红，姐妹们有出的吗？', imageUrls: [], status: 'PUBLISHED', likeCount: 14, commentCount: 9, likedByMe: false, createdAt: '2026-05-16T19:42:00', authorName: '可心', authorAvatar: '', city: '苏州', relatedProductId: 9004, relatedProductTitle: '粉色腋下包 轻微使用痕迹', relatedProductPrice: '66.00' },
-    { postNo: 'POST-1003', postId: 1003, authorId: 18, title: '收到礼物啦，感谢今天来逛我主页的姐妹', topic: '生活日常', content: '刚刚有姐妹送了皇冠和玫瑰，太开心了，今晚继续更新香水和拍立得。', imageUrls: [], status: 'PUBLISHED', likeCount: 36, commentCount: 12, likedByMe: false, createdAt: '2026-05-16T18:58:00', authorName: '晚晚', authorAvatar: '', city: '成都', relatedProductId: 9006, relatedProductTitle: '祖玛珑蓝风铃分装 30ml', relatedProductPrice: '79.00' }
+    { postNo: 'POST-1001', postId: 1001, authorId: 8, title: '今天整理出三件适合约会的小裙子', topic: '生活日常', content: '奶油白、藕粉和浅蓝都拍了细节图，晚上会上新一部分，先来社区放个预告。', imageUrls: [mockAsset('post-outfit.svg')], status: 'PUBLISHED', likeCount: 28, commentCount: 6, likedByMe: true, createdAt: '2026-05-16T20:30:00', authorName: '桃桃', authorAvatar: mockAsset('avatar-taotao.svg'), city: '上海', relatedProductId: 9001, relatedProductTitle: '奶油白法式连衣裙 只穿过一次', relatedProductPrice: '129.00' },
+    { postNo: 'POST-1002', postId: 1002, authorId: 12, title: '求购一只成色好的粉色腋下包', topic: '求购心愿', content: '预算 100 左右，最好容量能放下手机和口红，姐妹们有出的吗？', imageUrls: [mockAsset('post-wishlist.svg')], status: 'PUBLISHED', likeCount: 14, commentCount: 9, likedByMe: false, createdAt: '2026-05-16T19:42:00', authorName: '可心', authorAvatar: mockAsset('avatar-kexin.svg'), city: '苏州', relatedProductId: 9004, relatedProductTitle: '粉色腋下包 轻微使用痕迹', relatedProductPrice: '66.00' },
+    { postNo: 'POST-1003', postId: 1003, authorId: 18, title: '收到礼物啦，感谢今天来逛我主页的姐妹', topic: '生活日常', content: '刚刚有姐妹送了皇冠和玫瑰，太开心了，今晚继续更新香水和拍立得。', imageUrls: [mockAsset('post-gift.svg')], status: 'PUBLISHED', likeCount: 36, commentCount: 12, likedByMe: false, createdAt: '2026-05-16T18:58:00', authorName: '晚晚', authorAvatar: mockAsset('avatar-wanwan.svg'), city: '成都', relatedProductId: 9006, relatedProductTitle: '祖玛珑蓝风铃分装 30ml', relatedProductPrice: '79.00' }
   ]
 }
 
@@ -186,7 +191,7 @@ function mockConversations(): MockConversation[] {
       conversationId: 5001,
       peerUserId: 8,
       peerName: '桃桃',
-      peerAvatar: '',
+      peerAvatar: mockAsset('avatar-taotao.svg'),
       scenario: 'ORDER',
       productTitle: '奶油白法式连衣裙 只穿过一次',
       messages: [
@@ -199,7 +204,7 @@ function mockConversations(): MockConversation[] {
       conversationId: 5002,
       peerUserId: 12,
       peerName: '可心',
-      peerAvatar: '',
+      peerAvatar: mockAsset('avatar-kexin.svg'),
       scenario: 'AFTER_SALES',
       productTitle: '粉色腋下包 轻微使用痕迹',
       messages: [
@@ -212,7 +217,7 @@ function mockConversations(): MockConversation[] {
       conversationId: 5003,
       peerUserId: 18,
       peerName: '晚晚',
-      peerAvatar: '',
+      peerAvatar: mockAsset('avatar-wanwan.svg'),
       scenario: 'GIFT',
       productTitle: '祖玛珑蓝风铃分装 30ml',
       messages: [

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300" role="img" aria-label="玛丽珍">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff7ed"/></linearGradient>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#ff8f5d" flood-opacity=".18"/></filter>
+  </defs>
+  <rect width="300" height="300" rx="42" fill="url(#g)"/>
+  <circle cx="244" cy="56" r="48" fill="#ff8f5d" opacity=".12"/>
+  <circle cx="58" cy="246" r="58" fill="#ffc08a" opacity=".14"/>
+  <path d="M 70 175 C 106 157 134 164 154 192 L 80 206 C 58 209 50 188 70 175 Z M 155 184 C 189 162 219 166 238 194 L 164 209 C 142 212 136 196 155 184 Z" fill="none" stroke="#ff8f5d" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" filter="url(#s)"/>
+  <text x="150" y="266" text-anchor="middle" font-family="PingFang SC, Arial" font-size="24" font-weight="800" fill="#7b5542">玛丽珍</text>
+</svg>
