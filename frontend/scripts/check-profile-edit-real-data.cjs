@@ -39,7 +39,7 @@ const requiredMarkers = [
   "showToast('资料暂不可用')",
   "showToast('已保存', 'success')",
   "showToast('保存失败')",
-  "showToast('头像已更新', 'success')"
+  "showToast('头像已上传，保存后生效', 'success')"
 ]
 
 for (const marker of requiredMarkers) {

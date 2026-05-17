@@ -63,7 +63,7 @@
     <view class="seller-verify-fab tapable" @click="goVideoVerify">
       <view class="seller-fab-icon">▶</view>
       <view class="seller-fab-copy">
-        <view class="seller-fab-title">申请卖家</view>
+        <view class="seller-fab-title">卖家认证</view>
         <view class="seller-fab-status">{{ sellerEntryStatusText }}</view>
       </view>
     </view>
@@ -180,11 +180,6 @@ onShow(() => {
 .wallet-card { margin-top:14rpx; padding:18rpx; display:flex; justify-content:space-between; align-items:center; border-color:#ffd9bd; }
 .wallet-label { color:#9b7560; font-size:21rpx; font-weight:800; }
 .wallet-value { margin-top:5rpx; color:#3a2a1f; font-size:34rpx; font-weight:950; }
-
-.seller-entry-card{margin-top:14rpx;padding:18rpx;border-color:#ffcfb1;background:linear-gradient(135deg,#fff6ee,#fff1e5);display:flex;align-items:center;justify-content:space-between;gap:12rpx;box-shadow:0 10rpx 24rpx rgba(255,122,69,.10)}
-.seller-entry-main{min-width:0;flex:1}
-.seller-entry-title{color:#3a2a1f;font-size:28rpx;font-weight:950}
-.seller-entry-action{flex-shrink:0;padding:10rpx 16rpx;border-radius:999rpx;background:#ff7a45;color:#fff;font-size:20rpx;font-weight:950}
 .order-status { margin-top:14rpx; padding:16rpx; border-color:#ffd9bd; }
 .section-head { display:flex; align-items:center; justify-content:space-between; }
 .section-title { color:#3a2a1f; font-size:28rpx; font-weight:950; }
