@@ -23,6 +23,14 @@ if (!tickerSource.includes('getRecentGiftFeed')) {
   failures.push(`${tickerFile}: global ticker must use the real recent gift feed`)
 }
 
+if (!tickerSource.includes("const ENABLE_MOCK_DATA = import.meta.env.VITE_ENABLE_MOCK_DATA === 'true'")) {
+  failures.push(`${tickerFile}: mock ticker demo must be gated by VITE_ENABLE_MOCK_DATA`)
+}
+
+if (!tickerSource.includes('(userStore.token || ENABLE_MOCK_DATA) ? getRecentGiftFeed()')) {
+  failures.push(`${tickerFile}: mock mode should show virtual gift ticker without requiring login while production remains token-gated`)
+}
+
 if (!httpSource.includes("url === '/api/announcements/ticker'")) {
   failures.push(`${httpFile}: mock mode must include announcement ticker data for demo testing`)
 }

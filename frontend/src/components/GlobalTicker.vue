@@ -37,6 +37,7 @@ type TickerItem = {
 
 const DEFAULT_ANNOUNCEMENT_ICON = '📣'
 const DEFAULT_ANNOUNCEMENT_TARGET_URL = '/pages/notification/index'
+const ENABLE_MOCK_DATA = import.meta.env.VITE_ENABLE_MOCK_DATA === 'true'
 const userStore = useUserStore()
 const items = ref<TickerItem[]>([])
 const currentIndex = ref(0)
@@ -125,7 +126,7 @@ async function loadTicker() {
         console.warn('announcement ticker unavailable', error)
         return null
       }),
-      userStore.token ? getRecentGiftFeed().catch((error) => {
+      (userStore.token || ENABLE_MOCK_DATA) ? getRecentGiftFeed().catch((error) => {
         console.warn('recent gift feed unavailable', error)
         return []
       }) : Promise.resolve([]),
