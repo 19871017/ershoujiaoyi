@@ -18,12 +18,17 @@ const requiredMarkers = [
   'const isUserInteracting = ref(false)',
   'const isTouchingProducts = ref(false)',
   'const lastManualScrollAt = ref(0)',
+  'const MANUAL_SCROLL_RESUME_DELAY = 6000',
+  '@mousedown="handleUserInteract"',
+  '@mouseup="handleUserInteractEnd"',
+  '@mouseleave="handleUserInteractEnd"',
+  '@wheel="handleUserInteract"',
   'function scheduleResumeRoll()',
   'function handleUserInteract()',
   'function handleUserInteractEnd()',
   'function handleProductScroll',
   'if (!shouldRollProducts.value || isUserInteracting.value || isTouchingProducts.value) return',
-  'Date.now() - lastManualScrollAt.value < 6000',
+  'Date.now() - lastManualScrollAt.value < MANUAL_SCROLL_RESUME_DELAY',
   'productScrollTop.value = nextTop >= distance ? 0 : nextTop',
   'onBeforeUnmount(() => {'
 ]

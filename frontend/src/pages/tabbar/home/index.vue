@@ -40,6 +40,10 @@
       @touchmove="handleUserInteract"
       @touchend="handleUserInteractEnd"
       @touchcancel="handleUserInteractEnd"
+      @mousedown="handleUserInteract"
+      @mouseup="handleUserInteractEnd"
+      @mouseleave="handleUserInteractEnd"
+      @wheel="handleUserInteract"
     >
       <view class="product-grid-track">
         <view v-for="(row, rowIndex) in rollingRows" :key="`row-${rowIndex}`" class="product-row">
@@ -140,6 +144,7 @@ const VISIBLE_ROWS = 3
 const MIN_SIMULATED_PRODUCTS = 20
 const CARD_HEIGHT_RPX = 328
 const ROW_GAP_RPX = 16
+const MANUAL_SCROLL_RESUME_DELAY = 6000
 const loading = ref(false)
 const errorMessage = ref('')
 const products = ref<ProductListItemResponse[]>([])
@@ -205,6 +210,7 @@ async function loadProducts() {
     products.value = []
   } finally {
     loading.value = false
+    startProductRoll()
   }
 }
 function showToast(title: string) { uni.showToast({ title, icon: 'none' }) }
@@ -237,12 +243,12 @@ function formatPublishTime(createdAt: string) {
 function scheduleResumeRoll() {
   if (resumeRollTimer) clearTimeout(resumeRollTimer)
   resumeRollTimer = setTimeout(() => {
-    if (isTouchingProducts.value || Date.now() - lastManualScrollAt.value < 6000) {
+    if (isTouchingProducts.value || Date.now() - lastManualScrollAt.value < MANUAL_SCROLL_RESUME_DELAY) {
       scheduleResumeRoll()
       return
     }
     isUserInteracting.value = false
-  }, 6000)
+  }, MANUAL_SCROLL_RESUME_DELAY)
 }
 function handleUserInteract() {
   if (!shouldRollProducts.value) return
@@ -265,9 +271,10 @@ function handleProductScroll(event: { detail?: { scrollTop?: number } }) {
 }
 function startProductRoll() {
   if (productRollTimer) clearInterval(productRollTimer)
+  if (!shouldRollProducts.value) return
   productRollTimer = setInterval(() => {
     if (!shouldRollProducts.value || isUserInteracting.value || isTouchingProducts.value) return
-    if (Date.now() - lastManualScrollAt.value < 6000) return
+    if (Date.now() - lastManualScrollAt.value < MANUAL_SCROLL_RESUME_DELAY) return
     const distance = productRollDistancePx.value
     if (distance <= 0) return
     const nextTop = productScrollTop.value + productRollStepPx.value
@@ -278,9 +285,8 @@ function startProductRoll() {
   }, 2600)
 }
 onMounted(() => {
-  loadBanners()
-  loadProducts()
-  startProductRoll()
+  void loadBanners()
+  void loadProducts()
 })
 onBeforeUnmount(() => {
   if (resumeRollTimer) clearTimeout(resumeRollTimer)
