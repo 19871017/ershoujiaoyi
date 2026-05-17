@@ -13,8 +13,11 @@
       <view class="video-status">{{ sellerEntryStatusText }}</view>
     </view>
 
-    <view class="profile-card ds-card">
-      <view class="avatar">{{ avatarText }}</view>
+    <view class="profile-card ds-card tapable" @click="goProfile">
+      <view class="avatar" :class="{ image: !!profile.avatarUrl }">
+        <image v-if="profile.avatarUrl" class="avatar-image" :src="profile.avatarUrl" mode="aspectFill" />
+        <text v-else>{{ avatarText }}</text>
+      </view>
       <view class="profile-main">
         <view class="nickname">{{ profile.nickname }}</view>
         <view class="id-line">{{ genderSymbol }} {{ profile.userNo || '小原圈号待生成' }}</view>
@@ -22,7 +25,7 @@
           <text class="mini-tag">{{ trustTagText }}</text>
         </view>
       </view>
-      <view class="setting tapable" @click="goProfile">✎</view>
+      <view class="setting">编辑</view>
     </view>
 
     <view class="wallet-card ds-card tapable" @click="goWallet">
@@ -67,6 +70,7 @@
 </template>
 
 <script setup lang="ts">
+import { onShow } from '@dcloudio/uni-app'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { getMyProfile, type UserProfileResponse } from '../../../api/modules/user'
 import { getWalletBalance, type WalletBalanceResponse } from '../../../api/modules/wallet'
@@ -112,7 +116,7 @@ const menus = [
   { icon: '🛡️', label: '举报与风控', url: '/pages/risk/index' },
   { icon: '⚙️', label: '设置', url: '/pages/system/settings/index' }
 ]
-const avatarText = computed(() => (profile.nickname || '原').slice(-1))
+const avatarText = computed(() => (profile.nickname || '原').slice(0, 1))
 const totalAvailable = computed(() => {
   const recharge = Number(balance.rechargeBalance)
   const income = Number(balance.incomeBalance)
@@ -154,8 +158,11 @@ function goPublishForm() {
 function openMenu(item: { label: string; url?: string }) { item.url ? uni.navigateTo({ url: item.url }) : showToast(`${item.label}已打开`) }
 
 onMounted(() => {
-  void loadProfile()
   void loadWalletBalance()
+})
+
+onShow(() => {
+  void loadProfile()
 })
 </script>
 
@@ -165,13 +172,15 @@ onMounted(() => {
 .video-verify-card{margin-bottom:14rpx;padding:16rpx;border-color:#ffb37c;background:linear-gradient(135deg,#fff2e4,#fffaf6);display:flex;align-items:center;justify-content:space-between;gap:12rpx;box-shadow:0 10rpx 24rpx rgba(255,122,69,.12)}
 .video-left{display:flex;align-items:center;gap:12rpx;min-width:0}.video-icon{width:58rpx;height:58rpx;border-radius:50%;background:linear-gradient(135deg,#ff7a45,#ff3f8d);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22rpx;font-weight:950}.video-title{color:#3a2a1f;font-size:27rpx;font-weight:950}.video-status{flex-shrink:0;padding:8rpx 13rpx;border-radius:999rpx;background:#fff;color:#ff3f8d;font-size:19rpx;font-weight:950}
 .profile-card { padding:20rpx; display:flex; align-items:center; border-color:#ffd9bd; background:linear-gradient(135deg,#fff,#fff3e7); }
-.avatar { width:76rpx; height:76rpx; margin-right:16rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:34rpx; font-weight:950; box-shadow:0 8rpx 20rpx rgba(255,122,69,.18); }
+.avatar { width:76rpx; height:76rpx; margin-right:16rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:34rpx; font-weight:950; box-shadow:0 8rpx 20rpx rgba(255,122,69,.18); overflow:hidden; }
+.avatar.image { background:#fff; }
+.avatar-image { width:100%; height:100%; display:block; }
 .profile-main { flex:1; min-width:0; }
 .nickname { font-size:30rpx; font-weight:950; color:#3a2a1f; }
 .id-line { margin-top:6rpx; color:#b9856a; font-size:20rpx; font-weight:800; }
 .tag-row { margin-top:9rpx; display:flex; gap:8rpx; flex-wrap:wrap; }
 .mini-tag { padding:6rpx 10rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:18rpx; font-weight:900; }
-.setting { width:50rpx; height:50rpx; border-radius:50%; background:#fff; color:#9b7560; display:flex; align-items:center; justify-content:center; }
+.setting { flex-shrink:0; padding:8rpx 14rpx; border-radius:999rpx; background:#fff; color:#9b7560; font-size:20rpx; font-weight:950; }
 .wallet-card { margin-top:14rpx; padding:18rpx; display:flex; justify-content:space-between; align-items:center; border-color:#ffd9bd; }
 .wallet-label { color:#9b7560; font-size:21rpx; font-weight:800; }
 .wallet-value { margin-top:5rpx; color:#3a2a1f; font-size:34rpx; font-weight:950; }
