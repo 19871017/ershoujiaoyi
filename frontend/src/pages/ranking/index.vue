@@ -64,7 +64,12 @@
       </view>
     </view>
 
-    <view v-if="loadError" class="empty ds-card">
+    <view v-if="loading" class="empty ds-card">
+      <view class="empty-icon">📊</view>
+      <view class="section-title">榜单加载中...</view>
+    </view>
+
+    <view v-else-if="loadError" class="empty ds-card">
       <view class="empty-icon">📊</view>
       <view class="section-title">榜单暂时不可用</view>
       <view class="section-desc">{{ loadError }}</view>
@@ -122,6 +127,7 @@ interface RankingUser {
 
 const activeGender = ref<Gender>('goddess')
 const activePeriod = ref<Period>('week')
+const loading = ref(false)
 const loadError = ref('')
 const rankings = ref<RankingUser[]>([])
 const followingIds = ref<Set<number>>(new Set())
@@ -148,7 +154,7 @@ const stats = computed(() => [
   { value: currentPeriodLabel.value, label: '当前榜单' }
 ])
 const totalGiftScore = computed(() => filteredRankings.value.reduce((sum, item) => sum + item.giftScore, 0))
-const filteredRankings = computed(() => rankings.value
+const filteredRankings = computed(() => [...rankings.value]
   .sort((a, b) => b.giftScore - a.giftScore || a.id - b.id)
   .slice(0, 100)
   .map((item, index) => ({ ...item, rank: index + 1 })))
@@ -214,16 +220,20 @@ function openProfile(item: RankingUser) {
 }
 
 async function loadRankings() {
+  loading.value = true
+  loadError.value = ''
   try {
-    loadError.value = ''
     const rows = await listUserRankings(activeGender.value, activePeriod.value, 100)
-    rankings.value = rows.map(toRankingUser)
-    if (rankings.value.length === 0) {
+    const users = rows.map(toRankingUser)
+    rankings.value = users
+    if (users.length === 0) {
       loadError.value = isGoddess.value ? '当前榜单还没有女神收礼数据' : '当前榜单还没有男神消费数据'
     }
   } catch {
     rankings.value = []
     loadError.value = '榜单加载失败，请稍后重试'
+  } finally {
+    loading.value = false
   }
 }
 
