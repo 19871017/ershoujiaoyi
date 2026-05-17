@@ -1,5 +1,6 @@
 <template>
   <view class="page-shell seller-page">
+    <GlobalTicker />
     <view class="goddess-top ds-card">
       <view class="goddess-bg" />
       <view class="goddess-head">
@@ -88,6 +89,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { listUserRankings, type UserRankingResponse } from '../../../api/modules/ranking'
 import { getMyProfile } from '../../../api/modules/user'
+import GlobalTicker from '../../../components/GlobalTicker.vue'
 
 interface MerchantShowUser {
   id: number
