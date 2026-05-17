@@ -40,6 +40,13 @@ for (const route of actualIndexPaths) {
 const tabLabels = pagesConfig.tabBar.list.map((item) => item.text).join('/')
 if (tabLabels !== '首页/宝贝/商家秀/社区/我的') fail(`unexpected tab labels: ${tabLabels}`)
 
+const merchantTabPath = 'pages/tabbar/publish/index'
+const merchantTabIcon = 'static/tabbar/merchant-showcase.svg'
+const merchantTabSelectedIcon = 'static/tabbar/merchant-showcase-active.svg'
+const merchantTab = pagesConfig.tabBar.list.find((item) => item.pagePath === merchantTabPath)
+if (merchantTab?.iconPath !== merchantTabIcon) fail('merchant showcase tab missing default icon')
+if (merchantTab?.selectedIconPath !== merchantTabSelectedIcon) fail('merchant showcase tab missing selected icon')
+
 const tabPaths = new Set(pagesConfig.tabBar.list.map((item) => item.pagePath))
 for (const page of pagesConfig.pages) {
   if (tabPaths.has(page.path) && page.style?.navigationBarTitleText !== '') {

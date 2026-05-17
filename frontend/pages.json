@@ -287,7 +287,9 @@
       },
       {
         "pagePath": "pages/tabbar/publish/index",
-        "text": "商家秀"
+        "text": "商家秀",
+        "iconPath": "static/tabbar/merchant-showcase.svg",
+        "selectedIconPath": "static/tabbar/merchant-showcase-active.svg"
       },
       {
         "pagePath": "pages/tabbar/message/index",
