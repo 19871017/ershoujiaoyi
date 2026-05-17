@@ -115,8 +115,8 @@ const decoratedBanners = computed(() => banners.value.map((item) => ({
   imageUrl: homeBannerArtwork[item.action] || item.imageUrl
 })))
 const rankingArtwork = {
-  goddess: '/assets/ranking/ranking-goddess-card.png',
-  god: '/assets/ranking/ranking-god-card.png'
+  goddess: '/assets/ranking/ranking-goddess-card.svg',
+  god: '/assets/ranking/ranking-god-card.svg'
 }
 const rankingCards: RankingCard[] = [
   {
