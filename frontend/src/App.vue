@@ -235,7 +235,13 @@ uni-tabbar .uni-tabbar__label::before {
 
 uni-tabbar .uni-tabbar__item:nth-of-type(2) .uni-tabbar__label::before { content: '🏠'; }
 uni-tabbar .uni-tabbar__item:nth-of-type(3) .uni-tabbar__label::before { content: '🎀'; }
-uni-tabbar .uni-tabbar__item:nth-of-type(4) .uni-tabbar__label::before { content: '👑'; background: linear-gradient(135deg,#ff7a45,#ff3f8d 52%,#ffc08a); color: #fff; box-shadow: 0 8rpx 18rpx rgba(255,63,141,.24); }
+uni-tabbar .uni-tabbar__item:nth-of-type(4) .uni-tabbar__label::before {
+  content: '👑';
+  background: radial-gradient(circle at 35% 28%, #fff6c7 0, #ffd36b 28%, #ff7a45 56%, #ff3f8d 100%);
+  color: #fff;
+  box-shadow: 0 0 0 3rpx rgba(255,255,255,.88), 0 10rpx 22rpx rgba(255,63,141,.30);
+  transform: translateY(-1rpx);
+}
 uni-tabbar .uni-tabbar__item:nth-of-type(5) .uni-tabbar__label::before { content: '💬'; }
 uni-tabbar .uni-tabbar__item:nth-of-type(6) .uni-tabbar__label::before { content: '👤'; }
 
