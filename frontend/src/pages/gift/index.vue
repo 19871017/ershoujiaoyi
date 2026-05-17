@@ -20,10 +20,11 @@
     <view v-if="sendMode" class="section-card ds-card">
       <view class="section-head">
         <view class="section-title">{{ receiverLabel }}</view>
-        <view class="settle-chip">¥{{ rechargeBalanceText }}</view>
+        <view class="settle-chip">{{ rechargeBalanceText }}</view>
       </view>
-      <view v-if="catalogMessage" class="empty-row">{{ catalogMessage }}</view>
-      <view class="gift-grid">
+      <view v-if="loadingCatalog" class="empty-row">礼物加载中...</view>
+      <view v-else-if="catalogMessage" class="empty-row">{{ catalogMessage }}</view>
+      <view v-else class="gift-grid">
         <view
           v-for="item in catalogList"
           :key="item.giftCode"
@@ -45,7 +46,7 @@
         <button class="mini-btn" @click="changeQuantity(1)">+</button>
       </view>
       <view class="cost-line">预计扣款：¥{{ estimatedTotal }}</view>
-      <button class="primary-btn" :disabled="sending" @click="submitGift">{{ sending ? '提交中...' : '送出礼物' }}</button>
+      <button class="primary-btn" :disabled="sending || loadingCatalog || !selectedGift" @click="submitGift">{{ sending ? '提交中...' : '送出礼物' }}</button>
       <view v-if="sendMessage" class="status-text">{{ sendMessage }}</view>
       <view v-if="giftEffect" class="gift-success-effect">
         <view class="effect-burst one" />
@@ -62,9 +63,10 @@
     <view class="section-card ds-card">
       <view class="section-head">
         <view class="section-title">礼物流水</view>
-        <view class="settle-chip">累计入账 ¥{{ totalIncome }}</view>
+        <view class="settle-chip">累计入账 {{ totalIncomeText }}</view>
       </view>
-      <view v-if="receivedMessage" class="empty-row">{{ receivedMessage }}</view>
+      <view v-if="loadingReceived" class="empty-row">礼物流水加载中...</view>
+      <view v-else-if="receivedMessage" class="empty-row">{{ receivedMessage }}</view>
       <view v-for="item in giftList" :key="item.giftOrderNo" class="gift-row">
         <view class="gift-orb gift-orb-mini">
           <view class="gift-shine" />
@@ -113,19 +115,23 @@ const rechargeBalance = ref<WalletMoneyAmount>('--')
 const catalogMessage = ref('')
 const receivedMessage = ref('')
 const sendMessage = ref('')
+const loadingCatalog = ref(false)
+const loadingReceived = ref(false)
+const loadingBalance = ref(false)
 const sending = ref(false)
 type GiftEffect = { icon: string; name: string; quantity: number; orderNo: string }
 const giftEffect = ref<GiftEffect | null>(null)
 let giftEffectTimer: ReturnType<typeof setTimeout> | null = null
 const sendMode = computed(() => Boolean(receiverId.value))
 const receiverLabel = computed(() => receiverName.value || (receiverId.value ? `用户 ${receiverId.value}` : '未指定'))
-const rechargeBalanceText = computed(() => money(rechargeBalance.value))
+const rechargeBalanceText = computed(() => loadingBalance.value ? '余额加载中' : `¥${money(rechargeBalance.value)}`)
 const totalIncome = computed(() => giftList.value.reduce((sum, item) => sum + Number(item.receiverAmount || 0), 0).toFixed(2))
+const totalIncomeText = computed(() => loadingReceived.value ? '--' : `¥${totalIncome.value}`)
 const estimatedTotal = computed(() => selectedGift.value ? (Number(selectedGift.value.price) * quantity.value).toFixed(2) : '0.00')
 const summary = computed(() => [
-  { label: '累计入账', value: `¥${totalIncome.value}` },
-  { label: '收礼记录', value: `${giftList.value.length}` },
-  { label: '可选礼物', value: `${catalogList.value.length}` }
+  { label: '累计入账', value: totalIncomeText.value },
+  { label: '收礼记录', value: loadingReceived.value ? '--' : `${giftList.value.length}` },
+  { label: '可选礼物', value: loadingCatalog.value ? '--' : `${catalogList.value.length}` }
 ])
 
 function readQuery() {
@@ -143,6 +149,8 @@ function readQuery() {
 }
 
 async function loadCatalog() {
+  loadingCatalog.value = true
+  catalogMessage.value = ''
   try {
     catalogList.value = await getGiftCatalog()
     selectedGift.value = catalogList.value[0] || null
@@ -151,26 +159,35 @@ async function loadCatalog() {
     catalogList.value = []
     selectedGift.value = null
     catalogMessage.value = '礼物暂不可用'
+  } finally {
+    loadingCatalog.value = false
   }
 }
 
 async function loadReceived() {
+  loadingReceived.value = true
+  receivedMessage.value = ''
   try {
     giftList.value = await getReceivedGifts()
     receivedMessage.value = giftList.value.length ? '' : '暂无记录'
   } catch {
     giftList.value = []
     receivedMessage.value = '礼物暂不可用'
+  } finally {
+    loadingReceived.value = false
   }
 }
 
 async function loadBalance() {
   if (!sendMode.value) return
+  loadingBalance.value = true
   try {
     const balance = await getWalletBalance()
     rechargeBalance.value = balance.rechargeBalance
   } catch {
     rechargeBalance.value = '--'
+  } finally {
+    loadingBalance.value = false
   }
 }
 
