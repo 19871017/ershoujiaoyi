@@ -20,11 +20,11 @@ for (const marker of forbiddenMarkers) {
 const requiredMarkers = [
   "import { computed, onMounted, reactive, ref } from 'vue'",
   "import { getMyProfile, updateMyProfile } from '../../../api/modules/user'",
-  "const profile = reactive({ userId: 0, nickname: '', mainRole: 'UNVERIFIED', city: '', bio: '' })",
+  "const profile = reactive({ userId: 0, nickname: '', mainRole: 'UNVERIFIED', gender: 'god', city: '', bio: '' })",
   "async function loadProfile()",
   'const selected = ref(\'\')',
   'function selectCity(city: string)',
-  'updateMyProfile({ nickname: profile.nickname, mainRole: profile.mainRole, city: selected.value, bio: profile.bio })',
+  'updateMyProfile({ nickname: profile.nickname, mainRole: profile.mainRole, gender: profile.gender, city: selected.value, bio: profile.bio })',
   '城市偏好已保存至服务端资料',
   '城市偏好保存失败，未修改服务端资料',
   '资料接口加载失败，未展示本地城市偏好样例'

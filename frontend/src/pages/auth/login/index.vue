@@ -115,7 +115,8 @@ async function handleSubmit() {
     const openTarget = resolveLoginTarget()
     setTimeout(() => openTarget(), 300)
   } catch (error) {
-    message.value = mode.value === 'login' ? '登录请求未完成，请检查账号密码或稍后重试' : resolveRegisterError(error)
+    const detail = error instanceof Error && error.message ? `：${error.message}` : ''
+    message.value = mode.value === 'login' ? `登录请求未完成，请检查账号密码或稍后重试${detail}` : resolveRegisterError(error)
     isError.value = true
   } finally { loading.value = false }
 }
