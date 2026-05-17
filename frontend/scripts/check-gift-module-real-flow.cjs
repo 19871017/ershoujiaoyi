@@ -36,6 +36,10 @@ const requiredGiftPage = [
   '送礼失败，请稍后重试',
   '请选择礼物接收人',
   '送出礼物',
+  'giftTone(item.giftCode)',
+  'gift-orb',
+  'gift-shine',
+  'effect-burst'
 ]
 for (const marker of requiredGiftPage) {
   if (!giftPage.includes(marker)) failures.push(`gift page missing real-flow marker: ${marker}`)
