@@ -3,20 +3,26 @@ package com.secondhand.platform.modules.user.application;
 import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
 import com.secondhand.platform.modules.user.AccountSecurityResponse;
 import com.secondhand.platform.modules.user.AdminUserDetailResponse;
+import com.secondhand.platform.modules.user.UpdateUserNoRequest;
 import com.secondhand.platform.modules.user.UpdateUserProfileRequest;
 import com.secondhand.platform.modules.user.UserProfileResponse;
 import com.secondhand.platform.modules.user.UserRankingResponse;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserApplicationService {
     private static final Set<String> ALLOWED_ROLES = Set.of("BUYER", "SELLER", "BOTH");
     private static final Set<String> ALLOWED_GENDERS = Set.of("god", "goddess");
+    private static final Set<String> ADMIN_SEARCH_RESERVED_WORDS = Set.of("preview", "demo", "mock", "sample", "placeholder");
+    private static final Set<String> USER_NO_RESERVED_WORDS = Set.of("preview", "demo", "mock", "sample", "placeholder", "admin", "system", "official", "root");
+    private static final Pattern USER_NO_PATTERN = Pattern.compile("[A-Za-z][A-Za-z0-9_]{4,19}");
 
     private final JdbcTemplate jdbcTemplate;
     private final MediaUploadTicketService mediaUploadTicketService;
@@ -92,6 +98,38 @@ public class UserApplicationService {
             throw new IllegalArgumentException("user not found");
         }
         return rows.get(0);
+    }
+
+    @Transactional
+    public synchronized UserProfileResponse updateUserNo(Long userId, UpdateUserNoRequest request) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("userId required");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("userNo request required");
+        }
+        ensureActiveUser(userId);
+        String nextUserNo = normalizeUserNo(request.getUserNo());
+        String currentUserNo = currentUserNo(userId);
+        if (currentUserNo.equals(nextUserNo)) {
+            return currentUserProfile(userId);
+        }
+        ensureUserNoChangeAvailable(userId);
+        ensureUserNoAvailable(userId, nextUserNo);
+        try {
+            jdbcTemplate.update("""
+                    UPDATE user_account
+                    SET user_no = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND status = 'ACTIVE'
+                    """, nextUserNo, userId);
+            jdbcTemplate.update("""
+                    INSERT INTO user_no_change_log (user_id, old_user_no, new_user_no, created_at)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                    """, userId, currentUserNo, nextUserNo);
+        } catch (DuplicateKeyException ex) {
+            throw new IllegalArgumentException("userNo unavailable", ex);
+        }
+        return currentUserProfile(userId);
     }
 
     public UserProfileResponse followProfile(Long followerId, Long followedId) {
@@ -324,10 +362,61 @@ public class UserApplicationService {
             throw new IllegalArgumentException("keyword invalid");
         }
         String lower = normalized.toLowerCase(Locale.ROOT);
-        if (lower.contains("preview") || lower.contains("demo") || lower.contains("mock") || lower.contains("sample") || lower.contains("placeholder")) {
+        if (containsAnyReservedWord(lower, ADMIN_SEARCH_RESERVED_WORDS)) {
             throw new IllegalArgumentException("keyword invalid");
         }
         return normalized;
+    }
+
+    private String normalizeUserNo(String value) {
+        String normalized = value == null ? "" : value.trim();
+        if (!USER_NO_PATTERN.matcher(normalized).matches()) {
+            throw new IllegalArgumentException("userNo invalid");
+        }
+        if (containsAnyReservedWord(normalized.toLowerCase(Locale.ROOT), USER_NO_RESERVED_WORDS)) {
+            throw new IllegalArgumentException("userNo invalid");
+        }
+        return normalized;
+    }
+
+    private boolean containsAnyReservedWord(String lower, Set<String> reservedWords) {
+        for (String reservedWord : reservedWords) {
+            if (lower.contains(reservedWord)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String currentUserNo(Long userId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT user_no FROM user_account WHERE id = ? AND status = 'ACTIVE'",
+                String.class,
+                userId
+        );
+    }
+
+    private void ensureUserNoChangeAvailable(Long userId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_no_change_log WHERE user_id = ?",
+                Integer.class,
+                userId
+        );
+        if (count != null && count > 0) {
+            throw new IllegalArgumentException("userNo change already used");
+        }
+    }
+
+    private void ensureUserNoAvailable(Long userId, String userNo) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_account WHERE LOWER(user_no) = LOWER(?) AND id <> ?",
+                Integer.class,
+                userNo,
+                userId
+        );
+        if (count != null && count > 0) {
+            throw new IllegalArgumentException("userNo unavailable");
+        }
     }
 
     private void validateFollowActors(Long followerId, Long followedId) {

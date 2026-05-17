@@ -42,6 +42,10 @@ export interface UpdateUserProfileRequest {
   bio?: string
 }
 
+export interface UpdateUserNoRequest {
+  userNo: string
+}
+
 export function getMyProfile() {
   return get<UserProfileResponse>('/api/user/me')
 }
@@ -52,6 +56,10 @@ export function getAccountSecurity() {
 
 export function updateMyProfile(data: UpdateUserProfileRequest) {
   return post<UserProfileResponse>('/api/user/me/profile', data)
+}
+
+export function updateMyUserNo(data: UpdateUserNoRequest) {
+  return post<UserProfileResponse>('/api/user/me/user-no', data)
 }
 
 export function getPublicProfile(userId: number | string) {

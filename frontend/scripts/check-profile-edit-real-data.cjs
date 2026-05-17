@@ -33,7 +33,9 @@ const requiredMarkers = [
   "scene: 'COMMUNITY_IMAGE'",
   'uploadMediaTicketFile(ticket, path)',
   "function showToast(title: string, icon: 'success' | 'none' = 'none')",
-  "showToast('暂不可改号')",
+  'updateMyUserNo({ userNo: userNoDraft.value })',
+  "showToast('小原圈号已更新', 'success')",
+  "showToast('改号失败，请检查是否已改过或被占用')",
   "showToast('资料暂不可用')",
   "showToast('已保存', 'success')",
   "showToast('保存失败')",
@@ -47,6 +49,8 @@ for (const marker of requiredMarkers) {
 const apiRequiredMarkers = [
   'export function updateMyProfile',
   "post<UserProfileResponse>('/api/user/me/profile'",
+  'export function updateMyUserNo',
+  "post<UserProfileResponse>('/api/user/me/user-no'",
   'city?: string',
   'bio?: string'
 ]

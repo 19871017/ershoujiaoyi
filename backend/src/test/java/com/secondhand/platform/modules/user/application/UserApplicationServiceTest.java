@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.secondhand.platform.modules.auth.LoginRequest;
 import com.secondhand.platform.modules.auth.application.AuthApplicationService;
 import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
+import com.secondhand.platform.modules.user.UpdateUserNoRequest;
 import com.secondhand.platform.modules.user.UserProfileResponse;
+import java.util.Locale;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -108,6 +110,52 @@ class UserApplicationServiceTest {
         UserProfileResponse profile = service.currentUserProfile(userId);
         assertEquals("小原圈用户8078", profile.getNickname());
         assertEquals("BUYER", profile.getMainRole());
+    }
+
+    @Test
+    void updateUserNoShouldPersistOnceAndRecordChangeLog() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.register(login("13800138079", "pass-123456"), "test-13800138079");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138079");
+        String originalUserNo = jdbcTemplate.queryForObject("SELECT user_no FROM user_account WHERE id = ?", String.class, userId);
+        UpdateUserNoRequest request = new UpdateUserNoRequest();
+        request.setUserNo("Circle_8079");
+
+        UserProfileResponse updated = service.updateUserNo(userId, request);
+
+        assertEquals("Circle_8079", updated.getUserNo());
+        assertEquals("Circle_8079", jdbcTemplate.queryForObject("SELECT user_no FROM user_account WHERE id = ?", String.class, userId));
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_no_change_log WHERE user_id = ?", Integer.class, userId));
+        assertEquals(originalUserNo, jdbcTemplate.queryForObject("SELECT old_user_no FROM user_no_change_log WHERE user_id = ?", String.class, userId));
+        assertThrows(IllegalArgumentException.class, () -> service.updateUserNo(userId, userNoRequest("Circle_Second")));
+    }
+
+    @Test
+    void updateUserNoShouldRejectInvalidReservedAndDuplicateValues() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.register(login("13800138080", "pass-123456"), "test-13800138080");
+        auth.register(login("13800138081", "pass-123456"), "test-13800138081");
+        Long firstUserId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138080");
+        Long secondUserId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138081");
+        String firstOriginalUserNo = jdbcTemplate.queryForObject("SELECT user_no FROM user_account WHERE id = ?", String.class, firstUserId);
+        String secondUserNo = jdbcTemplate.queryForObject("SELECT user_no FROM user_account WHERE id = ?", String.class, secondUserId);
+
+        assertThrows(IllegalArgumentException.class, () -> service.updateUserNo(firstUserId, userNoRequest("1bad_name")));
+        assertThrows(IllegalArgumentException.class, () -> service.updateUserNo(firstUserId, userNoRequest("demo_user")));
+        assertThrows(IllegalArgumentException.class, () -> service.updateUserNo(firstUserId, userNoRequest(secondUserNo.toLowerCase(Locale.ROOT))));
+
+        assertEquals(firstOriginalUserNo, jdbcTemplate.queryForObject("SELECT user_no FROM user_account WHERE id = ?", String.class, firstUserId));
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_no_change_log WHERE user_id = ?", Integer.class, firstUserId));
+    }
+
+    @Test
+    void updateUserNoShouldRejectInactiveUsers() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.register(login("13800138082", "pass-123456"), "test-13800138082");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138082");
+        jdbcTemplate.update("UPDATE user_account SET status = ? WHERE id = ?", "DISABLED", userId);
+
+        assertThrows(IllegalArgumentException.class, () -> service.updateUserNo(userId, userNoRequest("Circle_8082")));
     }
 
     @Test
@@ -319,6 +367,12 @@ class UserApplicationServiceTest {
         request.setMobile(mobile);
         request.setPassword(password);
         request.setGender("goddess");
+        return request;
+    }
+
+    private UpdateUserNoRequest userNoRequest(String userNo) {
+        UpdateUserNoRequest request = new UpdateUserNoRequest();
+        request.setUserNo(userNo);
         return request;
     }
 }

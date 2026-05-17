@@ -29,7 +29,7 @@
         <view class="field-label">小原圈号</view>
         <view class="id-row">
           <input :value="form.userNo || ''" class="field disabled id-field" disabled placeholder="小原圈号由系统生成" />
-          <button class="id-btn" @click="showIdRule">改号</button>
+          <button class="id-btn" :disabled="changingUserNo" @click="openUserNoChange">改号</button>
         </view>
       </view>
       <view class="form-field">
@@ -50,13 +50,25 @@
       </view>
       <button class="primary-btn" :disabled="saving || uploadingAvatar" @click="saveProfile">{{ saving ? '保存中...' : '保存资料' }}</button>
     </view>
+
+    <view v-if="userNoDialogVisible" class="dialog-mask">
+      <view class="dialog-card ds-card">
+        <view class="dialog-title">修改小原圈号</view>
+        <view class="dialog-desc">仅支持修改一次；5-20 位，需以字母开头，可包含字母、数字和下划线。</view>
+        <input :value="userNoDraft" class="field" maxlength="20" placeholder="例如 Circle_2026" confirm-type="done" @input="updateUserNoDraft" @blur="trimUserNoDraft" />
+        <view class="dialog-actions">
+          <button class="dialog-btn secondary" :disabled="changingUserNo" @click="closeUserNoChange">取消</button>
+          <button class="dialog-btn primary" :disabled="changingUserNo" @click="saveUserNo">{{ changingUserNo ? '提交中...' : '确认改号' }}</button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createMediaUploadTicket, uploadMediaTicketFile } from '../../../api/modules/media'
-import { getMyProfile, updateMyProfile } from '../../../api/modules/user'
+import { getMyProfile, updateMyProfile, updateMyUserNo, type UserProfileResponse } from '../../../api/modules/user'
 
 const genders = [{ label: '♀ 女', value: 'goddess' }, { label: '♂ 男', value: 'god' }]
 type TextFieldKey = 'nickname' | 'city' | 'bio'
@@ -65,6 +77,9 @@ const form = reactive({ userId: 0, userNo: '', avatarUrl: '', nickname: '', gend
 const saving = ref(false)
 const uploadingAvatar = ref(false)
 const avatarChanged = ref(false)
+const changingUserNo = ref(false)
+const userNoDialogVisible = ref(false)
+const userNoDraft = ref('')
 const avatarText = computed(() => (form.nickname || '原').slice(0, 1))
 const displayNickname = computed(() => form.nickname || '小原圈用户')
 const genderSymbol = computed(() => form.gender === 'god' ? '♂' : '♀')
@@ -73,8 +88,18 @@ function showToast(title: string, icon: 'success' | 'none' = 'none') {
   uni.showToast({ title, icon })
 }
 
-function showIdRule() {
-  showToast('暂不可改号')
+function applyProfile(profile: UserProfileResponse) {
+  Object.assign(form, {
+    userId: profile.userId,
+    userNo: profile.userNo || '',
+    avatarUrl: profile.avatarUrl || '',
+    nickname: profile.nickname || '',
+    gender: profile.gender || 'goddess',
+    mainRole: profile.videoVerified ? (profile.mainRole || 'BUYER') : 'BUYER',
+    city: profile.city || '',
+    bio: profile.bio || '',
+    videoVerified: profile.videoVerified
+  })
 }
 
 function inputValue(event: unknown) {
@@ -89,6 +114,50 @@ function updateTextField(field: TextFieldKey, event: unknown) {
 
 function trimTextField(field: TextFieldKey) {
   form[field] = form[field].trim()
+}
+
+function openUserNoChange() {
+  userNoDraft.value = form.userNo || ''
+  userNoDialogVisible.value = true
+}
+
+function closeUserNoChange() {
+  if (changingUserNo.value) return
+  userNoDialogVisible.value = false
+}
+
+function updateUserNoDraft(event: unknown) {
+  userNoDraft.value = inputValue(event)
+}
+
+function trimUserNoDraft() {
+  userNoDraft.value = userNoDraft.value.trim()
+}
+
+async function saveUserNo() {
+  if (changingUserNo.value) return
+  trimUserNoDraft()
+  if (!/^[A-Za-z][A-Za-z0-9_]{4,19}$/.test(userNoDraft.value)) {
+    showToast('小原圈号格式不正确')
+    return
+  }
+  if (userNoDraft.value === form.userNo) {
+    userNoDialogVisible.value = false
+    return
+  }
+  changingUserNo.value = true
+  try {
+    const profile = await updateMyUserNo({ userNo: userNoDraft.value })
+    applyProfile(profile)
+    avatarChanged.value = false
+    userNoDialogVisible.value = false
+    showToast('小原圈号已更新', 'success')
+  } catch (error) {
+    console.warn('userNo change failed', error)
+    showToast('改号失败，请检查是否已改过或被占用')
+  } finally {
+    changingUserNo.value = false
+  }
 }
 
 function fileNameFromPath(path: string) {
@@ -157,17 +226,7 @@ async function saveProfile() {
       city: form.city,
       bio: form.bio
     })
-    Object.assign(form, {
-      userId: profile.userId,
-      userNo: profile.userNo || '',
-      avatarUrl: profile.avatarUrl || '',
-      nickname: profile.nickname || '',
-      gender: profile.gender || 'goddess',
-      mainRole: profile.mainRole || 'BUYER',
-      city: profile.city || '',
-      bio: profile.bio || '',
-      videoVerified: profile.videoVerified
-    })
+    applyProfile(profile)
     avatarChanged.value = false
     showToast('已保存', 'success')
   } catch {
@@ -180,17 +239,7 @@ async function saveProfile() {
 async function loadProfile() {
   try {
     const profile = await getMyProfile()
-    Object.assign(form, {
-      userId: profile.userId,
-      userNo: profile.userNo || '',
-      avatarUrl: profile.avatarUrl || '',
-      nickname: profile.nickname || '',
-      gender: profile.gender || 'goddess',
-      mainRole: profile.videoVerified ? (profile.mainRole || 'BUYER') : 'BUYER',
-      city: profile.city || '',
-      bio: profile.bio || '',
-      videoVerified: profile.videoVerified
-    })
+    applyProfile(profile)
     avatarChanged.value = false
   } catch {
     showToast('资料暂不可用')
@@ -223,6 +272,14 @@ onMounted(loadProfile)
 .id-row { display:flex; gap:12rpx; align-items:center; }
 .id-field { flex:1; }
 .id-btn { margin-top:8rpx; width:132rpx; height:76rpx; line-height:76rpx; border-radius:20rpx; background:#fff3e7; color:#ff7a45; font-size:24rpx; font-weight:900; }
+.dialog-mask { position:fixed; inset:0; z-index:1000; padding:32rpx; display:flex; align-items:center; justify-content:center; background:rgba(58,42,31,.42); }
+.dialog-card { width:100%; padding:28rpx; border-color:#ffd9bd; background:#fffdfa; }
+.dialog-title { color:#3a2a1f; font-size:30rpx; font-weight:950; }
+.dialog-desc { margin-top:10rpx; color:#9b7560; font-size:22rpx; line-height:1.5; }
+.dialog-actions { margin-top:22rpx; display:flex; gap:14rpx; }
+.dialog-btn { flex:1; height:76rpx; line-height:76rpx; border-radius:999rpx; font-size:24rpx; font-weight:950; }
+.dialog-btn.secondary { background:#fff3e7; color:#9b7560; }
+.dialog-btn.primary { background:#ff7a45; color:#fff; }
 .gender-row { margin-top:10rpx; display:flex; gap:12rpx; flex-wrap:wrap; }
 .gender-chip { flex:1; padding:12rpx 18rpx; border-radius:999rpx; border:1rpx solid #ffd9bd; background:#fff; color:#9b7560; font-size:22rpx; font-weight:900; text-align:center; }
 .gender-chip.active { background:#ff7a45; color:#fff; border-color:#ff7a45; }
