@@ -143,13 +143,17 @@ const sortOptions: Array<{ label: string; value: SortBy }> = [
 
 const currentGroup = computed(() => groups.find((item) => item.name === active.value) ?? defaultGroup)
 const activeItems = computed(() => currentGroup.value.items)
+const categoryKeywords = computed(() => {
+  if (subCategory.value) return [subCategory.value]
+  return activeItems.value.map((item) => item.name)
+})
 const filteredProducts = computed(() => {
   const kw = keyword.value.toLowerCase()
-  const categoryWords = [active.value, subCategory.value].filter(Boolean).join('')
+  const keywords = categoryKeywords.value.map((item) => item.toLowerCase())
   const list = products.value.filter((item) => {
-    const text = `${item.title}${item.productNo}${item.status}${item.auditState}`.toLowerCase()
+    const text = productSearchText(item)
     const matchKeyword = !kw || text.includes(kw)
-    const matchCategory = !categoryWords || text.includes(categoryWords.toLowerCase())
+    const matchCategory = keywords.length === 0 || keywords.some((item) => text.includes(item))
     return matchKeyword && matchCategory
   })
   return [...list].sort((a, b) => {
@@ -158,8 +162,13 @@ const filteredProducts = computed(() => {
   })
 })
 
+function productSearchText(item: ProductListItemResponse): string {
+  return `${item.title}${item.productNo}${item.status}${item.auditState}`.toLowerCase()
+}
+
 function subCategoryCount(name: string) {
-  return products.value.filter((item) => `${item.title}${item.productNo}${item.status}${item.auditState}`.toLowerCase().includes(name.toLowerCase())).length
+  const category = name.toLowerCase()
+  return products.value.filter((item) => productSearchText(item).includes(category)).length
 }
 
 function selectGroup(name: string) {

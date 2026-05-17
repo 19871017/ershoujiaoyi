@@ -44,6 +44,9 @@ const requiredMarkers = [
   "const products = ref<ProductListItemResponse[]>([])",
   "products.value = remote",
   "products.value = []",
+  "const categoryKeywords = computed(() => {",
+  "return activeItems.value.map((item) => item.name)",
+  "keywords.some((item) => text.includes(item))",
   "商品接口暂时不可用，未展示本地分类宝贝样例",
   "暂未加载到后端分类宝贝",
   "onMounted(loadProducts)"
