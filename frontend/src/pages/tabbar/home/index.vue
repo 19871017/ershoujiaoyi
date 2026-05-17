@@ -44,6 +44,7 @@
       @touchstart="handleUserInteract"
       @touchmove="handleUserInteract"
       @touchend="handleUserInteractEnd"
+      @touchcancel="handleUserInteractEnd"
     >
       <view class="product-grid-track">
         <view v-for="(row, rowIndex) in rollingRows" :key="`row-${rowIndex}`" class="product-row">
@@ -135,6 +136,8 @@ const loading = ref(false)
 const errorMessage = ref('')
 const products = ref<ProductListItemResponse[]>([])
 const isUserInteracting = ref(false)
+const isTouchingProducts = ref(false)
+const lastManualScrollAt = ref(0)
 const productScrollTop = ref(0)
 let resumeRollTimer: ReturnType<typeof setTimeout> | null = null
 let productRollTimer: ReturnType<typeof setInterval> | null = null
@@ -227,16 +230,24 @@ function formatPublishTime(createdAt: string) {
 function scheduleResumeRoll() {
   if (resumeRollTimer) clearTimeout(resumeRollTimer)
   resumeRollTimer = setTimeout(() => {
+    if (isTouchingProducts.value || Date.now() - lastManualScrollAt.value < 6000) {
+      scheduleResumeRoll()
+      return
+    }
     isUserInteracting.value = false
   }, 6000)
 }
 function handleUserInteract() {
   if (!shouldRollProducts.value) return
+  isTouchingProducts.value = true
+  lastManualScrollAt.value = Date.now()
   isUserInteracting.value = true
   scheduleResumeRoll()
 }
 function handleUserInteractEnd() {
   if (!shouldRollProducts.value) return
+  isTouchingProducts.value = false
+  lastManualScrollAt.value = Date.now()
   scheduleResumeRoll()
 }
 function handleProductScroll(event: { detail?: { scrollTop?: number } }) {
@@ -248,7 +259,8 @@ function handleProductScroll(event: { detail?: { scrollTop?: number } }) {
 function startProductRoll() {
   if (productRollTimer) clearInterval(productRollTimer)
   productRollTimer = setInterval(() => {
-    if (!shouldRollProducts.value || isUserInteracting.value) return
+    if (!shouldRollProducts.value || isUserInteracting.value || isTouchingProducts.value) return
+    if (Date.now() - lastManualScrollAt.value < 6000) return
     const distance = productRollDistancePx.value
     if (distance <= 0) return
     const nextTop = productScrollTop.value + productRollStepPx.value
