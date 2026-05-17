@@ -5,11 +5,8 @@
       <view class="hero-overlay" />
       <view class="hero-glow" />
       <view class="hero-top">
-        <view>
-          <view class="hero-title">{{ pageTitle }}</view>
-        </view>
+        <view class="hero-title">{{ pageTitle }}</view>
         <view class="hero-badge" :class="heroBadgeClass">
-          <view class="hero-badge-icon">{{ heroBadgeIcon }}</view>
           <view class="hero-badge-text">{{ heroBadgeText }}</view>
         </view>
       </view>
@@ -46,7 +43,7 @@
           :class="[`rank-${item.rank}`, item.gender]"
           @click="openProfile(item)"
         >
-          <view class="rank-medal">{{ medalFor(item.rank) }}</view>
+          <view class="rank-label">TOP {{ item.rank }}</view>
           <view class="podium-avatar" :class="{ image: !!item.avatarUrl }">
             <image v-if="item.avatarUrl" class="ranking-avatar-image" :src="item.avatarUrl" mode="aspectFill" />
             <text v-else>{{ item.avatar }}</text>
@@ -65,12 +62,10 @@
     </view>
 
     <view v-if="loading" class="empty ds-card">
-      <view class="empty-icon">📊</view>
       <view class="section-title">榜单加载中...</view>
     </view>
 
     <view v-else-if="loadError" class="empty ds-card">
-      <view class="empty-icon">📊</view>
       <view class="section-title">榜单暂时不可用</view>
       <view class="section-desc">{{ loadError }}</view>
     </view>
@@ -83,7 +78,6 @@
             <image v-if="item.avatarUrl" class="ranking-avatar-image" :src="item.avatarUrl" mode="aspectFill" />
             <text v-else>{{ item.avatar }}</text>
           </view>
-          <view v-if="item.rank <= 3" class="avatar-badge">{{ medalFor(item.rank) }}</view>
         </view>
         <view class="user-main">
           <view class="name-row">
@@ -141,7 +135,6 @@ const isGoddess = computed(() => activeGender.value === 'goddess')
 const pageTitle = computed(() => isGoddess.value ? '女神榜' : '男神榜')
 const heroThemeClass = computed(() => isGoddess.value ? 'hero-goddess' : 'hero-god')
 const heroBadgeClass = computed(() => isGoddess.value ? 'hero-badge-goddess' : 'hero-badge-god')
-const heroBadgeIcon = computed(() => isGoddess.value ? '✦' : '◆')
 const heroBadgeText = computed(() => isGoddess.value ? '魅力焦点' : '锋芒焦点')
 const heroArtwork = computed(() => `url(${isGoddess.value ? rankingGoddessCard : rankingGodCard})`)
 const currentPeriodLabel = computed(() => periodTabs.find((item) => item.value === activePeriod.value)?.label ?? '周榜')
@@ -162,10 +155,6 @@ const podiumList = computed(() => {
   const top = filteredRankings.value.slice(0, 3)
   return top.length === 3 ? [top[1]!, top[0]!, top[2]!] : top
 })
-
-function medalFor(rank: number) {
-  return rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`
-}
 
 function scoreText(item: RankingUser) {
   return isGoddess.value ? `收礼 ${item.giftScore}` : `消费 ${item.giftScore}`
@@ -265,11 +254,9 @@ onMounted(() => {
 .hero-glow { position:absolute; right:-80rpx; top:-80rpx; width:230rpx; height:230rpx; border-radius:50%; background:rgba(255,122,69,.14); filter:blur(2rpx); }
 .hero-top { position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start; gap:20rpx; }
 .hero-title { color:#3a2a1f; font-size:40rpx; font-weight:950; text-shadow:0 4rpx 18rpx rgba(255,255,255,.3); }
-.hero-badge { min-width:118rpx; padding:14rpx 16rpx 12rpx; border-radius:30rpx; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4rpx; border:1rpx solid rgba(255,255,255,.55); background:rgba(255,255,255,.5); backdrop-filter:blur(10rpx); box-shadow:0 16rpx 34rpx rgba(111,78,55,.12); }
+.hero-badge { min-width:118rpx; padding:14rpx 18rpx; border-radius:999rpx; display:flex; align-items:center; justify-content:center; border:1rpx solid rgba(255,255,255,.55); background:rgba(255,255,255,.5); backdrop-filter:blur(10rpx); box-shadow:0 16rpx 34rpx rgba(111,78,55,.12); }
 .hero-badge-goddess { background:linear-gradient(180deg,rgba(255,255,255,.68) 0%,rgba(255,240,246,.5) 100%); border-color:rgba(255,221,233,.95); }
 .hero-badge-god { background:linear-gradient(180deg,rgba(255,255,255,.7) 0%,rgba(236,243,255,.52) 100%); border-color:rgba(215,228,255,.96); }
-.hero-badge-icon { color:#ff7a45; font-size:28rpx; font-weight:900; line-height:1; }
-.hero-badge-god .hero-badge-icon { color:#5b7cfa; }
 .hero-badge-text { color:#7b5542; font-size:18rpx; font-weight:900; letter-spacing:2rpx; line-height:1.1; }
 .hero-badge-god .hero-badge-text { color:#475f9d; }
 .hero-stats { position:relative; z-index:1; margin-top:22rpx; display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12rpx; }
@@ -289,14 +276,13 @@ onMounted(() => {
 .podium-item.rank-1 { min-height:226rpx; background:linear-gradient(180deg,#fff7d6,#fff3e7); }
 .podium-item.god { background:linear-gradient(180deg,#eef4ff,#f6f8ff); }
 .podium-item.goddess { background:linear-gradient(180deg,#fff3f7,#fffaf6); }
-.rank-medal { position:absolute; top:12rpx; right:12rpx; font-size:28rpx; }
+.rank-label { position:absolute; top:12rpx; right:12rpx; padding:5rpx 9rpx; border-radius:999rpx; background:rgba(255,255,255,.72); color:#b9856a; font-size:16rpx; font-weight:950; }
 .podium-avatar { width:72rpx; height:72rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:30rpx; font-weight:950; box-shadow:0 10rpx 22rpx rgba(255,122,69,.18); overflow:hidden; }
 .podium-item.god .podium-avatar { background:linear-gradient(135deg,#8b7cf6,#60a5fa); }
 .podium-avatar.image,.podium-item.god .podium-avatar.image { background:#fff; }
 .podium-name { margin-top:12rpx; max-width:100%; color:#3a2a1f; font-size:21rpx; font-weight:950; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .podium-score { margin-top:5rpx; color:#9b7560; font-size:18rpx; font-weight:800; }
 .empty { margin-top:18rpx; padding:22rpx; border-color:#ffd9bd; text-align:center; }
-.empty-icon { font-size:52rpx; }
 .rank-list { margin-top:16rpx; display:flex; flex-direction:column; gap:14rpx; }
 .user-card { padding:18rpx; display:flex; align-items:center; gap:14rpx; border-color:#ffd9bd; }
 .rank-no { width:42rpx; color:#b9856a; font-size:24rpx; font-weight:950; text-align:center; }
@@ -306,7 +292,6 @@ onMounted(() => {
 .avatar.god { background:linear-gradient(135deg,#8b7cf6,#60a5fa); }
 .avatar.image,.avatar.god.image { background:#fff; }
 .ranking-avatar-image { width:100%; height:100%; display:block; }
-.avatar-badge { position:absolute; right:-8rpx; bottom:-8rpx; width:34rpx; height:34rpx; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; font-size:18rpx; border:1rpx solid #ffd9bd; }
 .user-main { flex:1; min-width:0; }
 .name-row { display:flex; align-items:center; gap:8rpx; min-width:0; }
 .user-name { color:#3a2a1f; font-size:26rpx; font-weight:950; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

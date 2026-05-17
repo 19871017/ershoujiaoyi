@@ -288,8 +288,8 @@
       {
         "pagePath": "pages/tabbar/publish/index",
         "text": "商家秀",
-        "iconPath": "static/tabbar/merchant-showcase.svg",
-        "selectedIconPath": "static/tabbar/merchant-showcase-active.svg"
+        "iconPath": "static/tabbar/merchant-showcase.png",
+        "selectedIconPath": "static/tabbar/merchant-showcase-active.png"
       },
       {
         "pagePath": "pages/tabbar/message/index",
