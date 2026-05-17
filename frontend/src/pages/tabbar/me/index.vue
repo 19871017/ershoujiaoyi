@@ -6,14 +6,6 @@
       <text>›</text>
     </view>
 
-    <view class="video-verify-card ds-card tapable" @click="goVideoVerify">
-      <view class="video-left">
-        <view class="video-icon">▶</view>
-        <view class="video-title">申请卖家认证</view>
-      </view>
-      <view class="video-status">{{ sellerEntryStatusText }}</view>
-    </view>
-
     <view class="profile-card ds-card tapable" @click="goProfile">
       <view class="avatar" :class="{ image: !!profile.avatarUrl }">
         <image v-if="profile.avatarUrl" class="avatar-image" :src="profile.avatarUrl" mode="aspectFill" />
@@ -65,6 +57,14 @@
           <view class="menu-label">{{ item.label }}</view>
         </view>
         <text class="arrow">›</text>
+      </view>
+    </view>
+
+    <view class="seller-verify-fab tapable" @click="goVideoVerify">
+      <view class="seller-fab-icon">▶</view>
+      <view class="seller-fab-copy">
+        <view class="seller-fab-title">申请卖家</view>
+        <view class="seller-fab-status">{{ sellerEntryStatusText }}</view>
       </view>
     </view>
   </view>
@@ -166,9 +166,7 @@ onShow(() => {
 
 <style scoped>
 .me-page { background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 52%,#fff7ed 100%); }
-.notice-entry{margin-bottom:14rpx;padding:14rpx 18rpx;display:flex;align-items:center;justify-content:space-between;border-color:#ffd9bd;color:#3a2a1f;font-size:22rpx;font-weight:950;background:#fff;}
-.video-verify-card{margin-bottom:14rpx;padding:16rpx;border-color:#ffb37c;background:linear-gradient(135deg,#fff2e4,#fffaf6);display:flex;align-items:center;justify-content:space-between;gap:12rpx;box-shadow:0 10rpx 24rpx rgba(255,122,69,.12)}
-.video-left{display:flex;align-items:center;gap:12rpx;min-width:0}.video-icon{width:58rpx;height:58rpx;border-radius:50%;background:linear-gradient(135deg,#ff7a45,#ff3f8d);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22rpx;font-weight:950}.video-title{color:#3a2a1f;font-size:27rpx;font-weight:950}.video-status{flex-shrink:0;max-width:300rpx;padding:8rpx 13rpx;border-radius:999rpx;background:#fff;color:#ff3f8d;font-size:18rpx;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.notice-entry{margin-top:14rpx;margin-bottom:14rpx;padding:14rpx 18rpx;display:flex;align-items:center;justify-content:space-between;border-color:#ffd9bd;color:#3a2a1f;font-size:22rpx;font-weight:950;background:#fff;}
 .profile-card { padding:20rpx; display:flex; align-items:center; border-color:#ffd9bd; background:linear-gradient(135deg,#fff,#fff3e7); }
 .avatar { width:76rpx; height:76rpx; margin-right:16rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:34rpx; font-weight:950; box-shadow:0 8rpx 20rpx rgba(255,122,69,.18); overflow:hidden; }
 .avatar.image { background:#fff; }
@@ -203,4 +201,9 @@ onShow(() => {
 .menu-icon { width:38rpx; text-align:center; font-size:25rpx; }
 .menu-label { font-size:24rpx; font-weight:950; }
 .arrow { color:#d79262; font-size:30rpx; }
+.seller-verify-fab{position:fixed;right:22rpx;bottom:calc(132rpx + env(safe-area-inset-bottom));z-index:30;min-width:206rpx;max-width:280rpx;padding:12rpx 16rpx 12rpx 12rpx;border-radius:999rpx;background:rgba(255,122,69,.72);backdrop-filter:blur(18rpx);box-shadow:0 14rpx 30rpx rgba(255,122,69,.22),inset 0 0 0 1rpx rgba(255,255,255,.42);display:flex;align-items:center;gap:10rpx;color:#fff;}
+.seller-fab-icon{width:42rpx;height:42rpx;border-radius:50%;background:rgba(255,255,255,.28);display:flex;align-items:center;justify-content:center;font-size:17rpx;font-weight:950;flex:0 0 auto;}
+.seller-fab-copy{min-width:0;}
+.seller-fab-title{font-size:22rpx;font-weight:950;line-height:1.05;}
+.seller-fab-status{margin-top:4rpx;max-width:196rpx;font-size:16rpx;font-weight:850;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.92;}
 </style>
