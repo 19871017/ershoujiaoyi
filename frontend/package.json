@@ -46,6 +46,7 @@
     "check:community-detail-follow": "node scripts/check-community-detail-follow-real-flow.cjs",
     "check:after-sales-route-guard": "node scripts/check-after-sales-route-guard.cjs",
     "check:lan-api-base": "node scripts/check-lan-api-base.cjs",
+    "check:global-ticker-priority": "node scripts/check-global-ticker-priority.cjs",
     "check:user-no-admin-entry": "node scripts/check-user-no-admin-entry.cjs"
   },
   "dependencies": {

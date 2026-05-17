@@ -155,7 +155,7 @@ async function loadTicker() {
         text: buildNoticeText(item),
         targetUrl: normalizeTargetUrl(item.targetUrl) || '/pages/notification/index'
       }))
-    items.value = [...announcementItems, ...giftItems, ...noticeItems].slice(0, 6)
+    items.value = [...giftItems, ...announcementItems, ...noticeItems].slice(0, 6)
     currentIndex.value = 0
     applyOffset()
     startRotation()
