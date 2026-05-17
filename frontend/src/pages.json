@@ -1,6 +1,12 @@
 {
   "pages": [
     {
+      "path": "pages/auth/login/index",
+      "style": {
+        "navigationBarTitleText": ""
+      }
+    },
+    {
       "path": "pages/tabbar/home/index",
       "style": {
         "navigationBarTitleText": ""
@@ -92,12 +98,6 @@
     },
     {
       "path": "pages/risk/index",
-      "style": {
-        "navigationBarTitleText": ""
-      }
-    },
-    {
-      "path": "pages/auth/login/index",
       "style": {
         "navigationBarTitleText": ""
       }

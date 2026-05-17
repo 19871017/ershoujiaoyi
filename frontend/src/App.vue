@@ -1,6 +1,100 @@
 <template>
+  <GlobalTicker />
   <view />
 </template>
+
+<script setup lang="ts">
+import { onLaunch, onShow } from '@dcloudio/uni-app'
+import GlobalTicker from './components/GlobalTicker.vue'
+import { useUserStore } from './store/modules/user'
+
+const LOGIN_PATH = '/pages/auth/login/index'
+const PUBLIC_PREFIXES = [
+  '/pages/auth/login/index',
+  '/pages/system/privacy/index'
+]
+
+let interceptorReady = false
+let redirectingToLogin = false
+
+type RouteMethod = 'navigateTo' | 'redirectTo' | 'reLaunch' | 'switchTab'
+type RouteArgs = { url?: string }
+type UniWithInterceptor = typeof uni & {
+  addInterceptor?: (method: RouteMethod, interceptor: { invoke?: (args: RouteArgs) => boolean }) => void
+}
+
+function normalizeUrl(url: string) {
+  return (url || '').split('?')[0].replace(/^#/, '')
+}
+
+function isPublicPage(url: string) {
+  const normalized = normalizeUrl(url)
+  return PUBLIC_PREFIXES.some((item) => normalized.startsWith(item))
+}
+
+function isProtectedPage(url: string) {
+  const normalized = normalizeUrl(url)
+  return normalized.startsWith('/pages/') && !isPublicPage(normalized)
+}
+
+function currentPagePath() {
+  const pages = getCurrentPages()
+  const current = pages[pages.length - 1] as { route?: string } | undefined
+  return current?.route ? `/${current.route}` : ''
+}
+
+function ensureLogin(targetUrl?: string) {
+  const userStore = useUserStore()
+  const rawTarget = (targetUrl || currentPagePath() || '').replace(/^#/, '')
+  const currentPath = normalizeUrl(rawTarget)
+  if (!currentPath || !isProtectedPage(currentPath) || userStore.token) return true
+  if (redirectingToLogin || currentPath === LOGIN_PATH) return false
+  redirectingToLogin = true
+  uni.redirectTo({
+    url: `${LOGIN_PATH}?redirect=${encodeURIComponent(rawTarget)}`
+  })
+  setTimeout(() => {
+    redirectingToLogin = false
+  }, 120)
+  return false
+}
+
+function installRouteInterceptors() {
+  if (interceptorReady) return
+  const uniWithInterceptor = uni as UniWithInterceptor
+  if (typeof uniWithInterceptor.addInterceptor !== 'function') return
+  interceptorReady = true
+  ;(['navigateTo', 'redirectTo', 'reLaunch', 'switchTab'] as RouteMethod[]).forEach((method) => {
+    uniWithInterceptor.addInterceptor?.(method, {
+      invoke(args: RouteArgs) {
+        const url = typeof args?.url === 'string' ? args.url : ''
+        return ensureLogin(url)
+      }
+    })
+  })
+}
+
+function ensureInitialLogin(attempt = 0) {
+  if (useUserStore().token) return
+  const path = currentPagePath()
+  if (path) {
+    ensureLogin(path)
+    return
+  }
+  if (attempt >= 5) return
+  setTimeout(() => ensureInitialLogin(attempt + 1), 80)
+}
+
+onLaunch(() => {
+  installRouteInterceptors()
+  ensureInitialLogin()
+})
+
+onShow(() => {
+  installRouteInterceptors()
+  ensureInitialLogin()
+})
+</script>
 
 <style lang="scss">
 :root {
@@ -22,6 +116,7 @@
   --radius-md: 22rpx;
   --radius-lg: 28rpx;
   --shadow-card: 0 8rpx 22rpx rgba(255, 122, 69, .10);
+  --global-ticker-offset: 0rpx;
 }
 
 page {
@@ -37,7 +132,7 @@ button { margin: 0; padding: 0; border: 0; background: none; line-height: 1.2; }
 
 .page-shell {
   min-height: 100vh;
-  padding: 18rpx 18rpx calc(120rpx + env(safe-area-inset-bottom));
+  padding: calc(18rpx + var(--global-ticker-offset)) 18rpx calc(120rpx + env(safe-area-inset-bottom));
   background: var(--c-bg);
 }
 
