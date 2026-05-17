@@ -28,17 +28,17 @@ const requiredMarkers = [
   "const userId = ref('')",
   '卖家数据暂时不可用',
   '未展示本地卖家样例',
-  'const stats = computed(() => []',
+  "const unavailableProfileMessage = '卖家数据暂时不可用，未展示本地卖家样例'",
   'const sellerProducts = ref<ProductListItemResponse[]>([])',
   'const products = computed(() => sellerProducts.value)',
   'listSellerProducts(userId.value)',
   '卖家商品加载失败，未展示本地商品样例',
   '暂无后端公开在售商品，未展示本地商品样例',
-  'function openProduct(productId:number)',
+  'function openProduct(productId: number): void',
   '缺少后端商品编号，未打开商品详情',
   'isValidBackendUserId(userId.value)',
-  'function isValidBackendUserId(value: string)',
-  'const validUserId = isValidBackendUserId(userId.value)',
+  'function isValidBackendUserId(value: string): boolean',
+  'function navigateToUserRoute(missingUserIdTitle: string, buildUrl: (backendUserId: string) => string): void',
   "const followed = computed(() => profile.followedByMe === true)",
   "followedByMe: false",
   'followPublicProfile(userId.value)',
@@ -85,7 +85,7 @@ for (const marker of invalidLoadGuards) {
   if (source.includes(marker)) failures.push(`${file}: public-profile load guard must use the shared positive backend user id validator, not partial marker: ${marker}`)
 }
 
-if (!/if\s*\(\s*!isValidBackendUserId\(userId\.value\)\s*\)\s*\{[^}]*未展示本地卖家样例/s.test(source)) {
+if (!/if\s*\(\s*!isValidBackendUserId\(userId\.value\)\s*\)\s*\{[^}]*resetProfile\(\)[^}]*failClosedProducts\(\)/s.test(source) || !source.includes('loadError.value = unavailableProfileMessage')) {
   failures.push(`${file}: loadProfile must fail closed for all invalid route userIds before fetching seller data`)
 }
 
