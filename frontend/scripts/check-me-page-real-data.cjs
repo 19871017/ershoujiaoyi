@@ -27,9 +27,16 @@ for (const marker of forbiddenMarkers) {
 const requiredMarkers = [
   'getMyProfile',
   'getWalletBalance',
+  "const publishRoles = ['SELLER', 'BOTH']",
+  "const canPublish = computed(() => profile.videoVerified && publishRoles.includes(String(profile.mainRole || '').toUpperCase()))",
+  "const sellerEntryTitleText = computed(() => canPublish.value ? '卖家认证' : '申请卖家认证')",
   "const trustTagText = computed(() => canPublish.value ? '已认证卖家' : '普通买家')",
   'Object.assign(profile, emptyProfile)',
-  'Object.assign(balance, emptyBalance)'
+  'Object.assign(balance, emptyBalance)',
+  '<view v-if="canPublish" class="seller-entry-card ds-card tapable" @click="goPublishForm">',
+  '<view class="seller-verify-fab tapable" @click="goVideoVerify">',
+  'uni.navigateTo({ url: \'/pages/user/identity/index?tab=video\' })',
+  "uni.showToast({ title: '请先完成卖家认证', icon: 'none' })"
 ]
 
 for (const marker of requiredMarkers) {

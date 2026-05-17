@@ -63,7 +63,7 @@
     <view class="seller-verify-fab tapable" @click="goVideoVerify">
       <view class="seller-fab-icon">▶</view>
       <view class="seller-fab-copy">
-        <view class="seller-fab-title">卖家认证</view>
+        <view class="seller-fab-title">{{ sellerEntryTitleText }}</view>
         <view class="seller-fab-status">{{ sellerEntryStatusText }}</view>
       </view>
     </view>
@@ -91,8 +91,10 @@ const profile = reactive<UserProfileResponse>({ ...emptyProfile })
 const emptyBalance: WalletBalanceResponse = { rechargeBalance: '--', incomeBalance: '--', frozenBalance: '--', withdrawableBalance: '--' }
 const balance = reactive<WalletBalanceResponse>({ ...emptyBalance })
 
-const canPublish = computed(() => profile.videoVerified && ['SELLER', 'BOTH'].includes(String(profile.mainRole || '').toUpperCase()))
+const publishRoles = ['SELLER', 'BOTH']
+const canPublish = computed(() => profile.videoVerified && publishRoles.includes(String(profile.mainRole || '').toUpperCase()))
 const genderSymbol = computed(() => String(profile.gender || '').toLowerCase() === 'god' ? '♂' : '♀')
+const sellerEntryTitleText = computed(() => canPublish.value ? '卖家认证' : '申请卖家认证')
 const sellerEntryStatusText = computed(() => {
   const status = String(profile.videoIdentityStatus || 'UNVERIFIED').toUpperCase()
   if (canPublish.value) return '已认证卖家'
