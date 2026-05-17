@@ -41,6 +41,11 @@
       <view class="cost-line">预计扣款：¥{{ estimatedTotal }}</view>
       <button class="primary-btn" :disabled="sending" @click="submitGift">{{ sending ? '提交中...' : '送出礼物' }}</button>
       <view v-if="sendMessage" class="status-text">{{ sendMessage }}</view>
+      <view v-if="giftEffect" class="gift-success-effect">
+        <view class="effect-icon">{{ giftEffect.icon }}</view>
+        <view class="effect-copy">{{ giftEffect.name }} × {{ giftEffect.quantity }} 已送达</view>
+        <view class="effect-order">{{ giftEffect.orderNo }}</view>
+      </view>
     </view>
 
     <view class="section-card ds-card">
@@ -78,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getGiftCatalog, getReceivedGifts, sendGift, type GiftCatalogItemResponse, type ReceivedGiftItemResponse } from '../../api/modules/gift'
 import { getWalletBalance, type WalletMoneyAmount } from '../../api/modules/wallet'
 
@@ -95,6 +100,9 @@ const catalogMessage = ref('')
 const receivedMessage = ref('')
 const sendMessage = ref('')
 const sending = ref(false)
+type GiftEffect = { icon: string; name: string; quantity: number; orderNo: string }
+const giftEffect = ref<GiftEffect | null>(null)
+let giftEffectTimer: ReturnType<typeof setTimeout> | null = null
 const sendMode = computed(() => Boolean(receiverId.value))
 const receiverLabel = computed(() => receiverName.value || (receiverId.value ? `用户 ${receiverId.value}` : '未指定'))
 const rechargeBalanceText = computed(() => money(rechargeBalance.value))
@@ -161,6 +169,15 @@ function changeQuantity(delta: number) {
   quantity.value = Math.min(99, Math.max(1, quantity.value + delta))
 }
 
+function showGiftEffect(gift: GiftCatalogItemResponse, sentQuantity: number, orderNo: string) {
+  if (giftEffectTimer) clearTimeout(giftEffectTimer)
+  giftEffect.value = { icon: gift.icon || '🎁', name: gift.name, quantity: sentQuantity, orderNo }
+  giftEffectTimer = setTimeout(() => {
+    giftEffect.value = null
+    giftEffectTimer = null
+  }, 2200)
+}
+
 async function submitGift() {
   if (sending.value) return
   if (!receiverId.value) {
@@ -177,8 +194,12 @@ async function submitGift() {
   sendMessage.value = ''
   try {
     const requestNo = `gift-${receiverId.value}-${selectedGift.value.giftCode}-${Date.now()}`
-    await sendGift({ receiverId: receiverId.value, giftCode: selectedGift.value.giftCode, quantity: quantity.value, sceneType: sceneType.value, sceneId: sceneId.value, requestNo })
-    sendMessage.value = '已送出'
+    const sentGift = selectedGift.value
+    const sentQuantity = quantity.value
+    const response = await sendGift({ receiverId: receiverId.value, giftCode: sentGift.giftCode, quantity: sentQuantity, sceneType: sceneType.value, sceneId: sceneId.value, requestNo })
+    if (response.status !== 'SUCCESS' || !response.giftOrderNo) throw new Error('Gift send did not return a successful order')
+    showGiftEffect(sentGift, sentQuantity, response.giftOrderNo)
+    sendMessage.value = `已送出，订单 ${response.giftOrderNo}`
     uni.showToast({ title: '送礼成功', icon: 'success' })
     await Promise.all([loadReceived(), loadBalance()])
   } catch {
@@ -218,6 +239,12 @@ onMounted(async () => {
   readQuery()
   await Promise.all([loadCatalog(), loadReceived(), loadBalance()])
 })
+
+onBeforeUnmount(() => {
+  if (!giftEffectTimer) return
+  clearTimeout(giftEffectTimer)
+  giftEffectTimer = null
+})
 </script>
 
 <style scoped>
@@ -255,5 +282,10 @@ onMounted(async () => {
 .primary-btn,.secondary-btn { margin-top:18rpx; border-radius:999rpx; font-size:25rpx; font-weight:950; }
 .primary-btn { background:#ff7a45; color:#fff; }
 .secondary-btn { background:#fff3e7; color:#ff7a45; }
+.gift-success-effect { margin-top:18rpx; padding:18rpx; border-radius:28rpx; display:flex; flex-direction:column; align-items:center; gap:8rpx; background:linear-gradient(135deg,#fff4e8,#ffe8ef); color:#3a2a1f; box-shadow:0 18rpx 38rpx rgba(255,122,69,.16); animation:gift-pop 2.2s ease both; }
+.effect-icon { width:78rpx; height:78rpx; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#fff; font-size:42rpx; box-shadow:0 10rpx 24rpx rgba(255,122,69,.16); }
+.effect-copy { font-size:25rpx; font-weight:950; }
+.effect-order { color:#9b7560; font-size:19rpx; font-weight:850; }
 @keyframes pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.08); } }
+@keyframes gift-pop { 0% { opacity:0; transform:translateY(16rpx) scale(.96); } 18%,82% { opacity:1; transform:translateY(0) scale(1); } 100% { opacity:0; transform:translateY(-10rpx) scale(.98); } }
 </style>
