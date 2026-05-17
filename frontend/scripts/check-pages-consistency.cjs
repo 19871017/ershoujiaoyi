@@ -46,6 +46,8 @@ const merchantTabSelectedIcon = 'static/tabbar/merchant-showcase-active.png'
 const merchantTab = pagesConfig.tabBar.list.find((item) => item.pagePath === merchantTabPath)
 if (merchantTab?.iconPath !== merchantTabIcon) fail('merchant showcase tab missing default icon')
 if (merchantTab?.selectedIconPath !== merchantTabSelectedIcon) fail('merchant showcase tab missing selected icon')
+if (!fs.existsSync(path.join(root, 'src', merchantTabIcon))) fail('merchant showcase default icon missing from build source static directory')
+if (!fs.existsSync(path.join(root, 'src', merchantTabSelectedIcon))) fail('merchant showcase selected icon missing from build source static directory')
 
 const tabPaths = new Set(pagesConfig.tabBar.list.map((item) => item.pagePath))
 for (const page of pagesConfig.pages) {
