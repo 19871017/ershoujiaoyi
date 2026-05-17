@@ -94,8 +94,8 @@ const genderSymbol = computed(() => String(profile.gender || '').toLowerCase() =
 const sellerEntryStatusText = computed(() => {
   const status = String(profile.videoIdentityStatus || 'UNVERIFIED').toUpperCase()
   if (canPublish.value) return '已认证卖家'
-  if (status === 'PENDING') return '审核中'
-  if (status === 'REJECTED') return '重新申请'
+  if (status === 'PENDING') return '卖家认证审核中'
+  if (status === 'REJECTED') return '认证未通过，可重新申请'
   return '去申请'
 })
 const orderStatus = computed(() => [
@@ -110,7 +110,6 @@ const menus = [
   { icon: '💰', label: '钱包账本', url: '/pages/wallet/index' },
   { icon: '🏦', label: '提现审核', url: '/pages/wallet/index?tab=withdraw' },
   { icon: '💳', label: '收款账户', url: '/pages/wallet/accounts/index' },
-  { icon: '🪪', label: '申请卖家认证', url: '/pages/user/identity/index?tab=video' },
   { icon: '📍', label: '地址管理', url: '/pages/user/address/index' },
   { icon: '🎁', label: '收到的礼物', url: '/pages/gift/index' },
   { icon: '🛡️', label: '举报与风控', url: '/pages/risk/index' },
@@ -124,9 +123,6 @@ const totalAvailable = computed(() => {
 })
 const trustTagText = computed(() => canPublish.value ? '已认证卖家' : '普通买家')
 
-function statusLabel(status: string) {
-  return ({ UNVERIFIED: '未认证', PENDING: '审核中', APPROVED: '已通过', REJECTED: '未通过' } as Record<string, string>)[status] ?? '未认证'
-}
 async function loadProfile() {
   try {
     Object.assign(profile, await getMyProfile())
@@ -170,7 +166,7 @@ onShow(() => {
 .me-page { background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 52%,#fff7ed 100%); }
 .notice-entry{margin-bottom:14rpx;padding:14rpx 18rpx;display:flex;align-items:center;justify-content:space-between;border-color:#ffd9bd;color:#3a2a1f;font-size:22rpx;font-weight:950;background:#fff;}
 .video-verify-card{margin-bottom:14rpx;padding:16rpx;border-color:#ffb37c;background:linear-gradient(135deg,#fff2e4,#fffaf6);display:flex;align-items:center;justify-content:space-between;gap:12rpx;box-shadow:0 10rpx 24rpx rgba(255,122,69,.12)}
-.video-left{display:flex;align-items:center;gap:12rpx;min-width:0}.video-icon{width:58rpx;height:58rpx;border-radius:50%;background:linear-gradient(135deg,#ff7a45,#ff3f8d);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22rpx;font-weight:950}.video-title{color:#3a2a1f;font-size:27rpx;font-weight:950}.video-status{flex-shrink:0;padding:8rpx 13rpx;border-radius:999rpx;background:#fff;color:#ff3f8d;font-size:19rpx;font-weight:950}
+.video-left{display:flex;align-items:center;gap:12rpx;min-width:0}.video-icon{width:58rpx;height:58rpx;border-radius:50%;background:linear-gradient(135deg,#ff7a45,#ff3f8d);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22rpx;font-weight:950}.video-title{color:#3a2a1f;font-size:27rpx;font-weight:950}.video-status{flex-shrink:0;max-width:300rpx;padding:8rpx 13rpx;border-radius:999rpx;background:#fff;color:#ff3f8d;font-size:18rpx;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .profile-card { padding:20rpx; display:flex; align-items:center; border-color:#ffd9bd; background:linear-gradient(135deg,#fff,#fff3e7); }
 .avatar { width:76rpx; height:76rpx; margin-right:16rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:34rpx; font-weight:950; box-shadow:0 8rpx 20rpx rgba(255,122,69,.18); overflow:hidden; }
 .avatar.image { background:#fff; }
