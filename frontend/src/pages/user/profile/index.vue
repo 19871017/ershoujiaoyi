@@ -1,7 +1,5 @@
 <template>
   <view class="page-shell profile-page">
-    <GlobalTicker />
-
     <view v-if="loadingProfile" class="state-card ds-card">资料加载中...</view>
     <view v-else-if="profileError" class="state-card ds-card error-state">
       <view>{{ profileError }}</view>
@@ -79,7 +77,6 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createMediaUploadTicket, uploadMediaTicketFile } from '../../../api/modules/media'
 import { getMyProfile, updateMyProfile, updateMyUserNo, type UserProfileResponse } from '../../../api/modules/user'
-import GlobalTicker from '../../../components/GlobalTicker.vue'
 
 const genders = [{ label: '♀ 女', value: 'goddess' }, { label: '♂ 男', value: 'god' }]
 type TextFieldKey = 'nickname' | 'city' | 'bio'

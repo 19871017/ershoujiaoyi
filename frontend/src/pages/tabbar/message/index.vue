@@ -1,6 +1,5 @@
 <template>
   <view class="page-shell community-page">
-    <GlobalTicker />
     <view class="community-top ds-card">
       <image class="community-top-art" :src="communityHeroBanner" mode="aspectFill" />
       <view class="community-top-mask"></view>
@@ -51,7 +50,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { likeCommunityPost, listCommunityPosts, unlikeCommunityPost, type CommunityPostResponse } from '../../../api/modules/community'
 import communityHeroBanner from '../../../assets/community/community-hero-banner.png'
-import GlobalTicker from '../../../components/GlobalTicker.vue'
 
 const activeTopic = ref('生活日常')
 const topics = [

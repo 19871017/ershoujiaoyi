@@ -1,6 +1,5 @@
 <template>
   <view class="page-shell me-page">
-    <GlobalTicker />
     <view class="notice-entry ds-card tapable" @click="openNotification">
       <text>🔔 通知中心</text>
       <text>›</text>
@@ -75,7 +74,6 @@ import { onShow } from '@dcloudio/uni-app'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { getMyProfile, type UserProfileResponse } from '../../../api/modules/user'
 import { getWalletBalance, type WalletBalanceResponse } from '../../../api/modules/wallet'
-import GlobalTicker from '../../../components/GlobalTicker.vue'
 
 const emptyProfile: UserProfileResponse = {
   userId: 0,

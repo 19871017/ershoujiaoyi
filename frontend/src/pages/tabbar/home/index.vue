@@ -1,6 +1,5 @@
 <template>
   <view class="page-shell home-page">
-    <GlobalTicker />
     <swiper class="banner-swiper" circular autoplay :interval="3600" :duration="520" indicator-dots indicator-color="rgba(255,255,255,.55)" indicator-active-color="#ffffff">
       <swiper-item v-for="item in decoratedBanners" :key="item.id">
         <view class="banner-card tapable" @click="handleBanner(item.action)">
@@ -86,7 +85,6 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getHomeBanners, type HomeBannerAction, type HomeBannerResponse } from '../../../api/modules/home'
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
-import GlobalTicker from '../../../components/GlobalTicker.vue'
 import homeBannerCloset from '../../../assets/home/home-banner-closet.png'
 import homeBannerRanking from '../../../assets/home/home-banner-ranking.png'
 import homeBannerCommunity from '../../../assets/home/home-banner-community.png'

@@ -5,13 +5,15 @@ const root = path.resolve(__dirname, '..')
 const tickerFile = 'src/components/GlobalTicker.vue'
 const httpFile = 'src/api/http.ts'
 const globalTickerTag = '<GlobalTicker />'
-const globalTickerImport = "import GlobalTicker from '../../../components/GlobalTicker.vue'"
-const mainTabPages = [
+const pageGlobalTickerImport = "import GlobalTicker from '../../../components/GlobalTicker.vue'"
+const appSource = fs.readFileSync(path.join(root, 'src/App.vue'), 'utf8')
+const globalTickerPages = [
   'src/pages/tabbar/home/index.vue',
   'src/pages/tabbar/category/index.vue',
   'src/pages/tabbar/publish/index.vue',
   'src/pages/tabbar/message/index.vue',
-  'src/pages/tabbar/me/index.vue'
+  'src/pages/tabbar/me/index.vue',
+  'src/pages/user/profile/index.vue'
 ]
 const tickerSource = fs.readFileSync(path.join(root, tickerFile), 'utf8')
 const httpSource = fs.readFileSync(path.join(root, httpFile), 'utf8')
@@ -63,10 +65,14 @@ if (!httpSource.includes("url === '/api/gifts/recent'") || !httpSource.includes(
   failures.push(`${httpFile}: mock mode must include recent gift feed data for ticker demo testing`)
 }
 
-for (const pageFile of mainTabPages) {
+if (!appSource.includes(globalTickerTag) || !appSource.includes("import GlobalTicker from './components/GlobalTicker.vue'")) {
+  failures.push('src/App.vue: GlobalTicker must be mounted once at the app shell level')
+}
+
+for (const pageFile of globalTickerPages) {
   const pageSource = fs.readFileSync(path.join(root, pageFile), 'utf8')
-  if (!pageSource.includes(globalTickerTag) || !pageSource.includes(globalTickerImport)) {
-    failures.push(`${pageFile}: main tab page must mount GlobalTicker directly so the H5 page renders the announcement bar`)
+  if (pageSource.includes(globalTickerTag) || pageSource.includes(pageGlobalTickerImport)) {
+    failures.push(`${pageFile}: GlobalTicker is app-level only; page-level mounts duplicate the global bar`)
   }
 }
 

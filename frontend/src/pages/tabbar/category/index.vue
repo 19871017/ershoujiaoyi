@@ -1,6 +1,5 @@
 <template>
   <view class="page-shell category-page">
-    <GlobalTicker />
     <view class="search-card ds-card">
       <text class="search-icon">🔎</text>
       <input v-model.trim="keyword" class="search-input" placeholder="搜连衣裙、鞋子、袜子、包包" confirm-type="search" @confirm="openSearchResult" />
@@ -85,7 +84,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
-import GlobalTicker from '../../../components/GlobalTicker.vue'
 
 const launchReadinessMarkers = [
   '商品暂时不可用，请稍后重试',
