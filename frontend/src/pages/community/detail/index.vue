@@ -58,8 +58,8 @@ import { followPublicProfile, getPublicProfile, unfollowPublicProfile } from '..
 interface CommentItem { id: string; avatar: string; name: string; text: string }
 
 const launchReadinessMarkers = [
-  '缺少作者编号，未执行任何关注变更',
-  '关注状态没有提交成功，请稍后重试'
+  '缺少后端作者ID，未执行任何关注变更',
+  '关注状态没有提交成功，未执行本地关注变更'
 ]
 
 const topic = ref('')
@@ -175,7 +175,7 @@ function openProduct() {
 }
 async function toggleAuthorFollow() {
   if (!isValidBackendUserId(authorId.value)) {
-    uni.showToast({ title: '缺少平台作者ID，未执行任何关注变更', icon: 'none' })
+    uni.showToast({ title: '缺少后端作者ID，未执行任何关注变更', icon: 'none' })
     return
   }
   const safeAuthorId = Number(authorId.value)
@@ -185,7 +185,7 @@ async function toggleAuthorFollow() {
     authorFollowed.value = Boolean(updated.followedByMe)
     uni.showToast({ title: wasFollowing ? '已按平台记录取消关注' : '关注状态已同步平台', icon: 'none' })
   } catch {
-    uni.showToast({ title: '关注状态没有提交成功，未执行关注变更', icon: 'none' })
+    uni.showToast({ title: '关注状态没有提交成功，未执行本地关注变更', icon: 'none' })
   }
 }
 async function likePost() {
