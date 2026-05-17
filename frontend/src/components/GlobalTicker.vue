@@ -1,8 +1,11 @@
 <template>
   <view v-if="visible" class="global-ticker-wrap">
-    <view class="global-ticker ds-card tapable" @click="openCurrentItem">
-      <view class="ticker-icon" :class="currentItem?.kind === 'gift' ? 'gift' : 'notice'">
-        {{ currentItem?.icon }}
+    <view class="global-ticker ds-card tapable" :class="currentItem?.kind === 'gift' ? 'gift' : 'notice'" @click="openCurrentItem">
+      <view class="ticker-speaker" aria-hidden="true">
+        <view class="speaker-body" />
+        <view class="speaker-mouth" />
+        <view class="speaker-wave one" />
+        <view class="speaker-wave two" />
       </view>
       <view class="ticker-marquee">
         <view class="ticker-track" :style="trackStyle">
@@ -205,31 +208,93 @@ onBeforeUnmount(() => {
   z-index: 999;
 }
 .global-ticker {
-  min-height: 64rpx;
-  padding: 10rpx 16rpx;
+  position: relative;
+  min-height: 68rpx;
+  padding: 10rpx 18rpx 10rpx 14rpx;
   display: flex;
   align-items: center;
-  gap: 12rpx;
-  border-color: rgba(255, 217, 189, .94);
-  background: rgba(255, 250, 244, .94);
-  backdrop-filter: blur(14rpx);
-  box-shadow: 0 14rpx 34rpx rgba(255, 122, 69, .14);
+  gap: 14rpx;
+  border: 1rpx solid rgba(255, 212, 183, .96);
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,.96) 0%, rgba(255,246,236,.96) 54%, rgba(255,239,226,.94) 100%);
+  backdrop-filter: blur(16rpx);
+  box-shadow: 0 16rpx 38rpx rgba(255, 122, 69, .16), inset 0 1rpx 0 rgba(255,255,255,.95), inset 0 -1rpx 0 rgba(255,177,93,.16);
+  overflow: hidden;
 }
-.ticker-icon {
-  width: 40rpx;
-  height: 40rpx;
+.global-ticker::before {
+  content: "";
+  position: absolute;
+  inset: 2rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid rgba(255,255,255,.66);
+  pointer-events: none;
+}
+.global-ticker::after {
+  content: "";
+  position: absolute;
+  left: -42rpx;
+  top: -58rpx;
+  width: 158rpx;
+  height: 158rpx;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22rpx;
+  background: radial-gradient(circle, rgba(255,255,255,.88), rgba(255,180,118,.24) 54%, rgba(255,122,69,0) 72%);
+  pointer-events: none;
+}
+.global-ticker.gift {
+  border-color: rgba(255, 151, 173, .58);
+  box-shadow: 0 16rpx 38rpx rgba(255, 63, 141, .16), inset 0 1rpx 0 rgba(255,255,255,.95), inset 0 -1rpx 0 rgba(255,105,150,.16);
+}
+.ticker-speaker {
+  position: relative;
+  z-index: 1;
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 18rpx;
+  background: linear-gradient(135deg, #ff7a45 0%, #ffb15d 100%);
+  box-shadow: 0 9rpx 18rpx rgba(255,122,69,.22), inset 0 1rpx 0 rgba(255,255,255,.48);
   flex: 0 0 auto;
 }
-.ticker-icon.gift {
-  background: linear-gradient(135deg, #ff7a45, #ff4d8f);
+.global-ticker.gift .ticker-speaker {
+  background: linear-gradient(135deg, #ff4d8f 0%, #ff9f5f 100%);
 }
-.ticker-icon.notice {
-  background: linear-gradient(135deg, #ffb15d, #ff7a45);
+.speaker-body {
+  position: absolute;
+  left: 10rpx;
+  top: 18rpx;
+  width: 10rpx;
+  height: 14rpx;
+  border-radius: 4rpx;
+  background: #fff7ed;
+}
+.speaker-mouth {
+  position: absolute;
+  left: 19rpx;
+  top: 14rpx;
+  width: 16rpx;
+  height: 22rpx;
+  clip-path: polygon(0 28%, 100% 0, 100% 100%, 0 72%);
+  background: #fff7ed;
+}
+.speaker-wave {
+  position: absolute;
+  border: 3rpx solid rgba(255,255,255,.92);
+  border-left: 0;
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 0 999rpx 999rpx 0;
+}
+.speaker-wave.one {
+  right: 8rpx;
+  top: 17rpx;
+  width: 8rpx;
+  height: 14rpx;
+}
+.speaker-wave.two {
+  right: 4rpx;
+  top: 13rpx;
+  width: 14rpx;
+  height: 22rpx;
+  opacity: .72;
 }
 .ticker-marquee {
   flex: 1;
