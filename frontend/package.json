@@ -20,6 +20,7 @@
     "check:public-profile-real-data": "node scripts/check-public-profile-real-data.cjs",
     "check:favorite-real-data": "node scripts/check-favorite-real-data.cjs",
     "check:home-real-products": "node scripts/check-home-real-products.cjs",
+    "check:home-product-rotation": "node scripts/check-home-product-rotation.cjs",
     "check:category-real-products": "node scripts/check-category-real-products.cjs",
     "check:upload-evidence": "node scripts/check-upload-evidence-canonical-scenes.cjs",
     "check:notification-real-data": "node scripts/check-notification-real-data.cjs",
