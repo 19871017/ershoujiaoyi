@@ -63,7 +63,7 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 function applyOffset() {
   if (typeof document === 'undefined') return
-  document.documentElement.style.setProperty('--global-ticker-offset', visible.value ? '88rpx' : '0rpx')
+  document.documentElement.style.setProperty('--global-ticker-offset', visible.value ? '84rpx' : '0rpx')
 }
 
 function clearRotationTimers() {
@@ -204,16 +204,16 @@ onBeforeUnmount(() => {
 }
 .global-ticker {
   position: relative;
-  min-height: 72rpx;
-  padding: 10rpx 18rpx 12rpx 14rpx;
+  min-height: 70rpx;
+  padding: 10rpx 18rpx 11rpx 14rpx;
   display: flex;
   align-items: center;
   gap: 14rpx;
-  border: 2rpx solid rgba(117, 122, 255, .46);
-  border-radius: 24rpx;
-  background: linear-gradient(180deg, rgba(251,253,255,.98) 0%, rgba(242,246,255,.97) 58%, rgba(229,244,255,.96) 100%);
+  border: 2rpx solid rgba(255, 190, 138, .78);
+  border-radius: 26rpx;
+  background: linear-gradient(180deg, rgba(255,253,250,.98) 0%, rgba(255,246,238,.97) 56%, rgba(255,238,224,.96) 100%);
   backdrop-filter: blur(16rpx);
-  box-shadow: 0 16rpx 36rpx rgba(69, 86, 180, .16), inset 0 0 0 1rpx rgba(255,255,255,.82), inset 0 -8rpx 0 rgba(180, 222, 255, .28);
+  box-shadow: 0 16rpx 34rpx rgba(255, 122, 69, .14), inset 0 0 0 1rpx rgba(255,255,255,.82), inset 0 -7rpx 0 rgba(255, 219, 187, .34);
   overflow: hidden;
 }
 .global-ticker::after {
@@ -224,13 +224,16 @@ onBeforeUnmount(() => {
   bottom: 5rpx;
   height: 4rpx;
   border-radius: 999rpx;
-  background: linear-gradient(90deg, #8b8cff 0%, #73d7ff 48%, #95f0d1 100%);
-  opacity: .7;
+  background: linear-gradient(90deg, #ff8a5c 0%, #ffbf80 50%, #ffd9a3 100%);
+  opacity: .66;
 }
 .global-ticker.gift {
-  border-color: rgba(145, 104, 255, .48);
-  background: linear-gradient(180deg, rgba(252,251,255,.98) 0%, rgba(243,239,255,.97) 58%, rgba(234,246,255,.96) 100%);
-  box-shadow: 0 16rpx 36rpx rgba(124, 80, 220, .16), inset 0 0 0 1rpx rgba(255,255,255,.82), inset 0 -8rpx 0 rgba(173, 214, 255, .25);
+  border-color: rgba(255, 142, 169, .70);
+  background: linear-gradient(180deg, rgba(255,253,251,.98) 0%, rgba(255,242,236,.97) 56%, rgba(255,232,228,.96) 100%);
+  box-shadow: 0 16rpx 34rpx rgba(255, 93, 133, .14), inset 0 0 0 1rpx rgba(255,255,255,.82), inset 0 -7rpx 0 rgba(255, 198, 178, .32);
+}
+.global-ticker.gift::after {
+  background: linear-gradient(90deg, #ff6f9a 0%, #ff9f5f 52%, #ffd76b 100%);
 }
 .ticker-speaker {
   position: relative;
@@ -238,8 +241,8 @@ onBeforeUnmount(() => {
   width: 52rpx;
   height: 52rpx;
   border-radius: 19rpx;
-  background: linear-gradient(145deg, #7c83ff 0%, #55c7ff 100%);
-  box-shadow: 0 10rpx 18rpx rgba(85, 116, 255, .24), inset 0 2rpx 0 rgba(255,255,255,.62), inset 0 -3rpx 0 rgba(53,81,180,.18);
+  background: linear-gradient(145deg, #ff8a5c 0%, #ffc06f 100%);
+  box-shadow: 0 10rpx 18rpx rgba(255, 122, 69, .22), inset 0 2rpx 0 rgba(255,255,255,.62), inset 0 -3rpx 0 rgba(194,94,45,.16);
   flex: 0 0 auto;
 }
 .ticker-speaker::before {
@@ -250,7 +253,7 @@ onBeforeUnmount(() => {
   width: 9rpx;
   height: 7rpx;
   border-radius: 999rpx;
-  background: rgba(255,255,255,.72);
+  background: rgba(255,255,255,.76);
 }
 .ticker-speaker::after {
   content: "";
@@ -260,11 +263,11 @@ onBeforeUnmount(() => {
   width: 16rpx;
   height: 5rpx;
   border-radius: 999rpx;
-  background: rgba(255,255,255,.9);
-  box-shadow: 0 0 0 2rpx rgba(68, 91, 190, .08);
+  background: rgba(255,255,255,.92);
+  box-shadow: 0 0 0 2rpx rgba(170, 92, 35, .08);
 }
 .global-ticker.gift .ticker-speaker {
-  background: linear-gradient(145deg, #8b5cff 0%, #4fc3ff 100%);
+  background: linear-gradient(145deg, #ff6f9a 0%, #ffb15d 100%);
 }
 .speaker-body {
   position: absolute;
@@ -320,7 +323,7 @@ onBeforeUnmount(() => {
 .ticker-line {
   height: 32rpx;
   line-height: 32rpx;
-  color: #30406f;
+  color: #6b3d25;
   font-size: 22rpx;
   font-weight: 900;
   white-space: nowrap;
@@ -330,7 +333,7 @@ onBeforeUnmount(() => {
 .ticker-arrow {
   position: relative;
   z-index: 1;
-  color: #6474d8;
+  color: #d47a45;
   font-size: 28rpx;
   font-weight: 900;
 }
