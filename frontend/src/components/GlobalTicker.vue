@@ -1,6 +1,6 @@
 <template>
   <view v-if="visible" class="global-ticker-wrap">
-    <view class="global-ticker ds-card tapable" :class="currentItem?.kind === 'gift' ? 'gift' : 'notice'" @click="openCurrentItem">
+    <view class="global-ticker ds-card tapable" :class="{ gift: currentItem?.kind === 'gift' }" @click="openCurrentItem">
       <view class="ticker-speaker" aria-hidden="true">
         <view class="speaker-body" />
         <view class="speaker-mouth" />
@@ -33,12 +33,10 @@ import { useUserStore } from '../store/modules/user'
 type TickerItem = {
   id: string
   kind: 'announcement' | 'gift' | 'notice'
-  icon: string
   text: string
   targetUrl?: string
 }
 
-const DEFAULT_ANNOUNCEMENT_ICON = '📣'
 const DEFAULT_ANNOUNCEMENT_TARGET_URL = '/pages/notification/index'
 const ENABLE_MOCK_DATA = import.meta.env.VITE_ENABLE_MOCK_DATA === 'true'
 const userStore = useUserStore()
@@ -116,7 +114,6 @@ function buildAnnouncementItems(announcement: Awaited<ReturnType<typeof getAnnou
   return [{
     id: `announcement-${announcement.updatedAt || text}`,
     kind: 'announcement' as const,
-    icon: announcement.icon || DEFAULT_ANNOUNCEMENT_ICON,
     text,
     targetUrl: normalizeTargetUrl(announcement.targetUrl) || DEFAULT_ANNOUNCEMENT_TARGET_URL
   }]
@@ -145,7 +142,6 @@ async function loadTicker() {
       .map((item) => ({
         id: `gift-${item.giftOrderNo}`,
         kind: 'gift',
-        icon: item.giftIcon || '🎁',
         text: buildGiftText(item),
         targetUrl: item.receiverId ? `/pages/user/public-profile/index?userId=${item.receiverId}` : '/pages/gift/index'
       }))
@@ -155,7 +151,6 @@ async function loadTicker() {
       .map((item) => ({
         id: `notice-${item.notificationNo}`,
         kind: 'notice',
-        icon: '🔔',
         text: buildNoticeText(item),
         targetUrl: normalizeTargetUrl(item.targetUrl) || '/pages/notification/index'
       }))
@@ -218,31 +213,12 @@ onBeforeUnmount(() => {
   border-radius: 999rpx;
   background: linear-gradient(135deg, rgba(255,255,255,.96) 0%, rgba(255,246,236,.96) 54%, rgba(255,239,226,.94) 100%);
   backdrop-filter: blur(16rpx);
-  box-shadow: 0 16rpx 38rpx rgba(255, 122, 69, .16), inset 0 1rpx 0 rgba(255,255,255,.95), inset 0 -1rpx 0 rgba(255,177,93,.16);
+  box-shadow: 0 16rpx 38rpx rgba(255, 122, 69, .16), inset 0 0 0 1rpx rgba(255,255,255,.66), inset 0 1rpx 0 rgba(255,255,255,.95), inset 0 -1rpx 0 rgba(255,177,93,.16);
   overflow: hidden;
-}
-.global-ticker::before {
-  content: "";
-  position: absolute;
-  inset: 2rpx;
-  border-radius: 999rpx;
-  border: 1rpx solid rgba(255,255,255,.66);
-  pointer-events: none;
-}
-.global-ticker::after {
-  content: "";
-  position: absolute;
-  left: -42rpx;
-  top: -58rpx;
-  width: 158rpx;
-  height: 158rpx;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255,255,255,.88), rgba(255,180,118,.24) 54%, rgba(255,122,69,0) 72%);
-  pointer-events: none;
 }
 .global-ticker.gift {
   border-color: rgba(255, 151, 173, .58);
-  box-shadow: 0 16rpx 38rpx rgba(255, 63, 141, .16), inset 0 1rpx 0 rgba(255,255,255,.95), inset 0 -1rpx 0 rgba(255,105,150,.16);
+  box-shadow: 0 16rpx 38rpx rgba(255, 63, 141, .16), inset 0 0 0 1rpx rgba(255,255,255,.66), inset 0 1rpx 0 rgba(255,255,255,.95), inset 0 -1rpx 0 rgba(255,105,150,.16);
 }
 .ticker-speaker {
   position: relative;
