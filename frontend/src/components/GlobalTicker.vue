@@ -63,7 +63,7 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 function applyOffset() {
   if (typeof document === 'undefined') return
-  document.documentElement.style.setProperty('--global-ticker-offset', visible.value ? '84rpx' : '0rpx')
+  document.documentElement.style.setProperty('--global-ticker-offset', visible.value ? '76rpx' : '0rpx')
 }
 
 function clearRotationTimers() {
@@ -204,13 +204,14 @@ onBeforeUnmount(() => {
 }
 .global-ticker {
   position: relative;
-  min-height: 70rpx;
-  padding: 10rpx 18rpx 11rpx 14rpx;
+  box-sizing: border-box;
+  min-height: 62rpx;
+  padding: 7rpx 16rpx 8rpx 12rpx;
   display: flex;
   align-items: center;
-  gap: 14rpx;
+  gap: 12rpx;
   border: 2rpx solid rgba(255, 190, 138, .78);
-  border-radius: 26rpx;
+  border-radius: 24rpx;
   background: linear-gradient(180deg, rgba(255,253,250,.98) 0%, rgba(255,246,238,.97) 56%, rgba(255,238,224,.96) 100%);
   backdrop-filter: blur(16rpx);
   box-shadow: 0 16rpx 34rpx rgba(255, 122, 69, .14), inset 0 0 0 1rpx rgba(255,255,255,.82), inset 0 -7rpx 0 rgba(255, 219, 187, .34);
@@ -221,8 +222,8 @@ onBeforeUnmount(() => {
   position: absolute;
   left: 18rpx;
   right: 18rpx;
-  bottom: 5rpx;
-  height: 4rpx;
+  bottom: 4rpx;
+  height: 3rpx;
   border-radius: 999rpx;
   background: linear-gradient(90deg, #ff8a5c 0%, #ffbf80 50%, #ffd9a3 100%);
   opacity: .66;
@@ -238,9 +239,9 @@ onBeforeUnmount(() => {
 .ticker-speaker {
   position: relative;
   z-index: 1;
-  width: 52rpx;
-  height: 52rpx;
-  border-radius: 19rpx;
+  width: 46rpx;
+  height: 46rpx;
+  border-radius: 17rpx;
   background: linear-gradient(145deg, #ff8a5c 0%, #ffc06f 100%);
   box-shadow: 0 10rpx 18rpx rgba(255, 122, 69, .22), inset 0 2rpx 0 rgba(255,255,255,.62), inset 0 -3rpx 0 rgba(194,94,45,.16);
   flex: 0 0 auto;
@@ -248,20 +249,20 @@ onBeforeUnmount(() => {
 .ticker-speaker::before {
   content: "";
   position: absolute;
-  left: 9rpx;
-  top: 8rpx;
-  width: 9rpx;
-  height: 7rpx;
+  left: 8rpx;
+  top: 7rpx;
+  width: 8rpx;
+  height: 6rpx;
   border-radius: 999rpx;
   background: rgba(255,255,255,.76);
 }
 .ticker-speaker::after {
   content: "";
   position: absolute;
-  left: 18rpx;
-  bottom: 7rpx;
-  width: 16rpx;
-  height: 5rpx;
+  left: 16rpx;
+  bottom: 6rpx;
+  width: 14rpx;
+  height: 4rpx;
   border-radius: 999rpx;
   background: rgba(255,255,255,.92);
   box-shadow: 0 0 0 2rpx rgba(170, 92, 35, .08);
@@ -271,19 +272,19 @@ onBeforeUnmount(() => {
 }
 .speaker-body {
   position: absolute;
-  left: 10rpx;
-  top: 21rpx;
-  width: 11rpx;
-  height: 14rpx;
+  left: 9rpx;
+  top: 19rpx;
+  width: 10rpx;
+  height: 12rpx;
   border-radius: 5rpx;
   background: #fffdf6;
 }
 .speaker-mouth {
   position: absolute;
-  left: 20rpx;
-  top: 16rpx;
-  width: 17rpx;
-  height: 25rpx;
+  left: 18rpx;
+  top: 14rpx;
+  width: 15rpx;
+  height: 22rpx;
   clip-path: polygon(0 30%, 100% 0, 100% 100%, 0 70%);
   background: #fffdf6;
 }
@@ -296,16 +297,16 @@ onBeforeUnmount(() => {
   border-radius: 0 999rpx 999rpx 0;
 }
 .speaker-wave.one {
-  right: 8rpx;
-  top: 19rpx;
-  width: 8rpx;
-  height: 14rpx;
+  right: 7rpx;
+  top: 17rpx;
+  width: 7rpx;
+  height: 12rpx;
 }
 .speaker-wave.two {
   right: 4rpx;
-  top: 15rpx;
-  width: 14rpx;
-  height: 22rpx;
+  top: 14rpx;
+  width: 12rpx;
+  height: 19rpx;
   opacity: .72;
 }
 .ticker-marquee {
