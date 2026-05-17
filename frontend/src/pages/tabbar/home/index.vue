@@ -115,8 +115,8 @@ const decoratedBanners = computed(() => banners.value.map((item) => ({
   imageUrl: homeBannerArtwork[item.action] || item.imageUrl
 })))
 const rankingArtwork = {
-  goddess: '/assets/ranking/ranking-goddess-card.svg',
-  god: '/assets/ranking/ranking-god-card.svg'
+  goddess: '/assets/ranking/ranking-goddess-desktop.png',
+  god: '/assets/ranking/ranking-god-desktop.png'
 }
 const rankingCards: RankingCard[] = [
   {
@@ -296,15 +296,17 @@ onBeforeUnmount(() => {
 .banner-copy { position:relative; z-index:2; width:68%; color:#fff; }
 .banner-title { font-size:40rpx; line-height:1.13; font-weight:950; letter-spacing:-1rpx; text-shadow:0 5rpx 14rpx rgba(80,35,18,.18); }
 .ranking-entrance { margin:18rpx 0 12rpx; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16rpx; }
-.ranking-card { position:relative; min-height:218rpx; padding:16rpx; border-radius:30rpx; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 16rpx 30rpx rgba(80,35,18,.13); border:1rpx solid rgba(255,255,255,.74); isolation:isolate; }
+.ranking-card { position:relative; height:300rpx; padding:18rpx; border-radius:30rpx; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; justify-content:flex-end; box-shadow:0 16rpx 30rpx rgba(80,35,18,.13); border:1rpx solid rgba(255,255,255,.74); isolation:isolate; }
 .ranking-goddess { background:linear-gradient(145deg,#ff6f9a 0%,#ff9f5f 50%,#ffd76b 100%); }
 .ranking-god { background:linear-gradient(145deg,#111a44 0%,#1d4ed8 54%,#9b5cff 100%); }
-.ranking-art { position:absolute; inset:0; width:100%; height:100%; }
-.ranking-text-mask { position:absolute; left:0; top:0; width:72%; height:52%; z-index:1; pointer-events:none; background:linear-gradient(135deg,rgba(45,21,12,.42) 0%,rgba(45,21,12,.20) 58%,rgba(45,21,12,0) 100%); }
-.ranking-god .ranking-text-mask { background:linear-gradient(135deg,rgba(4,12,36,.44) 0%,rgba(4,12,36,.20) 58%,rgba(4,12,36,0) 100%); }
-.ranking-title { position:absolute; z-index:3; left:18rpx; top:16rpx; max-width:210rpx; color:#fff8d8; font-size:33rpx; line-height:1.05; font-weight:950; letter-spacing:1.6rpx; font-family:"STSong","Songti SC","PingFang SC",serif; white-space:nowrap; text-shadow:0 2rpx 0 rgba(120,54,12,.72),0 0 10rpx rgba(255,224,136,.86),0 8rpx 18rpx rgba(0,0,0,.45); }
-.ranking-goddess .ranking-title { color:#fff2c3; text-shadow:0 2rpx 0 rgba(143,52,64,.72),0 0 12rpx rgba(255,210,128,.90),0 8rpx 18rpx rgba(90,28,34,.42); }
-.ranking-god .ranking-title { color:#fff1b8; text-shadow:0 2rpx 0 rgba(31,60,132,.76),0 0 12rpx rgba(191,219,254,.90),0 8rpx 18rpx rgba(2,8,23,.48); }
+.ranking-art { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.ranking-goddess .ranking-art { object-position:center 22%; }
+.ranking-god .ranking-art { object-position:center 20%; }
+.ranking-text-mask { position:absolute; left:0; right:0; bottom:0; height:45%; z-index:1; pointer-events:none; background:linear-gradient(180deg,rgba(255,246,230,0) 0%,rgba(255,246,230,.58) 62%,rgba(255,246,230,.86) 100%); }
+.ranking-god .ranking-text-mask { background:linear-gradient(180deg,rgba(238,245,255,0) 0%,rgba(238,245,255,.50) 62%,rgba(238,245,255,.82) 100%); }
+.ranking-title { position:absolute; z-index:3; left:16rpx; bottom:16rpx; max-width:244rpx; padding:10rpx 18rpx; border-radius:999rpx; color:#8a3b16; font-size:31rpx; line-height:1.05; font-weight:950; letter-spacing:1.2rpx; font-family:"STSong","Songti SC","PingFang SC",serif; white-space:nowrap; background:rgba(255,250,236,.88); box-shadow:inset 0 0 0 1rpx rgba(255,255,255,.72); }
+.ranking-goddess .ranking-title { color:#a63252; background:rgba(255,246,230,.88); }
+.ranking-god .ranking-title { color:#1d4ed8; background:rgba(238,245,255,.86); }
 .section-head { margin:22rpx 0 12rpx; display:flex; align-items:center; justify-content:space-between; }
 .section-title { font-size:31rpx; font-weight:950; color:#3a2a1f; }
 .small { min-height:54rpx; padding:0 18rpx; font-size:21rpx; color:#ff7a45; background:#fff3e7; }
