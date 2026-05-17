@@ -167,6 +167,14 @@ export interface AdminLocationConfig {
   updatedAt?: string
 }
 
+export interface AdminAnnouncementTicker {
+  enabled: boolean
+  text: string
+  icon: string
+  targetUrl: string
+  updatedAt?: string
+}
+
 export type AdminHomeBannerAction = 'closet' | 'ranking' | 'forum' | 'search' | 'none'
 
 export interface AdminHomeBanner {
@@ -201,6 +209,13 @@ export interface AdminUpdateLocationConfigRequest {
   defaultProvince: string
   coordinateType: string
   baiduAk?: string
+}
+
+export interface AdminUpdateAnnouncementTickerRequest {
+  enabled: boolean
+  text: string
+  icon: string
+  targetUrl: string
 }
 
 export function getAdminDashboard(): Promise<AdminDashboardSummary> {
@@ -458,6 +473,19 @@ export function getAdminHomeBanners() {
   return request<AdminHomeBanner[]>({ url: '/api/admin/home/banners' })
 }
 
+export function getAdminAnnouncementTicker() {
+  return request<AdminAnnouncementTicker>({ url: '/api/admin/announcements/ticker' })
+}
+
+export function updateAdminAnnouncementTicker(data: AdminUpdateAnnouncementTickerRequest) {
+  validateAdminAnnouncementTickerRequest(data)
+  return request<AdminAnnouncementTicker>({
+    url: '/api/admin/announcements/ticker',
+    method: 'POST',
+    data
+  })
+}
+
 export function createAdminHomeBanner(data: AdminHomeBannerRequest) {
   validateAdminHomeBannerRequest(data)
   return request<AdminHomeBanner>({
@@ -491,6 +519,14 @@ export function deleteAdminHomeBanner(bannerId: string | number) {
 
 export function isValidAdminBannerId(bannerId: string | number) {
   return /^[1-9]\d*$/.test(String(bannerId))
+}
+
+function validateAdminAnnouncementTickerRequest(data: AdminUpdateAnnouncementTickerRequest) {
+  if (!data || typeof data !== 'object') throw new Error('公告配置无效')
+  if (!data.text || data.text.trim().length > 80) throw new Error('公告文案无效')
+  if (/preview|demo|mock|sample|placeholder/i.test(data.text)) throw new Error('公告文案无效')
+  if (!data.icon || data.icon.trim().length > 8) throw new Error('公告图标无效')
+  if (!data.targetUrl || data.targetUrl.trim().length > 256 || !data.targetUrl.startsWith('/pages/')) throw new Error('公告跳转路径无效')
 }
 
 function validateAdminHomeBannerRequest(data: AdminHomeBannerRequest) {

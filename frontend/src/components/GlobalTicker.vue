@@ -22,18 +22,21 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { getAnnouncementTicker } from '../api/modules/announcement'
 import { getRecentGiftFeed } from '../api/modules/gift'
 import { listNotifications, type NotificationItemResponse } from '../api/modules/notification'
 import { useUserStore } from '../store/modules/user'
 
 type TickerItem = {
   id: string
-  kind: 'gift' | 'notice'
+  kind: 'announcement' | 'gift' | 'notice'
   icon: string
   text: string
   targetUrl?: string
 }
 
+const DEFAULT_ANNOUNCEMENT_ICON = '📣'
+const DEFAULT_ANNOUNCEMENT_TARGET_URL = '/pages/notification/index'
 const userStore = useUserStore()
 const items = ref<TickerItem[]>([])
 const currentIndex = ref(0)
@@ -102,18 +105,36 @@ function normalizeTargetUrl(url?: string | null) {
   return value.startsWith('/') ? value : ''
 }
 
+function buildAnnouncementItems(announcement: Awaited<ReturnType<typeof getAnnouncementTicker>> | null) {
+  if (!announcement?.enabled) return []
+  const text = announcement.text?.trim()
+  if (!text) return []
+  return [{
+    id: `announcement-${announcement.updatedAt || text}`,
+    kind: 'announcement' as const,
+    icon: announcement.icon || DEFAULT_ANNOUNCEMENT_ICON,
+    text,
+    targetUrl: normalizeTargetUrl(announcement.targetUrl) || DEFAULT_ANNOUNCEMENT_TARGET_URL
+  }]
+}
+
 async function loadTicker() {
-  if (!userStore.token) {
-    items.value = []
-    currentIndex.value = 0
-    clearRotationTimers()
-    return
-  }
   try {
-    const [gifts, notifications] = await Promise.all([
-      getRecentGiftFeed().catch(() => []),
-      listNotifications('ALL').catch(() => [])
+    const [announcement, gifts, notifications] = await Promise.all([
+      getAnnouncementTicker().catch((error) => {
+        console.warn('announcement ticker unavailable', error)
+        return null
+      }),
+      userStore.token ? getRecentGiftFeed().catch((error) => {
+        console.warn('recent gift feed unavailable', error)
+        return []
+      }) : Promise.resolve([]),
+      userStore.token ? listNotifications('ALL').catch((error) => {
+        console.warn('ticker notifications unavailable', error)
+        return []
+      }) : Promise.resolve([])
     ])
+    const announcementItems: TickerItem[] = buildAnnouncementItems(announcement)
     const giftItems: TickerItem[] = gifts
       .filter((item) => !!item.giftOrderNo && !!item.senderName && !!item.receiverName && !!item.giftName)
       .slice(0, 4)
@@ -134,11 +155,12 @@ async function loadTicker() {
         text: buildNoticeText(item),
         targetUrl: normalizeTargetUrl(item.targetUrl) || '/pages/notification/index'
       }))
-    items.value = [...giftItems, ...noticeItems].slice(0, 6)
+    items.value = [...announcementItems, ...giftItems, ...noticeItems].slice(0, 6)
     currentIndex.value = 0
     applyOffset()
     startRotation()
-  } catch {
+  } catch (error) {
+    console.warn('global ticker refresh failed', error)
     items.value = []
     currentIndex.value = 0
     applyOffset()

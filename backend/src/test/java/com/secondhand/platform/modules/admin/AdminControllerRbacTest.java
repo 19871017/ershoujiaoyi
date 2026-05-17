@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.secondhand.platform.modules.aftersales.application.AfterSalesApplicationService;
+import com.secondhand.platform.modules.announcement.AnnouncementApplicationService;
 import com.secondhand.platform.modules.audit.application.AuditApplicationService;
 import com.secondhand.platform.modules.wallet_ledger.CreateWithdrawalRequest;
 import com.secondhand.platform.modules.wallet_ledger.PayoutAccountRequest;
@@ -58,6 +59,7 @@ class AdminControllerRbacTest {
         AdminController controller = new AdminController(
                 auditApplicationService,
                 walletLedgerService,
+                new AnnouncementApplicationService(jdbcTemplate),
                 new LocationApplicationService(new com.secondhand.platform.modules.location.BaiduReverseGeocodeClient(), "", jdbcTemplate),
                 mock(AfterSalesApplicationService.class),
                 orderApplicationService,

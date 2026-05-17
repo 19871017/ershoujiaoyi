@@ -2,6 +2,9 @@ package com.secondhand.platform.modules.admin;
 
 import com.secondhand.platform.modules.aftersales.AfterSalesResponse;
 import com.secondhand.platform.modules.aftersales.application.AfterSalesApplicationService;
+import com.secondhand.platform.modules.announcement.AdminUpdateAnnouncementTickerRequest;
+import com.secondhand.platform.modules.announcement.AnnouncementApplicationService;
+import com.secondhand.platform.modules.announcement.AnnouncementTickerResponse;
 import com.secondhand.platform.modules.audit.application.AuditApplicationService;
 import com.secondhand.platform.modules.audit.application.AdminAuditLogResponse;
 import com.secondhand.platform.modules.audit.application.AdminDashboardSummary;
@@ -54,6 +57,7 @@ public class AdminController {
 
     private final AuditApplicationService auditApplicationService;
     private final WalletLedgerService walletLedgerService;
+    private final AnnouncementApplicationService announcementApplicationService;
     private final LocationApplicationService locationApplicationService;
     private final AfterSalesApplicationService afterSalesApplicationService;
     private final OrderApplicationService orderApplicationService;
@@ -65,6 +69,7 @@ public class AdminController {
 
     public AdminController(AuditApplicationService auditApplicationService,
                            WalletLedgerService walletLedgerService,
+                           AnnouncementApplicationService announcementApplicationService,
                            LocationApplicationService locationApplicationService,
                            AfterSalesApplicationService afterSalesApplicationService,
                            OrderApplicationService orderApplicationService,
@@ -75,6 +80,7 @@ public class AdminController {
                            JdbcTemplate jdbcTemplate) {
         this.auditApplicationService = auditApplicationService;
         this.walletLedgerService = walletLedgerService;
+        this.announcementApplicationService = announcementApplicationService;
         this.locationApplicationService = locationApplicationService;
         this.afterSalesApplicationService = afterSalesApplicationService;
         this.orderApplicationService = orderApplicationService;
@@ -178,6 +184,12 @@ public class AdminController {
         return Result.ok(locationApplicationService.getConfig());
     }
 
+    @GetMapping("/announcements/ticker")
+    public Result<AnnouncementTickerResponse> announcementTicker(HttpServletRequest request) {
+        adminAccessGuard.requireAdmin(request, "system:config");
+        return Result.ok(announcementApplicationService.getTicker());
+    }
+
     @GetMapping("/home/banners")
     public Result<List<com.secondhand.platform.modules.home.HomeBannerResponse>> homeBanners(HttpServletRequest request) {
         adminAccessGuard.requireAdmin(request, "system:config");
@@ -245,6 +257,22 @@ public class AdminController {
                 "location",
                 "SUCCESS",
                 "位置配置已更新：provider=" + response.provider() + ", enabled=" + response.enabled()
+        );
+        return Result.ok(response);
+    }
+
+    @PostMapping("/announcements/ticker")
+    public Result<AnnouncementTickerResponse> updateAnnouncementTicker(@RequestBody(required = false) AdminUpdateAnnouncementTickerRequest body,
+                                                                       HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "system:config");
+        AnnouncementTickerResponse response = announcementApplicationService.adminUpdateTicker(body);
+        auditApplicationService.recordAdminOperation(
+                "ANNOUNCEMENT_TICKER_UPDATE",
+                adminUserId,
+                "SYSTEM_CONFIG",
+                "announcement-ticker",
+                "SUCCESS",
+                "全局跑马灯公告已更新：enabled=" + response.enabled()
         );
         return Result.ok(response);
     }

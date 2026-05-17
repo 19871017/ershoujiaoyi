@@ -1,4 +1,5 @@
 import { useUserStore } from '../store/modules/user'
+import type { AnnouncementTickerResponse } from './modules/announcement'
 import type { ChatConversationListResponse, MessageSyncResponse } from './modules/chat'
 import type { CommunityPostResponse } from './modules/community'
 import type { GiftCatalogItemResponse, RecentGiftFeedItemResponse, ReceivedGiftItemResponse } from './modules/gift'
@@ -278,6 +279,9 @@ function mockResponse<T>(url: string, method: string, data?: unknown): T | undef
   if (!ENABLE_MOCK_DATA) return undefined
 
   if (url === '/api/products') return mockProducts() as T
+  if (url === '/api/announcements/ticker') {
+    return ({ enabled: false, text: '欢迎来到小原圈，请通过平台订单流程完成交易', icon: '📣', targetUrl: '/pages/notification/index', updatedAt: new Date().toISOString() } satisfies AnnouncementTickerResponse) as T
+  }
   if (url === '/api/gifts/catalog') return mockGiftCatalog() as T
   if (url === '/api/gifts/received') return mockReceivedGifts() as T
   if (url === '/api/gifts/recent') return mockRecentGiftFeed() as T

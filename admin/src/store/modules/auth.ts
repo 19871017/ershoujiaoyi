@@ -69,7 +69,8 @@ const PROTECTED_ROUTE_PERMISSIONS: RoutePermissionRule[] = [
   { pattern: /^\/audit-logs(?:\/|$)/, permission: 'audit:log' },
   { pattern: /^\/operators(?:\/|$)/, permission: 'operator:grant' },
   { pattern: /^\/system\/location(?:\/|$)/, permission: 'system:config' },
-  { pattern: /^\/system\/banners(?:\/|$)/, permission: 'system:config' }
+  { pattern: /^\/system\/banners(?:\/|$)/, permission: 'system:config' },
+  { pattern: /^\/system\/announcements(?:\/|$)/, permission: 'system:config' }
 ]
 
 export interface AdminMenuItem {
@@ -87,7 +88,8 @@ export const ADMIN_DASHBOARD_ACTIONS: AdminMenuItem[] = [
   { path: '/audit-logs', label: '审计日志', permission: 'audit:log' },
   { path: '/operators', label: '运营授权', permission: 'operator:grant' },
   { path: '/system/location', label: '位置配置', permission: 'system:config' },
-  { path: '/system/banners', label: '首页轮播', permission: 'system:config' }
+  { path: '/system/banners', label: '首页轮播', permission: 'system:config' },
+  { path: '/system/announcements', label: '公告配置', permission: 'system:config' }
 ]
 
 export interface AdminSession {
