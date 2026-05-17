@@ -60,7 +60,7 @@ for (const forbiddenCopy of [
   }
 }
 
-if (!reportContent.includes('生成上传票据') || !reportContent.includes('举报处理以服务端审核记录为准')) {
+if (!reportContent.includes('上传票据 {{ evidence.length }}/6') || !reportContent.includes('举报处理以服务端审核记录为准')) {
   failures.push('report submit page must use neutral upload-ticket and backend-record copy')
 }
 

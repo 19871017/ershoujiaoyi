@@ -26,6 +26,9 @@ const forbiddenMarkers = [
   '小鹿同学',
   '袜袜收藏家',
   '玫瑰女孩',
+  "8: '桃桃'",
+  "12: '可心'",
+  "18: '晚晚'",
   '(receiverId.value ?? 21)'
 ]
 
@@ -46,11 +49,11 @@ const requiredConversationMarkers = [
   'getMyProfile',
   'currentUserId.value',
   'peerName.value =',
-  '聊天用户以服务端会话为准',
-  '缺少当前登录用户，不能发送消息',
+  "const peerName = ref('聊天用户')",
+  '暂不能发送消息',
   'conversationId.value = response.ack.conversationId',
-  '消息不能为空，未发送默认聊天文案',
-  '聊天图片票据需使用有效本地选择文件'
+  '消息不能为空',
+  '图片暂不可用'
 ]
 for (const marker of requiredConversationMarkers) {
   if (!conversation.includes(marker)) {
@@ -77,9 +80,8 @@ for (const { pattern, message } of forbiddenConversationPatterns) {
 }
 
 const requiredNeutralConversationCopy = [
-  '聊天记录以服务端会话为准',
   '聊天留痕',
-  '如涉及交易，请以平台订单、支付和售后状态为准'
+  '消息暂不可用'
 ]
 for (const marker of requiredNeutralConversationCopy) {
   if (!conversation.includes(marker)) {
