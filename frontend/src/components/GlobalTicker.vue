@@ -63,7 +63,7 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 function applyOffset() {
   if (typeof document === 'undefined') return
-  document.documentElement.style.setProperty('--global-ticker-offset', visible.value ? '76rpx' : '0rpx')
+  document.documentElement.style.setProperty('--global-ticker-offset', visible.value ? '88rpx' : '0rpx')
 }
 
 function clearRotationTimers() {
@@ -199,61 +199,94 @@ onBeforeUnmount(() => {
   position: fixed;
   left: 18rpx;
   right: 18rpx;
-  top: calc(env(safe-area-inset-top) + 12rpx);
+  top: env(safe-area-inset-top);
   z-index: 999;
 }
 .global-ticker {
   position: relative;
-  min-height: 68rpx;
-  padding: 10rpx 18rpx 10rpx 14rpx;
+  min-height: 72rpx;
+  padding: 10rpx 18rpx 12rpx 14rpx;
   display: flex;
   align-items: center;
   gap: 14rpx;
-  border: 1rpx solid rgba(255, 212, 183, .96);
-  border-radius: 999rpx;
-  background: linear-gradient(135deg, rgba(255,255,255,.96) 0%, rgba(255,246,236,.96) 54%, rgba(255,239,226,.94) 100%);
+  border: 2rpx solid rgba(117, 122, 255, .46);
+  border-radius: 24rpx;
+  background: linear-gradient(180deg, rgba(251,253,255,.98) 0%, rgba(242,246,255,.97) 58%, rgba(229,244,255,.96) 100%);
   backdrop-filter: blur(16rpx);
-  box-shadow: 0 16rpx 38rpx rgba(255, 122, 69, .16), inset 0 0 0 1rpx rgba(255,255,255,.66), inset 0 1rpx 0 rgba(255,255,255,.95), inset 0 -1rpx 0 rgba(255,177,93,.16);
+  box-shadow: 0 16rpx 36rpx rgba(69, 86, 180, .16), inset 0 0 0 1rpx rgba(255,255,255,.82), inset 0 -8rpx 0 rgba(180, 222, 255, .28);
   overflow: hidden;
 }
+.global-ticker::after {
+  content: "";
+  position: absolute;
+  left: 18rpx;
+  right: 18rpx;
+  bottom: 5rpx;
+  height: 4rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(90deg, #8b8cff 0%, #73d7ff 48%, #95f0d1 100%);
+  opacity: .7;
+}
 .global-ticker.gift {
-  border-color: rgba(255, 151, 173, .58);
-  box-shadow: 0 16rpx 38rpx rgba(255, 63, 141, .16), inset 0 0 0 1rpx rgba(255,255,255,.66), inset 0 1rpx 0 rgba(255,255,255,.95), inset 0 -1rpx 0 rgba(255,105,150,.16);
+  border-color: rgba(145, 104, 255, .48);
+  background: linear-gradient(180deg, rgba(252,251,255,.98) 0%, rgba(243,239,255,.97) 58%, rgba(234,246,255,.96) 100%);
+  box-shadow: 0 16rpx 36rpx rgba(124, 80, 220, .16), inset 0 0 0 1rpx rgba(255,255,255,.82), inset 0 -8rpx 0 rgba(173, 214, 255, .25);
 }
 .ticker-speaker {
   position: relative;
   z-index: 1;
-  width: 48rpx;
-  height: 48rpx;
-  border-radius: 18rpx;
-  background: linear-gradient(135deg, #ff7a45 0%, #ffb15d 100%);
-  box-shadow: 0 9rpx 18rpx rgba(255,122,69,.22), inset 0 1rpx 0 rgba(255,255,255,.48);
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 19rpx;
+  background: linear-gradient(145deg, #7c83ff 0%, #55c7ff 100%);
+  box-shadow: 0 10rpx 18rpx rgba(85, 116, 255, .24), inset 0 2rpx 0 rgba(255,255,255,.62), inset 0 -3rpx 0 rgba(53,81,180,.18);
   flex: 0 0 auto;
 }
+.ticker-speaker::before {
+  content: "";
+  position: absolute;
+  left: 9rpx;
+  top: 8rpx;
+  width: 9rpx;
+  height: 7rpx;
+  border-radius: 999rpx;
+  background: rgba(255,255,255,.72);
+}
+.ticker-speaker::after {
+  content: "";
+  position: absolute;
+  left: 18rpx;
+  bottom: 7rpx;
+  width: 16rpx;
+  height: 5rpx;
+  border-radius: 999rpx;
+  background: rgba(255,255,255,.9);
+  box-shadow: 0 0 0 2rpx rgba(68, 91, 190, .08);
+}
 .global-ticker.gift .ticker-speaker {
-  background: linear-gradient(135deg, #ff4d8f 0%, #ff9f5f 100%);
+  background: linear-gradient(145deg, #8b5cff 0%, #4fc3ff 100%);
 }
 .speaker-body {
   position: absolute;
   left: 10rpx;
-  top: 18rpx;
-  width: 10rpx;
+  top: 21rpx;
+  width: 11rpx;
   height: 14rpx;
-  border-radius: 4rpx;
-  background: #fff7ed;
+  border-radius: 5rpx;
+  background: #fffdf6;
 }
 .speaker-mouth {
   position: absolute;
-  left: 19rpx;
-  top: 14rpx;
-  width: 16rpx;
-  height: 22rpx;
-  clip-path: polygon(0 28%, 100% 0, 100% 100%, 0 72%);
-  background: #fff7ed;
+  left: 20rpx;
+  top: 16rpx;
+  width: 17rpx;
+  height: 25rpx;
+  clip-path: polygon(0 30%, 100% 0, 100% 100%, 0 70%);
+  background: #fffdf6;
 }
 .speaker-wave {
   position: absolute;
-  border: 3rpx solid rgba(255,255,255,.92);
+  border: 3rpx solid rgba(255,255,255,.94);
   border-left: 0;
   border-top-color: transparent;
   border-bottom-color: transparent;
@@ -261,18 +294,20 @@ onBeforeUnmount(() => {
 }
 .speaker-wave.one {
   right: 8rpx;
-  top: 17rpx;
+  top: 19rpx;
   width: 8rpx;
   height: 14rpx;
 }
 .speaker-wave.two {
   right: 4rpx;
-  top: 13rpx;
+  top: 15rpx;
   width: 14rpx;
   height: 22rpx;
   opacity: .72;
 }
 .ticker-marquee {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-width: 0;
   height: 32rpx;
@@ -285,7 +320,7 @@ onBeforeUnmount(() => {
 .ticker-line {
   height: 32rpx;
   line-height: 32rpx;
-  color: #5a3526;
+  color: #30406f;
   font-size: 22rpx;
   font-weight: 900;
   white-space: nowrap;
@@ -293,7 +328,9 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
 }
 .ticker-arrow {
-  color: #d79262;
+  position: relative;
+  z-index: 1;
+  color: #6474d8;
   font-size: 28rpx;
   font-weight: 900;
 }
