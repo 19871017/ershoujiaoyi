@@ -20,20 +20,35 @@
 
     <view class="right-panel ds-card">
       <view class="panel-row">
-        <view>
-          <view class="panel-title">{{ currentGroup.name }}</view>
-          <view class="panel-sub">{{ currentGroup.desc }}</view>
-        </view>
+        <view class="panel-title">{{ currentGroup.name }}</view>
         <view class="soft-count">{{ filteredProducts.length }} 件</view>
       </view>
 
       <view v-if="loading" class="state-tip">加载分类宝贝中...</view>
-      <view v-else-if="errorText" class="state-tip danger">商品暂时不可用，请稍后重试</view>
-      <view v-else-if="products.length === 0" class="state-tip">暂未加载到平台分类宝贝</view>
+      <view v-else-if="errorText" class="state-tip danger">商品接口暂时不可用，未展示本地分类宝贝样例</view>
+      <view v-else-if="products.length === 0" class="state-tip">暂未加载到后端分类宝贝</view>
 
       <view class="sub-grid compact">
         <view v-for="item in activeItems" :key="item.name" class="sub-item tapable" :class="{ active: subCategory === item.name }" @click="selectSubCategory(item.name)">
-          <view class="sub-icon">{{ item.icon }}</view>
+          <view class="sub-icon" :class="{ 'wear-icon-wrap': item.iconType }">
+            <view v-if="item.iconType === 'bra'" class="wear-icon">
+              <view class="bra-cup left" />
+              <view class="bra-cup right" />
+              <view class="bra-band" />
+            </view>
+            <view v-else-if="item.iconType === 'panty'" class="wear-icon">
+              <view class="panty-waist" />
+              <view class="panty-body" />
+            </view>
+            <view v-else-if="item.iconType === 'bikini'" class="wear-icon">
+              <view class="bikini-top">
+                <view class="bikini-cup left" />
+                <view class="bikini-cup right" />
+              </view>
+              <view class="bikini-bottom" />
+            </view>
+            <text v-else>{{ item.icon }}</text>
+          </view>
           <view class="sub-name">{{ item.name }}</view>
           <view class="sub-count">{{ subCategoryCount(item.name) }} 件</view>
         </view>
@@ -52,10 +67,9 @@
           <text v-else>{{ iconFor(item.title) }}</text>
         </view>
         <view class="product-title">{{ item.title }}</view>
-        <view class="product-meta">平台商品 · {{ statusLabel(item.status) }} · {{ item.createdAt ? '已同步' : '时间待同步' }}</view>
         <view class="product-bottom">
           <view class="price">¥{{ compactPrice(item.price) }}</view>
-          <view class="distance">{{ item.visible ? '可查看' : '待公开' }}</view>
+          <view class="distance">{{ statusLabel(item.status) }}</view>
         </view>
       </view>
     </view>
@@ -63,7 +77,6 @@
     <view v-else-if="!loading" class="empty-card ds-card">
       <view class="empty-icon">🪞</view>
       <view class="empty-title">暂时没找到这个宝贝</view>
-      <view class="empty-desc">仅展示平台返回的在售商品，未使用默认分类内容。</view>
     </view>
   </view>
 </template>
@@ -77,21 +90,23 @@ const launchReadinessMarkers = [
   '暂未加载到平台分类宝贝'
 ]
 
-const groups = [
+type WearIconType = 'bra' | 'panty' | 'bikini'
+type CategoryItem = { name: string; icon: string; iconType?: WearIconType }
+type CategoryGroup = { name: string; icon: string; items: CategoryItem[] }
+
+const groups: CategoryGroup[] = [
   {
     name: '衣物',
     icon: '👗',
-    desc: '上衣、下衣、套装',
     items: [
-      { name: '上衣', icon: '👙' },
-      { name: '下衣', icon: '🩲' },
-      { name: '套装', icon: '👙🩲' }
+      { name: '上衣', icon: '胸罩', iconType: 'bra' },
+      { name: '下衣', icon: '内裤', iconType: 'panty' },
+      { name: '套装', icon: '比基尼', iconType: 'bikini' }
     ]
   },
   {
     name: '鞋袜',
     icon: '👠',
-    desc: '鞋子、袜子',
     items: [
       { name: '鞋子', icon: '👠' },
       { name: '袜子', icon: '🧦' }
@@ -100,7 +115,6 @@ const groups = [
   {
     name: '小用品',
     icon: '👜',
-    desc: '包包、帽子、饰品、女生小物',
     items: [
       { name: '包包', icon: '👜' },
       { name: '帽子', icon: '👒' },
@@ -186,13 +200,25 @@ onMounted(loadProducts)
 .right-panel { margin-top:14rpx; padding:16rpx; }
 .panel-row { display:flex; align-items:flex-start; justify-content:space-between; gap:18rpx; }
 .panel-title { font-size:31rpx; font-weight:950; color:#3a2a1f; }
-.panel-sub { margin-top:5rpx; color:#9b7560; font-size:21rpx; line-height:1.45; }
 .soft-count { flex:none; padding:10rpx 16rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:22rpx; font-weight:900; }
 .sub-grid { margin-top:14rpx; display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12rpx; }
-.sub-item { min-height:88rpx; padding:10rpx 6rpx; border-radius:20rpx; background:linear-gradient(180deg,#fffdfa,#fff3e7); text-align:center; border:1rpx solid #ffd9bd; }
+.sub-item { min-height:96rpx; padding:10rpx 6rpx; border-radius:22rpx; background:linear-gradient(180deg,#fffdfa,#fff3e7); text-align:center; border:1rpx solid #ffd9bd; }
 .sub-item.active { border-color:#ff7a45; box-shadow:0 8rpx 18rpx rgba(255,122,69,.16); }
-.sub-icon { font-size:28rpx; }
-.sub-name { margin-top:6rpx; color:#3a2a1f; font-size:22rpx; font-weight:950; }
+.sub-icon { height:36rpx; display:flex; align-items:center; justify-content:center; font-size:28rpx; }
+.wear-icon-wrap { width:54rpx; height:38rpx; margin:0 auto; border-radius:16rpx; background:linear-gradient(135deg,#fff,#ffe8f1); border:1rpx solid rgba(255,122,69,.2); box-shadow:inset 0 0 0 2rpx rgba(255,255,255,.7); }
+.wear-icon { position:relative; width:42rpx; height:30rpx; }
+.bra-cup { position:absolute; top:7rpx; width:17rpx; height:15rpx; border:3rpx solid #ff7a9d; border-top:0; border-radius:0 0 15rpx 15rpx; background:rgba(255,192,138,.2); }
+.bra-cup.left { left:4rpx; transform:rotate(8deg); }
+.bra-cup.right { right:4rpx; transform:rotate(-8deg); }
+.bra-band { position:absolute; left:6rpx; right:6rpx; bottom:5rpx; height:3rpx; border-radius:999rpx; background:#ffb36b; }
+.panty-waist { position:absolute; left:7rpx; right:7rpx; top:7rpx; height:4rpx; border-radius:999rpx; background:#ff7a9d; }
+.panty-body { position:absolute; left:10rpx; right:10rpx; top:10rpx; height:15rpx; border-radius:4rpx 4rpx 14rpx 14rpx; background:linear-gradient(180deg,#ffc08a,#ff7a9d); clip-path:polygon(0 0,100% 0,72% 100%,28% 100%); }
+.bikini-top { position:absolute; left:6rpx; right:6rpx; top:4rpx; height:13rpx; }
+.bikini-cup { position:absolute; top:0; width:13rpx; height:11rpx; border-radius:3rpx 3rpx 10rpx 10rpx; background:#ff7a9d; }
+.bikini-cup.left { left:2rpx; transform:rotate(10deg); }
+.bikini-cup.right { right:2rpx; transform:rotate(-10deg); }
+.bikini-bottom { position:absolute; left:12rpx; right:12rpx; bottom:3rpx; height:11rpx; border-radius:3rpx 3rpx 10rpx 10rpx; background:#ffb36b; clip-path:polygon(0 0,100% 0,74% 100%,26% 100%); }
+.sub-name { margin-top:7rpx; color:#3a2a1f; font-size:22rpx; font-weight:950; }
 .sub-count { margin-top:4rpx; color:#b9856a; font-size:18rpx; }
 .filter-row { margin-top:14rpx; display:flex; gap:12rpx; }
 .filter-chip { padding:10rpx 18rpx; border-radius:999rpx; background:#fff; border:1rpx solid #ffd9bd; color:#9b7560; font-size:22rpx; font-weight:900; }
@@ -205,12 +231,10 @@ onMounted(loadProducts)
 .state-tip { margin-top:18rpx; padding:18rpx; border-radius:22rpx; background:#fff3e7; color:#9b7560; font-size:23rpx; }
 .state-tip.danger { color:#b45374; }
 .product-title { margin-top:12rpx; color:#3a2a1f; font-size:25rpx; font-weight:950; line-height:1.35; min-height:58rpx; }
-.product-meta { margin-top:6rpx; color:#b9856a; font-size:20rpx; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .product-bottom { margin-top:12rpx; display:flex; align-items:center; justify-content:space-between; gap:8rpx; }
 .price { color:#ff3f8d; font-size:27rpx; font-weight:950; }
 .distance { color:#9b7560; font-size:20rpx; }
 .empty-card { margin-top:20rpx; padding:28rpx 20rpx; text-align:center; }
 .empty-icon { font-size:46rpx; }
 .empty-title { margin-top:12rpx; color:#3a2a1f; font-size:27rpx; font-weight:950; }
-.empty-desc { margin-top:5rpx; color:#9b7560; font-size:21rpx; }
 </style>
