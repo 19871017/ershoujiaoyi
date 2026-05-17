@@ -4,6 +4,8 @@ const path = require('path')
 const root = path.resolve(__dirname, '..')
 const tickerFile = 'src/components/GlobalTicker.vue'
 const httpFile = 'src/api/http.ts'
+const globalTickerTag = '<GlobalTicker />'
+const globalTickerImport = "import GlobalTicker from '../../../components/GlobalTicker.vue'"
 const mainTabPages = [
   'src/pages/tabbar/home/index.vue',
   'src/pages/tabbar/category/index.vue',
@@ -52,7 +54,7 @@ if (!httpSource.includes("url === '/api/gifts/recent'") || !httpSource.includes(
 
 for (const pageFile of mainTabPages) {
   const pageSource = fs.readFileSync(path.join(root, pageFile), 'utf8')
-  if (!pageSource.includes('<GlobalTicker />') || !pageSource.includes("import GlobalTicker from '../../../components/GlobalTicker.vue'")) {
+  if (!pageSource.includes(globalTickerTag) || !pageSource.includes(globalTickerImport)) {
     failures.push(`${pageFile}: main tab page must mount GlobalTicker directly so the H5 page renders the announcement bar`)
   }
 }
