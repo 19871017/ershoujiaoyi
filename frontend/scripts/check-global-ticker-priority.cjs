@@ -2,23 +2,37 @@ const fs = require('fs')
 const path = require('path')
 
 const root = path.resolve(__dirname, '..')
-const file = 'src/components/GlobalTicker.vue'
-const source = fs.readFileSync(path.join(root, file), 'utf8')
+const tickerFile = 'src/components/GlobalTicker.vue'
+const httpFile = 'src/api/http.ts'
+const tickerSource = fs.readFileSync(path.join(root, tickerFile), 'utf8')
+const httpSource = fs.readFileSync(path.join(root, httpFile), 'utf8')
 const failures = []
 
 const forbiddenOrder = 'items.value = [...announcementItems, ...giftItems, ...noticeItems].slice(0, 6)'
 const requiredOrder = 'items.value = [...giftItems, ...announcementItems, ...noticeItems].slice(0, 6)'
 
-if (source.includes(forbiddenOrder)) {
-  failures.push(`${file}: global ticker must not place announcements before gift feed`)
+if (tickerSource.includes(forbiddenOrder)) {
+  failures.push(`${tickerFile}: global ticker must not place announcements before gift feed`)
 }
 
-if (!source.includes(requiredOrder)) {
-  failures.push(`${file}: global ticker must prioritize gift feed before announcements and notices`)
+if (!tickerSource.includes(requiredOrder)) {
+  failures.push(`${tickerFile}: global ticker must prioritize gift feed before announcements and notices`)
 }
 
-if (!source.includes('getRecentGiftFeed')) {
-  failures.push(`${file}: global ticker must use the real recent gift feed`)
+if (!tickerSource.includes('getRecentGiftFeed')) {
+  failures.push(`${tickerFile}: global ticker must use the real recent gift feed`)
+}
+
+if (!httpSource.includes("url === '/api/announcements/ticker'")) {
+  failures.push(`${httpFile}: mock mode must include announcement ticker data for demo testing`)
+}
+
+if (!httpSource.includes('enabled: true') || !httpSource.includes('演示公告')) {
+  failures.push(`${httpFile}: mock announcement ticker must be enabled and clearly marked as demo copy`)
+}
+
+if (!httpSource.includes("url === '/api/gifts/recent'") || !httpSource.includes('mockRecentGiftFeed()')) {
+  failures.push(`${httpFile}: mock mode must include recent gift feed data for ticker demo testing`)
 }
 
 if (failures.length) {

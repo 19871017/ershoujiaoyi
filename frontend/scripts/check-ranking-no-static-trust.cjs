@@ -48,6 +48,9 @@ if (!source.includes('const periodTabs = [') || !source.includes("{ value: 'day'
 if (!source.includes('item.giftScore ?? item.popularityScore')) {
   failures.push('ranking page must use gift score data as the ranking metric with compatibility fallback')
 }
+if (!source.includes('avatarUrl: item.avatarUrl ||') || !source.includes('v-if="item.avatarUrl"') || !source.includes('ranking-avatar-image')) {
+  failures.push('ranking page must display backend avatarUrl images with a nickname-initial fallback')
+}
 
 const previewTrustCopyPatterns = [
   { label: '平台担保', pattern: /榜单[^\n]*平台担保|交易请走平台担保|平台担保[^\n]*榜单/ },

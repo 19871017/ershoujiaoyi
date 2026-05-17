@@ -47,7 +47,10 @@
           @click="openProfile(item)"
         >
           <view class="rank-medal">{{ medalFor(item.rank) }}</view>
-          <view class="podium-avatar">{{ item.avatar }}</view>
+          <view class="podium-avatar" :class="{ image: !!item.avatarUrl }">
+            <image v-if="item.avatarUrl" class="ranking-avatar-image" :src="item.avatarUrl" mode="aspectFill" />
+            <text v-else>{{ item.avatar }}</text>
+          </view>
           <view class="podium-name">{{ item.name }}</view>
           <view class="podium-score">{{ scoreText(item) }}</view>
         </view>
@@ -71,7 +74,10 @@
       <view v-for="item in filteredRankings" :key="item.id" class="user-card ds-card">
         <view class="rank-no" :class="{ top: item.rank <= 3 }">{{ item.rank }}</view>
         <view class="avatar-wrap tapable" @click="openProfile(item)">
-          <view class="avatar" :class="item.gender">{{ item.avatar }}</view>
+          <view class="avatar" :class="[item.gender, { image: !!item.avatarUrl }]">
+            <image v-if="item.avatarUrl" class="ranking-avatar-image" :src="item.avatarUrl" mode="aspectFill" />
+            <text v-else>{{ item.avatar }}</text>
+          </view>
           <view v-if="item.rank <= 3" class="avatar-badge">{{ medalFor(item.rank) }}</view>
         </view>
         <view class="user-main">
@@ -106,6 +112,7 @@ interface RankingUser {
   rank: number
   gender: Gender
   avatar: string
+  avatarUrl: string
   name: string
   bio: string
   city: string
@@ -164,6 +171,7 @@ function toRankingUser(item: UserRankingResponse): RankingUser {
     rank: item.rank,
     gender: item.gender === 'god' ? 'god' : 'goddess',
     avatar: (item.nickname || '圈').slice(0, 1),
+    avatarUrl: item.avatarUrl || '',
     name: item.nickname || '平台用户',
     bio: item.bio || '这个用户还没有填写个人介绍',
     city: item.city || '全部',
@@ -272,8 +280,9 @@ onMounted(() => {
 .podium-item.god { background:linear-gradient(180deg,#eef4ff,#f6f8ff); }
 .podium-item.goddess { background:linear-gradient(180deg,#fff3f7,#fffaf6); }
 .rank-medal { position:absolute; top:12rpx; right:12rpx; font-size:28rpx; }
-.podium-avatar { width:72rpx; height:72rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:30rpx; font-weight:950; box-shadow:0 10rpx 22rpx rgba(255,122,69,.18); }
+.podium-avatar { width:72rpx; height:72rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:30rpx; font-weight:950; box-shadow:0 10rpx 22rpx rgba(255,122,69,.18); overflow:hidden; }
 .podium-item.god .podium-avatar { background:linear-gradient(135deg,#8b7cf6,#60a5fa); }
+.podium-avatar.image,.podium-item.god .podium-avatar.image { background:#fff; }
 .podium-name { margin-top:12rpx; max-width:100%; color:#3a2a1f; font-size:21rpx; font-weight:950; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .podium-score { margin-top:5rpx; color:#9b7560; font-size:18rpx; font-weight:800; }
 .empty { margin-top:18rpx; padding:22rpx; border-color:#ffd9bd; text-align:center; }
@@ -283,8 +292,10 @@ onMounted(() => {
 .rank-no { width:42rpx; color:#b9856a; font-size:24rpx; font-weight:950; text-align:center; }
 .rank-no.top { color:#ff7a45; }
 .avatar-wrap { position:relative; flex:none; }
-.avatar { width:76rpx; height:76rpx; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:30rpx; font-weight:950; background:linear-gradient(135deg,#ff7a45,#ffb08a); }
+.avatar { width:76rpx; height:76rpx; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:30rpx; font-weight:950; background:linear-gradient(135deg,#ff7a45,#ffb08a); overflow:hidden; }
 .avatar.god { background:linear-gradient(135deg,#8b7cf6,#60a5fa); }
+.avatar.image,.avatar.god.image { background:#fff; }
+.ranking-avatar-image { width:100%; height:100%; display:block; }
 .avatar-badge { position:absolute; right:-8rpx; bottom:-8rpx; width:34rpx; height:34rpx; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; font-size:18rpx; border:1rpx solid #ffd9bd; }
 .user-main { flex:1; min-width:0; }
 .name-row { display:flex; align-items:center; gap:8rpx; min-width:0; }
