@@ -33,8 +33,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { listFavoriteProducts, unfavoriteProduct, type ProductListItemResponse } from '../../api/modules/product'
 const launchReadinessMarkers = [
-  '收藏列表加载失败，请稍后重试',
-  '取消收藏失败，请稍后重试'
+  '收藏列表接口加载失败，未展示本地收藏样例',
+  '后端取消收藏失败，未执行本地收藏变更'
 ]
 
 const filters = ['全部', '衣物', '鞋袜', '小用品']
@@ -58,7 +58,7 @@ async function unfav(productId: number) {
     favorites.value = favorites.value.filter((item) => item.productId !== productId)
     uni.showToast({ title: '平台已确认取消收藏', icon: 'none' })
   } catch {
-    uni.showToast({ title: '取消收藏失败，请稍后重试', icon: 'none' })
+    uni.showToast({ title: '后端取消收藏失败，未执行本地收藏变更', icon: 'none' })
   }
 }
 function iconFor(title: string) { if (title.includes('裙')) return '👗'; if (title.includes('鞋')) return '👠'; if (title.includes('袜')) return '🧦'; return '👜' }
@@ -69,9 +69,9 @@ async function loadFavorites() {
   loadMessage.value = ''
   try {
     favorites.value = await listFavoriteProducts()
-  } catch (error) {
+  } catch {
     favorites.value = []
-    loadMessage.value = `收藏列表加载失败：${error instanceof Error ? error.message : '请稍后重试'}`
+    loadMessage.value = '收藏列表接口加载失败，未展示本地收藏样例'
   } finally {
     loading.value = false
   }
