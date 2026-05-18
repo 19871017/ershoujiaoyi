@@ -33,13 +33,10 @@
         <text class="stat-value">{{ compactNumber(profile.followingCount) }}</text>
         <text class="stat-label">关注</text>
       </view>
-      <view class="stat-item charm">
-        <text class="stat-value">{{ compactNumber(profile.sellerCharmScore) }}</text>
-        <text class="stat-label">魅力值</text>
-      </view>
-      <view class="stat-item power">
-        <text class="stat-value">{{ compactNumber(profile.buyerPowerScore) }}</text>
-        <text class="stat-label">实力值</text>
+      <view class="stat-item value-highlight" :class="{ charm: isSellerProfile, power: !isSellerProfile }">
+        <text class="stat-kicker">{{ primaryScoreLabel }}</text>
+        <text class="stat-value big">{{ compactNumber(primaryScoreValue) }}</text>
+        <text class="stat-label">{{ primaryScoreHint }}</text>
       </view>
     </view>
 
@@ -95,6 +92,10 @@ const sellerProducts = ref<ProductListItemResponse[]>([])
 const followed = computed(() => profile.followedByMe === true)
 const avatarText = computed(() => (profile.nickname || '原').slice(-1))
 const products = computed(() => sellerProducts.value)
+const isSellerProfile = computed(() => ['SELLER', 'BOTH'].includes((profile.mainRole || '').toUpperCase()))
+const primaryScoreLabel = computed(() => isSellerProfile.value ? '魅力值' : '实力值')
+const primaryScoreValue = computed(() => isSellerProfile.value ? profile.sellerCharmScore : profile.buyerPowerScore)
+const primaryScoreHint = computed(() => isSellerProfile.value ? '收礼 1 元 = 1 分' : '消费/送礼 1 元 = 1 分')
 
 function readQuery(): void {
   const pages = getCurrentPages()
@@ -223,10 +224,15 @@ onMounted(() => {
 .verify.video{background:#ff7a45;color:#fff}
 .bio{margin-top:8rpx;color:#7b5542;font-size:23rpx;line-height:1.45}
 .tag-row{margin-top:10rpx;display:flex;gap:8rpx;flex-wrap:wrap}
-.stats-card{margin-top:18rpx;padding:18rpx;border-color:#ffd9bd;display:grid;grid-template-columns:repeat(4,1fr);gap:10rpx;background:linear-gradient(135deg,#fff,#fff8ef)}
+.stats-card{margin-top:18rpx;padding:18rpx;border-color:#ffd9bd;display:grid;grid-template-columns:repeat(2,148rpx) minmax(0,1fr);gap:10rpx;background:linear-gradient(135deg,#fff,#fff8ef)}
 .stat-item{min-width:0;padding:14rpx 8rpx;border-radius:22rpx;background:#fffaf6;text-align:center;box-shadow:inset 0 0 0 1rpx rgba(255,217,189,.58)}
 .stat-value{display:block;color:#3a2a1f;font-size:30rpx;font-weight:950;line-height:1.1}
+.stat-value.big{font-size:38rpx;letter-spacing:-1rpx}
+.stat-kicker{display:block;color:#7b5542;font-size:20rpx;font-weight:950;letter-spacing:2rpx}
 .stat-label{display:block;margin-top:8rpx;color:#9b7560;font-size:20rpx;font-weight:900;white-space:nowrap}
+.value-highlight{padding:13rpx 16rpx;text-align:left;background:linear-gradient(135deg,#fffaf6,#fff0e3)}
+.value-highlight.charm{background:linear-gradient(135deg,#fff8ef,#ffe6ee)}
+.value-highlight.power{background:linear-gradient(135deg,#f8fbff,#e8efff)}
 .stat-item.charm .stat-value{color:#d94673}
 .stat-item.power .stat-value{color:#1d4ed8}
 .action-row{margin-top:18rpx;display:grid;grid-template-columns:repeat(4,1fr);gap:10rpx}
@@ -240,4 +246,8 @@ onMounted(() => {
 .product-main{flex:1;min-width:0}
 .product-title{color:#3a2a1f;font-size:24rpx;font-weight:900;line-height:1.45}
 .product-meta{margin-top:6rpx;color:#ff7a45;font-size:22rpx;font-weight:900}
+@media (max-width: 360px){
+  .stats-card{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .value-highlight{grid-column:1 / -1;text-align:center;}
+}
 </style>
