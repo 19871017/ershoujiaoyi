@@ -7,6 +7,8 @@ import com.secondhand.platform.modules.user.UpdateUserNoRequest;
 import com.secondhand.platform.modules.user.UpdateUserProfileRequest;
 import com.secondhand.platform.modules.user.UserProfileResponse;
 import com.secondhand.platform.modules.user.UserRankingResponse;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -235,12 +237,33 @@ public class UserApplicationService {
             throw new IllegalArgumentException("limit invalid");
         }
         boolean hasViewer = viewerId != null && viewerId > 0;
-        String ownerField = "goddess".equals(normalizedGender) ? "receiver_id" : "sender_id";
-        String periodFilter = switch (normalizedPeriod) {
-            case "day" -> " AND created_at >= DATEADD('DAY', -1, CURRENT_TIMESTAMP)";
-            case "week" -> " AND created_at >= DATEADD('DAY', -7, CURRENT_TIMESTAMP)";
-            default -> "";
+        LocalDateTime periodCutoff = switch (normalizedPeriod) {
+            case "day" -> LocalDateTime.now().minusDays(1);
+            case "week" -> LocalDateTime.now().minusDays(7);
+            default -> null;
         };
+        String giftPeriodFilter = periodCutoff == null ? "" : " AND created_at >= ?";
+        String orderPeriodFilter = periodCutoff == null ? "" : " AND paid_at >= ?";
+        String scoreSubquery = "goddess".equals(normalizedGender)
+                ? String.format("""
+                    SELECT receiver_id AS owner_user_id, FLOOR(COALESCE(SUM(total_amount), 0)) AS gift_score
+                    FROM gift_order
+                    WHERE status = 'SUCCESS'%s
+                    GROUP BY receiver_id
+                """, giftPeriodFilter)
+                : String.format("""
+                    SELECT owner_user_id, FLOOR(COALESCE(SUM(amount), 0)) AS gift_score
+                    FROM (
+                        SELECT sender_id AS owner_user_id, total_amount AS amount
+                        FROM gift_order
+                        WHERE status = 'SUCCESS'%s
+                        UNION ALL
+                        SELECT buyer_id AS owner_user_id, amount
+                        FROM trade_order
+                        WHERE order_status IN ('PAID', 'SHIPPED', 'COMPLETED')%s
+                    ) score_events
+                    GROUP BY owner_user_id
+                """, giftPeriodFilter, orderPeriodFilter);
         String rankingSql = String.format("""
                 SELECT a.id,
                        a.nickname,
@@ -260,16 +283,22 @@ public class UserApplicationService {
                 JOIN user_profile p ON p.user_id = a.id
                 LEFT JOIN user_follow f ON f.followed_id = a.id
                 LEFT JOIN (
-                    SELECT %s AS owner_user_id, FLOOR(COALESCE(SUM(total_amount), 0)) AS gift_score
-                    FROM gift_order
-                    WHERE status = 'SUCCESS'%s
-                    GROUP BY %s
+                    %s
                 ) g ON g.owner_user_id = a.id
                 WHERE a.status = 'ACTIVE' AND LOWER(p.gender) = ?
                 GROUP BY a.id, a.nickname, a.avatar_url, p.gender, p.city, p.bio, p.main_role, p.video_identity_status, p.video_verified, g.gift_score
                 ORDER BY gift_score DESC, a.id ASC
                 LIMIT ?
-                """, ownerField, periodFilter, ownerField);
+                """, scoreSubquery);
+        List<Object> rankingParams = new ArrayList<>();
+        rankingParams.add(hasViewer);
+        rankingParams.add(hasViewer ? viewerId : -1L);
+        if (periodCutoff != null) {
+            rankingParams.add(periodCutoff);
+            if ("god".equals(normalizedGender)) rankingParams.add(periodCutoff);
+        }
+        rankingParams.add(normalizedGender);
+        rankingParams.add(limit);
         List<UserRankingResponse> rows = jdbcTemplate.query(rankingSql, (rs, rowNum) -> {
             String videoStatus = rs.getString("video_identity_status") == null ? "UNVERIFIED" : rs.getString("video_identity_status");
             boolean approvedVideo = "APPROVED".equalsIgnoreCase(videoStatus) && rs.getBoolean("video_verified");
@@ -291,7 +320,7 @@ public class UserApplicationService {
                     rs.getInt("gift_score"),
                     rs.getBoolean("followed_by_me")
             );
-        }, hasViewer, hasViewer ? viewerId : -1L, normalizedGender, limit);
+        }, rankingParams.toArray());
         return List.copyOf(rows);
     }
 

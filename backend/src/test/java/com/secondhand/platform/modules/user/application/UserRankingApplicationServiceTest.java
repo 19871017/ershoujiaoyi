@@ -70,6 +70,27 @@ class UserRankingApplicationServiceTest {
     }
 
     @Test
+    void godRankingShouldSortByConsumptionAndSentGiftPowerScore() {
+        Long viewerId = loginUser("13800139011");
+        Long firstId = loginUser("13800139012");
+        Long secondId = loginUser("13800139013");
+        Long receiverId = loginUser("13800139014");
+        jdbcTemplate.update("UPDATE user_profile SET gender = ?, main_role = ? WHERE user_id = ?", "god", "BUYER", firstId);
+        jdbcTemplate.update("UPDATE user_profile SET gender = ?, main_role = ? WHERE user_id = ?", "god", "BUYER", secondId);
+        jdbcTemplate.update("UPDATE user_profile SET gender = ? WHERE user_id = ?", "goddess", receiverId);
+        insertGiftOrder(firstId, receiverId, "GO-RANK-GOD-1", "12.50");
+        insertTradeOrder(firstId, receiverId, "TO-RANK-GOD-1", "90.80", "PAID");
+        insertGiftOrder(secondId, receiverId, "GO-RANK-GOD-2", "80.00");
+
+        List<UserRankingResponse> rankings = service.listRankings("god", "all", 10, viewerId);
+
+        assertEquals(firstId, rankings.get(0).getUserId());
+        assertEquals(103, rankings.get(0).getGiftScore());
+        assertEquals(secondId, rankings.get(1).getUserId());
+        assertEquals(80, rankings.get(1).getGiftScore());
+    }
+
+    @Test
     void listRankingShouldRejectInvalidParamsAndNeverReturnPreviewUsers() {
         assertThrows(IllegalArgumentException.class, () -> service.listRankings("preview", "all", 10, 1L));
         assertThrows(IllegalArgumentException.class, () -> service.listRankings("goddess", "month", 10, 1L));
@@ -89,6 +110,13 @@ class UserRankingApplicationServiceTest {
                 INSERT INTO gift_order (gift_order_no, idempotency_key, sender_id, receiver_id, gift_id, gift_code, quantity, total_amount, platform_share, receiver_amount, debit_ledger_no, receiver_credit_ledger_no, status)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, orderNo, "IDEM-" + orderNo, senderId, receiverId, 1L, "ROSE", 1, amount, "0.00", amount, "DL-" + orderNo, "CL-" + orderNo, "SUCCESS");
+    }
+
+    private void insertTradeOrder(Long buyerId, Long sellerId, String orderNo, String amount, String status) {
+        jdbcTemplate.update("""
+                INSERT INTO trade_order (order_no, product_id, goods_id, product_no, product_title, trade_rule_snapshot, buyer_id, seller_id, amount, order_status, accepted_trade_rule, paid_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """, orderNo, 1L, 1L, "PN-" + orderNo, "榜单消费订单", "server-order", buyerId, sellerId, amount, status, true);
     }
 
     private Long loginUser(String mobile) {

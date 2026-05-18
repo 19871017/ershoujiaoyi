@@ -138,12 +138,12 @@ const heroBadgeClass = computed(() => isGoddess.value ? 'hero-badge-goddess' : '
 const heroBadgeText = computed(() => isGoddess.value ? '魅力焦点' : '锋芒焦点')
 const heroArtwork = computed(() => `url(${isGoddess.value ? rankingGoddessCard : rankingGodCard})`)
 const currentPeriodLabel = computed(() => periodTabs.find((item) => item.value === activePeriod.value)?.label ?? '周榜')
-const rankMetricLabel = computed(() => isGoddess.value ? '收到礼物' : '消费金额')
-const metricChip = computed(() => isGoddess.value ? '按收礼排行' : '按消费排行')
+const rankMetricLabel = computed(() => isGoddess.value ? '魅力值' : '实力值')
+const metricChip = computed(() => isGoddess.value ? '按魅力值排行' : '按实力值排行')
 const currentTitle = computed(() => `${currentPeriodLabel.value}${pageTitle.value} TOP 3`)
 const stats = computed(() => [
   { value: `${filteredRankings.value.length}`, label: '上榜人数' },
-  { value: `${totalGiftScore.value}`, label: isGoddess.value ? '收礼总额' : '消费总额' },
+  { value: `${totalGiftScore.value}`, label: isGoddess.value ? '魅力总分' : '实力总分' },
   { value: currentPeriodLabel.value, label: '当前榜单' }
 ])
 const totalGiftScore = computed(() => filteredRankings.value.reduce((sum, item) => sum + item.giftScore, 0))
@@ -157,7 +157,7 @@ const podiumList = computed(() => {
 })
 
 function scoreText(item: RankingUser) {
-  return isGoddess.value ? `收礼 ${item.giftScore}` : `消费 ${item.giftScore}`
+  return `${isGoddess.value ? '魅力值' : '实力值'} ${item.giftScore}`
 }
 
 function toRankingUser(item: UserRankingResponse): RankingUser {
@@ -216,7 +216,7 @@ async function loadRankings() {
     const users = rows.map(toRankingUser)
     rankings.value = users
     if (users.length === 0) {
-      loadError.value = isGoddess.value ? '当前榜单还没有女神收礼数据' : '当前榜单还没有男神消费数据'
+      loadError.value = isGoddess.value ? '当前榜单还没有女神魅力值数据' : '当前榜单还没有男神实力值数据'
     }
   } catch {
     rankings.value = []
