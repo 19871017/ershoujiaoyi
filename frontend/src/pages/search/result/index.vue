@@ -40,7 +40,7 @@
     <view v-else-if="filtered.length === 0" class="empty ds-card">
       <view class="empty-icon">🧺</view>
       <view class="section-title">没有找到平台宝贝</view>
-      <view class="section-desc">仅展示平台返回的在售商品，未使用默认搜索内容。</view>
+      <view class="section-desc">仅展示后端返回的在售商品，未使用默认搜索内容。</view>
       <button class="primary-btn" @click="goPublish">去上新</button>
     </view>
 
@@ -67,7 +67,8 @@ type Sort = 'latest' | 'priceAsc' | 'priceDesc'
 
 const launchReadinessMarkers = [
   '商品搜索暂时不可用，请稍后重试',
-  '仅展示平台返回的在售商品'
+  '商品接口暂时不可用，未展示本地搜索宝贝样例',
+  '仅展示后端返回的在售商品'
 ]
 
 const keyword = ref('')
@@ -112,9 +113,9 @@ async function loadProducts() {
   try {
     const remote = await listProducts()
     products.value = remote
-  } catch (error) {
+  } catch {
     products.value = []
-    loadMessage.value = error instanceof Error ? error.message : '搜索商品加载失败'
+    loadMessage.value = '商品接口暂时不可用，未展示本地搜索宝贝样例'
   } finally {
     loading.value = false
   }
