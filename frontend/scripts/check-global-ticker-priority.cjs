@@ -5,7 +5,11 @@ const root = path.resolve(__dirname, '..')
 const tickerFile = 'src/components/GlobalTicker.vue'
 const httpFile = 'src/api/http.ts'
 const globalTickerTag = '<GlobalTicker />'
+const appGlobalTickerImport = "import GlobalTicker from './components/GlobalTicker.vue'"
 const pageGlobalTickerImport = "import GlobalTicker from '../../../components/GlobalTicker.vue'"
+const mainGlobalTickerMount = 'createVueApp(GlobalTicker).use(pinia).mount(container)'
+const mainSource = fs.readFileSync(path.join(root, 'src/main.ts'), 'utf8')
+const mainInstallsGlobalTicker = /app\.use\(pinia\)\s+installGlobalTicker\(\)\s+return/.test(mainSource)
 const appSource = fs.readFileSync(path.join(root, 'src/App.vue'), 'utf8')
 const globalTickerPages = [
   'src/pages/tabbar/home/index.vue',
@@ -65,8 +69,12 @@ if (!httpSource.includes("url === '/api/gifts/recent'") || !httpSource.includes(
   failures.push(`${httpFile}: mock mode must include recent gift feed data for ticker demo testing`)
 }
 
-if (!appSource.includes(globalTickerTag) || !appSource.includes("import GlobalTicker from './components/GlobalTicker.vue'")) {
-  failures.push('src/App.vue: GlobalTicker must be mounted once at the app shell level')
+if (appSource.includes(globalTickerTag) || appSource.includes(appGlobalTickerImport)) {
+  failures.push('src/App.vue: GlobalTicker must not rely on App.vue template rendering in uni-app H5')
+}
+
+if (!mainSource.includes(appGlobalTickerImport) || !mainSource.includes(mainGlobalTickerMount) || !mainInstallsGlobalTicker) {
+  failures.push('src/main.ts: GlobalTicker must be mounted once by the H5 app bootstrap')
 }
 
 for (const pageFile of globalTickerPages) {

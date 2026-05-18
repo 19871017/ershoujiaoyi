@@ -198,8 +198,9 @@ onBeforeUnmount(() => {
   position: fixed;
   left: 18rpx;
   right: 18rpx;
-  top: env(safe-area-inset-top);
-  z-index: 999;
+  top: calc(8rpx + env(safe-area-inset-top));
+  z-index: 99999;
+  pointer-events: auto;
 }
 .global-ticker {
   position: relative;
@@ -332,11 +333,10 @@ onBeforeUnmount(() => {
 .ticker-text {
   display: inline-block;
   min-width: 100%;
-  padding-left: 100%;
-  animation: ticker-scroll 12s linear infinite;
+  animation: ticker-scroll 14s linear infinite;
 }
 @keyframes ticker-scroll {
-  0% {
+  0%, 28% {
     transform: translateX(0);
   }
   100% {

@@ -1,11 +1,5 @@
-<template>
-  <GlobalTicker />
-  <view />
-</template>
-
 <script setup lang="ts">
 import { onLaunch, onShow } from '@dcloudio/uni-app'
-import GlobalTicker from './components/GlobalTicker.vue'
 import { useUserStore } from './store/modules/user'
 
 const LOGIN_PATH = '/pages/auth/login/index'
