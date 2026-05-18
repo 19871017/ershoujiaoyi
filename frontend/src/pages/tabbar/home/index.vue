@@ -305,9 +305,9 @@ onBeforeUnmount(() => {
 .ranking-card { position:relative; height:220rpx; padding:14rpx; border-radius:26rpx; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; justify-content:flex-end; box-shadow:0 12rpx 24rpx rgba(80,35,18,.12); border:1rpx solid rgba(255,255,255,.74); isolation:isolate; }
 .ranking-goddess { background:linear-gradient(145deg,#ff6f9a 0%,#ff9f5f 50%,#ffd76b 100%); }
 .ranking-god { background:linear-gradient(145deg,#111a44 0%,#1d4ed8 54%,#9b5cff 100%); }
-.ranking-art { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-.ranking-goddess .ranking-art { object-position:center 4%; }
-.ranking-god .ranking-art { object-position:center 3%; }
+.ranking-art { position:absolute; left:0; right:0; top:-24rpx; width:100%; height:calc(100% + 48rpx); object-fit:cover; transform:translateY(18rpx); }
+.ranking-goddess .ranking-art { object-position:center top; }
+.ranking-god .ranking-art { object-position:center top; }
 .ranking-text-mask { position:absolute; left:0; right:0; bottom:0; height:42%; z-index:1; pointer-events:none; background:linear-gradient(180deg,rgba(255,246,230,0) 0%,rgba(255,246,230,.48) 58%,rgba(255,246,230,.82) 100%); }
 .ranking-god .ranking-text-mask { background:linear-gradient(180deg,rgba(238,245,255,0) 0%,rgba(238,245,255,.44) 58%,rgba(238,245,255,.78) 100%); }
 .ranking-title { position:absolute; z-index:3; left:14rpx; bottom:14rpx; max-width:224rpx; padding:8rpx 15rpx; border-radius:999rpx; color:#8a3b16; font-size:26rpx; line-height:1.05; font-weight:950; letter-spacing:1rpx; font-family:"STSong","Songti SC","PingFang SC",serif; white-space:nowrap; background:rgba(255,250,236,.88); box-shadow:inset 0 0 0 1rpx rgba(255,255,255,.72); }
