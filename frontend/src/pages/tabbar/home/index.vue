@@ -305,13 +305,13 @@ onBeforeUnmount(() => {
 .ranking-card { position:relative; height:220rpx; padding:14rpx; border-radius:26rpx; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; justify-content:flex-end; box-shadow:0 12rpx 24rpx rgba(80,35,18,.12); border:1rpx solid rgba(255,255,255,.74); isolation:isolate; }
 .ranking-goddess { background:linear-gradient(145deg,#ff6f9a 0%,#ff9f5f 50%,#ffd76b 100%); }
 .ranking-god { background:linear-gradient(145deg,#111a44 0%,#1d4ed8 54%,#9b5cff 100%); }
-.ranking-art { position:absolute; left:0; right:0; top:0; bottom:0; background-repeat:no-repeat; background-size:cover; background-position:center 4%; transform:scale(1.02); transform-origin:top center; }
-.ranking-god .ranking-art { background-position:center 3%; }
+.ranking-art { position:absolute; left:0; right:0; top:0; bottom:0; background-repeat:no-repeat; background-size:cover; background-position:58% 4%; transform:scale(1.02); transform-origin:top center; }
+.ranking-god .ranking-art { background-position:59% 3%; }
 .ranking-text-mask { position:absolute; left:0; right:0; bottom:0; height:42%; z-index:1; pointer-events:none; background:linear-gradient(180deg,rgba(255,246,230,0) 0%,rgba(255,246,230,.48) 58%,rgba(255,246,230,.82) 100%); }
 .ranking-god .ranking-text-mask { background:linear-gradient(180deg,rgba(238,245,255,0) 0%,rgba(238,245,255,.44) 58%,rgba(238,245,255,.78) 100%); }
-.ranking-title { position:absolute; z-index:3; left:14rpx; bottom:14rpx; max-width:224rpx; padding:8rpx 15rpx; border-radius:999rpx; color:#8a3b16; font-size:26rpx; line-height:1.05; font-weight:950; letter-spacing:1rpx; font-family:"STSong","Songti SC","PingFang SC",serif; white-space:nowrap; background:rgba(255,250,236,.88); box-shadow:inset 0 0 0 1rpx rgba(255,255,255,.72); }
-.ranking-goddess .ranking-title { color:#a63252; background:rgba(255,246,230,.88); }
-.ranking-god .ranking-title { color:#1d4ed8; background:rgba(238,245,255,.86); }
+.ranking-title { position:absolute; z-index:3; left:14rpx; top:14rpx; max-width:224rpx; padding:9rpx 16rpx 10rpx; border-radius:999rpx; color:#7a2f10; font-size:25rpx; line-height:1.05; font-weight:950; letter-spacing:2rpx; font-family:"STSong","Songti SC","PingFang SC",serif; white-space:nowrap; background:linear-gradient(135deg,rgba(255,251,239,.94),rgba(255,235,207,.82)); box-shadow:0 8rpx 18rpx rgba(80,35,18,.12), inset 0 0 0 1rpx rgba(255,255,255,.80); text-shadow:0 1rpx 0 rgba(255,255,255,.78); }
+.ranking-goddess .ranking-title { color:#9f294e; background:linear-gradient(135deg,rgba(255,247,235,.94),rgba(255,219,227,.82)); }
+.ranking-god .ranking-title { color:#173b8f; background:linear-gradient(135deg,rgba(242,247,255,.94),rgba(218,230,255,.82)); }
 .section-head { margin:22rpx 0 12rpx; display:flex; align-items:center; justify-content:space-between; }
 .section-title { font-size:31rpx; font-weight:950; color:#3a2a1f; }
 .small { min-height:54rpx; padding:0 18rpx; font-size:21rpx; color:#ff7a45; background:#fff3e7; }
@@ -342,7 +342,7 @@ onBeforeUnmount(() => {
   .banner-title { font-size:36rpx; }
   .ranking-entrance { gap:10rpx; }
   .ranking-card { height:204rpx; padding:12rpx; border-radius:24rpx; }
-  .ranking-title { left:12rpx; bottom:12rpx; max-width:206rpx; font-size:24rpx; }
+  .ranking-title { left:12rpx; top:12rpx; max-width:206rpx; font-size:23rpx; }
   .product-marquee { height:980rpx; }
 }
 </style>
