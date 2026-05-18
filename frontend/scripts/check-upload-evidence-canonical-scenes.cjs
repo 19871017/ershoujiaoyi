@@ -7,7 +7,7 @@ const files = [
   'src/pages/after-sales/apply/index.vue',
   'src/pages/upload/evidence/index.vue',
   'src/pages/user/identity/index.vue',
-  'src/pages/tabbar/publish/index.vue',
+  'src/pages/product/publish/index.vue',
   'src/pages/community/compose/index.vue'
 ]
 
@@ -106,7 +106,7 @@ if (!uploadEvidence.includes('上传票据已生成')) {
 }
 
 const publicMediaPages = [
-  { file: 'src/pages/tabbar/publish/index.vue', scene: 'PRODUCT_IMAGE', prefix: '/uploads/product-image/' },
+  { file: 'src/pages/product/publish/index.vue', scene: 'PRODUCT_IMAGE', prefix: '/uploads/product-image/' },
   { file: 'src/pages/community/compose/index.vue', scene: 'COMMUNITY_IMAGE', prefix: '/uploads/community-image/' }
 ]
 for (const { file, scene, prefix } of publicMediaPages) {

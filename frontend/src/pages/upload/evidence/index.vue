@@ -17,7 +17,7 @@ import { createMediaUploadTicket, type MediaUploadScene } from '../../../api/mod
 
 type Scene = MediaUploadScene
 const launchReadinessMarkers = [
-  '上传票据仅完成平台签发与文件校验',
+  '上传票据仅完成服务端签发与本地校验',
   '上传票据',
   '校验票据',
   '上传票据已生成'
@@ -36,7 +36,7 @@ const legacySceneMap: Record<string, Scene> = {
   PRODUCT: 'PRODUCT_IMAGE',
   CHAT: 'CHAT_IMAGE'
 }
-const rules=['最多 9 张，建议使用清晰原图','不展示真实证件完整号码，敏感信息需打码','上传票据仅完成平台签发与页面校验，不代表举报、售后、聊天或审核已提交','提交正式业务表单前需先向平台申请上传票据，拒绝临时路径和无效图片']
+const rules=['最多 9 张，建议使用清晰原图','不展示真实证件完整号码，敏感信息需打码','上传票据仅完成服务端签发与本地校验，不代表举报、售后、聊天或审核已提交','提交正式业务表单前需先向平台申请上传票据，拒绝临时路径和无效图片']
 function normalizeScene(value?: string | null) { const normalized = value ? (legacySceneMap[value] || value) : ''; return supportedScenes.includes(normalized as Scene) ? normalized as Scene : undefined }
 function readQuery(){const pages=getCurrentPages(); const current=pages.length?pages[pages.length-1] as unknown as {options?:Record<string,string>}:undefined; const hash=typeof window!=='undefined'?new URLSearchParams(window.location.hash.split('?')[1]||''):undefined; const value=normalizeScene(current?.options?.scene||hash?.get('scene')); if(value) scene.value=value}
 function chooseMedia(){ scene.value === 'VIDEO_IDENTITY' ? chooseVideoIdentity() : chooseImage() }
@@ -77,9 +77,9 @@ function imageContentType(path: string) { const lower = path.toLowerCase(); if (
 function videoContentType(path: string) { const lower = path.toLowerCase(); if (lower.endsWith('.mov')) return 'video/quicktime'; if (lower.endsWith('.m4v')) return 'video/x-m4v'; return 'video/mp4' }
 function submit(){
   if (!images.value.length) return uni.showToast({ title:'请先生成上传票据', icon:'none' })
-  if (images.value.some(url => url.startsWith('local://') || url.includes('placeholder') || !url.startsWith('/uploads/'))) return uni.showToast({ title:'票据需先完成平台签发与页面校验', icon:'none' })
+  if (images.value.some(url => url.startsWith('local://') || url.includes('placeholder') || !url.startsWith('/uploads/'))) return uni.showToast({ title:'票据需先完成平台签发与本地校验', icon:'none' })
   saving.value = true
-  uni.showModal({title:'上传票据已生成',content:`已完成 ${images.value.length} 张上传票据和页面校验；售后、举报或聊天等业务仍需回到对应页面提交正式表单。`,showCancel:false,success:()=>{saving.value=false}})
+  uni.showModal({title:'上传票据已生成',content:`已完成 ${images.value.length} 张上传票据和本地校验；售后、举报或聊天等业务仍需回到对应页面提交正式表单。`,showCancel:false,success:()=>{saving.value=false}})
 }
 onMounted(readQuery)
 </script>

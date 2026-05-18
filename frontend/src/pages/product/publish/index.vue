@@ -119,7 +119,7 @@ function choosePhotos() {
           form.imageUrls.push(uploaded.storageUrl)
         }
         form.imageUrls = form.imageUrls.slice(0, 9)
-        showToast(`已上传图片 ${form.imageUrls.length} 张`)
+        showToast(`已生成上传票据 ${form.imageUrls.length} 张`)
       } catch (error) {
         showToast(error instanceof Error ? error.message : '图片上传票据创建失败')
       }

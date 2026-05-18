@@ -61,6 +61,7 @@ const videoUrl = ref('')
 const submittingVideo = ref(false)
 const profile = reactive<UserProfileResponse>({ userId: 0, nickname: '', mainRole: 'UNVERIFIED', videoIdentityStatus: 'UNVERIFIED', videoVerified: false })
 const checks = ['姓名与收款账户一致', '证件凭证已打码', '视频认证需真人出镜', '账号无高风险举报', '提现前需通过平台审核']
+const realNameBackendMissingCopy = '实名认证接口尚未接入'
 const videoStatusText = computed(() => profile.videoVerified ? '已通过' : profile.videoIdentityStatus === 'PENDING' ? '审核中' : profile.videoIdentityStatus === 'REJECTED' ? '已拒绝' : '未认证')
 const videoStatusClass = computed(() => profile.videoVerified ? 'approved' : profile.videoIdentityStatus === 'PENDING' ? 'pending' : profile.videoIdentityStatus === 'REJECTED' ? 'rejected' : 'unverified')
 
@@ -92,10 +93,10 @@ function chooseVideo() {
         })
         const uploaded = await uploadMediaTicketFile(ticket, res.tempFilePath)
         videoUrl.value = uploaded.storageUrl
-        uni.showToast({ title: '视频已上传', icon: 'none' })
+        uni.showToast({ title: '已生成上传票据', icon: 'none' })
       } catch (error) {
         videoUrl.value = ''
-        uni.showToast({ title: error instanceof Error ? error.message : '视频上传失败', icon: 'none' })
+        uni.showToast({ title: error instanceof Error ? error.message : '视频上传票据创建失败', icon: 'none' })
       } finally {
         uni.hideLoading()
       }
@@ -153,7 +154,7 @@ function submit() {
   if (!/^\d{4}$/.test(form.idTail)) return uni.showToast({ title: '请填写证件号码后四位', icon: 'none' })
   uni.showModal({
     title: '实名认证提交暂不可用',
-    content: '实名认证草稿已通过格式校验；实名审核提交暂不可用。',
+    content: `${realNameBackendMissingCopy}，当前仅完成草稿格式校验。`,
     showCancel: false
   })
 }
