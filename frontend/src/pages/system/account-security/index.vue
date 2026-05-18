@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 账号安全</view>
         <view class="page-title">安全中心</view>
-        <view class="page-desc">安全状态以平台账号风控记录为准，加载失败时请稍后重试。</view>
+        <view class="page-desc">安全状态以服务端账号风控接口为准，加载失败时请稍后重试。</view>
       </view>
       <view class="hero-score">{{ securityScore }}</view>
     </view>
@@ -25,7 +25,7 @@
       <view class="section-title">最近登录设备</view>
       <view v-if="loading" class="empty-state">账号安全信息加载中...</view>
       <view v-else-if="loadError" class="empty-state">{{ loadError }}</view>
-      <view v-else-if="devices.length === 0" class="empty-state">暂无登录设备记录。</view>
+      <view v-else-if="devices.length === 0" class="empty-state">服务端暂未返回登录设备记录，未展示本地登录设备样例。</view>
       <view v-else v-for="item in devices" :key="`${item.deviceName}-${item.loginAt}`" class="device-row">
         <view>
           <view class="label">{{ item.deviceName }}</view>
@@ -50,8 +50,8 @@ interface SecurityRow { icon: string; label: string; desc: string; action: strin
 type LoginDevice = AccountSecurityResponse['recentDevices'][number]
 
 const launchReadinessMarkers = [
-  '安全状态以平台账号风控记录为准',
-  '平台暂未返回登录设备记录',
+  '安全状态以服务端账号风控接口为准',
+  '服务端暂未返回登录设备记录',
   '登录设备加载失败，请稍后重试'
 ]
 
