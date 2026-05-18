@@ -17,9 +17,7 @@
         <view v-if="card.artwork" class="ranking-art" :style="{ backgroundImage: `url(${card.artwork})` }"></view>
         <view class="ranking-text-mask"></view>
         <view class="ranking-copy">
-          <view class="ranking-eyebrow">POPULAR RANKING</view>
           <view class="ranking-title">{{ card.title }}</view>
-          <view class="ranking-accent"></view>
         </view>
       </view>
     </view>
@@ -313,16 +311,14 @@ onBeforeUnmount(() => {
 .ranking-god { background:linear-gradient(145deg,#07122f 0%,#1d4ed8 52%,#7c3aed 100%); }
 .ranking-art { position:absolute; left:0; right:0; top:0; bottom:0; background-repeat:no-repeat; background-size:cover; background-position:60% 4%; transform:scale(1.035); transform-origin:top center; filter:saturate(1.08) contrast(1.04); }
 .ranking-god .ranking-art { background-position:61% 3%; }
-.ranking-text-mask { position:absolute; inset:0; z-index:1; pointer-events:none; background:linear-gradient(90deg,rgba(70,22,36,.60) 0%,rgba(70,22,36,.24) 42%,rgba(70,22,36,0) 74%), linear-gradient(180deg,rgba(255,246,230,.20) 0%,rgba(255,246,230,0) 42%,rgba(255,246,230,.34) 100%); }
-.ranking-god .ranking-text-mask { background:linear-gradient(90deg,rgba(5,12,34,.68) 0%,rgba(5,12,34,.30) 44%,rgba(5,12,34,0) 76%), linear-gradient(180deg,rgba(233,241,255,.20) 0%,rgba(233,241,255,0) 42%,rgba(233,241,255,.28) 100%); }
-.ranking-copy { position:relative; z-index:4; display:inline-flex; flex-direction:column; align-items:flex-start; width:max-content; max-width:232rpx; padding:13rpx 16rpx 14rpx; border-radius:22rpx; color:#fffaf2; background:linear-gradient(135deg,rgba(255,252,244,.30),rgba(255,231,220,.12)); box-shadow:0 12rpx 28rpx rgba(66,20,30,.22), inset 0 0 0 1rpx rgba(255,255,255,.38); backdrop-filter:blur(12rpx); }
-.ranking-eyebrow { margin-bottom:5rpx; color:rgba(255,250,242,.82); font-size:15rpx; line-height:1; font-weight:900; letter-spacing:2.8rpx; transform:scale(.92); transform-origin:left center; }
-.ranking-title { color:#fffaf2; font-size:29rpx; line-height:1.02; font-weight:950; letter-spacing:2rpx; font-family:"Songti SC","STSong","PingFang SC",serif; white-space:nowrap; text-shadow:0 3rpx 8rpx rgba(75,18,33,.36), 0 1rpx 0 rgba(255,255,255,.22); }
-.ranking-accent { margin-top:9rpx; width:88rpx; height:4rpx; border-radius:999rpx; background:linear-gradient(90deg,#fff7d6 0%,#ffb6c9 52%,rgba(255,255,255,0) 100%); box-shadow:0 0 18rpx rgba(255,231,140,.52); }
-.ranking-god .ranking-copy { background:linear-gradient(135deg,rgba(243,248,255,.30),rgba(145,187,255,.13)); box-shadow:0 12rpx 28rpx rgba(5,15,43,.30), inset 0 0 0 1rpx rgba(255,255,255,.36); }
-.ranking-god .ranking-eyebrow { color:rgba(235,244,255,.82); }
-.ranking-god .ranking-title { color:#f8fbff; text-shadow:0 3rpx 10rpx rgba(3,10,35,.50), 0 1rpx 0 rgba(255,255,255,.20); }
-.ranking-god .ranking-accent { background:linear-gradient(90deg,#f7fbff 0%,#8ec5ff 52%,rgba(255,255,255,0) 100%); box-shadow:0 0 18rpx rgba(117,190,255,.50); }
+.ranking-text-mask { position:absolute; inset:0; z-index:1; pointer-events:none; background:radial-gradient(circle at 18% 24%,rgba(255,245,226,.42) 0%,rgba(255,213,219,.22) 30%,rgba(255,213,219,0) 55%), linear-gradient(90deg,rgba(66,18,34,.48) 0%,rgba(66,18,34,.18) 39%,rgba(66,18,34,0) 72%), linear-gradient(180deg,rgba(255,246,230,.16) 0%,rgba(255,246,230,0) 48%,rgba(255,246,230,.26) 100%); }
+.ranking-god .ranking-text-mask { background:radial-gradient(circle at 18% 24%,rgba(222,239,255,.38) 0%,rgba(112,167,255,.20) 32%,rgba(112,167,255,0) 56%), linear-gradient(90deg,rgba(5,12,34,.56) 0%,rgba(5,12,34,.22) 42%,rgba(5,12,34,0) 76%), linear-gradient(180deg,rgba(233,241,255,.16) 0%,rgba(233,241,255,0) 48%,rgba(233,241,255,.22) 100%); }
+.ranking-copy { position:relative; z-index:4; display:inline-flex; align-items:center; width:max-content; max-width:238rpx; padding:10rpx 12rpx 12rpx; border-radius:20rpx; background:radial-gradient(circle at 44% 48%,rgba(255,239,204,.30),rgba(255,239,204,0) 70%); }
+.ranking-title { color:#fff6df; font-size:32rpx; line-height:1.05; font-weight:950; letter-spacing:2.6rpx; font-family:"Songti SC","STSong","PingFang SC",serif; white-space:nowrap; text-shadow:0 2rpx 0 rgba(120,45,22,.28), 0 7rpx 18rpx rgba(76,18,34,.46), 0 0 18rpx rgba(255,233,170,.42); }
+.ranking-title::after { content:""; position:absolute; left:6rpx; right:12rpx; bottom:5rpx; height:12rpx; border-radius:999rpx; z-index:-1; background:linear-gradient(90deg,rgba(255,219,146,.58),rgba(255,158,188,.20),rgba(255,158,188,0)); filter:blur(2rpx); }
+.ranking-god .ranking-copy { background:radial-gradient(circle at 44% 48%,rgba(210,232,255,.24),rgba(210,232,255,0) 70%); }
+.ranking-god .ranking-title { color:#f5fbff; text-shadow:0 2rpx 0 rgba(9,28,78,.30), 0 7rpx 18rpx rgba(3,10,35,.58), 0 0 18rpx rgba(142,197,255,.42); }
+.ranking-god .ranking-title::after { background:linear-gradient(90deg,rgba(164,211,255,.54),rgba(142,120,255,.22),rgba(142,120,255,0)); }
 .section-head { margin:22rpx 0 12rpx; display:flex; align-items:center; justify-content:space-between; }
 .section-title { font-size:31rpx; font-weight:950; color:#3a2a1f; }
 .small { min-height:54rpx; padding:0 18rpx; font-size:21rpx; color:#ff7a45; background:#fff3e7; }
@@ -353,9 +349,8 @@ onBeforeUnmount(() => {
   .banner-title { font-size:36rpx; }
   .ranking-entrance { gap:10rpx; }
   .ranking-card { height:204rpx; padding:12rpx; border-radius:24rpx; }
-  .ranking-copy { max-width:210rpx; padding:12rpx 14rpx 13rpx; border-radius:20rpx; }
-  .ranking-eyebrow { font-size:14rpx; letter-spacing:2.2rpx; }
-  .ranking-title { font-size:26rpx; letter-spacing:1.4rpx; }
+  .ranking-copy { max-width:214rpx; padding:9rpx 10rpx 11rpx; border-radius:18rpx; }
+  .ranking-title { font-size:28rpx; letter-spacing:1.6rpx; }
   .product-marquee { height:980rpx; }
 }
 </style>
