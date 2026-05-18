@@ -16,10 +16,17 @@ public class ProductDetailResponse {
     private final String tradeRule;
     private final String createdAt;
     private final Long sellerId;
+    private final boolean favoritedByMe;
 
     public ProductDetailResponse(Long productId, String productNo, String title, String description, BigDecimal price,
             List<String> imageUrls, String status, String auditState, Boolean visible, String tradeRule,
             String createdAt, Long sellerId) {
+        this(productId, productNo, title, description, price, imageUrls, status, auditState, visible, tradeRule, createdAt, sellerId, false);
+    }
+
+    public ProductDetailResponse(Long productId, String productNo, String title, String description, BigDecimal price,
+            List<String> imageUrls, String status, String auditState, Boolean visible, String tradeRule,
+            String createdAt, Long sellerId, boolean favoritedByMe) {
         this.productId = productId;
         this.productNo = productNo;
         this.title = title;
@@ -32,6 +39,7 @@ public class ProductDetailResponse {
         this.tradeRule = tradeRule;
         this.createdAt = createdAt;
         this.sellerId = sellerId;
+        this.favoritedByMe = favoritedByMe;
     }
 
     public Long getProductId() { return productId; }
@@ -46,4 +54,5 @@ public class ProductDetailResponse {
     public String getTradeRule() { return tradeRule; }
     public String getCreatedAt() { return createdAt; }
     public Long getSellerId() { return sellerId; }
+    public boolean isFavoritedByMe() { return favoritedByMe; }
 }

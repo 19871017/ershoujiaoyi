@@ -178,6 +178,9 @@ class ProductApplicationServiceTest {
         assertEquals(1, favorites.size());
         assertEquals(visible.getProductId(), favorites.get(0).getProductId());
         assertEquals("可收藏商品", favorites.get(0).getTitle());
+        assertTrue(reloaded.detailProduct(visible.getProductId(), 8L).isFavoritedByMe());
+        assertFalse(reloaded.detailProduct(visible.getProductId(), 9L).isFavoritedByMe());
+        assertFalse(reloaded.detailProduct(visible.getProductId()).isFavoritedByMe());
         assertTrue(reloaded.listFavorites(9L).isEmpty());
 
         reloaded.unfavoriteProduct(8L, visible.getProductId());

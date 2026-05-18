@@ -92,6 +92,7 @@ const errorMessage = ref('')
 const orderMessage = ref('')
 const detail = ref<ProductDetailResponse | null>(null)
 const sellerProfile = ref<UserProfileResponse | null>(null)
+const sellerProfileLoadFailed = ref(false)
 const activeImageIndex = ref(0)
 const favorited = ref(false)
 const favoriteLoading = ref(false)
@@ -110,6 +111,7 @@ const activeImage = computed(() => displayImages.value[activeImageIndex.value] |
 const statusText = computed(() => detail.value?.status === 'created' ? '在售' : detail.value?.status || '未知')
 const auditText = computed(() => detail.value?.auditState === 'pending' ? '审核中' : detail.value?.auditState || '审核状态')
 const sellerProfileFallbackText = '商品卖家信息以服务端返回为准 · 暂无服务端信用/成交统计'
+const sellerProfileFailedText = '卖家资料暂时不可用，未展示本地卖家样例'
 const sellerName = computed(() => {
   if (sellerProfile.value?.nickname) return sellerProfile.value.nickname
   if (detail.value?.sellerId) return `卖家 ${detail.value.sellerId}`
@@ -121,6 +123,7 @@ const sellerIsSellerProfile = computed(() => ['SELLER', 'BOTH'].includes((seller
 const sellerScoreLabel = computed(() => sellerIsSellerProfile.value ? '魅力值' : '实力值')
 const sellerScoreValue = computed(() => sellerIsSellerProfile.value ? sellerProfile.value?.sellerCharmScore : sellerProfile.value?.buyerPowerScore)
 const sellerTrustText = computed(() => {
+  if (sellerProfileLoadFailed.value) return sellerProfileFailedText
   if (!sellerProfile.value || !isFiniteNumber(sellerProfile.value.followerCount) || !isFiniteNumber(sellerScoreValue.value)) return sellerProfileFallbackText
   return `粉丝 ${compactNumber(sellerProfile.value.followerCount)} · ${sellerScoreLabel.value} ${compactNumber(sellerScoreValue.value)}`
 })
@@ -143,14 +146,17 @@ function isValidBackendUserId(value: unknown): boolean {
 }
 function resetSellerProfile(): void {
   sellerProfile.value = null
+  sellerProfileLoadFailed.value = false
 }
 async function loadSellerProfile(sellerId: number | null | undefined): Promise<void> {
   resetSellerProfile()
   if (!isValidBackendUserId(sellerId)) return
   try {
     sellerProfile.value = await getPublicProfile(Number(sellerId))
-  } catch {
-    resetSellerProfile()
+  } catch (error) {
+    console.warn('product seller profile unavailable', { productId: productId.value, sellerId, error })
+    sellerProfile.value = null
+    sellerProfileLoadFailed.value = true
   }
 }
 async function loadDetail(): Promise<void> {
@@ -161,10 +167,12 @@ async function loadDetail(): Promise<void> {
   try {
     const productDetail = await getProductDetail(productId.value)
     detail.value = productDetail
+    favorited.value = productDetail.favoritedByMe === true
     await loadSellerProfile(productDetail.sellerId)
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '商品详情加载失败，请稍后重试'
     detail.value = null
+    favorited.value = false
     resetSellerProfile()
   } finally { loading.value = false }
 }

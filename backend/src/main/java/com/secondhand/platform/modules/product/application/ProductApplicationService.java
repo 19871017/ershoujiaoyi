@@ -138,8 +138,12 @@ public class ProductApplicationService {
     }
 
     public ProductDetailResponse detailProduct(Long productId) {
+        return detailProduct(productId, null);
+    }
+
+    public ProductDetailResponse detailProduct(Long productId, Long viewerId) {
         ProductRecord product = getVisibleProduct(productId);
-        return toDetailResponse(product);
+        return toDetailResponse(product, isProductFavoritedBy(viewerId, product.productId()));
     }
 
     @Transactional
@@ -383,7 +387,17 @@ public class ProductApplicationService {
     }
 
     private ProductDetailResponse toDetailResponse(ProductRecord product) {
-        return new ProductDetailResponse(product.productId(), product.productNo(), product.title(), product.description(), product.price(), product.imageUrls(), product.status(), product.auditState(), product.visible(), product.tradeRule(), product.createdAt(), product.sellerId());
+        return toDetailResponse(product, false);
+    }
+
+    private ProductDetailResponse toDetailResponse(ProductRecord product, boolean favoritedByMe) {
+        return new ProductDetailResponse(product.productId(), product.productNo(), product.title(), product.description(), product.price(), product.imageUrls(), product.status(), product.auditState(), product.visible(), product.tradeRule(), product.createdAt(), product.sellerId(), favoritedByMe);
+    }
+
+    private boolean isProductFavoritedBy(Long userId, Long productId) {
+        if (userId == null || userId <= 0 || productId == null || productId <= 0) return false;
+        Integer count = jdbcTemplate.queryForObject("select count(*) from product_favorite where user_id = ? and product_id = ?", Integer.class, userId, productId);
+        return count != null && count > 0;
     }
 
     private void requireOrderNo(String orderNo) {

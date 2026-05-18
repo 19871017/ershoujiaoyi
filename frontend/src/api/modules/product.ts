@@ -60,6 +60,7 @@ export interface ProductDetailResponse {
   tradeRule: string
   createdAt: string
   sellerId?: number | null
+  favoritedByMe?: boolean
 }
 
 export function listProducts() {

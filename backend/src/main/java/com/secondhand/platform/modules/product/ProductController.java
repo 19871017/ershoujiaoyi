@@ -63,8 +63,9 @@ public class ProductController {
     }
 
     @GetMapping("/{productId}")
-    public Result<ProductDetailResponse> detail(@PathVariable Long productId) {
-        return Result.ok(productApplicationService.detailProduct(productId));
+    public Result<ProductDetailResponse> detail(@PathVariable Long productId, HttpServletRequest request) {
+        Long viewerId = resolveOptionalViewer(request);
+        return Result.ok(productApplicationService.detailProduct(productId, viewerId));
     }
 
     @PostMapping
@@ -83,6 +84,15 @@ public class ProductController {
     public Result<UpdateProductResponse> updateVisibility(@PathVariable Long productId, @RequestBody UpdateVisibilityRequest body, HttpServletRequest request) {
         long sellerId = currentUserResolver.resolve(request);
         return Result.ok(productApplicationService.updateVisibility(sellerId, productId, body.visible()));
+    }
+
+    private Long resolveOptionalViewer(HttpServletRequest request) {
+        String authorization = request == null ? null : request.getHeader("Authorization");
+        String legacyUserId = request == null ? null : request.getHeader("X-User-Id");
+        boolean hasAuthorization = authorization != null && !authorization.isBlank();
+        boolean hasLegacyUserId = legacyUserId != null && !legacyUserId.isBlank();
+        if (!hasAuthorization && !hasLegacyUserId) return null;
+        return currentUserResolver.resolve(request);
     }
 
     public record UpdateVisibilityRequest(boolean visible) {
