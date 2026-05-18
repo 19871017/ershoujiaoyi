@@ -180,66 +180,7 @@ button { margin: 0; padding: 0; border: 0; background: none; line-height: 1.2; }
   font-weight: 800;
 }
 
-/* 紧凑版个性导航：只加轻量 logo/颜色，不接管 uni-app 原生 fixed 定位，避免导航栏消失。 */
-uni-tabbar .uni-tabbar {
-  z-index: 999 !important;
-  min-height: calc(66rpx + env(safe-area-inset-bottom)) !important;
-  padding: 2rpx 10rpx calc(4rpx + env(safe-area-inset-bottom)) !important;
-  background: rgba(255, 251, 246, .98) !important;
-  border-top: 1rpx solid rgba(255, 217, 189, .88) !important;
-  box-shadow: 0 -8rpx 22rpx rgba(255, 122, 69, .11) !important;
-  backdrop-filter: blur(14rpx);
-}
-
-uni-tabbar .uni-tabbar__item,
-uni-tabbar .uni-tabbar__label,
-uni-tabbar .uni-tabbar__bd,
-uni-tabbar .uni-tabbar__icon {
-  transition: transform .14s ease, color .14s ease, opacity .14s ease, background .14s ease;
-}
-
-uni-tabbar .uni-tabbar__item {
-  position: relative;
-  border-radius: 20rpx;
-}
-
-uni-tabbar .uni-tabbar__item .uni-tabbar__bd {
-  gap: 2rpx !important;
-}
-
-uni-tabbar .uni-tabbar__label {
-  font-size: 18rpx !important;
-  font-weight: 900 !important;
-  line-height: 1 !important;
-}
-
-uni-tabbar .uni-tabbar__label::before {
-  display: block;
-  margin: 0 auto 1rpx;
-  width: 28rpx;
-  height: 28rpx;
-  border-radius: 50%;
-  line-height: 28rpx;
-  text-align: center;
-  font-size: 18rpx;
-  background: #fff3e7;
-  color: #ff7a45;
-  box-shadow: inset 0 0 0 2rpx rgba(255,122,69,.08);
-}
-
-uni-tabbar .uni-tabbar__item:nth-of-type(2) .uni-tabbar__label::before { content: '🏠'; }
-uni-tabbar .uni-tabbar__item:nth-of-type(3) .uni-tabbar__label::before { content: '🎀'; }
-uni-tabbar .uni-tabbar__item:nth-of-type(4) .uni-tabbar__label::before {
-  content: '👑';
-  background: radial-gradient(circle at 35% 28%, #fff6c7 0, #ffd36b 28%, #ff7a45 56%, #ff3f8d 100%);
-  color: #fff;
-  box-shadow: 0 0 0 3rpx rgba(255,255,255,.88), 0 10rpx 22rpx rgba(255,63,141,.30);
-  transform: translateY(-1rpx);
-}
-uni-tabbar .uni-tabbar__item:nth-of-type(5) .uni-tabbar__label::before { content: '💬'; }
-uni-tabbar .uni-tabbar__item:nth-of-type(6) .uni-tabbar__label::before { content: '👤'; }
-
-uni-tabbar .uni-tabbar__item:active {
-  transform: translateY(-2rpx) scale(.97);
+uni-tabbar {
+  display: none !important;
 }
 </style>
