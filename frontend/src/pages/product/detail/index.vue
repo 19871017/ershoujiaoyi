@@ -30,14 +30,17 @@
         <view class="desc">{{ detail.description || '暂无描述' }}</view>
       </view>
 
-      <view class="seller-card ds-card">
-        <view class="seller-avatar">{{ sellerName.slice(0, 1) }}</view>
+      <view class="seller-card ds-card tapable" @click="openSellerProfile">
+        <view class="seller-avatar" :class="{ image: !!sellerAvatarUrl }">
+          <image v-if="sellerAvatarUrl" class="seller-avatar-img" :src="sellerAvatarUrl" mode="aspectFill" />
+          <text v-else>{{ sellerName.slice(0, 1) }}</text>
+        </view>
         <view class="seller-main">
           <view class="seller-name">{{ sellerName }}</view>
           <view class="seller-desc">{{ sellerTrustText }}</view>
           <view class="tag-row"><text v-for="tag in sellerTags" :key="tag" class="mini-tag">{{ tag }}</text></view>
         </view>
-        <button class="mini-btn" @click="contactSeller">私信</button>
+        <button class="mini-btn" @click.stop="contactSeller">私信</button>
       </view>
 
       <view class="rule-card ds-card">
@@ -113,6 +116,7 @@ const sellerName = computed(() => {
   return '商品卖家'
 })
 const sellerCity = computed(() => sellerProfile.value?.city || '卖家城市以服务端资料为准')
+const sellerAvatarUrl = computed(() => sellerProfile.value?.avatarUrl || '')
 const sellerIsSellerProfile = computed(() => ['SELLER', 'BOTH'].includes((sellerProfile.value?.mainRole || '').toUpperCase()))
 const sellerScoreLabel = computed(() => sellerIsSellerProfile.value ? '魅力值' : '实力值')
 const sellerScoreValue = computed(() => sellerIsSellerProfile.value ? sellerProfile.value?.sellerCharmScore : sellerProfile.value?.buyerPowerScore)
@@ -181,6 +185,18 @@ function contactSeller() {
   const target = resolveProductSellerContactTarget(detail.value)
   if (!target.receiverId) return uni.showToast({ title: target.error || '无法发起聊天', icon: 'none' })
   uni.navigateTo({ url: `/pages/chat/conversation/index?receiverId=${target.receiverId}&productId=${detail.value.productId}` })
+}
+function openSellerProfile(): void {
+  const sellerId = detail.value?.sellerId
+  if (!isValidBackendUserId(sellerId)) {
+    uni.showToast({ title: '缺少真实卖家ID，未打开主页', icon: 'none' })
+    return
+  }
+  if (!sellerProfile.value) {
+    uni.showToast({ title: '卖家资料暂时不可用，未打开主页', icon: 'none' })
+    return
+  }
+  uni.navigateTo({ url: `/pages/user/public-profile/index?userId=${sellerId}` })
 }
 function isValidProductReportTargetId(value: unknown) {
   const numeric = Number(value)
@@ -253,7 +269,9 @@ onMounted(() => { readProductId(); loadDetail() })
 .pill.green { background:#fff8e8; color:#b45309; }
 .pill.soft { background:#f0fdf4; color:#15803d; }
 .seller-card { display:flex; align-items:center; gap:10rpx; }
-.seller-avatar { width:58rpx; height:58rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:26rpx; font-weight:950; }
+.seller-avatar { width:58rpx; height:58rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:26rpx; font-weight:950; overflow:hidden; }
+.seller-avatar.image { background:#fff3e7; }
+.seller-avatar-img { width:100%; height:100%; display:block; }
 .seller-main { flex:1; min-width:0; }
 .seller-name { color:#3a2a1f; font-size:21rpx; font-weight:950; }
 .seller-desc { margin-top:6rpx; color:#9b7560; font-size:21rpx; }
