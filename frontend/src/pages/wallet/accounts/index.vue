@@ -45,7 +45,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { bindPayoutAccount, getPayoutAccount, type PayoutAccountResponse } from '../../../api/modules/wallet'
 
 const launchReadinessMarkers = [
-  '提现账户绑定失败，请稍后重试'
+  '提现账户绑定失败：未保存本地账号'
 ]
 
 const methods = ['ALIPAY', 'BANK_CARD']
@@ -77,7 +77,7 @@ async function submitBinding() {
     submitMessage.value = '提现账户已由平台绑定；页面仅保留脱敏展示。'
   } catch {
     submitFailed.value = true
-    submitMessage.value = '提现账户绑定失败，请确认字段合法性后重试。'
+    submitMessage.value = '提现账户绑定失败：未保存本地账号'
   } finally { submitting.value = false }
 }
 onMounted(() => { void loadAccount() })

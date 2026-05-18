@@ -50,7 +50,7 @@ interface LedgerDetail {
 }
 
 const launchReadinessMarkers = [
-  '账本详情加载失败，请稍后重试'
+  '账本详情加载失败，未展示本地账本样例'
 ]
 
 const detail = reactive<LedgerDetail>({
@@ -132,7 +132,7 @@ async function loadDetail() {
     const response = await getWalletLedgerDetail(ledgerNo)
     Object.assign(detail, mapLedgerDetail(response))
   } catch {
-    loadMessage.value = '账本详情加载失败，未展示默认账本'
+    loadMessage.value = '账本详情加载失败，未展示本地账本样例'
   } finally {
     loading.value = false
   }
