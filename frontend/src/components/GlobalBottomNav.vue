@@ -74,11 +74,13 @@ onBeforeUnmount(() => {
 <style scoped>
 .global-bottom-nav-wrap {
   position: fixed;
-  left: 18rpx;
-  right: 18rpx;
-  bottom: calc(170rpx + env(safe-area-inset-bottom));
+  left: max(14rpx, env(safe-area-inset-left));
+  right: max(14rpx, env(safe-area-inset-right));
+  bottom: calc(10rpx + env(safe-area-inset-bottom));
   z-index: 99999;
   pointer-events: auto;
+  max-width: 760rpx;
+  margin: 0 auto;
 }
 .global-bottom-nav {
   min-height: 82rpx;
@@ -134,5 +136,27 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   font-size: 18rpx;
   line-height: 1;
+}
+@media (max-width: 360px) {
+  .global-bottom-nav-wrap {
+    left: max(10rpx, env(safe-area-inset-left));
+    right: max(10rpx, env(safe-area-inset-right));
+    bottom: calc(8rpx + env(safe-area-inset-bottom));
+  }
+  .global-bottom-nav {
+    min-height: 76rpx;
+    padding: 7rpx 8rpx;
+    border-radius: 24rpx;
+  }
+  .bottom-nav-item {
+    height: 62rpx;
+    border-radius: 20rpx;
+  }
+  .bottom-nav-icon {
+    width: 28rpx;
+    height: 28rpx;
+    font-size: 16rpx;
+  }
+  .bottom-nav-text { font-size: 17rpx; }
 }
 </style>

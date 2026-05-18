@@ -126,7 +126,7 @@ button { margin: 0; padding: 0; border: 0; background: none; line-height: 1.2; }
 
 .page-shell {
   min-height: 100vh;
-  padding: calc(18rpx + var(--global-ticker-offset)) 18rpx calc(120rpx + env(safe-area-inset-bottom));
+  padding: calc(18rpx + var(--global-ticker-offset)) 18rpx calc(150rpx + env(safe-area-inset-bottom));
   background: var(--c-bg);
 }
 
