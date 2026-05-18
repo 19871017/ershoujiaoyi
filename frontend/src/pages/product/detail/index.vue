@@ -80,6 +80,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { favoriteProduct, getProductDetail, unfavoriteProduct, type ProductDetailResponse } from '../../../api/modules/product'
 import { resolveProductSellerContactTarget } from '../../../api/modules/order-contact'
+import { getPublicProfile, type UserProfileResponse } from '../../../api/modules/user'
 
 const productId = ref<number>(0)
 const loading = ref(false)
@@ -87,6 +88,7 @@ const ordering = ref(false)
 const errorMessage = ref('')
 const orderMessage = ref('')
 const detail = ref<ProductDetailResponse | null>(null)
+const sellerProfile = ref<UserProfileResponse | null>(null)
 const activeImageIndex = ref(0)
 const favorited = ref(false)
 const favoriteLoading = ref(false)
@@ -104,10 +106,24 @@ const displayImages = computed(() => detail.value?.imageUrls?.length ? detail.va
 const activeImage = computed(() => displayImages.value[activeImageIndex.value] || '')
 const statusText = computed(() => detail.value?.status === 'created' ? '在售' : detail.value?.status || '未知')
 const auditText = computed(() => detail.value?.auditState === 'pending' ? '审核中' : detail.value?.auditState || '审核状态')
-const sellerName = computed(() => detail.value?.sellerId ? `卖家 ${detail.value.sellerId}` : '商品卖家')
-const sellerCity = computed(() => '卖家城市以服务端资料为准')
-const sellerTrustText = computed(() => '商品卖家信息以服务端返回为准 · 暂无服务端信用/成交统计')
-const sellerTags = computed(() => [] as string[])
+const sellerProfileFallbackText = '商品卖家信息以服务端返回为准 · 暂无服务端信用/成交统计'
+const sellerName = computed(() => {
+  if (sellerProfile.value?.nickname) return sellerProfile.value.nickname
+  if (detail.value?.sellerId) return `卖家 ${detail.value.sellerId}`
+  return '商品卖家'
+})
+const sellerCity = computed(() => sellerProfile.value?.city || '卖家城市以服务端资料为准')
+const sellerIsSellerProfile = computed(() => ['SELLER', 'BOTH'].includes((sellerProfile.value?.mainRole || '').toUpperCase()))
+const sellerScoreLabel = computed(() => sellerIsSellerProfile.value ? '魅力值' : '实力值')
+const sellerScoreValue = computed(() => sellerIsSellerProfile.value ? sellerProfile.value?.sellerCharmScore : sellerProfile.value?.buyerPowerScore)
+const sellerTrustText = computed(() => {
+  if (!sellerProfile.value || !isFiniteNumber(sellerProfile.value.followerCount) || !isFiniteNumber(sellerScoreValue.value)) return sellerProfileFallbackText
+  return `粉丝 ${compactNumber(sellerProfile.value.followerCount)} · ${sellerScoreLabel.value} ${compactNumber(sellerScoreValue.value)}`
+})
+const sellerTags = computed<string[]>(() => sellerProfile.value?.videoVerified ? ['视频认证卖家'] : [])
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
 function readProductId() {
   const pages = getCurrentPages()
   const current = pages.length > 0 ? (pages[pages.length - 1] as unknown as { options?: Record<string, string> }) : undefined
@@ -117,12 +133,36 @@ function readProductId() {
     : 0
   productId.value = fromPages || fromHash || 0
 }
-async function loadDetail() {
+function isValidBackendUserId(value: unknown): boolean {
+  const numeric = Number(value)
+  return Number.isInteger(numeric) && numeric > 0
+}
+function resetSellerProfile(): void {
+  sellerProfile.value = null
+}
+async function loadSellerProfile(sellerId: number | null | undefined): Promise<void> {
+  resetSellerProfile()
+  if (!isValidBackendUserId(sellerId)) return
+  try {
+    sellerProfile.value = await getPublicProfile(Number(sellerId))
+  } catch {
+    resetSellerProfile()
+  }
+}
+async function loadDetail(): Promise<void> {
   if (!productId.value) { errorMessage.value = '缺少商品ID'; return }
   loading.value = true
-  try { detail.value = await getProductDetail(productId.value) }
-  catch (error) { errorMessage.value = error instanceof Error ? error.message : '商品详情加载失败，请稍后重试'; detail.value = null }
-  finally { loading.value = false }
+  errorMessage.value = ''
+  resetSellerProfile()
+  try {
+    const productDetail = await getProductDetail(productId.value)
+    detail.value = productDetail
+    await loadSellerProfile(productDetail.sellerId)
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '商品详情加载失败，请稍后重试'
+    detail.value = null
+    resetSellerProfile()
+  } finally { loading.value = false }
 }
 async function createAndPay() {
   if (!detail.value) return
@@ -155,6 +195,12 @@ function reportProduct() {
   uni.navigateTo({ url: `/pages/report/submit/index?targetType=GOODS&targetId=${encodeURIComponent(String(reportTargetId))}` })
 }
 function shareProduct() { uni.showToast({ title: '分享功能暂时不可用，请稍后重试', icon: 'none' }) }
+function compactNumber(value: number | undefined): string {
+  const numberValue = Number(value || 0)
+  if (!Number.isFinite(numberValue) || numberValue <= 0) return '0'
+  if (numberValue >= 10000) return `${(numberValue / 10000).toFixed(numberValue >= 100000 ? 0 : 1)}万`
+  return String(Math.floor(numberValue))
+}
 async function toggleFavorite() {
   if (!detail.value?.productId || detail.value.productId <= 0) {
     uni.showToast({ title: '商品缺少后端 productId，未执行收藏变更', icon: 'none' })
