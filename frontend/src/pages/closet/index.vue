@@ -46,8 +46,8 @@ import { listMyProducts, updateProductVisibility, type ProductListItemResponse, 
 type TabValue = 'ALL' | ProductCreateStatus
 const launchReadinessMarkers = [
   '卖家商品列表加载失败，请稍后重试',
-  '商品编号缺失，暂时无法打开详情',
-  '商品编号缺失，暂时无法编辑'
+  '商品缺少后端 productId，未打开本地商品详情',
+  '商品缺少后端 productId，未进入本地编辑页'
 ]
 
 const tabs: Array<{ label: string; value: TabValue }> = [
@@ -80,7 +80,7 @@ function auditLabel(auditState: ProductAuditState) { return ({ pending: '待审'
 function productIcon(item: ProductListItemResponse) { return item.coverImageUrl ? '🖼️' : '📦' }
 function openDetail(item: ProductListItemResponse) {
   if (!item.productId || item.productId <= 0) {
-    uni.showToast({ title: '商品编号无效，暂无法打开商品详情', icon: 'none' })
+    uni.showToast({ title: '商品缺少后端 productId，未打开本地商品详情', icon: 'none' })
     return
   }
   uni.navigateTo({ url: `/pages/product/detail/index?productId=${item.productId}` })
@@ -107,7 +107,7 @@ async function toggleOnline(item: ProductListItemResponse) {
 }
 function editProduct(item: ProductListItemResponse) {
   if (!item.productId || item.productId <= 0) {
-    uni.showToast({ title: '商品编号无效，暂无法进入编辑页', icon: 'none' })
+    uni.showToast({ title: '商品缺少后端 productId，未进入本地编辑页', icon: 'none' })
     return
   }
   uni.navigateTo({ url: `/pages/product/edit/index?productId=${item.productId}` })
