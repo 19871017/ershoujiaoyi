@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -107,10 +108,10 @@ public class WalletLedgerService {
         }
         String balanceType = normalizeBalanceType(command.getBalanceType());
         BigDecimal amount = money(command.getAmount());
-        WalletAccount account = accountOf(command.getUserId());
-        BigDecimal balanceBefore = currentBalance(account, balanceType);
-        BigDecimal balanceAfter = balanceBefore.add(amount).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY);
-        updateBalance(command.getUserId(), balanceType, balanceAfter);
+        ensureAccountExists(command.getUserId());
+        incrementBalance(command.getUserId(), balanceType, amount);
+        BigDecimal balanceAfter = currentBalanceOf(command.getUserId(), balanceType);
+        BigDecimal balanceBefore = balanceAfter.subtract(amount).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY);
         LedgerTransactionResponse response = new LedgerTransactionResponse(
                 generateLedgerNo("CR", command.getUserId(), idempotencyKey),
                 command.getUserId(),
@@ -139,13 +140,12 @@ public class WalletLedgerService {
         }
         String balanceType = normalizeBalanceType(command.getBalanceType());
         BigDecimal amount = money(command.getAmount());
-        WalletAccount account = accountOf(command.getUserId());
-        BigDecimal balanceBefore = currentBalance(account, balanceType);
-        BigDecimal balanceAfter = balanceBefore.subtract(amount).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY);
-        if (balanceAfter.compareTo(BigDecimal.ZERO.setScale(MONEY_SCALE, RoundingMode.UNNECESSARY)) < 0) {
+        ensureAccountExists(command.getUserId());
+        if (!decrementBalanceIfEnough(command.getUserId(), balanceType, amount)) {
             throw new IllegalStateException("insufficient wallet balance");
         }
-        updateBalance(command.getUserId(), balanceType, balanceAfter);
+        BigDecimal balanceAfter = currentBalanceOf(command.getUserId(), balanceType);
+        BigDecimal balanceBefore = balanceAfter.add(amount).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY);
         LedgerTransactionResponse response = new LedgerTransactionResponse(
                 generateLedgerNo("DR", command.getUserId(), idempotencyKey),
                 command.getUserId(),
@@ -183,20 +183,13 @@ public class WalletLedgerService {
         String paymentMethod = payoutAccount.paymentMethod();
         String accountName = payoutAccount.accountName();
         String accountNo = payoutAccount.accountNo();
-        WalletAccount account = accountOf(userId);
-        BigDecimal withdrawableBefore = money(account.getWithdrawableBalance());
-        BigDecimal withdrawableAfter = withdrawableBefore.subtract(amount).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY);
-        if (withdrawableAfter.compareTo(BigDecimal.ZERO.setScale(MONEY_SCALE, RoundingMode.UNNECESSARY)) < 0) {
+        ensureAccountExists(userId);
+        if (!freezeWithdrawableIfEnough(userId, amount)) {
             throw new IllegalStateException("insufficient withdrawable balance");
         }
-        BigDecimal frozenAfter = money(account.getFrozenBalance()).add(amount).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY);
+        BigDecimal withdrawableAfter = currentBalanceOf(userId, BALANCE_TYPE_WITHDRAWABLE);
+        BigDecimal withdrawableBefore = withdrawableAfter.add(amount).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY);
         String withdrawalNo = "WD-" + System.currentTimeMillis() + '-' + Math.abs((int) (Math.random() * 100000));
-        jdbcTemplate.update(
-                "update wallet_account set withdrawable_balance = ?, frozen_balance = ?, updated_at = CURRENT_TIMESTAMP where user_id = ?",
-                withdrawableAfter,
-                frozenAfter,
-                userId
-        );
         jdbcTemplate.update(
                 "insert into withdrawal_record (withdrawal_no,audit_no,user_id,amount,payment_method,account_name,account_no,status,remark,created_at) values (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
                 withdrawalNo,
@@ -290,9 +283,16 @@ public class WalletLedgerService {
         if (record == null || !"PENDING".equals(record.status())) {
             return;
         }
-        WalletAccount account = accountOf(record.userId());
-        releaseFrozenToWithdrawable(record.userId(), account, record.amount());
-        jdbcTemplate.update("update withdrawal_record set status = ?, reviewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP where withdrawal_no = ?", "FAILED", safeWithdrawalNo);
+        int claimed = jdbcTemplate.update(
+                "update withdrawal_record set status = ?, reviewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP where withdrawal_no = ? and status = ?",
+                "FAILED",
+                safeWithdrawalNo,
+                "PENDING"
+        );
+        if (claimed == 0) {
+            return;
+        }
+        releaseFrozenToWithdrawable(record.userId(), record.amount());
     }
 
     @Transactional
@@ -309,55 +309,57 @@ public class WalletLedgerService {
             }
             throw new IllegalStateException("withdrawal already reviewed");
         }
-        WalletAccount account = accountOf(record.userId());
-        if ("APPROVED".equals(safeStatus)) {
-            BigDecimal frozenBefore = money(account.getFrozenBalance());
-            deductFrozen(record.userId(), account, record.amount());
-            appendWithdrawalLedger(record.userId(), "DEBIT", "WITHDRAW_PAYOUT", safeWithdrawalNo, "FROZEN", record.amount(), frozenBefore, frozenBefore.subtract(record.amount()).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY));
-        } else {
-            BigDecimal withdrawableBefore = money(account.getWithdrawableBalance());
-            releaseFrozenToWithdrawable(record.userId(), account, record.amount());
-            appendWithdrawalLedger(record.userId(), "CREDIT", "WITHDRAW_RELEASE", safeWithdrawalNo, BALANCE_TYPE_WITHDRAWABLE, record.amount(), withdrawableBefore, withdrawableBefore.add(record.amount()).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY));
-        }
-        jdbcTemplate.update(
+        int claimed = jdbcTemplate.update(
                 "update withdrawal_record set status = ?, reviewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP where withdrawal_no = ? and status = ?",
                 safeStatus,
                 safeWithdrawalNo,
                 "PENDING"
         );
+        if (claimed == 0) {
+            WithdrawalResponse latest = getWithdrawal(safeWithdrawalNo);
+            if (safeStatus.equals(latest.status())) {
+                return;
+            }
+            throw new IllegalStateException("withdrawal already reviewed");
+        }
+        if ("APPROVED".equals(safeStatus)) {
+            deductFrozen(record.userId(), record.amount());
+            BigDecimal frozenAfter = currentBalanceColumn(record.userId(), "frozen_balance");
+            appendWithdrawalLedger(record.userId(), "DEBIT", "WITHDRAW_PAYOUT", safeWithdrawalNo, "FROZEN", record.amount(), frozenAfter.add(record.amount()).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY), frozenAfter);
+        } else {
+            releaseFrozenToWithdrawable(record.userId(), record.amount());
+            BigDecimal withdrawableAfter = currentBalanceOf(record.userId(), BALANCE_TYPE_WITHDRAWABLE);
+            appendWithdrawalLedger(record.userId(), "CREDIT", "WITHDRAW_RELEASE", safeWithdrawalNo, BALANCE_TYPE_WITHDRAWABLE, record.amount(), withdrawableAfter.subtract(record.amount()).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY), withdrawableAfter);
+        }
     }
 
-    private void deductFrozen(Long userId, WalletAccount account, BigDecimal amount) {
-        BigDecimal frozenBefore = money(account.getFrozenBalance());
-        BigDecimal frozenAfter = frozenBefore.subtract(amount).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY);
-        if (frozenAfter.compareTo(BigDecimal.ZERO.setScale(MONEY_SCALE, RoundingMode.UNNECESSARY)) < 0) {
+    private void deductFrozen(Long userId, BigDecimal amount) {
+        int changed = jdbcTemplate.update(
+                "update wallet_account set frozen_balance = frozen_balance - ?, updated_at = CURRENT_TIMESTAMP where user_id = ? and frozen_balance >= ?",
+                amount,
+                userId,
+                amount
+        );
+        if (changed == 0) {
             throw new IllegalStateException("insufficient frozen balance");
         }
-        jdbcTemplate.update("update wallet_account set frozen_balance = ?, updated_at = CURRENT_TIMESTAMP where user_id = ?", frozenAfter, userId);
     }
 
-    private void releaseFrozenToWithdrawable(Long userId, WalletAccount account, BigDecimal amount) {
-        BigDecimal frozenBefore = money(account.getFrozenBalance());
-        BigDecimal frozenAfter = frozenBefore.subtract(amount).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY);
-        if (frozenAfter.compareTo(BigDecimal.ZERO.setScale(MONEY_SCALE, RoundingMode.UNNECESSARY)) < 0) {
+    private void releaseFrozenToWithdrawable(Long userId, BigDecimal amount) {
+        int changed = jdbcTemplate.update(
+                "update wallet_account set frozen_balance = frozen_balance - ?, withdrawable_balance = withdrawable_balance + ?, updated_at = CURRENT_TIMESTAMP where user_id = ? and frozen_balance >= ?",
+                amount,
+                amount,
+                userId,
+                amount
+        );
+        if (changed == 0) {
             throw new IllegalStateException("insufficient frozen balance");
         }
-        BigDecimal withdrawableAfter = money(account.getWithdrawableBalance()).add(amount).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY);
-        jdbcTemplate.update("update wallet_account set frozen_balance = ?, withdrawable_balance = ?, updated_at = CURRENT_TIMESTAMP where user_id = ?", frozenAfter, withdrawableAfter, userId);
     }
 
     private WalletAccount accountOf(Long userId) {
-        Integer count = jdbcTemplate.queryForObject("select count(*) from wallet_account where user_id = ?", Integer.class, userId);
-        if (count == null || count == 0) {
-            jdbcTemplate.update(
-                    "insert into wallet_account (user_id,recharge_balance,income_balance,frozen_balance,withdrawable_balance,created_at,updated_at) values (?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
-                    userId,
-                    zero(),
-                    zero(),
-                    zero(),
-                    zero()
-            );
-        }
+        ensureAccountExists(userId);
         return jdbcTemplate.queryForObject(
                 "select user_id,recharge_balance,income_balance,frozen_balance,withdrawable_balance from wallet_account where user_id = ?",
                 (rs, rowNum) -> {
@@ -524,14 +526,57 @@ public class WalletLedgerService {
         };
     }
 
-    private void updateBalance(Long userId, String balanceType, BigDecimal balance) {
-        String column = switch (balanceType) {
+    private BigDecimal currentBalanceOf(Long userId, String balanceType) {
+        return currentBalanceColumn(userId, balanceColumn(balanceType));
+    }
+
+    private BigDecimal currentBalanceColumn(Long userId, String column) {
+        return money(jdbcTemplate.queryForObject("select " + column + " from wallet_account where user_id = ?", BigDecimal.class, userId));
+    }
+
+    private void ensureAccountExists(Long userId) {
+        try {
+            jdbcTemplate.update(
+                    "insert into wallet_account (user_id,recharge_balance,income_balance,frozen_balance,withdrawable_balance,created_at,updated_at) values (?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                    userId,
+                    zero(),
+                    zero(),
+                    zero(),
+                    zero()
+            );
+        } catch (DuplicateKeyException ignored) {
+        }
+    }
+
+    private void incrementBalance(Long userId, String balanceType, BigDecimal amount) {
+        String column = balanceColumn(balanceType);
+        jdbcTemplate.update("update wallet_account set " + column + " = " + column + " + ?, updated_at = CURRENT_TIMESTAMP where user_id = ?", amount, userId);
+    }
+
+    private boolean decrementBalanceIfEnough(Long userId, String balanceType, BigDecimal amount) {
+        String column = balanceColumn(balanceType);
+        int changed = jdbcTemplate.update("update wallet_account set " + column + " = " + column + " - ?, updated_at = CURRENT_TIMESTAMP where user_id = ? and " + column + " >= ?", amount, userId, amount);
+        return changed > 0;
+    }
+
+    private boolean freezeWithdrawableIfEnough(Long userId, BigDecimal amount) {
+        int changed = jdbcTemplate.update(
+                "update wallet_account set withdrawable_balance = withdrawable_balance - ?, frozen_balance = frozen_balance + ?, updated_at = CURRENT_TIMESTAMP where user_id = ? and withdrawable_balance >= ?",
+                amount,
+                amount,
+                userId,
+                amount
+        );
+        return changed > 0;
+    }
+
+    private String balanceColumn(String balanceType) {
+        return switch (balanceType) {
             case BALANCE_TYPE_RECHARGE -> "recharge_balance";
             case BALANCE_TYPE_INCOME -> "income_balance";
             case BALANCE_TYPE_WITHDRAWABLE -> "withdrawable_balance";
             default -> throw new IllegalArgumentException("unsupported balanceType");
         };
-        jdbcTemplate.update("update wallet_account set " + column + " = ?, updated_at = CURRENT_TIMESTAMP where user_id = ?", balance, userId);
     }
 
     private String normalizeBalanceType(String balanceType) {

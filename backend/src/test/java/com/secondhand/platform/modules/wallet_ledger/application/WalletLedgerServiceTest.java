@@ -12,6 +12,12 @@ import com.secondhand.platform.modules.wallet_ledger.WalletBalanceResponse;
 import com.secondhand.platform.modules.wallet_ledger.WithdrawalResponse;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -73,6 +79,21 @@ class WalletLedgerServiceTest {
     }
 
     @Test
+    void concurrentDebitsShouldNotOverspendRechargeBalance() throws Exception {
+        service.credit(credit(1L, "seed", "RECHARGE", "100.00"));
+
+        ConcurrentOutcome outcome = runTwoConcurrentAttempts(
+                () -> service.debit(debit(1L, "concurrent-" + Thread.currentThread().getId(), "RECHARGE", "80.00")),
+                "insufficient wallet balance"
+        );
+
+        assertEquals(1, outcome.successes());
+        assertEquals(1, outcome.expectedFailures());
+        assertMoney("20.00", service.getBalance(1L).getRechargeBalance());
+        assertEquals(2, service.listLedger(1L).size());
+    }
+
+    @Test
     void createWithdrawalShouldFreezeWithdrawableBalanceAndRecordFreezeLedger() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
 
@@ -87,6 +108,24 @@ class WalletLedgerServiceTest {
         assertEquals(2, service.listLedger(1L).size());
         assertEquals("WITHDRAW_FREEZE", service.listLedger(1L).get(0).businessType());
         assertEquals(withdrawal.withdrawalNo(), service.listLedger(1L).get(0).businessId());
+    }
+
+    @Test
+    void concurrentWithdrawalsShouldNotOverFreezeWithdrawableBalance() throws Exception {
+        service.credit(credit(1L, "income", "WITHDRAWABLE", "100.00"));
+
+        ConcurrentOutcome outcome = runTwoConcurrentAttempts(
+                () -> service.createWithdrawal(1L, withdrawal("80.00"), "AU-WD-CONCURRENT-" + Thread.currentThread().getId()),
+                "insufficient withdrawable balance"
+        );
+
+        WalletBalanceResponse balance = service.getBalance(1L);
+        assertEquals(1, outcome.successes());
+        assertEquals(1, outcome.expectedFailures());
+        assertMoney("20.00", balance.getWithdrawableBalance());
+        assertMoney("80.00", balance.getFrozenBalance());
+        assertEquals(1, service.listWithdrawals(1L).size());
+        assertEquals(2, service.listLedger(1L).size());
     }
 
     @Test
@@ -286,6 +325,33 @@ class WalletLedgerServiceTest {
     }
 
     @Test
+    void concurrentCancelAndApproveShouldOnlyMoveFrozenFundsOnce() throws Exception {
+        service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        WithdrawalResponse withdrawal = service.createWithdrawal(1L, withdrawal("50.00"), "AU-WD-1");
+
+        ConcurrentOutcome outcome = runTwoConcurrentAttempts(
+                () -> service.markWithdrawalReviewed(withdrawal.withdrawalNo(), "APPROVED"),
+                () -> service.cancelWithdrawalCreation(withdrawal.withdrawalNo()),
+                "withdrawal already reviewed"
+        );
+
+        WalletBalanceResponse balance = service.getBalance(1L);
+        String status = service.listWithdrawals(1L).get(0).status();
+        assertEquals(2, outcome.successes() + outcome.expectedFailures());
+        assertTrue(outcome.expectedFailures() <= 1);
+        assertTrue("APPROVED".equals(status) || "FAILED".equals(status));
+        if ("APPROVED".equals(status)) {
+            assertMoney("30.00", balance.getWithdrawableBalance());
+            assertMoney("0.00", balance.getFrozenBalance());
+            assertEquals(1, ledgerCount("WITHDRAW_PAYOUT", withdrawal.withdrawalNo()));
+        } else {
+            assertMoney("80.00", balance.getWithdrawableBalance());
+            assertMoney("0.00", balance.getFrozenBalance());
+            assertEquals(0, ledgerCount("WITHDRAW_PAYOUT", withdrawal.withdrawalNo()));
+        }
+    }
+
+    @Test
     void walletDataShouldSurviveServiceRecreationWithSameDatabase() {
         service.credit(credit(7L, "income", "WITHDRAWABLE", "120.00"));
         WithdrawalResponse withdrawal = service.createWithdrawal(7L, withdrawal(7L, "40.00"), "AU-WD-DB");
@@ -298,6 +364,45 @@ class WalletLedgerServiceTest {
         assertEquals(withdrawal.withdrawalNo(), reloaded.listWithdrawals(7L).get(0).withdrawalNo());
         assertEquals(2, reloaded.listLedger(7L).size());
         assertEquals("WITHDRAW_FREEZE", reloaded.listLedger(7L).get(0).businessType());
+    }
+
+    private ConcurrentOutcome runTwoConcurrentAttempts(ConcurrentAttempt attempt, String expectedFailureMessage) throws Exception {
+        return runTwoConcurrentAttempts(attempt, attempt, expectedFailureMessage);
+    }
+
+    private ConcurrentOutcome runTwoConcurrentAttempts(ConcurrentAttempt firstAttempt, ConcurrentAttempt secondAttempt, String expectedFailureMessage) throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        AtomicInteger successes = new AtomicInteger();
+        AtomicInteger expectedFailures = new AtomicInteger();
+        Future<?> first = pool.submit(() -> runConcurrentAttempt(firstAttempt, start, successes, expectedFailures, expectedFailureMessage));
+        Future<?> second = pool.submit(() -> runConcurrentAttempt(secondAttempt, start, successes, expectedFailures, expectedFailureMessage));
+
+        start.countDown();
+        pool.shutdown();
+        assertTrue(pool.awaitTermination(5, TimeUnit.SECONDS));
+        first.get();
+        second.get();
+        return new ConcurrentOutcome(successes.get(), expectedFailures.get());
+    }
+
+    private void runConcurrentAttempt(ConcurrentAttempt attempt, CountDownLatch start, AtomicInteger successes,
+                                      AtomicInteger expectedFailures, String expectedFailureMessage) {
+        try {
+            start.await();
+            attempt.run();
+            successes.incrementAndGet();
+        } catch (IllegalStateException ex) {
+            if (!expectedFailureMessage.equals(ex.getMessage())) {
+                throw ex;
+            }
+            expectedFailures.incrementAndGet();
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(ex);
+        } catch (Exception ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 
     private int ledgerCount(String businessType, String businessId) {
@@ -344,6 +449,14 @@ class WalletLedgerServiceTest {
 
     private CreateWithdrawalRequest withdrawal(String amount) {
         return withdrawal(1L, amount);
+    }
+
+    private record ConcurrentOutcome(int successes, int expectedFailures) {
+    }
+
+    @FunctionalInterface
+    private interface ConcurrentAttempt {
+        void run() throws Exception;
     }
 
     private PayoutAccountRequest payoutAccount(String paymentMethod, String accountName, String accountNo) {
