@@ -38,7 +38,7 @@
 
       <view class="safe-card ds-card">
         <view class="section-title">订单安全提示</view>
-        <view class="safe-line">订单、支付、售后和聊天记录以平台状态为准。</view>
+        <view class="safe-line">订单、支付、售后和聊天记录以服务端状态为准。</view>
         <view class="safe-line">如遇私下转账、绕平台交易、诱导外部联系，请立即举报。</view>
       </view>
 
@@ -55,8 +55,8 @@ import { confirmReceipt, getOrderDetail, type OrderDetailResponse, type OrderLis
 import { resolveOrderContactTarget, type OrderContactAction } from '../../../api/modules/order-contact'
 
 const launchReadinessMarkers = [
-  '订单、支付、售后和聊天记录以平台状态为准',
-  '确认收货将提交平台完成状态变更'
+  '订单、支付、售后和聊天记录以服务端状态为准',
+  '确认收货将调用后端接口完成状态变更'
 ]
 
 const orderNo = ref('')
@@ -136,7 +136,7 @@ async function confirmOrderReceipt() {
   if (!order.value || confirming.value) return
   uni.showModal({
     title: '确认收货',
-    content: '确认收到宝贝且无争议后，确认收货将提交平台完成状态变更。确认后不可直接撤回。',
+    content: '确认收到宝贝且无争议后，确认收货将调用后端接口完成状态变更。确认后不可直接撤回。',
     success: async (res) => {
       if (!res.confirm || !order.value) return
       confirming.value = true

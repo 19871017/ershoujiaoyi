@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 平台订单创建后再进入支付确认</view>
         <view class="page-title">确认订单</view>
-        <view class="page-desc">付款前请确认商品、配送和订单规则；支付、售后和聊天记录以平台订单状态为准。</view>
+        <view class="page-desc">付款前请确认商品、配送和订单规则；支付、售后和聊天记录以服务端订单状态为准。</view>
       </view>
       <view class="hero-icon">🧾</view>
     </view>
@@ -95,7 +95,7 @@ interface ShippingAddress { id?: number | string; name: string; mobile: string; 
 
 const launchReadinessMarkers = [
   '平台订单创建后再进入支付确认',
-  '支付、售后和聊天记录以平台订单状态为准'
+  '支付、售后和聊天记录以服务端订单状态为准'
 ]
 
 const productId = ref<number | null>(null)
