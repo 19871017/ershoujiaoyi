@@ -262,6 +262,39 @@ class UserApplicationServiceTest {
     }
 
     @Test
+    void publicProfileShouldExposeFollowGiftAndConsumptionStats() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.register(login("13800138261", "pass-123456"), "test-13800138261");
+        auth.register(login("13800138262", "pass-123456"), "test-13800138262");
+        auth.register(login("13800138263", "pass-123456"), "test-13800138263");
+        Long profileUserId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138261");
+        Long followerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138262");
+        Long receiverId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138263");
+        service.followProfile(followerId, profileUserId);
+        service.followProfile(profileUserId, receiverId);
+        jdbcTemplate.update("""
+                INSERT INTO gift_order (gift_order_no, idempotency_key, sender_id, receiver_id, gift_id, gift_code, quantity, total_amount, platform_share, receiver_amount, debit_ledger_no, receiver_credit_ledger_no, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, "GO-PROFILE-RECEIVED", "IDEM-GO-PROFILE-RECEIVED", followerId, profileUserId, 1L, "ROSE", 1, "19.90", "0.00", "19.90", "DL-GO-PROFILE-RECEIVED", "CL-GO-PROFILE-RECEIVED", "SUCCESS");
+        jdbcTemplate.update("""
+                INSERT INTO gift_order (gift_order_no, idempotency_key, sender_id, receiver_id, gift_id, gift_code, quantity, total_amount, platform_share, receiver_amount, debit_ledger_no, receiver_credit_ledger_no, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, "GO-PROFILE-SENT", "IDEM-GO-PROFILE-SENT", profileUserId, receiverId, 1L, "COFFEE", 1, "6.50", "0.00", "6.50", "DL-GO-PROFILE-SENT", "CL-GO-PROFILE-SENT", "SUCCESS");
+        jdbcTemplate.update("""
+                INSERT INTO trade_order (order_no, product_id, goods_id, product_no, product_title, trade_rule_snapshot, buyer_id, seller_id, amount, order_status, accepted_trade_rule)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, "TO-PROFILE-PAID", 1L, 1L, "PN-PROFILE-PAID", "真实消费订单", "server-order", profileUserId, receiverId, "88.80", "PAID", true);
+
+        UserProfileResponse profile = service.publicProfile(profileUserId, followerId);
+
+        assertEquals(1, profile.getFollowerCount());
+        assertEquals(1, profile.getFollowingCount());
+        assertEquals(19, profile.getSellerCharmScore());
+        assertEquals(95, profile.getBuyerPowerScore());
+        assertEquals(true, profile.isFollowedByMe());
+    }
+
+    @Test
     void adminUserDetailShouldReturnMaskedPersistedUserProfileOnly() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
         auth.register(login("13800138331", "pass-123456"), "test-13800138331");

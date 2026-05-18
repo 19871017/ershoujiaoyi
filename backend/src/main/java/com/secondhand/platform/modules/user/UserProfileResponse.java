@@ -12,20 +12,28 @@ public class UserProfileResponse {
     private String videoIdentityStatus;
     private boolean videoVerified;
     private boolean followedByMe;
+    private int followerCount;
+    private int followingCount;
+    private int sellerCharmScore;
+    private int buyerPowerScore;
 
     public UserProfileResponse(Long userId, String nickname, String mainRole) {
-        this(userId, null, nickname, null, mainRole, null, null, null, "UNVERIFIED", false, false);
+        this(userId, null, nickname, null, mainRole, null, null, null, "UNVERIFIED", false, false, 0, 0, 0, 0);
     }
 
     public UserProfileResponse(Long userId, String nickname, String mainRole, String videoIdentityStatus, boolean videoVerified) {
-        this(userId, null, nickname, null, mainRole, null, null, null, videoIdentityStatus, videoVerified, false);
+        this(userId, null, nickname, null, mainRole, null, null, null, videoIdentityStatus, videoVerified, false, 0, 0, 0, 0);
     }
 
     public UserProfileResponse(Long userId, String nickname, String mainRole, String videoIdentityStatus, boolean videoVerified, boolean followedByMe) {
-        this(userId, null, nickname, null, mainRole, null, null, null, videoIdentityStatus, videoVerified, followedByMe);
+        this(userId, null, nickname, null, mainRole, null, null, null, videoIdentityStatus, videoVerified, followedByMe, 0, 0, 0, 0);
     }
 
     public UserProfileResponse(Long userId, String userNo, String nickname, String avatarUrl, String mainRole, String gender, String city, String bio, String videoIdentityStatus, boolean videoVerified, boolean followedByMe) {
+        this(userId, userNo, nickname, avatarUrl, mainRole, gender, city, bio, videoIdentityStatus, videoVerified, followedByMe, 0, 0, 0, 0);
+    }
+
+    public UserProfileResponse(Long userId, String userNo, String nickname, String avatarUrl, String mainRole, String gender, String city, String bio, String videoIdentityStatus, boolean videoVerified, boolean followedByMe, int followerCount, int followingCount, int sellerCharmScore, int buyerPowerScore) {
         this.userId = userId;
         this.userNo = userNo;
         this.nickname = nickname;
@@ -37,6 +45,10 @@ public class UserProfileResponse {
         this.videoIdentityStatus = videoIdentityStatus == null ? "UNVERIFIED" : videoIdentityStatus;
         this.videoVerified = videoVerified;
         this.followedByMe = followedByMe;
+        this.followerCount = followerCount;
+        this.followingCount = followingCount;
+        this.sellerCharmScore = sellerCharmScore;
+        this.buyerPowerScore = buyerPowerScore;
     }
 
     public Long getUserId() {
@@ -81,5 +93,21 @@ public class UserProfileResponse {
 
     public boolean isFollowedByMe() {
         return followedByMe;
+    }
+
+    public int getFollowerCount() {
+        return followerCount;
+    }
+
+    public int getFollowingCount() {
+        return followingCount;
+    }
+
+    public int getSellerCharmScore() {
+        return sellerCharmScore;
+    }
+
+    public int getBuyerPowerScore() {
+        return buyerPowerScore;
     }
 }

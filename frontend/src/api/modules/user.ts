@@ -14,6 +14,10 @@ export interface UserProfileResponse {
   videoIdentityStatus: 'UNVERIFIED' | 'PENDING' | 'APPROVED' | 'REJECTED' | string
   videoVerified: boolean
   followedByMe?: boolean
+  followerCount?: number
+  followingCount?: number
+  sellerCharmScore?: number
+  buyerPowerScore?: number
 }
 
 export interface AccountSecurityResponse {

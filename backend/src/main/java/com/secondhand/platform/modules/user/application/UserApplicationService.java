@@ -304,9 +304,41 @@ public class UserApplicationService {
             throw new IllegalArgumentException("userId required");
         }
         List<UserProfileResponse> rows = jdbcTemplate.query("""
-                SELECT a.id, a.user_no, a.nickname, a.avatar_url, p.identity_status, p.main_role, p.gender, p.city, p.bio, p.video_identity_status, p.video_verified
+                SELECT a.id, a.user_no, a.nickname, a.avatar_url, p.identity_status, p.main_role, p.gender, p.city, p.bio, p.video_identity_status, p.video_verified,
+                       COALESCE(followers.follower_count, 0) AS follower_count,
+                       COALESCE(following.following_count, 0) AS following_count,
+                       COALESCE(received_gifts.seller_charm_score, 0) AS seller_charm_score,
+                       FLOOR(COALESCE(sent_gifts.sent_gift_amount, 0) + COALESCE(paid_orders.paid_order_amount, 0)) AS buyer_power_score
                 FROM user_account a
                 LEFT JOIN user_profile p ON p.user_id = a.id
+                LEFT JOIN (
+                    SELECT followed_id, COUNT(*) AS follower_count
+                    FROM user_follow
+                    GROUP BY followed_id
+                ) followers ON followers.followed_id = a.id
+                LEFT JOIN (
+                    SELECT follower_id, COUNT(*) AS following_count
+                    FROM user_follow
+                    GROUP BY follower_id
+                ) following ON following.follower_id = a.id
+                LEFT JOIN (
+                    SELECT receiver_id, FLOOR(COALESCE(SUM(total_amount), 0)) AS seller_charm_score
+                    FROM gift_order
+                    WHERE status = 'SUCCESS'
+                    GROUP BY receiver_id
+                ) received_gifts ON received_gifts.receiver_id = a.id
+                LEFT JOIN (
+                    SELECT sender_id, COALESCE(SUM(total_amount), 0) AS sent_gift_amount
+                    FROM gift_order
+                    WHERE status = 'SUCCESS'
+                    GROUP BY sender_id
+                ) sent_gifts ON sent_gifts.sender_id = a.id
+                LEFT JOIN (
+                    SELECT buyer_id, COALESCE(SUM(amount), 0) AS paid_order_amount
+                    FROM trade_order
+                    WHERE order_status IN ('PAID', 'SHIPPED', 'COMPLETED')
+                    GROUP BY buyer_id
+                ) paid_orders ON paid_orders.buyer_id = a.id
                 WHERE a.id = ? AND a.status = 'ACTIVE'
                 """, (rs, rowNum) -> {
                     String videoStatus = rs.getString("video_identity_status") == null ? "UNVERIFIED" : rs.getString("video_identity_status");
@@ -322,7 +354,11 @@ public class UserApplicationService {
                             rs.getString("bio"),
                             videoStatus,
                             approvedVideo,
-                            viewerId != null && isFollowedBy(viewerId, rs.getLong("id"))
+                            viewerId != null && isFollowedBy(viewerId, rs.getLong("id")),
+                            rs.getInt("follower_count"),
+                            rs.getInt("following_count"),
+                            rs.getInt("seller_charm_score"),
+                            rs.getInt("buyer_power_score")
                     );
                 }, userId);
         if (rows.isEmpty()) {

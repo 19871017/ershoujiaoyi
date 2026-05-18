@@ -24,6 +24,25 @@
 
     <view v-if="loadError" class="empty-card ds-card">{{ loadError }}</view>
 
+    <view v-if="profileLoaded" class="stats-card ds-card">
+      <view class="stat-item">
+        <text class="stat-value">{{ compactNumber(profile.followerCount) }}</text>
+        <text class="stat-label">粉丝</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value">{{ compactNumber(profile.followingCount) }}</text>
+        <text class="stat-label">关注</text>
+      </view>
+      <view class="stat-item charm">
+        <text class="stat-value">{{ compactNumber(profile.sellerCharmScore) }}</text>
+        <text class="stat-label">魅力值</text>
+      </view>
+      <view class="stat-item power">
+        <text class="stat-value">{{ compactNumber(profile.buyerPowerScore) }}</text>
+        <text class="stat-label">实力值</text>
+      </view>
+    </view>
+
     <view class="action-row">
       <button class="secondary-btn" @click="toggleFollow">{{ followed ? '已关注' : '关注' }}</button>
       <button class="primary-btn" @click="chat">私信</button>
@@ -64,9 +83,14 @@ const emptyProfile: UserProfileResponse = {
   mainRole: 'UNVERIFIED',
   videoIdentityStatus: 'UNVERIFIED',
   videoVerified: false,
-  followedByMe: false
+  followedByMe: false,
+  followerCount: 0,
+  followingCount: 0,
+  sellerCharmScore: 0,
+  buyerPowerScore: 0
 }
 const profile = reactive<UserProfileResponse>({ ...emptyProfile })
+const profileLoaded = ref(false)
 const sellerProducts = ref<ProductListItemResponse[]>([])
 const followed = computed(() => profile.followedByMe === true)
 const avatarText = computed(() => (profile.nickname || '原').slice(-1))
@@ -84,7 +108,15 @@ function isValidBackendUserId(value: string): boolean {
 }
 
 function resetProfile(): void {
+  profileLoaded.value = false
   Object.assign(profile, emptyProfile)
+}
+
+function compactNumber(value: number | undefined): string {
+  const numberValue = Number(value || 0)
+  if (!Number.isFinite(numberValue) || numberValue <= 0) return '0'
+  if (numberValue >= 10000) return `${(numberValue / 10000).toFixed(numberValue >= 100000 ? 0 : 1)}万`
+  return String(Math.floor(numberValue))
 }
 
 function failClosedProducts(message = noBackendProductsMessage): void {
@@ -110,6 +142,7 @@ async function loadProfile(): Promise<void> {
   try {
     const data = await getPublicProfile(userId.value)
     Object.assign(profile, data)
+    profileLoaded.value = true
     loadError.value = ''
   } catch {
     resetProfile()
@@ -190,6 +223,12 @@ onMounted(() => {
 .verify.video{background:#ff7a45;color:#fff}
 .bio{margin-top:8rpx;color:#7b5542;font-size:23rpx;line-height:1.45}
 .tag-row{margin-top:10rpx;display:flex;gap:8rpx;flex-wrap:wrap}
+.stats-card{margin-top:18rpx;padding:18rpx;border-color:#ffd9bd;display:grid;grid-template-columns:repeat(4,1fr);gap:10rpx;background:linear-gradient(135deg,#fff,#fff8ef)}
+.stat-item{min-width:0;padding:14rpx 8rpx;border-radius:22rpx;background:#fffaf6;text-align:center;box-shadow:inset 0 0 0 1rpx rgba(255,217,189,.58)}
+.stat-value{display:block;color:#3a2a1f;font-size:30rpx;font-weight:950;line-height:1.1}
+.stat-label{display:block;margin-top:8rpx;color:#9b7560;font-size:20rpx;font-weight:900;white-space:nowrap}
+.stat-item.charm .stat-value{color:#d94673}
+.stat-item.power .stat-value{color:#1d4ed8}
 .action-row{margin-top:18rpx;display:grid;grid-template-columns:repeat(4,1fr);gap:10rpx}
 .gift-btn,.report-btn{min-height:72rpx;border-radius:999rpx;font-size:22rpx;font-weight:900}
 .gift-btn{background:#fff3e7;color:#ff7a45}
