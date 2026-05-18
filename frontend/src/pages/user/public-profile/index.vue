@@ -52,7 +52,10 @@
       <view v-if="productsError" class="empty-row">{{ productsError }}</view>
       <view v-else-if="!products.length" class="empty-row">暂无在售商品</view>
       <view v-for="item in products" :key="item.productId" class="product-row" @click="openProduct(item.productId)">
-        <view class="product-cover">{{ item.coverImageUrl ? '图' : '无图' }}</view>
+        <view class="product-cover" :class="{ image: !!item.coverImageUrl }">
+          <image v-if="item.coverImageUrl" class="product-cover-image" :src="item.coverImageUrl" mode="aspectFill" />
+          <text v-else>{{ productIcon(item.title) }}</text>
+        </view>
         <view class="product-main">
           <view class="product-title">{{ item.title }}</view>
           <view class="product-meta">¥{{ item.price }}</view>
@@ -118,6 +121,13 @@ function compactNumber(value: number | undefined): string {
   if (!Number.isFinite(numberValue) || numberValue <= 0) return '0'
   if (numberValue >= 10000) return `${(numberValue / 10000).toFixed(numberValue >= 100000 ? 0 : 1)}万`
   return String(Math.floor(numberValue))
+}
+
+function productIcon(title: string): string {
+  if (title.includes('裙')) return '👗'
+  if (title.includes('鞋')) return '👠'
+  if (title.includes('袜')) return '🧦'
+  return '👜'
 }
 
 function failClosedProducts(message = noBackendProductsMessage): void {
@@ -242,7 +252,9 @@ onMounted(() => {
 .empty-card,.empty-row{margin-top:18rpx;padding:24rpx;text-align:center;color:#9b7560;border-color:#ffd9bd}
 .section-title{color:#3a2a1f;font-size:28rpx;font-weight:950}
 .product-row{margin-top:14rpx;padding:16rpx;border-radius:24rpx;background:#fffaf6;display:flex;align-items:center;gap:14rpx}
-.product-cover{width:88rpx;height:88rpx;border-radius:22rpx;background:#fff;color:#b9856a;display:flex;align-items:center;justify-content:center;font-size:22rpx;font-weight:900}
+.product-cover{width:88rpx;height:88rpx;border-radius:22rpx;background:#fff;color:#b9856a;display:flex;align-items:center;justify-content:center;font-size:32rpx;font-weight:900;overflow:hidden}
+.product-cover.image{background:#fff3e7}
+.product-cover-image{width:100%;height:100%;display:block}
 .product-main{flex:1;min-width:0}
 .product-title{color:#3a2a1f;font-size:24rpx;font-weight:900;line-height:1.45}
 .product-meta{margin-top:6rpx;color:#ff7a45;font-size:22rpx;font-weight:900}
