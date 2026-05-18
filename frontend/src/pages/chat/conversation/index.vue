@@ -25,7 +25,7 @@
         <button class="secondary-btn" :disabled="!conversationId" @click="handleMarkRead">标记已读</button>
       </view>
 
-      <view v-if="messages.length === 0" class="empty-card">暂无消息，先发一句问问宝贝细节吧～</view>
+      <view v-if="messages.length === 0" class="empty-card">消息暂不可用，请等待服务端会话同步。</view>
       <view v-for="message in messages" :key="message.serverMsgId" class="bubble-row" :class="{ mine: isMine(message) }">
         <view class="bubble">
           <view class="message-body" :class="{ image: message.msgType === 'IMAGE' }">{{ renderMessage(message) }}</view>
@@ -69,7 +69,7 @@ const receiverId = ref<number | undefined>()
 const messages = ref<ChatMessageItem[]>([])
 const nextAfterSeq = ref(0)
 const hasMore = ref(false)
-const peerName = ref('聊天用户以平台会话为准')
+const peerName = ref('聊天用户')
 const peerAvatar = computed(() => peerName.value.slice(0, 1))
 
 async function loadCurrentUser() {
@@ -78,7 +78,7 @@ async function loadCurrentUser() {
     currentUserId.value = profile.userId
   } catch {
     currentUserId.value = null
-    statusText.value = '当前登录用户加载失败，不能发送消息'
+    statusText.value = '当前登录用户加载失败，暂不能发送消息'
   }
 }
 
@@ -110,7 +110,7 @@ async function loadMoreMessages() {
     await markConversationDelivered(conversationId.value)
     statusText.value = response.hasMore ? '已补拉部分消息，可继续补拉' : '消息已同步'
   } catch {
-    statusText.value = '消息服务未连接，不能展示或发送聊天内容'
+    statusText.value = '消息暂不可用，不能展示或发送聊天内容'
   } finally {
     loadingMessages.value = false
   }
@@ -133,7 +133,7 @@ function filenameFromPath(path: string) {
 }
 function sendImagePlaceholder() {
   if (sending.value) return
-  if (!receiverId.value) { statusText.value = '缺少会话目标用户'; return }
+  if (!receiverId.value) { statusText.value = '缺少会话目标用户，图片暂不可用'; return }
   uni.chooseImage({
     count: 1,
     sizeType: ['compressed'],
@@ -148,7 +148,7 @@ function sendImagePlaceholder() {
 }
 async function handleSendImage(localPath: string) {
   if (!localPath || localPath.startsWith('local://') || localPath.includes('placeholder')) {
-    statusText.value = '聊天图片票据需使用有效选择文件'
+    statusText.value = '图片暂不可用，聊天图片票据需使用有效选择文件'
     return
   }
   sending.value = true
@@ -163,17 +163,17 @@ async function handleSendImage(localPath: string) {
       mimeType: guessImageMime(localPath)
     })
   } catch {
-    statusText.value = '图片发送失败，请重新选择图片'
+    statusText.value = '图片暂不可用，请重新选择图片'
   } finally {
     sending.value = false
   }
 }
 async function handleSend(type: 'TEXT' | 'IMAGE', imagePayload?: { url: string; width: number; height: number; sizeBytes: number; mimeType: string }) {
   if (sending.value && type === 'TEXT') return
-  if (!currentUserId.value) { statusText.value = '缺少当前登录用户，不能发送消息'; return }
-  if (!conversationId.value) { statusText.value = '缺少有效会话编号，不能发送消息'; return }
-  if (!receiverId.value) { statusText.value = '缺少会话目标用户'; return }
-  if (type === 'IMAGE' && (!imagePayload || !imagePayload.url.startsWith('/uploads/'))) { statusText.value = '图片票据无效，不能发送'; return }
+  if (!currentUserId.value) { statusText.value = '缺少当前登录用户，暂不能发送消息'; return }
+  if (!conversationId.value) { statusText.value = '缺少有效会话编号，暂不能发送消息'; return }
+  if (!receiverId.value) { statusText.value = '缺少会话目标用户，暂不能发送消息'; return }
+  if (type === 'IMAGE' && (!imagePayload || !imagePayload.url.startsWith('/uploads/'))) { statusText.value = '图片暂不可用，暂不能发送消息'; return }
   const text = draft.value.trim()
   if (type === 'TEXT' && !text) { statusText.value = '消息不能为空，未发送默认聊天文案'; return }
   const payload: SendMessageRequest = {
