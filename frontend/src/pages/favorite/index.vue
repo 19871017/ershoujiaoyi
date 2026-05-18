@@ -24,7 +24,7 @@
         </view>
         <view class="title">{{ item.title }}</view>
         <view class="meta">平台商品 · {{ statusLabel(item.status) }}</view>
-        <view class="bottom"><text>¥{{ compactPrice(item.price) }}</text><button class="mini-btn" @click.stop="unfav(item.productId)">取消</button></view>
+        <view class="bottom"><text>¥{{ compactPrice(item.price) }}</text><button class="mini-btn" :disabled="removingIds.has(item.productId)" @click.stop="unfav(item.productId)">{{ removingIds.has(item.productId) ? '处理中' : '取消' }}</button></view>
       </view>
     </view>
   </view>
@@ -37,15 +37,20 @@ const launchReadinessMarkers = [
   '后端取消收藏失败，未执行本地收藏变更'
 ]
 
-const filters = ['全部', '衣物', '鞋袜', '小用品']
 const active = ref('全部')
 const loading = ref(false)
 const loadMessage = ref('')
+const productStatusLabels: Partial<Record<ProductListItemResponse['status'], string>> = {
+  created: '在售',
+  ACTIVE: '在售'
+}
+
+const removingIds = ref<Set<number>>(new Set())
 const favorites = ref<ProductListItemResponse[]>([])
+const filters = computed(() => ['全部', ...Array.from(new Set(favorites.value.map((item) => statusLabel(item.status))))])
 const filtered = computed(() => {
   if (active.value === '全部') return favorites.value
-  const categoryText = active.value.toLowerCase()
-  return favorites.value.filter((item) => `${item.title}${item.productNo}${item.status}${item.auditState}`.toLowerCase().includes(categoryText))
+  return favorites.value.filter((item) => statusLabel(item.status) === active.value)
 })
 function openProduct(productId: number) {
   if (!productId || productId <= 0) { uni.showToast({ title: '收藏商品编号无效，暂无法打开商品详情', icon: 'none' }); return }
@@ -53,16 +58,23 @@ function openProduct(productId: number) {
 }
 async function unfav(productId: number) {
   if (!productId || productId <= 0) { uni.showToast({ title: '收藏商品编号无效，暂无法取消收藏', icon: 'none' }); return }
+  if (removingIds.value.has(productId)) return
+  removingIds.value = new Set([...removingIds.value, productId])
   try {
     await unfavoriteProduct(productId)
     favorites.value = favorites.value.filter((item) => item.productId !== productId)
+    if (active.value !== '全部' && !filtered.value.length) active.value = '全部'
     uni.showToast({ title: '平台已确认取消收藏', icon: 'none' })
   } catch {
     uni.showToast({ title: '后端取消收藏失败，未执行本地收藏变更', icon: 'none' })
+  } finally {
+    const next = new Set(removingIds.value)
+    next.delete(productId)
+    removingIds.value = next
   }
 }
 function iconFor(title: string) { if (title.includes('裙')) return '👗'; if (title.includes('鞋')) return '👠'; if (title.includes('袜')) return '🧦'; return '👜' }
-function statusLabel(status: string) { return status === 'created' || status === 'ACTIVE' ? '在售' : status }
+function statusLabel(status: ProductListItemResponse['status']): string { return productStatusLabels[status] || status }
 function compactPrice(price: string) { return Number(price).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
 async function loadFavorites() {
   loading.value = true
