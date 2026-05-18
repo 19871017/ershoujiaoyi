@@ -1,5 +1,5 @@
 <template>
-  <view class="global-bottom-nav-wrap">
+  <view v-if="visible" class="global-bottom-nav-wrap">
     <view class="global-bottom-nav ds-card">
       <view
         v-for="item in tabs"
@@ -16,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 const homePath = '/pages/tabbar/home/index'
 const publishPath = '/pages/tabbar/publish/index'
@@ -31,7 +31,8 @@ const tabs = [
 
 type TabPath = typeof tabs[number]['path']
 
-const activePath = ref<TabPath>(homePath)
+const activePath = ref<TabPath | ''>('')
+const visible = computed(() => tabs.some((item) => item.path === activePath.value))
 
 function normalizePath(path: string): string {
   const value = path.replace(/^#/, '').split('?')[0]
@@ -39,7 +40,7 @@ function normalizePath(path: string): string {
 }
 
 function currentPath(): string {
-  if (typeof window === 'undefined') return activePath.value
+  if (typeof window === 'undefined') return activePath.value || homePath
   const hashPath = window.location.hash.replace(/^#/, '')
   return normalizePath(hashPath || homePath)
 }
@@ -47,7 +48,7 @@ function currentPath(): string {
 function syncActivePath(): void {
   const path = currentPath()
   const matched = tabs.find((item) => item.path === path)
-  if (matched) activePath.value = matched.path
+  activePath.value = matched?.path ?? ''
 }
 
 function openTab(path: TabPath): void {
