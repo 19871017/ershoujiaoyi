@@ -1,12 +1,14 @@
 package com.secondhand.platform.modules.user;
 
+import java.util.List;
+
 public class UpdateUserProfileRequest {
     private String nickname;
     private String avatarUrl;
     private String gender;
     private String city;
     private String bio;
-    private String mainRole;
+    private List<String> showcaseImageUrls;
 
     public String getNickname() {
         return nickname;
@@ -48,11 +50,12 @@ public class UpdateUserProfileRequest {
         this.bio = bio;
     }
 
-    public String getMainRole() {
-        return mainRole;
+    public List<String> getShowcaseImageUrls() {
+        return showcaseImageUrls;
     }
 
-    public void setMainRole(String mainRole) {
-        this.mainRole = mainRole;
+    public void setShowcaseImageUrls(List<String> showcaseImageUrls) {
+        this.showcaseImageUrls = showcaseImageUrls;
     }
+
 }

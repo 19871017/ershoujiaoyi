@@ -53,7 +53,8 @@ async function loadProfile() {
   try {
     Object.assign(profile, await getMyProfile())
     selected.value = profile.city || ''
-  } catch {
+  } catch (err) {
+    console.error('[location-city] failed to load profile before city selection', err)
     Object.assign(profile, { userId: 0, nickname: '', mainRole: 'UNVERIFIED', gender: 'god', city: '', bio: '' })
     selected.value = ''
     uni.showToast({ title: '资料接口加载失败，未展示本地城市偏好样例', icon: 'none' })
@@ -69,7 +70,8 @@ async function saveCity() {
     Object.assign(profile, updated)
     selected.value = updated.city || ''
     uni.showToast({ title: '城市偏好已保存至服务端资料', icon: 'none' })
-  } catch {
+  } catch (err) {
+    console.error('[location-city] failed to save city preference', err)
     uni.showToast({ title: '城市偏好保存失败，未修改服务端资料', icon: 'none' })
   } finally {
     saving.value = false

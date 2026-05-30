@@ -1,0 +1,40 @@
+#!/usr/bin/expect -f
+set timeout 300
+set script_dir [file normalize [file dirname [info script]]]
+set repo [expr {[info exists env(XQY_REPO)] ? $env(XQY_REPO) : $script_dir}]
+set server [expr {[info exists env(XQY_DEPLOY_SERVER)] ? $env(XQY_DEPLOY_SERVER) : "root@23.138.12.9"}]
+set remote_root [expr {[info exists env(XQY_REMOTE_ROOT)] ? $env(XQY_REMOTE_ROOT) : "/www/wwwroot/esxz-old/current"}]
+set known_hosts [expr {[info exists env(XQY_KNOWN_HOSTS)] ? $env(XQY_KNOWN_HOSTS) : "/tmp/xqy_known_hosts"}]
+set password [expr {[info exists env(XQY_DEPLOY_PASSWORD)] ? $env(XQY_DEPLOY_PASSWORD) : ""}]
+set h5_local "$repo/frontend/dist/build/h5/"
+set h5_remote "$remote_root/h5/"
+set assets_remote "$remote_root/assets"
+set verify_pattern "后端\\|服务端\\|开发者模式\\|开发模式\\|开发预览\\|上架模式\\|本地样例\\|演示\\|样例\\|小原圈热度\\|quick-grid\\|quick-card\\|closet-strip"
+proc run_cmd {cmd password} {
+  puts "--- running ---\n$cmd"
+  spawn /bin/bash -lc $cmd
+  expect {
+    -re {(?i)yes/no} { send "yes\r"; exp_continue }
+    -re {(?i)password:} {
+      if {$password eq ""} {
+        puts stderr "XQY_DEPLOY_PASSWORD is required for password-based SSH; prefer SSH key auth."
+        exit 2
+      }
+      send "$password\r"
+      exp_continue
+    }
+    eof
+    timeout { puts stderr "TIMEOUT"; exit 124 }
+  }
+  catch wait result
+  set exit_code [lindex $result 3]
+  if {$exit_code != 0} {
+    puts stderr "command failed: $exit_code"
+    exit $exit_code
+  }
+}
+set ssh_opts "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=$known_hosts"
+run_cmd "rsync -az --delete -e '$ssh_opts' '$h5_local' '$server:$h5_remote'" $password
+run_cmd "$ssh_opts '$server' \"mkdir -p '$assets_remote' && rsync -a --delete '$h5_remote/assets/' '$assets_remote/'\"" $password
+run_cmd "$ssh_opts '$server' \"find '$h5_remote/assets' -maxdepth 1 -type f | wc -l; find '$assets_remote' -maxdepth 1 -type f | wc -l; test -f '$h5_remote/index.html' && echo h5_index_ok; grep -R '$verify_pattern' -n '$h5_remote' '$assets_remote' 2>/dev/null | head -50 || true\"" $password
+puts "DEPLOY_DONE"

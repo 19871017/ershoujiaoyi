@@ -28,8 +28,16 @@ else:
         issues.append('frontend mock data is hardcoded enabled')
     if "VITE_ENABLE_DEV_HEADERS === 'true'" not in s:
         issues.append('frontend dev headers are not controlled by VITE_ENABLE_DEV_HEADERS')
+    if 'const ENABLE_DEV_RUNTIME = ENABLE_DEV_HEADERS && isLocalDevRuntimeHost()' not in s:
+        issues.append('frontend dev headers must also require localhost/private-LAN runtime')
     if "VITE_ENABLE_MOCK_DATA === 'true'" not in s:
         issues.append('frontend mock data is not controlled by VITE_ENABLE_MOCK_DATA')
+    if "const ENABLE_MOCK_DATA = import.meta.env.VITE_ENABLE_MOCK_DATA === 'true' && ENABLE_DEV_RUNTIME" not in s:
+        issues.append('frontend mock data must require runtime dev host, not env flags alone')
+    mock_body_markers = ('function mockProducts', 'function mockProfiles', 'function mockConversations')
+    for marker in mock_body_markers:
+        if marker in s:
+            issues.append(f'frontend api/http.ts contains mock data body: {marker}')
 
 if payment_ts.exists():
     s = read(payment_ts)
@@ -40,10 +48,10 @@ else:
 
 if payment_java.exists():
     s = read(payment_java)
-    if 'requireNonProductionProfile();' not in s:
-        issues.append('backend simulate recharge does not call non-production profile guard')
-    if 'getActiveProfiles' not in s or 'production' not in s or 'prod' not in s:
-        issues.append('backend simulate recharge guard does not inspect active profiles')
+    if 'requireDevelopmentProfile();' not in s:
+        issues.append('backend simulate recharge does not call development profile guard')
+    if 'getActiveProfiles' not in s or '"dev"' not in s or '"local"' not in s:
+        issues.append('backend simulate recharge guard does not require explicit dev/local profile')
 else:
     issues.append('backend PaymentController missing')
 

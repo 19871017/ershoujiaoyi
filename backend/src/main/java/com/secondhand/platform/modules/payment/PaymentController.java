@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -38,7 +40,7 @@ public class PaymentController {
             @RequestBody SimulateRechargeRequest request,
             @RequestHeader(value = "X-Dev-Mode", required = false) String devMode,
             HttpServletRequest httpRequest) {
-        requireNonProductionProfile();
+        requireDevelopmentProfile();
         if (!"enabled".equals(devMode)) {
             throw new IllegalArgumentException("dev simulate recharge endpoint disabled");
         }
@@ -49,11 +51,14 @@ public class PaymentController {
         return Result.ok(paymentApplicationService.simulateRechargeSuccess(currentUserResolver.resolve(httpRequest), request.getRechargeNo()));
     }
 
-    private void requireNonProductionProfile() {
-        boolean production = Arrays.stream(environment.getActiveProfiles())
-                .anyMatch(profile -> "prod".equalsIgnoreCase(profile) || "production".equalsIgnoreCase(profile));
-        if (production) {
-            throw new SecurityException("dev simulate recharge endpoint disabled in production");
+    private void requireDevelopmentProfile() {
+        List<String> profiles = Arrays.stream(environment.getActiveProfiles())
+                .map(profile -> profile.toLowerCase(Locale.ROOT))
+                .toList();
+        boolean production = profiles.contains("prod") || profiles.contains("production");
+        boolean development = profiles.contains("dev") || profiles.contains("local");
+        if (!development || production) {
+            throw new SecurityException("dev simulate recharge endpoint disabled outside development");
         }
     }
 }

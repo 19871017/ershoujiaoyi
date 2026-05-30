@@ -1,6 +1,5 @@
 package com.secondhand.platform.modules.admin;
 
-import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -22,7 +21,6 @@ import com.secondhand.platform.modules.product.application.ProductApplicationSer
 import com.secondhand.platform.modules.user.application.UserApplicationService;
 import com.secondhand.platform.modules.wallet_ledger.application.WalletLedgerService;
 import com.secondhand.platform.shared.web.AdminAccessGuard;
-import com.secondhand.platform.shared.web.CurrentUserResolver;
 import com.secondhand.platform.shared.web.GlobalExceptionHandler;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,20 +51,20 @@ class AdminControllerRbacTest {
 
         auditApplicationService = new AuditApplicationService(jdbcTemplate);
         walletLedgerService = new WalletLedgerService(jdbcTemplate);
-        productApplicationService = new ProductApplicationService(jdbcTemplate, new MediaUploadTicketService(jdbcTemplate));
+        MediaUploadTicketService mediaUploadTicketService = new MediaUploadTicketService(jdbcTemplate);
+        productApplicationService = new ProductApplicationService(jdbcTemplate, mediaUploadTicketService);
         orderApplicationService = new OrderApplicationService(productApplicationService, walletLedgerService, jdbcTemplate);
-
         AdminController controller = new AdminController(
                 auditApplicationService,
                 walletLedgerService,
                 new AnnouncementApplicationService(jdbcTemplate),
                 new LocationApplicationService(new com.secondhand.platform.modules.location.BaiduReverseGeocodeClient(), "", jdbcTemplate),
-                mock(AfterSalesApplicationService.class),
+                new AfterSalesApplicationService(jdbcTemplate, mediaUploadTicketService),
                 orderApplicationService,
                 productApplicationService,
-                mock(UserApplicationService.class),
+                new UserApplicationService(jdbcTemplate, mediaUploadTicketService),
                 new com.secondhand.platform.modules.home.HomeBannerApplicationService(jdbcTemplate),
-                new AdminAccessGuard(new CurrentUserResolver(), jdbcTemplate),
+                new AdminAccessGuard(jdbcTemplate),
                 jdbcTemplate
         );
         mvc = MockMvcBuilders.standaloneSetup(controller)
@@ -156,6 +154,19 @@ class AdminControllerRbacTest {
     }
 
     @Test
+    void adminDashboardRejectsSessionIssuedForDifferentOperator() throws Exception {
+        createActiveUser(131L);
+        createActiveUser(132L);
+        grantPermission(131L, "audit:read");
+        grantPermission(132L, "audit:read");
+
+        mvc.perform(get("/api/admin/dashboard")
+                        .header("X-User-Id", "132")
+                        .header("X-Admin-Session", issueAdminSession(131L)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void adminDashboardRejectsSessionWhenOperatorAccountIsNotActive() throws Exception {
         createInactiveUser(14L);
 
@@ -163,6 +174,17 @@ class AdminControllerRbacTest {
                         .header("X-User-Id", "14")
                         .header("X-Admin-Session", issueAdminSession(14L)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminDashboardAcceptsServerIssuedAdminSessionUnderProductionProfile() throws Exception {
+        createActiveUser(15L);
+        grantPermission(15L, "audit:read");
+
+        mvc.perform(get("/api/admin/dashboard")
+                        .header("X-User-Id", "15")
+                        .header("X-Admin-Session", issueAdminSession(15L)))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -448,7 +470,7 @@ class AdminControllerRbacTest {
     }
 
     @Test
-    void adminHomeBannerRejectsPlaceholderOrExternalInsecureImageUrls() throws Exception {
+    void adminHomeBannerRejectsPlaceholderOrExternalImageUrls() throws Exception {
         createActiveUser(122L);
         grantPermission(122L, "system:config");
 
@@ -456,7 +478,7 @@ class AdminControllerRbacTest {
                         .header("X-User-Id", "122")
                         .header("X-Admin-Session", issueAdminSession(122L))
                         .contentType("application/json")
-                        .content("{\"kicker\":\"首页运营\",\"title\":\"placeholder banner\",\"description\":\"运营后台轮播。\",\"cta\":\"去看看\",\"imageUrl\":\"http://example.com/banner.jpg\",\"action\":\"closet\",\"sortOrder\":40,\"enabled\":true}"))
+                        .content("{\"kicker\":\"首页运营\",\"title\":\"外部轮播\",\"description\":\"运营后台轮播。\",\"cta\":\"去看看\",\"imageUrl\":\"https://example.com/banner.jpg\",\"action\":\"closet\",\"sortOrder\":40,\"enabled\":true}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -479,6 +501,19 @@ class AdminControllerRbacTest {
                 insert into user_account (id, user_no, phone, password_hash, nickname, status, created_at, updated_at)
                 values (?, ?, ?, ?, ?, 'DISABLED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """, userId, "U-ADMIN-INACTIVE-" + userId, "1391000" + userId, "hash", "停用管理员" + userId);
+    }
+
+    private void upsertSellerProfile(Long userId) {
+        Integer accountRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_account WHERE id = ?", Integer.class, userId);
+        if (accountRows == null || accountRows == 0) {
+            createActiveUser(userId);
+        }
+        Integer profileRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_profile WHERE user_id = ?", Integer.class, userId);
+        if (profileRows == null || profileRows == 0) {
+            jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, main_role, video_identity_status, video_verified) VALUES (?, ?, ?, ?, ?)", userId, "VERIFIED", "SELLER", "APPROVED", true);
+            return;
+        }
+        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "SELLER", "APPROVED", true, userId);
     }
 
     private String issueAdminSession(Long userId) {
@@ -527,14 +562,16 @@ class AdminControllerRbacTest {
     }
 
     private CreateProductRequest productRequest(Long sellerId, String title, String price) {
+        upsertSellerProfile(sellerId);
         CreateProductRequest request = new CreateProductRequest();
         request.setTitle(title);
         request.setDescription("admin product approval test");
         request.setPrice(new BigDecimal(price));
-        String issued = new MediaUploadTicketService(jdbcTemplate)
+        String uploaded = new MediaUploadTicketService(jdbcTemplate)
                 .issue(sellerId, "PRODUCT_IMAGE", "image/jpeg", 300_000L, title + ".jpg")
                 .storageUrl();
-        request.setImageUrls(java.util.List.of(issued));
+        jdbcTemplate.update("UPDATE media_upload_ticket SET status = 'UPLOADED' WHERE owner_user_id = ? AND storage_url = ?", sellerId, uploaded);
+        request.setImageUrls(java.util.List.of(uploaded));
         return request;
     }
 

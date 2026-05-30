@@ -1,13 +1,16 @@
 package com.secondhand.platform.modules.user.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.secondhand.platform.modules.auth.LoginRequest;
 import com.secondhand.platform.modules.auth.application.AuthApplicationService;
+import com.secondhand.platform.modules.media.application.MediaUploadTicketResponse;
 import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
 import com.secondhand.platform.modules.user.UpdateUserNoRequest;
 import com.secondhand.platform.modules.user.UserProfileResponse;
+import org.springframework.mock.web.MockMultipartFile;
 import java.util.Locale;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -79,7 +82,6 @@ class UserApplicationServiceTest {
         jdbcTemplate.update("UPDATE user_account SET avatar_url = ? WHERE id = ?", "/uploads/avatar/existing.jpg", userId);
         com.secondhand.platform.modules.user.UpdateUserProfileRequest request = new com.secondhand.platform.modules.user.UpdateUserProfileRequest();
         request.setNickname("雨哥生产化小店");
-        request.setMainRole("SELLER");
         request.setCity("杭州");
         request.setBio("只展示真实后端资料");
         request.setGender("goddess");
@@ -87,7 +89,7 @@ class UserApplicationServiceTest {
         UserProfileResponse updated = service.updateProfile(userId, request);
 
         assertEquals("雨哥生产化小店", updated.getNickname());
-        assertEquals("SELLER", updated.getMainRole());
+        assertEquals("BUYER", updated.getMainRole());
         assertEquals("杭州", updated.getCity());
         assertEquals("只展示真实后端资料", updated.getBio());
         assertEquals("/uploads/avatar/existing.jpg", updated.getAvatarUrl());
@@ -101,7 +103,6 @@ class UserApplicationServiceTest {
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138078");
         com.secondhand.platform.modules.user.UpdateUserProfileRequest request = new com.secondhand.platform.modules.user.UpdateUserProfileRequest();
         request.setNickname("   ");
-        request.setMainRole("ADMIN");
         request.setCity("城市名称超过长度城市名称超过长度城市名称超过长度城市名称超过长度");
         request.setBio("bio");
 
@@ -163,11 +164,12 @@ class UserApplicationServiceTest {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
         auth.register(login("13800138088", "pass-123456"), "test-13800138088");
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138088");
-        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "APPROVED", true, userId);
+        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "SELLER", "APPROVED", true, userId);
+        insertVideoIdentityAudit("AUDIT-VIDEO-CURRENT", userId, "/uploads/video-identity/current-approved.mp4", "APPROVED");
 
         UserProfileResponse profile = service.currentUserProfile(userId);
 
-        assertEquals("BUYER", profile.getMainRole());
+        assertEquals("SELLER", profile.getMainRole());
         assertEquals("APPROVED", profile.getVideoIdentityStatus());
         assertEquals(true, profile.isVideoVerified());
     }
@@ -179,16 +181,190 @@ class UserApplicationServiceTest {
         auth.register(login("13800138112", "pass-123456"), "test-13800138112");
         Long approvedUserId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138111");
         Long pendingUserId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138112");
-        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "APPROVED", true, approvedUserId);
-        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "PENDING", false, pendingUserId);
+        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "SELLER", "APPROVED", true, approvedUserId);
+        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "SELLER", "PENDING", false, pendingUserId);
+        insertVideoIdentityAudit("AUDIT-VIDEO-APPROVED", approvedUserId, "/uploads/video-identity/approved.mp4", "APPROVED");
+        insertVideoIdentityAudit("AUDIT-VIDEO-PENDING", pendingUserId, "/uploads/video-identity/pending.mp4", "PENDING");
 
         UserProfileResponse approved = service.publicProfile(approvedUserId);
         UserProfileResponse pending = service.publicProfile(pendingUserId);
+        UserProfileResponse pendingSelf = service.currentUserProfile(pendingUserId);
 
         assertEquals(true, approved.isVideoVerified());
         assertEquals("APPROVED", approved.getVideoIdentityStatus());
+        assertEquals("/uploads/video-identity/approved.mp4", approved.getVideoIdentityUrl());
         assertEquals(false, pending.isVideoVerified());
-        assertEquals("PENDING", pending.getVideoIdentityStatus());
+        assertEquals("UNVERIFIED", pending.getVideoIdentityStatus());
+        assertNull(pending.getVideoIdentityUrl());
+        assertEquals(false, pendingSelf.isVideoVerified());
+        assertEquals("PENDING", pendingSelf.getVideoIdentityStatus());
+        assertEquals("/uploads/video-identity/pending.mp4", pendingSelf.getVideoIdentityUrl());
+    }
+
+    @Test
+    void profileShouldHideNonCanonicalVideoIdentityAuditUrls() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.register(login("13800138120", "pass-123456"), "test-13800138120");
+        auth.register(login("13800138121", "pass-123456"), "test-13800138121");
+        Long approvedUserId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138120");
+        Long pendingUserId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138121");
+        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "SELLER", "APPROVED", true, approvedUserId);
+        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "SELLER", "PENDING", false, pendingUserId);
+        insertVideoIdentityAudit("AUDIT-VIDEO-NON-CANONICAL-APPROVED", approvedUserId, "/uploads/community-image/not-video.jpg", "APPROVED");
+        insertVideoIdentityAudit("AUDIT-VIDEO-NON-CANONICAL-PENDING", pendingUserId, "/uploads/product-image/not-video.jpg", "PENDING");
+
+        UserProfileResponse approved = service.publicProfile(approvedUserId);
+        UserProfileResponse pendingSelf = service.currentUserProfile(pendingUserId);
+
+        assertEquals(false, approved.isVideoVerified());
+        assertNull(approved.getVideoIdentityUrl());
+        assertEquals(java.util.List.of(), approved.getShowcaseImageUrls());
+        assertEquals("UNVERIFIED", pendingSelf.getVideoIdentityStatus());
+        assertEquals(false, pendingSelf.isVideoVerified());
+        assertNull(pendingSelf.getVideoIdentityUrl());
+    }
+
+    @Test
+    void profileShouldHideMalformedCanonicalVideoIdentityAuditUrls() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.register(login("13800138122", "pass-123456"), "test-13800138122");
+        auth.register(login("13800138123", "pass-123456"), "test-13800138123");
+        auth.register(login("13800138124", "pass-123456"), "test-13800138124");
+        Long traversalUserId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138122");
+        Long encodedUserId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138123");
+        Long placeholderUserId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138124");
+        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "SELLER", "APPROVED", true, traversalUserId);
+        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "SELLER", "PENDING", false, encodedUserId);
+        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "SELLER", "PENDING", false, placeholderUserId);
+        insertVideoIdentityAudit("AUDIT-VIDEO-TRAVERSAL", traversalUserId, "/uploads/video-identity/../community-image/leak.mp4", "APPROVED");
+        insertVideoIdentityAudit("AUDIT-VIDEO-ENCODED", encodedUserId, "/uploads/video-identity/%2e%2e/secret.mp4", "PENDING");
+        insertVideoIdentityAudit("AUDIT-VIDEO-PLACEHOLDER", placeholderUserId, "/uploads/video-identity/placeholder.mp4", "PENDING");
+
+        UserProfileResponse traversal = service.publicProfile(traversalUserId);
+        UserProfileResponse encoded = service.currentUserProfile(encodedUserId);
+        UserProfileResponse placeholder = service.currentUserProfile(placeholderUserId);
+
+        assertEquals(false, traversal.isVideoVerified());
+        assertEquals("UNVERIFIED", traversal.getVideoIdentityStatus());
+        assertNull(traversal.getVideoIdentityUrl());
+        assertEquals("UNVERIFIED", encoded.getVideoIdentityStatus());
+        assertNull(encoded.getVideoIdentityUrl());
+        assertEquals("UNVERIFIED", placeholder.getVideoIdentityStatus());
+        assertNull(placeholder.getVideoIdentityUrl());
+    }
+
+    @Test
+    void publicProfileShouldHideApprovedVideoMediaForNonSellerRole() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.register(login("13800138117", "pass-123456"), "test-13800138117");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138117");
+        jdbcTemplate.update("UPDATE user_profile SET main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "BUYER", "APPROVED", true, userId);
+        insertVideoIdentityAudit("AUDIT-VIDEO-BUYER-HIDDEN", userId, "/uploads/video-identity/buyer-hidden.mp4", "APPROVED");
+        jdbcTemplate.update("INSERT INTO user_showcase_photo (user_id, image_url, sort_order) VALUES (?, ?, ?)", userId, "/uploads/community-image/1/buyer-hidden.jpg", 0);
+
+        UserProfileResponse profile = service.publicProfile(userId);
+
+        assertEquals(false, profile.isVideoVerified());
+        assertNull(profile.getVideoIdentityUrl());
+        assertEquals(java.util.List.of(), profile.getShowcaseImageUrls());
+    }
+
+    @Test
+    void updateProfileShouldPersistShowcasePhotosFromUploadedCommunityImagesOnly() throws Exception {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.register(login("13800138114", "pass-123456"), "test-13800138114");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138114");
+        jdbcTemplate.update("UPDATE user_profile SET main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "SELLER", "APPROVED", true, userId);
+        insertVideoIdentityAudit("AUDIT-VIDEO-SHOWCASE", userId, "/uploads/video-identity/approved-showcase.mp4", "APPROVED");
+        MediaUploadTicketService mediaService = new MediaUploadTicketService(jdbcTemplate, System.getProperty("java.io.tmpdir"));
+        MediaUploadTicketResponse first = mediaService.issue(userId, "COMMUNITY_IMAGE", "image/jpeg", 16L, "showcase-a.jpg");
+        MediaUploadTicketResponse second = mediaService.issue(userId, "COMMUNITY_IMAGE", "image/png", 16L, "showcase-b.png");
+        mediaService.storeUploadedFile(userId, first.ticketNo(), first.uploadToken(), new MockMultipartFile("file", "showcase-a.jpg", "image/jpeg", "showcase-a".getBytes()));
+        mediaService.storeUploadedFile(userId, second.ticketNo(), second.uploadToken(), new MockMultipartFile("file", "showcase-b.png", "image/png", "showcase-b".getBytes()));
+        com.secondhand.platform.modules.user.UpdateUserProfileRequest request = new com.secondhand.platform.modules.user.UpdateUserProfileRequest();
+        request.setNickname("认证商家照片秀");
+        request.setGender("goddess");
+        request.setShowcaseImageUrls(java.util.List.of(first.storageUrl(), second.storageUrl(), first.storageUrl()));
+
+        UserProfileResponse updated = service.updateProfile(userId, request);
+
+        assertEquals(java.util.List.of(first.storageUrl(), second.storageUrl()), updated.getShowcaseImageUrls());
+        assertEquals(2, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_showcase_photo WHERE user_id = ?", Integer.class, userId));
+    }
+
+    @Test
+    void updateProfileShouldAllowKeepingPersistedShowcasePhotosAfterUploadTicketExpires() throws Exception {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.register(login("13800138118", "pass-123456"), "test-13800138118");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138118");
+        jdbcTemplate.update("UPDATE user_profile SET main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "SELLER", "APPROVED", true, userId);
+        insertVideoIdentityAudit("AUDIT-VIDEO-SHOWCASE-EXPIRED", userId, "/uploads/video-identity/approved-showcase-expired.mp4", "APPROVED");
+        MediaUploadTicketService mediaService = new MediaUploadTicketService(jdbcTemplate, System.getProperty("java.io.tmpdir"));
+        MediaUploadTicketResponse first = mediaService.issue(userId, "COMMUNITY_IMAGE", "image/jpeg", 16L, "showcase-keep-a.jpg");
+        MediaUploadTicketResponse second = mediaService.issue(userId, "COMMUNITY_IMAGE", "image/jpeg", 16L, "showcase-keep-b.jpg");
+        mediaService.storeUploadedFile(userId, first.ticketNo(), first.uploadToken(), new MockMultipartFile("file", "showcase-keep-a.jpg", "image/jpeg", "showcase-a".getBytes()));
+        mediaService.storeUploadedFile(userId, second.ticketNo(), second.uploadToken(), new MockMultipartFile("file", "showcase-keep-b.jpg", "image/jpeg", "showcase-b".getBytes()));
+        com.secondhand.platform.modules.user.UpdateUserProfileRequest initial = new com.secondhand.platform.modules.user.UpdateUserProfileRequest();
+        initial.setNickname("认证商家照片秀");
+        initial.setGender("goddess");
+        initial.setShowcaseImageUrls(java.util.List.of(first.storageUrl(), second.storageUrl()));
+        service.updateProfile(userId, initial);
+        jdbcTemplate.update("UPDATE media_upload_ticket SET expires_at = DATEADD('MINUTE', -1, CURRENT_TIMESTAMP) WHERE owner_user_id = ?", userId);
+        com.secondhand.platform.modules.user.UpdateUserProfileRequest reduced = new com.secondhand.platform.modules.user.UpdateUserProfileRequest();
+        reduced.setNickname("认证商家照片秀");
+        reduced.setGender("goddess");
+        reduced.setShowcaseImageUrls(java.util.List.of(second.storageUrl()));
+
+        UserProfileResponse updated = service.updateProfile(userId, reduced);
+
+        assertEquals(java.util.List.of(second.storageUrl()), updated.getShowcaseImageUrls());
+        assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_showcase_photo WHERE user_id = ?", Integer.class, userId));
+    }
+
+    @Test
+    void updateProfileShouldRejectShowcasePhotosWithoutUploadedTicket() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.register(login("13800138115", "pass-123456"), "test-13800138115");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138115");
+        com.secondhand.platform.modules.user.UpdateUserProfileRequest request = new com.secondhand.platform.modules.user.UpdateUserProfileRequest();
+        request.setNickname("认证商家照片秀");
+        request.setGender("goddess");
+        request.setShowcaseImageUrls(java.util.List.of("/uploads/community-image/1/free.jpg"));
+
+        assertThrows(IllegalArgumentException.class, () -> service.updateProfile(userId, request));
+        assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_showcase_photo WHERE user_id = ?", Integer.class, userId));
+    }
+
+    @Test
+    void publicProfileShouldHideShowcasePhotosUntilVideoVerified() throws Exception {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.register(login("13800138116", "pass-123456"), "test-13800138116");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138116");
+        MediaUploadTicketService mediaService = new MediaUploadTicketService(jdbcTemplate, System.getProperty("java.io.tmpdir"));
+        MediaUploadTicketResponse photo = mediaService.issue(userId, "COMMUNITY_IMAGE", "image/jpeg", 16L, "showcase.jpg");
+        mediaService.storeUploadedFile(userId, photo.ticketNo(), photo.uploadToken(), new MockMultipartFile("file", "showcase.jpg", "image/jpeg", "showcase".getBytes()));
+        jdbcTemplate.update("INSERT INTO user_showcase_photo (user_id, image_url, sort_order) VALUES (?, ?, ?)", userId, photo.storageUrl(), 0);
+
+        assertEquals(java.util.List.of(), service.publicProfile(userId).getShowcaseImageUrls());
+        jdbcTemplate.update("UPDATE user_profile SET main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "SELLER", "APPROVED", true, userId);
+        insertVideoIdentityAudit("AUDIT-VIDEO-SHOWCASE-HIDE", userId, "/uploads/video-identity/approved-showcase-hide.mp4", "APPROVED");
+
+        assertEquals(java.util.List.of(photo.storageUrl()), service.publicProfile(userId).getShowcaseImageUrls());
+    }
+
+    @Test
+    void publicProfileShouldNotExposeApprovedVideoIdentityWhenAuditReasonIsNotStorageUrl() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.register(login("13800138113", "pass-123456"), "test-13800138113");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138113");
+        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "SELLER", "APPROVED", true, userId);
+        insertVideoIdentityAudit("AUDIT-VIDEO-TEXT-REASON", userId, "真人认证视频", "APPROVED");
+
+        UserProfileResponse profile = service.publicProfile(userId);
+
+        assertEquals(false, profile.isVideoVerified());
+        assertEquals("UNVERIFIED", profile.getVideoIdentityStatus());
+        assertNull(profile.getVideoIdentityUrl());
     }
 
     @Test
@@ -338,6 +514,7 @@ class UserApplicationServiceTest {
         Long pendingSellerId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138554");
         jdbcTemplate.update("UPDATE user_profile SET gender = ?, main_role = ?, city = ?, bio = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "goddess", "SELLER", "成都", "后端榜单资料", "APPROVED", true, sellerId);
         jdbcTemplate.update("UPDATE user_profile SET gender = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "goddess", "SELLER", "PENDING", true, pendingSellerId);
+        insertVideoIdentityAudit("AUDIT-VIDEO-RANKING-APPROVED", sellerId, "/uploads/video-identity/ranking-approved.mp4", "APPROVED");
         service.followProfile(viewerId, sellerId);
         service.followProfile(followerId, sellerId);
         jdbcTemplate.update("""
@@ -356,7 +533,7 @@ class UserApplicationServiceTest {
         assertEquals(66, row.getGuardianScore());
         assertEquals("APPROVED", row.getVideoIdentityStatus());
         assertEquals(true, row.isVideoVerified());
-        assertEquals("PENDING", pendingRow.getVideoIdentityStatus());
+        assertEquals("UNVERIFIED", pendingRow.getVideoIdentityStatus());
         assertEquals(false, pendingRow.isVideoVerified());
         assertEquals(true, row.isFollowedByMe());
     }
@@ -393,6 +570,13 @@ class UserApplicationServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.searchAdminUsers("preview-user", 20));
         assertThrows(IllegalArgumentException.class, () -> service.searchAdminUsers("13800138441", 0));
         assertThrows(IllegalArgumentException.class, () -> service.searchAdminUsers("13800138441", 101));
+    }
+
+    private void insertVideoIdentityAudit(String auditNo, Long userId, String reason, String status) {
+        jdbcTemplate.update("""
+                INSERT INTO audit_record (audit_no, audit_type, user_id, target_type, target_id, reason, description, status, created_at, reviewed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, auditNo, "VIDEO_IDENTITY", userId, "VIDEO_IDENTITY", String.valueOf(userId), reason, "真人认证视频", status);
     }
 
     private LoginRequest login(String mobile, String password) {

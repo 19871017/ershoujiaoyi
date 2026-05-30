@@ -36,6 +36,11 @@ public class ProductController {
         return Result.ok(productApplicationService.listProductsBySeller(sellerId));
     }
 
+    @GetMapping("/seller/{sellerId}/sold")
+    public Result<List<ProductListItemResponse>> listSellerSoldProducts(@PathVariable Long sellerId) {
+        return Result.ok(productApplicationService.listSoldProductsBySeller(sellerId));
+    }
+
     @GetMapping("/mine")
     public Result<List<ProductListItemResponse>> listMine(HttpServletRequest request) {
         long sellerId = currentUserResolver.resolve(request);

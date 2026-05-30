@@ -5,11 +5,13 @@ import com.secondhand.platform.modules.media.application.MediaUploadTicketServic
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -51,16 +53,21 @@ public class AfterSalesApplicationService {
             throw new IllegalArgumentException("refund amount invalid");
         }
         List<String> evidenceUrls = sanitizeEvidence(applicantId, request.getEvidenceUrls());
-        String afterSalesNo = generateNo(orderNo, applicantId);
-        try {
-            jdbcTemplate.update("""
-                    insert into after_sales_record (after_sales_no, order_no, applicant_id, after_sales_type, refund_amount, reason, description, evidence_urls, after_sales_status, created_at, updated_at)
-                    values (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
-                    """, afterSalesNo, orderNo, applicantId, type, refundAmount, reason, description, encode(evidenceUrls), STATUS_PENDING_REVIEW);
-        } catch (DuplicateKeyException e) {
-            throw new IllegalArgumentException("after-sales already exists");
+        for (int attempt = 0; attempt < 3; attempt++) {
+            String afterSalesNo = generateNo();
+            try {
+                jdbcTemplate.update("""
+                        insert into after_sales_record (after_sales_no, order_no, applicant_id, after_sales_type, refund_amount, reason, description, evidence_urls, after_sales_status, created_at, updated_at)
+                        values (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+                        """, afterSalesNo, orderNo, applicantId, type, refundAmount, reason, description, encode(evidenceUrls), STATUS_PENDING_REVIEW);
+                return findByAfterSalesNo(afterSalesNo);
+            } catch (DuplicateKeyException e) {
+                if (hasExistingAfterSales(orderNo, applicantId)) {
+                    throw new IllegalArgumentException("after-sales already exists");
+                }
+            }
         }
-        return findByAfterSalesNo(afterSalesNo);
+        throw new IllegalStateException("after-sales number generation failed");
     }
 
     public AfterSalesResponse detail(String afterSalesNo, Long userId) {
@@ -118,13 +125,38 @@ public class AfterSalesApplicationService {
         for (String raw : evidenceUrls) {
             String url = requireText(raw, "after-sales evidence url required");
             String lower = url.toLowerCase(Locale.ROOT);
-            if (lower.startsWith("local://") || lower.contains("placeholder") || lower.contains("preview") || !url.startsWith("/uploads/evidence/after-sales/")) {
+            if (lower.startsWith("local://")
+                    || lower.startsWith("blob:")
+                    || lower.startsWith("data:")
+                    || lower.contains("placeholder")
+                    || lower.contains("preview")
+                    || lower.contains("%2e")
+                    || lower.contains("%2f")
+                    || lower.contains("%5c")
+                    || url.contains("\\")
+                    || url.contains("..")
+                    || url.contains("//")
+                    || !url.startsWith("/uploads/evidence/after-sales/")) {
                 throw new IllegalArgumentException("after-sales evidence must use upload ticket");
             }
-            mediaUploadTicketService.requireIssuedStorageUrl(applicantId, "AFTER_SALES_EVIDENCE", url);
+            String relativePath = url.substring("/uploads/evidence/after-sales/".length());
+            if (relativePath.isBlank()) {
+                throw new IllegalArgumentException("after-sales evidence must use upload ticket");
+            }
+            for (String segment : relativePath.split("/")) {
+                if (segment.isBlank()) {
+                    throw new IllegalArgumentException("after-sales evidence must use upload ticket");
+                }
+            }
+            mediaUploadTicketService.requireUploadedStorageUrl(applicantId, "AFTER_SALES_EVIDENCE", url);
             if (!cleaned.contains(url)) cleaned.add(url);
         }
         return cleaned;
+    }
+
+    private boolean hasExistingAfterSales(String orderNo, Long applicantId) {
+        Integer count = jdbcTemplate.queryForObject("select count(*) from after_sales_record where order_no = ? and applicant_id = ?", Integer.class, orderNo, applicantId);
+        return count != null && count > 0;
     }
 
     private OrderForAfterSales findOrder(String orderNo) {
@@ -153,7 +185,7 @@ public class AfterSalesApplicationService {
         return switch (value) {
             case "仅退款", "REFUND_ONLY" -> "REFUND_ONLY";
             case "退货退款", "RETURN_REFUND" -> "RETURN_REFUND";
-            case "平台介入", "PLATFORM_ARBITRATION" -> "PLATFORM_ARBITRATION";
+            case "平台介入", "售后协调", "PLATFORM_ARBITRATION" -> "PLATFORM_ARBITRATION";
             default -> throw new IllegalArgumentException("after-sales type invalid");
         };
     }
@@ -195,6 +227,11 @@ public class AfterSalesApplicationService {
     private String encode(List<String> urls) { return String.join("\n", urls); }
     private List<String> decode(String text) { return text == null || text.isBlank() ? List.of() : Arrays.asList(text.split("\\n")); }
     private String timeText(Timestamp timestamp) { return timestamp == null ? null : timestamp.toLocalDateTime().toString(); }
-    private String generateNo(String orderNo, Long userId) { return "AS-" + Math.abs((orderNo + ':' + userId + ':' + LocalDateTime.now()).hashCode()); }
+    private String generateNo() {
+        String day = LocalDateTime.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        long code = Math.floorMod(UUID.randomUUID().getMostSignificantBits(), 1_000_000_000_000L);
+        String suffix = String.format(Locale.ROOT, "%012d", code);
+        return "AS-USER-" + day + '-' + suffix;
+    }
     private record OrderForAfterSales(String orderNo, Long buyerId, BigDecimal amount, String status) {}
 }

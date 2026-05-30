@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -91,5 +92,50 @@ class LocationApplicationServiceTest {
         UpdateLocationConfigRequest badCoordinate = new UpdateLocationConfigRequest();
         badCoordinate.setCoordinateType("gps84");
         assertThrows(IllegalArgumentException.class, () -> service.updateConfig(badCoordinate));
+    }
+
+    @Test
+    void reverseShouldRejectDisabledLocationInsteadOfReturningDefaultCityFallback() {
+        AdminUpdateLocationConfigRequest config = new AdminUpdateLocationConfigRequest();
+        config.setEnabled(false);
+        config.setDefaultCity("广州");
+        config.setDefaultProvince("广东");
+        service.adminUpdateConfig(config);
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> service.reverse(reverseRequest()));
+
+        assertEquals("location reverse geocode disabled", error.getMessage());
+    }
+
+    @Test
+    void reverseShouldRejectMissingBaiduAkInsteadOfReturningDefaultCityFallback() {
+        AdminUpdateLocationConfigRequest config = new AdminUpdateLocationConfigRequest();
+        config.setEnabled(true);
+        config.setDefaultCity("深圳");
+        config.setDefaultProvince("广东");
+        service.adminUpdateConfig(config);
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> service.reverse(reverseRequest()));
+
+        assertEquals("location reverse geocode not configured", error.getMessage());
+    }
+
+    @Test
+    void reverseShouldValidateCoordinatesBeforeCheckingFallbackConfig() {
+        AdminUpdateLocationConfigRequest config = new AdminUpdateLocationConfigRequest();
+        config.setEnabled(false);
+        service.adminUpdateConfig(config);
+        ReverseGeocodeRequest request = new ReverseGeocodeRequest();
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.reverse(request));
+
+        assertEquals("latitude and longitude are required", error.getMessage());
+    }
+
+    private ReverseGeocodeRequest reverseRequest() {
+        ReverseGeocodeRequest request = new ReverseGeocodeRequest();
+        request.setLatitude(new BigDecimal("23.1291"));
+        request.setLongitude(new BigDecimal("113.2644"));
+        return request;
     }
 }

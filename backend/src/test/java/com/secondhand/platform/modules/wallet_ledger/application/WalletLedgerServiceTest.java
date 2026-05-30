@@ -79,6 +79,16 @@ class WalletLedgerServiceTest {
     }
 
     @Test
+    void getLedgerDetailShouldReturnOnlyCurrentUsersLedger() {
+        LedgerTransactionResponse ownLedger = service.credit(credit(1L, "seed", "RECHARGE", "20.00"));
+        service.credit(credit(2L, "other", "RECHARGE", "30.00"));
+
+        assertEquals("20.00", service.getLedgerDetail(1L, ownLedger.ledgerNo()).amount().toPlainString());
+        assertThrows(IllegalArgumentException.class, () -> service.getLedgerDetail(2L, ownLedger.ledgerNo()));
+        assertThrows(IllegalArgumentException.class, () -> service.getLedgerDetail(1L, "../bad"));
+    }
+
+    @Test
     void concurrentDebitsShouldNotOverspendRechargeBalance() throws Exception {
         service.credit(credit(1L, "seed", "RECHARGE", "100.00"));
 

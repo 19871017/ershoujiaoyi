@@ -45,10 +45,12 @@ Thumbs.db
 
 # Runtime/temp
 .tmp/
+.local/
 tmp/
 temp/
 .cache/
 coverage/
+tmp_*.exp
 
 # Java
 *.class

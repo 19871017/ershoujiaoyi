@@ -48,7 +48,7 @@ public class AuthApplicationService {
         validateLoginRequest(request);
         String normalizedMobile = request.getMobile().trim();
         UserAuthRow user = findByMobile(normalizedMobile);
-        if (user == null || !verifyPassword(request.getPassword(), user.passwordHash())) {
+        if (user == null || !"ACTIVE".equals(user.status()) || !verifyPassword(request.getPassword(), user.passwordHash())) {
             throw new IllegalArgumentException("mobile or password invalid");
         }
         return issueSession(user.id());

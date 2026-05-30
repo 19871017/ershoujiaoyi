@@ -1,7 +1,7 @@
 <template>
   <section class="page-shell banner-page">
-    <div class="page-title">首页轮播图</div>
-    <div class="page-desc">后台更换首页首屏轮播图，用户端展示已启用配置。</div>
+    <div class="page-title">轮播图配置</div>
+    <div class="page-desc">后台更换首页首屏和商家秀顶部轮播图，用户端展示已启用配置。</div>
 
     <div class="config-panel">
       <div class="panel-head">
@@ -11,7 +11,7 @@
         </div>
         <button class="ghost-btn" :disabled="loading" @click="loadBanners">{{ loading ? '刷新中...' : '刷新列表' }}</button>
       </div>
-      <div class="safe-note">上传后请填写平台返回的 /uploads/ 路径或 HTTPS 图片地址；请勿使用临时或无效图片地址。</div>
+      <div class="safe-note">请填写平台轮播上传返回的 /uploads/home/ 路径；首页建议 750×300px，商家秀顶部建议 750×520px，最多展示排序靠前的 3 张。</div>
       <div v-if="error" class="alert">{{ error }}</div>
       <div v-if="loading && banners.length === 0" class="empty">轮播图加载中...</div>
       <div v-if="!loading && banners.length === 0" class="empty">暂无轮播图配置。</div>
@@ -20,8 +20,8 @@
           <img :src="item.imageUrl" :alt="item.title" />
           <div class="banner-info">
             <strong>{{ item.title }}</strong>
-            <span>{{ item.kicker }} · {{ item.cta }} · {{ actionLabel(item.action) }}</span>
-            <small>排序 {{ item.sortOrder }} / {{ item.enabled ? '已启用' : '已停用' }} / {{ item.updatedAt || '暂无更新时间' }}</small>
+            <span>{{ placementLabel(item.placement) }} · {{ item.kicker }} · {{ item.cta }} · {{ actionLabel(item.action) }}</span>
+            <small>{{ item.sizeHint }} / 排序 {{ item.sortOrder }} / {{ item.enabled ? '已启用' : '已停用' }} / {{ item.updatedAt || '暂无更新时间' }}</small>
           </div>
           <div class="row-actions">
             <button class="ghost-btn" @click="edit(item)">编辑</button>
@@ -58,7 +58,14 @@
         </label>
         <label class="wide-field">
           <span>图片地址</span>
-          <input v-model.trim="form.imageUrl" placeholder="/uploads/home/banner.jpg 或 https://cdn.example.com/banner.jpg" />
+          <input v-model.trim="form.imageUrl" :placeholder="`${homeBannerUploadPrefix}banner.jpg`" />
+        </label>
+        <label>
+          <span>展示位置</span>
+          <select v-model="form.placement">
+            <option value="HOME">首页轮播</option>
+            <option value="MERCHANT_SHOWCASE">商家秀顶部</option>
+          </select>
         </label>
         <label>
           <span>跳转动作</span>
@@ -79,7 +86,7 @@
           <span>启用展示</span>
         </label>
       </div>
-      <p class="safe-note">推荐 750×300px（5:2），单张不超过 500KB；文字主体放中间安全区，避免圆角裁切。</p>
+      <p class="safe-note">{{ form.placement === merchantShowcasePlacement ? '商家秀顶部推荐 750×520px，最多启用排序靠前 3 张，人物主体放中间安全区。' : '首页推荐 750×300px（5:2），单张不超过 500KB。' }} 图片必须先上传到轮播目录并使用 /uploads/home/ 地址。</p>
       <label class="confirm-row">
         <span>二次确认</span>
         <input v-model.trim="confirmText" autocomplete="off" placeholder="输入 保存首页轮播 后才能提交" />
@@ -91,9 +98,14 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { createAdminHomeBanner, deleteAdminHomeBanner, getAdminHomeBanners, updateAdminHomeBanner, type AdminHomeBanner, type AdminHomeBannerAction } from '../../../api'
+import { createAdminHomeBanner, deleteAdminHomeBanner, getAdminHomeBanners, updateAdminHomeBanner, type AdminHomeBanner, type AdminHomeBannerAction, type AdminHomeBannerPlacement } from '../../../api'
 
 const defaultHint = '建议尺寸 750×300px（比例 5:2），JPG/PNG/WebP，单张不超过 500KB；重要文字和主体放在中间安全区。'
+const homeBannerUploadPrefix = '/uploads/home/'
+const homePlacement = 'HOME'
+const merchantShowcasePlacement = 'MERCHANT_SHOWCASE'
+const actionLabels: Record<AdminHomeBannerAction, string> = { closet: '小原圈/分类', ranking: '榜单', forum: '社区', search: '搜索', none: '不跳转' }
+const placementLabels: Record<AdminHomeBannerPlacement, string> = { HOME: '首页轮播', MERCHANT_SHOWCASE: '商家秀顶部' }
 const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
@@ -109,12 +121,17 @@ const form = reactive({
   cta: '',
   imageUrl: '',
   action: 'closet' as AdminHomeBannerAction,
+  placement: homePlacement as AdminHomeBannerPlacement,
   sortOrder: 10,
   enabled: true
 })
 
 function actionLabel(action: AdminHomeBannerAction) {
-  return ({ closet: '小原圈/分类', ranking: '榜单', forum: '社区', search: '搜索', none: '不跳转' } as Record<AdminHomeBannerAction, string>)[action] || action
+  return actionLabels[action] || action
+}
+
+function placementLabel(placement: AdminHomeBannerPlacement) {
+  return placementLabels[placement] || placement
 }
 
 function fillForm(item: AdminHomeBanner) {
@@ -125,6 +142,7 @@ function fillForm(item: AdminHomeBanner) {
   form.cta = item.cta
   form.imageUrl = item.imageUrl
   form.action = item.action
+  form.placement = item.placement || homePlacement
   form.sortOrder = item.sortOrder
   form.enabled = item.enabled
 }
@@ -137,6 +155,7 @@ function resetForm() {
   form.cta = ''
   form.imageUrl = ''
   form.action = 'closet'
+  form.placement = homePlacement
   form.sortOrder = banners.value.length ? Math.max(...banners.value.map((item) => item.sortOrder)) + 10 : 10
   form.enabled = true
   confirmText.value = ''
@@ -155,6 +174,7 @@ function toPayload() {
     cta: form.cta,
     imageUrl: form.imageUrl,
     action: form.action,
+    placement: form.placement,
     sortOrder: Number(form.sortOrder),
     enabled: Boolean(form.enabled)
   }
@@ -167,7 +187,8 @@ async function loadBanners() {
     banners.value = await getAdminHomeBanners()
     sizeHint.value = banners.value[0]?.sizeHint || defaultHint
     if (!form.id) resetForm()
-  } catch {
+  } catch (err) {
+    console.error('[admin-banners] failed to load home banners', err)
     banners.value = []
     error.value = '首页轮播图加载失败，请确认管理员权限与服务状态。'
   } finally {
@@ -181,6 +202,10 @@ async function saveBanner() {
     error.value = '首页轮播保存已阻止：请输入“保存首页轮播”完成二次确认。'
     return
   }
+  if (!form.imageUrl.startsWith(homeBannerUploadPrefix)) {
+    error.value = '首页轮播图片必须使用 /uploads/home/ 平台上传地址。'
+    return
+  }
   saving.value = true
   try {
     if (form.id) {
@@ -191,6 +216,7 @@ async function saveBanner() {
     await loadBanners()
     confirmText.value = ''
   } catch (err) {
+    console.error('[admin-banners] failed to save home banner', { id: form.id || null, err })
     error.value = err instanceof Error ? err.message : '首页轮播保存失败，请检查字段、权限与服务状态。'
   } finally {
     saving.value = false
@@ -203,7 +229,8 @@ async function remove(item: AdminHomeBanner) {
   try {
     await deleteAdminHomeBanner(item.id)
     await loadBanners()
-  } catch {
+  } catch (err) {
+    console.error('[admin-banners] failed to delete home banner', { id: item.id, title: item.title, err })
     error.value = '首页轮播删除失败，请检查权限与服务状态。'
   }
 }

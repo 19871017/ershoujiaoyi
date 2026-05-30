@@ -7,6 +7,8 @@ const httpFile = fs.readFileSync(path.join(root, 'src/api/http.ts'), 'utf8')
 const required = [
   'VITE_API_BASE_URL',
   'VITE_ENABLE_LAN_API_FALLBACK',
+  'const ENABLE_DEV_RUNTIME = ENABLE_DEV_HEADERS && isLocalDevRuntimeHost()',
+  "const ENABLE_LAN_API_FALLBACK = import.meta.env.VITE_ENABLE_LAN_API_FALLBACK === 'true' && ENABLE_DEV_RUNTIME",
   'resolveApiBaseUrl',
   'window.location.hostname',
   'return `http://${host}:18080`',

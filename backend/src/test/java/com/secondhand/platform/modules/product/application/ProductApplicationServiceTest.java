@@ -123,21 +123,19 @@ class ProductApplicationServiceTest {
     }
 
     @Test
-    void productImagesShouldRequireIssuedProductImageTickets() {
+    void productImagesShouldRequireUploadedProductImageTickets() {
         CreateProductRequest unsafe = product("带图测试", "99.00");
         unsafe.setImageUrls(List.of("https://img.example.com/unissued.jpg"));
         assertThrows(IllegalArgumentException.class, () -> service.createProduct(1L, unsafe));
 
-        String issued = new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database))
-                .issue(1L, "PRODUCT_IMAGE", "image/jpeg", 300_000L, "dress.jpg")
-                .storageUrl();
+        String uploaded = uploadedProductImage(1L, "dress.jpg", 300_000L);
         CreateProductRequest request = product("带图测试", "99.00");
-        request.setImageUrls(List.of(issued));
+        request.setImageUrls(List.of(uploaded));
         CreateProductResponse response = service.createProduct(1L, request);
         service.approveForSale(response.getProductId());
 
         ProductDetailResponse detail = service.detailProduct(response.getProductId());
-        assertEquals(List.of(issued), detail.getImageUrls());
+        assertEquals(List.of(uploaded), detail.getImageUrls());
     }
 
     @Test
@@ -222,6 +220,39 @@ class ProductApplicationServiceTest {
     }
 
     @Test
+    void revokedSellerProductsShouldNotStayPublicOrSaleable() {
+        CreateProductResponse response = service.createProduct(1L, product("撤销后隐藏商品", "88.00"));
+        service.approveForSale(response.getProductId());
+        service.favoriteProduct(8L, response.getProductId());
+        assertEquals(1, service.listProducts().size());
+        assertEquals(1, service.listProductsBySeller(1L).size());
+        assertEquals(1, service.listFavorites(8L).size());
+
+        upsertProfile(1L, "BUYER", "REJECTED", false);
+
+        assertTrue(service.listProducts().isEmpty());
+        assertTrue(service.listProductsBySeller(1L).isEmpty());
+        assertTrue(service.listFavorites(8L).isEmpty());
+        IllegalArgumentException detailError = assertThrows(IllegalArgumentException.class, () -> service.detailProduct(response.getProductId()));
+        assertEquals("seller certification required", detailError.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> service.snapshotForOrder(response.getProductId()));
+        assertThrows(IllegalArgumentException.class, () -> service.favoriteProduct(8L, response.getProductId()));
+    }
+
+    @Test
+    void revokedSellerCannotBringApprovedProductBackOnline() {
+        CreateProductResponse response = service.createProduct(1L, product("撤销后不可上线", "88.00"));
+        service.approveForSale(response.getProductId());
+        service.updateVisibility(1L, response.getProductId(), false);
+        upsertProfile(1L, "BUYER", "REJECTED", false);
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.updateVisibility(1L, response.getProductId(), true));
+
+        assertEquals("seller certification required", error.getMessage());
+        assertTrue(service.listProducts().isEmpty());
+    }
+
+    @Test
     void visibilityToggleRejectsPendingLockedAndSoldProducts() {
         CreateProductResponse pending = service.createProduct(1L, product("待审不可上架", "88.00"));
         assertThrows(IllegalArgumentException.class, () -> service.updateVisibility(1L, pending.getProductId(), true));
@@ -261,13 +292,17 @@ class ProductApplicationServiceTest {
         request.setTitle(title);
         request.setDescription("女生闲置测试商品");
         request.setPrice(new BigDecimal(price));
-        String image1 = new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database))
-                .issue(sellerId, "PRODUCT_IMAGE", "image/jpeg", 300_000L, title + "-1.jpg")
-                .storageUrl();
-        String image2 = new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database))
-                .issue(sellerId, "PRODUCT_IMAGE", "image/jpeg", 320_000L, title + "-2.jpg")
-                .storageUrl();
+        String image1 = uploadedProductImage(sellerId, title + "-1.jpg", 300_000L);
+        String image2 = uploadedProductImage(sellerId, title + "-2.jpg", 320_000L);
         request.setImageUrls(List.of(image1, image2));
         return request;
+    }
+
+    private String uploadedProductImage(Long ownerUserId, String filename, Long fileSize) {
+        String storageUrl = new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database))
+                .issue(ownerUserId, "PRODUCT_IMAGE", "image/jpeg", fileSize, filename)
+                .storageUrl();
+        jdbcTemplate.update("UPDATE media_upload_ticket SET status = 'UPLOADED' WHERE owner_user_id = ? AND storage_url = ?", ownerUserId, storageUrl);
+        return storageUrl;
     }
 }

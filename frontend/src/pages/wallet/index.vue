@@ -94,11 +94,23 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { createRecharge, type RechargeResponse, type RechargeStatus } from '../../api/modules/payment'
-import { createWithdrawal, getPayoutAccount, getWalletBalance, getWalletLedger, type PayoutAccountResponse, type WalletBalanceResponse, type WalletLedgerDirection, type WalletLedgerItemResponse } from '../../api/modules/wallet'
+import { createRecharge, type RechargeResponse } from '../../api/modules/payment'
+import { createWithdrawal, getPayoutAccount, getWalletBalance, getWalletLedger, type PayoutAccountResponse, type WalletBalanceResponse, type WalletLedgerItemResponse } from '../../api/modules/wallet'
+import {
+  balanceTypeLabel,
+  businessLabel,
+  directionLabel,
+  emptyBalance,
+  formatDateTime,
+  isValidMoneyAmount,
+  methodLabel,
+  money,
+  normalizeAmount,
+  statusLabel,
+  statusTextLabel,
+  tabs
+} from './wallet-helpers'
 
-const emptyBalance: WalletBalanceResponse = { rechargeBalance: '--', incomeBalance: '--', frozenBalance: '--', withdrawableBalance: '--' }
-const tabs = [{ label: '充值', value: 'recharge' }, { label: '提现', value: 'withdraw' }] as const
 const activeTab = ref<'recharge' | 'withdraw'>('recharge')
 const balance = reactive<WalletBalanceResponse>({ ...emptyBalance })
 const loading = ref(false)
@@ -134,17 +146,7 @@ async function loadLedger() {
   catch { ledgerList.value = []; ledgerMessage.value = '流水加载失败' }
   finally { ledgerLoading.value = false }
 }
-function money(value: number) { return Number.isFinite(value) ? value.toFixed(2) : '--' }
-function statusLabel(status: RechargeStatus) { return status === 'PAID' ? '已支付' : '待支付' }
-function directionLabel(direction: WalletLedgerDirection | string) { return direction === 'CREDIT' ? '收入' : '支出' }
-function statusTextLabel(status: string) { return ({ SUCCESS: '成功', FAILED: '失败', PENDING: '处理中' } as Record<string, string>)[status] ?? status }
-function balanceTypeLabel(balanceType: string) { return ({ RECHARGE: '充值余额', INCOME: '收入余额', WITHDRAWABLE: '可提现余额', FROZEN: '冻结余额' } as Record<string, string>)[balanceType] ?? balanceType }
-function businessLabel(businessType?: string | null) { return businessType ? ({ RECHARGE: '充值入账', ORDER_PAYMENT: '订单支付', ORDER_PAY: '订单支付', ORDER_REFUND: '订单退款', WITHDRAW: '提现', WITHDRAW_FREEZE: '提现冻结', WITHDRAW_PAYOUT: '提现出款', WITHDRAW_RELEASE: '提现解冻', GIFT: '礼物分账' } as Record<string, string>)[businessType] ?? businessType : '钱包流水' }
-function formatDateTime(value: string) { return value ? value.replace('T', ' ').slice(0, 19) : '--' }
 function openLedger() { uni.navigateTo({ url: '/pages/wallet/ledger/index' }) }
-function normalizeAmount(amount: string) { return amount.trim() }
-function isValidMoneyAmount(amount: string) { return /^\d+(\.\d{1,2})?$/.test(amount) && Number(amount) > 0 }
-function methodLabel(method: string) { return method === 'ALIPAY' ? '支付宝' : '银行卡' }
 function openPayoutAccount() { uni.navigateTo({ url: '/pages/wallet/accounts/index' }) }
 async function loadPayoutAccount() {
   try {
@@ -180,46 +182,4 @@ async function handleCreateWithdrawal() {
 onMounted(() => { void refreshAll() })
 </script>
 
-<style scoped>
-.wallet-page { background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 52%,#fff7ed 100%); }
-.balance-card,.action-card,.ledger-card { margin-top:22rpx; padding:24rpx; border-color:#ffd9bd; }
-.balance-card { background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; }
-.balance-top { display:flex; justify-content:space-between; gap:18rpx; align-items:flex-start; }
-.balance-label { color:rgba(255,255,255,.82); font-size:23rpx; font-weight:850; }
-.balance-total { margin-top:8rpx; font-size:52rpx; font-weight:950; }
-.refresh { padding:9rpx 18rpx; border-radius:999rpx; background:rgba(255,255,255,.20); font-size:21rpx; font-weight:900; }
-.balance-grid { margin-top:22rpx; display:grid; grid-template-columns:repeat(2,1fr); gap:12rpx; }
-.balance-item { padding:16rpx; border-radius:22rpx; background:rgba(255,255,255,.16); display:flex; flex-direction:column; gap:8rpx; }
-.balance-item text { color:rgba(255,255,255,.78); font-size:20rpx; }
-.balance-item strong { font-size:27rpx; }
-.tab-row { margin-top:18rpx; display:flex; gap:12rpx; }
-.tab-chip,.method-chip { padding:13rpx 22rpx; border-radius:999rpx; background:#fff; border:1rpx solid #ffd9bd; color:#9b7560; font-size:22rpx; font-weight:900; }
-.tab-chip.active,.method-chip.active { background:#3a2a1f; color:#fff; border-color:#3a2a1f; }
-.section-title { color:#3a2a1f; font-size:31rpx; font-weight:950; }
-.section-desc { margin-top:8rpx; color:#9b7560; font-size:23rpx; line-height:1.45; }
-.field { box-sizing:border-box; width:100%; margin-top:18rpx; padding:20rpx; border-radius:20rpx; background:#fffaf6; border:1rpx solid #ffd9bd; color:#3a2a1f; font-size:27rpx; }
-.method-row { margin-top:18rpx; display:flex; gap:12rpx; }
-.primary-btn,.secondary-btn { margin-top:20rpx; border-radius:999rpx; font-size:26rpx; font-weight:950; }
-.safe-guard { margin-top:14rpx; padding:14rpx; border-radius:20rpx; background:#fff3e7; border:1rpx solid #ffd9bd; color:#9b5a32; font-size:22rpx; line-height:1.45; font-weight:850; }
-.safe-guard.danger { background:#fff7f7; border-color:#fecaca; color:#dc2626; }
-.primary-btn { color:#fff; background:#ff7a45; }
-.secondary-btn { color:#ff7a45; background:#fff3e7; }
-.result-box { margin-top:18rpx; padding:16rpx; border-radius:20rpx; background:#fffaf6; }
-.result-row { display:flex; justify-content:space-between; gap:18rpx; padding:9rpx 0; color:#7b5542; font-size:22rpx; }
-.result-row text:last-child { max-width:420rpx; text-align:right; word-break:break-all; }
-.status-text { margin-top:16rpx; color:#9b7560; font-size:23rpx; }
-.balance-card .status-text { color:rgba(255,255,255,.84); }
-.section-head { display:flex; justify-content:space-between; gap:18rpx; align-items:flex-start; }
-.ledger-count { padding:9rpx 14rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:20rpx; font-weight:900; }
-.empty-text { margin-top:20rpx; padding:24rpx 0; color:#b9856a; font-size:25rpx; text-align:center; }
-.ledger-list { margin-top:16rpx; }
-.ledger-item { padding:18rpx 0; border-bottom:1rpx solid #ffd9bd; }
-.ledger-item:last-child { border-bottom:0; }
-.ledger-main-row,.ledger-meta-row { display:flex; justify-content:space-between; gap:20rpx; }
-.ledger-title { color:#3a2a1f; font-size:27rpx; font-weight:950; }
-.ledger-subtitle,.ledger-meta-row { margin-top:8rpx; color:#9b7560; font-size:21rpx; }
-.ledger-meta-row text:last-child { text-align:right; }
-.ledger-amount { flex-shrink:0; font-size:30rpx; font-weight:950; }
-.amount-credit { color:#16a34a; }
-.amount-debit { color:#dc2626; }
-</style>
+<style scoped lang="scss" src="./style.scss"></style>

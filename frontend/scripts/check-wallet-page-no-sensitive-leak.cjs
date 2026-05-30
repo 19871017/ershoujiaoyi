@@ -4,7 +4,13 @@ const path = require('path')
 const root = path.resolve(__dirname, '..')
 const walletFile = 'src/pages/wallet/index.vue'
 const accountFile = 'src/pages/wallet/accounts/index.vue'
-const walletSource = fs.readFileSync(path.join(root, walletFile), 'utf8')
+const walletSupportFiles = [
+  'src/pages/wallet/wallet-helpers.ts'
+]
+const walletSource = [
+  ...walletSupportFiles.map((supportFile) => fs.readFileSync(path.join(root, supportFile), 'utf8')),
+  fs.readFileSync(path.join(root, walletFile), 'utf8')
+].join('\n')
 const accountSource = fs.readFileSync(path.join(root, accountFile), 'utf8')
 const failures = []
 

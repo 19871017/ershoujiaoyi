@@ -8,7 +8,7 @@ import urllib.request
 BASE = 'http://127.0.0.1:18080'
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 JSON_HEADERS = {'Content-Type': 'application/json'}
-USER_HEADERS = {**JSON_HEADERS, 'X-User-Id': '1'}
+USER_HEADERS = dict(JSON_HEADERS)
 ADMIN_HEADERS = dict(JSON_HEADERS)
 ADMIN_MOBILE = '13800138000'
 ADMIN_PASSWORD = 'dev-password'
@@ -56,6 +56,18 @@ def admin_login():
         raise SystemExit('admin session missing server-issued sessionId')
     ADMIN_HEADERS['X-Admin-Session'] = session_id
 
+def user_login():
+    token = require_api(call(
+        'login',
+        'POST',
+        '/api/auth/login',
+        {'mobile': '13800138000', 'password': 'dev-password'},
+        headers=JSON_HEADERS
+    ), 'login').get('accessToken')
+    if not isinstance(token, str) or not token.startswith('usr_'):
+        raise SystemExit('login missing server-issued accessToken')
+    USER_HEADERS['Authorization'] = f'Bearer {token}'
+
 def issue_product_image():
     ticket = require_api(call(
         'issue product image ticket',
@@ -77,7 +89,7 @@ health = call('health', 'GET', '/actuator/health', headers=JSON_HEADERS)
 if not isinstance(health, dict) or health.get('status') != 'UP':
     raise SystemExit('health not UP')
 
-require_api(call('login', 'POST', '/api/auth/login', {'mobile': '13800138000', 'password': 'dev-password'}, headers=JSON_HEADERS), 'login')
+user_login()
 admin_login()
 product_image_url = issue_product_image()
 product = require_api(call('create product', 'POST', '/api/products', {

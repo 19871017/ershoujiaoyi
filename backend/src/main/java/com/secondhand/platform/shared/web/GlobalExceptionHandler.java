@@ -2,7 +2,10 @@ package com.secondhand.platform.shared.web;
 
 import com.secondhand.platform.shared.kernel.Result;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -12,6 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
     private static final Set<String> SAFE_BUSINESS_MESSAGES = Set.of(
             "login request required",
             "mobile required",
@@ -60,6 +64,7 @@ public class GlobalExceptionHandler {
             "goodsId required",
             "buyerId required",
             "trade-rule-not-accepted",
+            "cannot buy your own product",
             "product already has pending order",
             "orderNo required",
             "order-not-found",
@@ -83,7 +88,9 @@ public class GlobalExceptionHandler {
             "bio invalid",
             "identity fields must be server-derived",
             "daily registration limit exceeded",
-            "mobile already registered"
+            "mobile already registered",
+            "location reverse geocode disabled",
+            "location reverse geocode not configured"
     );
 
     @ExceptionHandler(SecurityException.class)
@@ -115,14 +122,19 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(IllegalStateException.class)
-    @ResponseStatus(HttpStatus.CONFLICT)
-    public Result<Void> handleIllegalStateException(IllegalStateException exception) {
-        return Result.fail(resolveSafeBusinessMessage(exception));
+    public ResponseEntity<Result<Void>> handleIllegalStateException(IllegalStateException exception) {
+        String message = exception.getMessage();
+        if (message != null && SAFE_BUSINESS_MESSAGES.contains(message)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Result.fail(message));
+        }
+        LOGGER.error("Unhandled API state exception", exception);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Result.fail("internal server error"));
     }
 
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<Void> handleException(Exception exception) {
+        LOGGER.error("Unhandled API exception", exception);
         return Result.fail("internal server error");
     }
 

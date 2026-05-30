@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class WalletLedgerService {
     private static final int MONEY_SCALE = 2;
+    private static final Pattern LEDGER_NO_PATTERN = Pattern.compile("^[A-Za-z0-9_-]{6,80}$");
     private static final String DEFAULT_BALANCE_TYPE = "RECHARGE";
     private static final String BALANCE_TYPE_RECHARGE = "RECHARGE";
     private static final String BALANCE_TYPE_INCOME = "INCOME";
@@ -95,6 +97,37 @@ public class WalletLedgerService {
                 ),
                 userId
         );
+    }
+
+    public WalletLedgerItemResponse getLedgerDetail(Long userId, String ledgerNo) {
+        validateUserId(userId, "ledger");
+        String safeLedgerNo = requireText(ledgerNo, "ledgerNo required");
+        if (!LEDGER_NO_PATTERN.matcher(safeLedgerNo).matches()) {
+            throw new IllegalArgumentException("ledgerNo invalid");
+        }
+        try {
+            return jdbcTemplate.queryForObject(
+                    "select ledger_no,direction,amount,balance_type,biz_type,biz_no,balance_before,balance_after,status,remark,created_at "
+                            + "from wallet_ledger_entry where user_id = ? and ledger_no = ?",
+                    (rs, rowNum) -> new WalletLedgerItemResponse(
+                            rs.getString("ledger_no"),
+                            rs.getString("direction"),
+                            rs.getBigDecimal("amount"),
+                            rs.getString("balance_type"),
+                            rs.getString("biz_type"),
+                            rs.getString("biz_no"),
+                            rs.getBigDecimal("balance_before"),
+                            rs.getBigDecimal("balance_after"),
+                            rs.getString("status"),
+                            rs.getString("remark"),
+                            toLocalDateTime(rs.getTimestamp("created_at"))
+                    ),
+                    userId,
+                    safeLedgerNo
+            );
+        } catch (EmptyResultDataAccessException e) {
+            throw new IllegalArgumentException("ledger not found");
+        }
     }
 
     @Transactional

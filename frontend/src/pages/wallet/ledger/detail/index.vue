@@ -53,6 +53,26 @@ const launchReadinessMarkers = [
   '账本详情加载失败，未展示本地账本样例'
 ]
 
+const businessLabels: Record<string, string> = {
+  RECHARGE: '充值入账',
+  ORDER_PAYMENT: '订单支付',
+  ORDER_PAY: '订单支付',
+  ORDER_REFUND: '订单退款',
+  WITHDRAW: '提现',
+  WITHDRAW_FREEZE: '提现冻结',
+  WITHDRAW_PAYOUT: '提现出款',
+  WITHDRAW_RELEASE: '提现解冻',
+  GIFT: '礼物分账'
+}
+
+const statusLabels: Record<string, string> = {
+  SUCCESS: '成功',
+  FAILED: '失败',
+  PENDING: '处理中'
+}
+
+const ledgerNoPattern = /^[A-Za-z0-9_-]{6,80}$/
+
 const detail = reactive<LedgerDetail>({
   ledgerNo: '',
   direction: '',
@@ -68,40 +88,47 @@ const detail = reactive<LedgerDetail>({
 const loading = ref(false)
 const loadMessage = ref('')
 
-const rows = computed(() => [
-  { label: '业务类型', value: detail.bizType || '--' },
-  { label: '业务单号', value: detail.bizNo || '--' },
-  { label: '资金方向', value: detail.direction || '--' },
-  { label: '变动前余额', value: detail.balanceBefore ? `¥${detail.balanceBefore}` : '--' },
-  { label: '变动后余额', value: detail.balanceAfter ? `¥${detail.balanceAfter}` : '--' },
-  { label: '发生时间', value: detail.createdAt || '--' },
-  { label: '备注', value: detail.remark || '--' }
-])
+const rows = computed(function () {
+  return [
+    { label: '业务类型', value: detail.bizType || '--' },
+    { label: '业务单号', value: detail.bizNo || '--' },
+    { label: '资金方向', value: detail.direction || '--' },
+    { label: '变动前余额', value: detail.balanceBefore ? `¥${detail.balanceBefore}` : '--' },
+    { label: '变动后余额', value: detail.balanceAfter ? `¥${detail.balanceAfter}` : '--' },
+    { label: '发生时间', value: detail.createdAt || '--' },
+    { label: '备注', value: detail.remark || '--' }
+  ]
+})
 
-function readLedgerNo() {
+function readLedgerNo(): string {
   const pages = getCurrentPages()
   const current = pages.length ? pages[pages.length - 1] as unknown as { options?: Record<string, string> } : undefined
   const hashParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.hash.split('?')[1] || '') : undefined
   return current?.options?.ledgerNo || hashParams?.get('ledgerNo') || ''
 }
 
-function money(value: WalletLedgerItemResponse['amount']) {
+function isValidLedgerNo(value: string): boolean {
+  return ledgerNoPattern.test(value)
+}
+
+function money(value: WalletLedgerItemResponse['amount']): string {
   return String(value ?? '')
 }
 
-function directionLabel(direction: WalletLedgerItemResponse['direction']) {
+function directionLabel(direction: WalletLedgerItemResponse['direction']): string {
   return direction === 'CREDIT' ? '收入' : '支出'
 }
 
-function statusLabel(status: WalletLedgerItemResponse['status']) {
-  return ({ SUCCESS: '成功', FAILED: '失败', PENDING: '处理中' } as Record<string, string>)[status] ?? String(status || '--')
+function statusLabel(status: WalletLedgerItemResponse['status']): string {
+  return statusLabels[status] ?? String(status || '--')
 }
 
-function businessLabel(businessType?: string | null) {
-  return businessType ? ({ RECHARGE: '充值入账', ORDER_PAYMENT: '订单支付', ORDER_PAY: '订单支付', ORDER_REFUND: '订单退款', WITHDRAW: '提现', WITHDRAW_FREEZE: '提现冻结', WITHDRAW_PAYOUT: '提现出款', WITHDRAW_RELEASE: '提现解冻', GIFT: '礼物分账' } as Record<string, string>)[businessType] ?? businessType : '--'
+function businessLabel(businessType?: string | null): string {
+  if (!businessType) return '--'
+  return businessLabels[businessType] ?? businessType
 }
 
-function formatDateTime(value: string) {
+function formatDateTime(value: string): string {
   return value ? value.replace('T', ' ').slice(0, 19) : ''
 }
 
@@ -120,10 +147,14 @@ function mapLedgerDetail(item: WalletLedgerItemResponse): LedgerDetail {
   }
 }
 
-async function loadDetail() {
+async function loadDetail(): Promise<void> {
   const ledgerNo = readLedgerNo()
   if (!ledgerNo) {
     loadMessage.value = 'ledgerNo 缺失，未查询账本详情'
+    return
+  }
+  if (!isValidLedgerNo(ledgerNo)) {
+    loadMessage.value = 'ledgerNo 无效，未查询账本详情'
     return
   }
   loading.value = true
@@ -131,7 +162,8 @@ async function loadDetail() {
   try {
     const response = await getWalletLedgerDetail(ledgerNo)
     Object.assign(detail, mapLedgerDetail(response))
-  } catch {
+  } catch (error) {
+    console.warn('wallet ledger detail unavailable', { ledgerNo, error })
     loadMessage.value = '账本详情加载失败，未展示本地账本样例'
   } finally {
     loading.value = false
@@ -141,5 +173,154 @@ async function loadDetail() {
 onMounted(loadDetail)
 </script>
 <style scoped>
-.ledger-page{background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%)}.hero,.amount-card,.info-card,.safe-card,.status-card{margin-top:18rpx;padding:24rpx;border-color:#ffd9bd}.hero{display:flex;justify-content:space-between;gap:20rpx;background:linear-gradient(135deg,#fff,#fff3e7)}.kicker{color:#ff7a45;font-size:22rpx;font-weight:950}.hero-icon{width:82rpx;height:82rpx;border-radius:26rpx;background:#ff7a45;color:#fff;display:flex;align-items:center;justify-content:center;font-size:38rpx}.amount-card{text-align:center}.amount{font-size:48rpx;font-weight:950;color:#dc2626}.amount.income{color:#16a34a}.status{display:inline-flex;margin-top:10rpx;padding:8rpx 18rpx;border-radius:999rpx;background:#fff3e7;color:#ff7a45;font-size:22rpx;font-weight:900}.row{min-height:70rpx;display:flex;justify-content:space-between;gap:22rpx;border-bottom:1rpx solid #ffe5ef;align-items:center;color:#7b5542;font-size:23rpx}.row:last-child{border-bottom:0}.row text:last-child{text-align:right;color:#3a2a1f;font-weight:900;max-width:430rpx}.section-title{color:#3a2a1f;font-size:29rpx;font-weight:950}.desc,.page-desc{margin-top:8rpx;color:#9b7560;font-size:23rpx;line-height:1.5}.status-card{color:#7b5542;font-size:24rpx;font-weight:800}.status-card.danger{color:#b42318;background:#fff7f7;border-color:#fecaca}
+.ledger-page {
+  min-height: 100vh;
+  padding-top: 18rpx;
+  padding-bottom: 44rpx;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255, 202, 150, .26), transparent 28%),
+    radial-gradient(circle at 88% 16%, rgba(255, 226, 214, .42), transparent 24%),
+    linear-gradient(180deg, #fff8f0 0%, #fffdfa 55%, #fff5ee 100%);
+}
+
+.hero,
+.amount-card,
+.info-card,
+.safe-card,
+.status-card {
+  padding: 24rpx;
+  border-color: rgba(255, 217, 189, .78);
+  box-shadow: 0 15rpx 30rpx rgba(132, 70, 36, .08);
+}
+
+.amount-card,
+.info-card,
+.safe-card,
+.status-card {
+  margin-top: 16rpx;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20rpx;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .98), rgba(255, 244, 234, .96));
+}
+
+.amount-card,
+.info-card,
+.safe-card,
+.status-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .98), rgba(255, 248, 242, .97));
+}
+
+.kicker {
+  color: #df6735;
+  font-size: 22rpx;
+  font-weight: 950;
+  letter-spacing: .18rpx;
+}
+
+.hero-icon {
+  width: 82rpx;
+  height: 82rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(135deg, #ef6f3f, #ff8b76);
+  color: #fffaf4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38rpx;
+  box-shadow: 0 12rpx 24rpx rgba(255, 122, 69, .17);
+  flex: 0 0 auto;
+}
+
+.amount-card {
+  text-align: center;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .98), rgba(255, 243, 231, .98));
+}
+
+.amount {
+  color: #dc2626;
+  font-size: 50rpx;
+  font-weight: 950;
+  letter-spacing: .3rpx;
+}
+
+.amount.income {
+  color: #16a34a;
+}
+
+.status {
+  display: inline-flex;
+  margin-top: 10rpx;
+  padding: 8rpx 18rpx;
+  border: 1rpx solid rgba(239, 111, 63, .18);
+  border-radius: 999rpx;
+  background: #fff3e7;
+  color: #df6735;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.row {
+  min-height: 70rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 22rpx;
+  border-bottom: 1rpx solid rgba(255, 217, 189, .52);
+  color: #7b5542;
+  font-size: 23rpx;
+  font-weight: 760;
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row text:first-child {
+  flex: 0 0 auto;
+  color: #8f6b57;
+  font-weight: 850;
+}
+
+.row text:last-child {
+  max-width: 430rpx;
+  color: #342116;
+  text-align: right;
+  word-break: break-all;
+  font-weight: 930;
+}
+
+.section-title {
+  color: #342116;
+  font-size: 29rpx;
+  font-weight: 950;
+  letter-spacing: .16rpx;
+}
+
+.desc,
+.page-desc {
+  margin-top: 8rpx;
+  color: #8f6b57;
+  font-size: 23rpx;
+  line-height: 1.5;
+  font-weight: 650;
+}
+
+.status-card {
+  color: #8f6b57;
+  font-size: 24rpx;
+  line-height: 1.5;
+  font-weight: 800;
+  text-align: center;
+}
+
+.status-card.danger {
+  color: #be123c;
+  background: #fff7f7;
+  border-color: #fecaca;
+}
 </style>

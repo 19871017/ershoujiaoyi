@@ -3,7 +3,13 @@ const path = require('path')
 
 const root = path.resolve(__dirname, '..')
 const file = 'src/pages/search/result/index.vue'
-const source = fs.readFileSync(path.join(root, file), 'utf8')
+const supportFiles = [
+  'src/pages/search/result/search-result-helpers.ts'
+]
+const source = [
+  ...supportFiles.map((supportFile) => fs.readFileSync(path.join(root, supportFile), 'utf8')),
+  fs.readFileSync(path.join(root, file), 'utf8')
+].join('\n')
 const failures = []
 
 const forbiddenMarkers = [

@@ -114,28 +114,235 @@ onMounted(loadFeeds)
 </script>
 
 <style scoped>
-.community-page { position:relative; min-height:100vh; padding-bottom:150rpx; background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 52%,#fff7ed 100%); }
-.community-top { position:relative; margin-top:4rpx; overflow:hidden; min-height:332rpx; padding:18rpx; border-color:#ffd2b4; background:linear-gradient(135deg,#fff8f0 0%,#fff1e3 100%); box-shadow:0 18rpx 42rpx rgba(255,132,92,.14); }
-.community-top-art { position:absolute; inset:0; width:100%; height:100%; }
-.community-top-mask { position:absolute; inset:0; background:linear-gradient(115deg,rgba(255,248,240,.96) 0%,rgba(255,241,227,.8) 42%,rgba(255,194,163,.18) 100%); }
-.community-top-content { position:relative; z-index:2; display:flex; min-height:296rpx; flex-direction:column; justify-content:space-between; }
-.community-top-head { display:flex; align-items:center; justify-content:space-between; gap:16rpx; }
-.community-title-chip { padding:10rpx 20rpx; border-radius:999rpx; background:rgba(255,255,255,.82); color:#5a3526; font-size:24rpx; font-weight:950; letter-spacing:2rpx; box-shadow:0 10rpx 24rpx rgba(255,144,98,.12); }
-.community-notice { display:flex; align-items:center; gap:8rpx; padding:10rpx 18rpx; border-radius:999rpx; background:rgba(255,122,69,.92); color:#fff; font-size:20rpx; font-weight:900; box-shadow:0 12rpx 28rpx rgba(255,122,69,.26); }
-.community-notice-icon { font-size:22rpx; }
-.time { color:#9b7560; font-size:21rpx; }
-.topic-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14rpx; }
-.topic-card { min-height:98rpx; padding:12rpx 10rpx; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6rpx; border:2rpx solid rgba(255,255,255,.7); border-radius:28rpx; background:rgba(255,255,255,.72); backdrop-filter:blur(10rpx); box-shadow:0 12rpx 24rpx rgba(255,166,120,.14); }
-.topic-card.active { background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(255,236,224,.98)); border-color:#ff7a45; box-shadow:0 18rpx 30rpx rgba(255,122,69,.18); }
-.topic-icon { font-size:28rpx; }
-.topic-title { font-size:21rpx; color:#3a2a1f; font-weight:950; }
-.feed-card { margin-top:12rpx; padding:16rpx; border-color:#ffd9bd; }
-.feed-head { display:flex; align-items:center; gap:10rpx; }
-.avatar { width:58rpx; height:58rpx; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:950; }.avatar.pink { background:#ff7a45; }
-.feed-user { flex:1; min-width:0; }.name { font-weight:950; color:#3a2a1f; font-size:23rpx; }
-.follow { padding:9rpx 16rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:20rpx; font-weight:900; }
-.feed-text { margin-top:16rpx; color:#3a2a1f; font-size:23rpx; line-height:1.55; }
-.feed-actions { margin-top:12rpx; display:flex; gap:20rpx; color:#9b7560; font-size:20rpx; font-weight:900; }
-.empty-card { margin-top:18rpx; padding:24rpx; text-align:center; color:#9b7560; border-color:#ffd9bd; }
-.compose-fab { position:fixed; right:32rpx; bottom:calc(128rpx + env(safe-area-inset-bottom)); z-index:30; width:92rpx; height:92rpx; border-radius:50%; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#ff7a45,#ff3f8d); color:#fff; font-size:54rpx; line-height:1; font-weight:800; box-shadow:0 16rpx 34rpx rgba(255,85,95,.32); border:4rpx solid rgba(255,255,255,.9); }
+.community-page {
+  position: relative;
+  min-height: 100vh;
+  padding-top: 18rpx;
+  padding-bottom: 150rpx;
+  background:
+    radial-gradient(circle at 14% 0%, rgba(255, 202, 150, .28), transparent 28%),
+    radial-gradient(circle at 86% 18%, rgba(255, 226, 214, .42), transparent 24%),
+    linear-gradient(180deg, #fff8f0 0%, #fffdfa 52%, #fff5ee 100%);
+}
+
+.community-top,
+.feed-card,
+.empty-card {
+  border-color: rgba(255, 217, 189, .78);
+  box-shadow: 0 16rpx 32rpx rgba(132, 70, 36, .085);
+}
+
+.community-top {
+  position: relative;
+  min-height: 344rpx;
+  padding: 20rpx;
+  overflow: hidden;
+  background: linear-gradient(135deg, #fff8f0 0%, #fff1e3 100%);
+}
+
+.community-top-art,
+.community-top-mask {
+  position: absolute;
+  inset: 0;
+}
+
+.community-top-art {
+  width: 100%;
+  height: 100%;
+}
+
+.community-top-mask {
+  background: linear-gradient(115deg, rgba(255, 250, 244, .97) 0%, rgba(255, 241, 227, .82) 44%, rgba(255, 194, 163, .16) 100%);
+}
+
+.community-top-content {
+  position: relative;
+  z-index: 2;
+  min-height: 304rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.community-top-head,
+.feed-head,
+.community-notice,
+.topic-card,
+.avatar,
+.compose-fab {
+  display: flex;
+  align-items: center;
+}
+
+.community-top-head {
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.community-title-chip {
+  padding: 10rpx 22rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, .88);
+  color: #4b2d20;
+  font-size: 24rpx;
+  font-weight: 950;
+  letter-spacing: 1.6rpx;
+  box-shadow: 0 10rpx 22rpx rgba(132, 70, 36, .09);
+  border: 1rpx solid rgba(255, 217, 189, .54);
+}
+
+.community-notice {
+  gap: 8rpx;
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #ef6f3f, #ff8b76);
+  color: #fffaf4;
+  font-size: 20rpx;
+  font-weight: 920;
+  box-shadow: 0 12rpx 24rpx rgba(255, 122, 69, .20);
+}
+
+.community-notice-icon {
+  font-size: 22rpx;
+}
+
+.time {
+  color: #8f6b57;
+  font-size: 21rpx;
+  line-height: 1.35;
+  font-weight: 650;
+}
+
+.topic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14rpx;
+}
+
+.topic-card {
+  min-height: 104rpx;
+  padding: 12rpx 10rpx;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7rpx;
+  border: 1rpx solid rgba(255, 255, 255, .76);
+  border-radius: 30rpx;
+  background: rgba(255, 255, 255, .78);
+  backdrop-filter: blur(10rpx);
+  box-shadow: 0 12rpx 24rpx rgba(132, 70, 36, .08);
+}
+
+.topic-card.active {
+  background: linear-gradient(135deg, rgba(255, 255, 255, .98), rgba(255, 238, 228, .98));
+  border-color: rgba(239, 111, 63, .66);
+  box-shadow: 0 16rpx 28rpx rgba(255, 122, 69, .14);
+}
+
+.topic-icon {
+  font-size: 29rpx;
+}
+
+.topic-title {
+  color: #342116;
+  font-size: 21rpx;
+  font-weight: 920;
+  letter-spacing: .15rpx;
+}
+
+.feed-card {
+  margin-top: 14rpx;
+  padding: 18rpx;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .98), rgba(255, 248, 242, .97));
+}
+
+.feed-head {
+  gap: 12rpx;
+}
+
+.avatar {
+  width: 66rpx;
+  height: 66rpx;
+  border-radius: 50%;
+  color: #fffaf4;
+  justify-content: center;
+  font-size: 25rpx;
+  font-weight: 950;
+  box-shadow: 0 10rpx 20rpx rgba(255, 122, 69, .16);
+  flex: 0 0 auto;
+}
+
+.avatar.pink {
+  background: linear-gradient(135deg, #ef6f3f, #ffb08a);
+}
+
+.feed-user {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  color: #342116;
+  font-size: 24rpx;
+  font-weight: 950;
+  line-height: 1.34;
+  letter-spacing: .12rpx;
+}
+
+.follow {
+  padding: 9rpx 17rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 243, 231, .94);
+  color: #df6735;
+  font-size: 20rpx;
+  font-weight: 920;
+  border: 1rpx solid rgba(255, 195, 150, .52);
+  flex: 0 0 auto;
+}
+
+.feed-text {
+  margin-top: 17rpx;
+  color: #3a261a;
+  font-size: 23rpx;
+  font-weight: 650;
+  line-height: 1.62;
+  letter-spacing: .08rpx;
+}
+
+.feed-actions {
+  margin-top: 15rpx;
+  display: flex;
+  gap: 22rpx;
+  color: #8f6b57;
+  font-size: 20rpx;
+  font-weight: 850;
+}
+
+.empty-card {
+  margin-top: 18rpx;
+  padding: 28rpx 24rpx;
+  text-align: center;
+  color: #8f6b57;
+  background: rgba(255, 255, 255, .94);
+  line-height: 1.5;
+  font-size: 23rpx;
+  font-weight: 650;
+}
+
+.compose-fab {
+  position: fixed;
+  right: 32rpx;
+  bottom: calc(128rpx + env(safe-area-inset-bottom));
+  z-index: 30;
+  width: 92rpx;
+  height: 92rpx;
+  border-radius: 50%;
+  justify-content: center;
+  background: linear-gradient(135deg, #3a261a, #ef6f3f);
+  color: #fff8df;
+  font-size: 54rpx;
+  font-weight: 850;
+  line-height: 1;
+  box-shadow: 0 18rpx 38rpx rgba(58, 42, 31, .22);
+  border: 3rpx solid rgba(255, 255, 255, .9);
+}
 </style>

@@ -19,4 +19,9 @@ public class HomeController {
     public Result<List<HomeBannerResponse>> banners() {
         return Result.ok(homeBannerApplicationService.listEnabled());
     }
+
+    @GetMapping("/merchant-showcase/banners")
+    public Result<List<HomeBannerResponse>> merchantShowcaseBanners() {
+        return Result.ok(homeBannerApplicationService.listMerchantShowcaseEnabled());
+    }
 }

@@ -53,24 +53,21 @@
 import { computed, onMounted, ref } from 'vue'
 import { confirmReceipt, getOrderDetail, type OrderDetailResponse, type OrderListStatus } from '../../../api/modules/order'
 import { resolveOrderContactTarget, type OrderContactAction } from '../../../api/modules/order-contact'
-
-const launchReadinessMarkers = [
-  '订单、支付、售后和聊天记录以服务端状态为准',
-  '确认收货将调用后端接口完成状态变更'
-]
+import {
+  assertBackendOrderDetail,
+  coverIcon,
+  decodeRouteValue,
+  isValidBackendOrderNo,
+  isValidBackendProductId,
+  isValidOrderAmount,
+  states
+} from './order-detail-helpers'
 
 const orderNo = ref('')
 const order = ref<OrderDetailResponse | null>(null)
 const loading = ref(false)
 const confirming = ref(false)
 const errorText = ref('')
-const states: Record<OrderListStatus, { icon: string; label: string; desc: string; index: number }> = {
-  PENDING_PAY: { icon: '💳', label: '等待付款', desc: '请确认宝贝信息后完成支付。', index: 0 },
-  PAID: { icon: '📦', label: '等待卖家发货', desc: '订单已付款，卖家需要尽快发货；支付状态以平台记录为准。', index: 1 },
-  SHIPPED: { icon: '🚚', label: '宝贝运输中', desc: '收到宝贝并确认无误后再确认收货。', index: 2 },
-  COMPLETED: { icon: '🌸', label: '交易完成', desc: '订单完成状态以平台订单、支付和售后记录为准，可以评价这次交易。', index: 3 },
-  REFUNDING: { icon: '🛟', label: '售后处理中', desc: '售后处理以平台订单、支付、物流、聊天记录和已提交票据为准。', index: 1 }
-}
 const displayStatus = computed<OrderListStatus>(() => order.value?.afterSalesNo ? 'REFUNDING' : (order.value?.status || 'PENDING_PAY'))
 const current = computed(() => states[displayStatus.value])
 const flow = computed(() => {
@@ -97,92 +94,183 @@ const actions = computed(() => {
   if (displayStatus.value === 'COMPLETED') return ['评价', '再次购买', '联系卖家']
   return ['查看售后', '联系客服']
 })
-function readQuery() { const pages = getCurrentPages(); const currentPage = pages.length ? pages[pages.length - 1] as unknown as { options?: Record<string, string> } : undefined; const hashParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.hash.split('?')[1] || '') : undefined; orderNo.value = currentPage?.options?.orderNo || hashParams?.get('orderNo') || '' }
-function isValidBackendOrderNo(value: string) {
-  return /^[A-Z]{2,10}-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(value)
+function readQuery(): void {
+  const pages = getCurrentPages()
+  const currentPage = pages.length ? pages[pages.length - 1] as unknown as { options?: Record<string, string> } : undefined
+  const hashParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.hash.split('?')[1] || '') : undefined
+  const routeOrderNo = decodeRouteValue('orderNo', currentPage?.options?.orderNo || hashParams?.get('orderNo') || '')
+  if (routeOrderNo && !isValidBackendOrderNo(routeOrderNo)) {
+    console.warn('order detail invalid route orderNo', { rawLength: routeOrderNo.length, rawPreview: routeOrderNo.slice(0, 24) })
+  }
+  orderNo.value = routeOrderNo
 }
-async function loadDetail() {
-  if (!isValidBackendOrderNo(orderNo.value)) { errorText.value = '缺少有效订单号，请从订单列表进入'; order.value = null; return }
-  loading.value = true; errorText.value = ''
-  try { order.value = await getOrderDetail(orderNo.value) }
-  catch (error) { errorText.value = error instanceof Error ? error.message : '订单详情读取失败' }
-  finally { loading.value = false }
+function navigateWithFailure(url: string, fail: (error: unknown) => void): void {
+  uni.navigateTo({ url, fail } as { url: string; fail(error: unknown): void })
 }
-function handleAction(action: string) {
-  if (!order.value) return
-  if (action === '去付款') uni.navigateTo({ url: `/pages/payment/checkout/index?orderNo=${encodeURIComponent(order.value.orderNo)}&amount=${order.value.amount}&productId=${order.value.productId}` })
-  else if (action === '查看物流') uni.navigateTo({ url: `/pages/order/logistics/index?orderNo=${encodeURIComponent(order.value.orderNo)}` })
-  else if (action === '申请退款' || action === '申请售后') uni.navigateTo({ url: `/pages/after-sales/apply/index?orderNo=${encodeURIComponent(order.value.orderNo)}&amount=${order.value.amount}` })
+function validatedOrderNo(invalidTitle: string): string {
+  const currentOrder = order.value
+  if (!currentOrder) return ''
+  if (!isValidBackendOrderNo(currentOrder.orderNo)) {
+    uni.showToast({ title: invalidTitle, icon: 'none' })
+    return ''
+  }
+  return currentOrder.orderNo
+}
+async function loadDetail(): Promise<void> {
+  if (!isValidBackendOrderNo(orderNo.value)) {
+    errorText.value = '缺少有效订单号，请从订单列表进入'
+    order.value = null
+    return
+  }
+
+  const safeOrderNo = orderNo.value
+  loading.value = true
+  errorText.value = ''
+  try {
+    const detail = await getOrderDetail(safeOrderNo)
+    assertBackendOrderDetail(detail, safeOrderNo)
+    order.value = detail
+  } catch (error) {
+    console.warn('order detail load failed', { orderNo: safeOrderNo, error })
+    errorText.value = '订单详情读取失败，请从订单列表重新进入'
+    order.value = null
+  } finally {
+    loading.value = false
+  }
+}
+function handleAction(action: string): void {
+  const currentOrder = order.value
+  if (!currentOrder) return
+  const safeOrderNo = validatedOrderNo('订单编号无效，已阻止敏感订单操作')
+  if (!safeOrderNo) return
+  const encodedOrderNo = encodeURIComponent(safeOrderNo)
+
+  if (action === '去付款') {
+    if (!isValidOrderAmount(currentOrder.amount)) return uni.showToast({ title: '订单金额异常，未进入收银台', icon: 'none' })
+    if (!isValidBackendProductId(currentOrder.productId)) return uni.showToast({ title: '商品编号异常，未进入收银台', icon: 'none' })
+    navigateWithFailure(
+      `/pages/payment/checkout/index?orderNo=${encodedOrderNo}&amount=${encodeURIComponent(String(currentOrder.amount))}&productId=${currentOrder.productId}`,
+      (error: unknown) => {
+        console.warn('order detail checkout navigation failed', { orderNo: safeOrderNo, error })
+        uni.showToast({ title: '暂时无法进入收银台，请稍后重试', icon: 'none' })
+      }
+    )
+  }
+  else if (action === '查看物流') {
+    navigateWithFailure(
+      `/pages/order/logistics/index?orderNo=${encodedOrderNo}`,
+      (error: unknown) => {
+        console.warn('order detail logistics navigation failed', { orderNo: safeOrderNo, error })
+        uni.showToast({ title: '暂时无法打开物流详情', icon: 'none' })
+      }
+    )
+  }
+  else if (action === '申请退款' || action === '申请售后') {
+    if (!isValidOrderAmount(currentOrder.amount)) return uni.showToast({ title: '订单金额异常，未进入售后申请', icon: 'none' })
+    navigateWithFailure(
+      `/pages/after-sales/apply/index?orderNo=${encodedOrderNo}&amount=${encodeURIComponent(String(currentOrder.amount))}`,
+      (error: unknown) => {
+        console.warn('order detail after-sales apply navigation failed', { orderNo: safeOrderNo, error })
+        uni.showToast({ title: '暂时无法进入售后申请', icon: 'none' })
+      }
+    )
+  }
   else if (action === '查看售后') {
-    if (!order.value.afterSalesNo) return uni.showToast({ title: '暂无售后单号', icon: 'none' })
-    uni.navigateTo({ url: `/pages/after-sales/detail/index?afterSalesNo=${encodeURIComponent(order.value.afterSalesNo)}&orderNo=${encodeURIComponent(order.value.orderNo)}` })
+    if (!currentOrder.afterSalesNo) return uni.showToast({ title: '暂无售后单号', icon: 'none' })
+    navigateWithFailure(
+      `/pages/after-sales/detail/index?afterSalesNo=${encodeURIComponent(currentOrder.afterSalesNo)}&orderNo=${encodedOrderNo}`,
+      (error: unknown) => {
+        console.warn('order detail after-sales detail navigation failed', { orderNo: safeOrderNo, afterSalesNo: currentOrder.afterSalesNo, error })
+        uni.showToast({ title: '暂时无法打开售后详情', icon: 'none' })
+      }
+    )
   }
   else if (action === '确认收货') void confirmOrderReceipt()
   else if (action === '提醒发货') showUnavailableAction(action)
-  else if (action === '评价') uni.navigateTo({ url: `/pages/review/submit/index?orderNo=${encodeURIComponent(order.value.orderNo)}` })
+  else if (action === '评价') {
+    navigateWithFailure(
+      `/pages/review/submit/index?orderNo=${encodedOrderNo}`,
+      (error: unknown) => {
+        console.warn('order detail review navigation failed', { orderNo: safeOrderNo, error })
+        uni.showToast({ title: '暂时无法打开评价页', icon: 'none' })
+      }
+    )
+  }
   else if (action === '联系卖家' || action === '联系买家' || action === '联系客服') openOrderContact(action)
   else showUnavailableAction(action)
 }
-function showUnavailableAction(action: string) {
+function showUnavailableAction(action: string): void {
   uni.showToast({ title: `${action}暂不可用，请稍后重试`, icon: 'none' })
 }
-function openOrderContact(action: OrderContactAction) {
-  if (!order.value) return
-  const target = resolveOrderContactTarget(order.value, action)
+function openOrderContact(action: OrderContactAction): void {
+  const currentOrder = order.value
+  if (!currentOrder) return
+  const target = resolveOrderContactTarget(currentOrder, action)
   if (!target.receiverId) return uni.showToast({ title: target.error || '无法发起聊天', icon: 'none' })
-  uni.navigateTo({ url: `/pages/chat/conversation/index?receiverId=${target.receiverId}` })
+  navigateWithFailure(
+    `/pages/chat/conversation/index?receiverId=${target.receiverId}`,
+    (error: unknown) => {
+      console.warn('order detail contact navigation failed', { orderNo: currentOrder.orderNo, receiverId: target.receiverId, error })
+      uni.showToast({ title: '暂时无法打开聊天', icon: 'none' })
+    }
+  )
 }
-async function confirmOrderReceipt() {
+async function confirmOrderReceipt(): Promise<void> {
   if (!order.value || confirming.value) return
-  uni.showModal({
+  const safeOrderNo = validatedOrderNo('订单编号无效，未确认收货')
+  if (!safeOrderNo) return
+
+  const modalOptions = {
     title: '确认收货',
     content: '确认收到宝贝且无争议后，确认收货将调用后端接口完成状态变更。确认后不可直接撤回。',
-    success: async (res) => {
+    fail(error: unknown) {
+      console.warn('order detail confirm receipt modal failed', { orderNo: safeOrderNo, error })
+      uni.showToast({ title: '暂时无法确认收货', icon: 'none' })
+    },
+    success: async (res: { confirm?: boolean }) => {
       if (!res.confirm || !order.value) return
       confirming.value = true
       try {
-        order.value = await confirmReceipt(order.value.orderNo)
+        const detail = await confirmReceipt(safeOrderNo)
+        assertBackendOrderDetail(detail, safeOrderNo)
+        order.value = detail
         uni.showToast({ title: '已确认收货', icon: 'success' })
       } catch (error) {
-        uni.showModal({ title: '确认失败', content: error instanceof Error ? error.message : '确认收货失败，请稍后重试', showCancel: false })
-      } finally { confirming.value = false }
+        console.warn('order detail confirm receipt failed', { orderNo: safeOrderNo, error })
+        const failureModal = {
+          title: '确认失败',
+          content: '确认收货未完成，请刷新订单状态后重试。',
+          showCancel: false,
+          fail(modalError: unknown) {
+            console.warn('order detail confirm receipt failure modal failed', { orderNo: safeOrderNo, error: modalError })
+            uni.showToast({ title: '确认收货未完成', icon: 'none' })
+          }
+        }
+        uni.showModal(failureModal)
+      } finally {
+        confirming.value = false
+      }
     }
-  })
+  }
+  uni.showModal(modalOptions)
 }
-function coverIcon(title: string) { if (title.includes('鞋')) return '👠'; if (title.includes('袜')) return '🎀'; if (title.includes('包')) return '👜'; if (title.includes('衣') || title.includes('裙')) return '👗'; return '🛍️' }
-function openProduct() { if (order.value) uni.navigateTo({ url: `/pages/product/detail/index?productId=${order.value.productId}` }) }
+function openProduct(): void {
+  const currentOrder = order.value
+  if (!currentOrder) return
+  if (!isValidBackendProductId(currentOrder.productId)) {
+    uni.showToast({ title: '商品编号无效，未打开商品详情', icon: 'none' })
+    return
+  }
+
+  navigateWithFailure(
+    `/pages/product/detail/index?productId=${currentOrder.productId}`,
+    (error: unknown) => {
+      console.warn('order detail product navigation failed', { orderNo: currentOrder.orderNo, productId: currentOrder.productId, error })
+      uni.showToast({ title: '暂时无法打开商品详情', icon: 'none' })
+    }
+  )
+}
 onMounted(() => { readQuery(); void loadDetail() })
 </script>
 
-<style scoped>
-.order-detail-page { padding-bottom:124rpx; background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%); }
-.status-card { padding:16rpx; display:flex; gap:10rpx; align-items:center; border-color:#ffd9bd; background:linear-gradient(135deg,#fff,#fff3e7); }
-.status-card.danger { border-color:#fecaca; background:#fff7f7; }
-.status-icon { width:62rpx; height:62rpx; border-radius:22rpx; background:#ff7a45; color:#fff; display:flex; align-items:center; justify-content:center; font-size:30rpx; flex-shrink:0; }
-.danger .status-icon { background:#ef4444; }
-.status-main { flex:1; }
-.status-title { color:#3a2a1f; font-size:27rpx; font-weight:950; }
-.status-desc { margin-top:5rpx; color:#9b7560; font-size:21rpx; line-height:1.38; }
-.goods-card,.flow-card,.info-card,.safe-card { margin-top:12rpx; padding:16rpx; border-color:#ffd9bd; }
-.goods-card { display:flex; gap:10rpx; align-items:center; }
-.goods-cover { width:98rpx; height:98rpx; border-radius:22rpx; background:linear-gradient(135deg,#fff3e7,#ffe5ef); display:flex; align-items:center; justify-content:center; font-size:38rpx; flex-shrink:0; }
-.goods-main { flex:1; min-width:0; }
-.goods-title { color:#3a2a1f; font-size:25rpx; font-weight:950; }
-.goods-desc { margin-top:5rpx; color:#9b7560; font-size:20rpx; line-height:1.35; }
-.goods-price { margin-top:6rpx; color:#ff3f8d; font-size:27rpx; font-weight:950; }
-.arrow { color:#d79262; font-size:34rpx; }
-.section-title { color:#3a2a1f; font-size:25rpx; font-weight:950; }
-.flow-row { margin-top:12rpx; display:grid; grid-template-columns:repeat(4,1fr); gap:6rpx; }
-.flow-step { text-align:center; color:#c49aac; font-size:17rpx; font-weight:850; }
-.dot { width:16rpx; height:16rpx; border-radius:50%; background:#ffd9bd; margin:0 auto 6rpx; }
-.flow-step.done { color:#ff7a45; }
-.flow-step.done .dot { background:#ff7a45; }
-.flow-time { margin-top:3rpx; font-size:14rpx; color:#b9856a; }
-.info-row { min-height:48rpx; display:flex; justify-content:space-between; align-items:center; border-bottom:1rpx solid #ffe5ef; color:#7b5542; font-size:21rpx; gap:16rpx; }
-.info-row:last-child { border-bottom:0; }
-.info-row text:last-child { color:#3a2a1f; font-weight:900; text-align:right; }
-.safe-line { margin-top:6rpx; color:#9b7560; font-size:21rpx; line-height:1.35; }
-.bottom-actions { position:fixed; left:0; right:0; bottom:0; padding:12rpx 18rpx calc(12rpx + env(safe-area-inset-bottom)); background:rgba(255,247,237,.96); border-top:1rpx solid #ffd9bd; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8rpx; z-index:20; }
-.action-btn { margin:0; padding:0 16rpx; min-width:112rpx; height:50rpx; line-height:50rpx; border-radius:999rpx; background:#fff; border:1rpx solid #ffd9bd; color:#7b5542; font-size:20rpx; font-weight:900; }
-.action-btn.primary { background:#ff7a45; color:#fff; border-color:#ff7a45; }
-</style>
+<style scoped lang="scss" src="./style.scss"></style>

@@ -11,6 +11,7 @@ import com.secondhand.platform.modules.chat.MessageSyncResponse;
 import com.secondhand.platform.modules.chat.ReadConversationResponse;
 import com.secondhand.platform.modules.chat.domain.ChatMessage;
 import com.secondhand.platform.modules.chat.domain.Conversation;
+import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
 import com.secondhand.platform.shared.contracts.chat.MessageType;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -19,6 +20,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,9 +40,16 @@ public class ChatApplicationService {
     private static final TypeReference<Map<String, Object>> JSON_OBJECT_TYPE = new TypeReference<>() { };
 
     private final JdbcTemplate jdbcTemplate;
+    private final MediaUploadTicketService mediaUploadTicketService;
 
     public ChatApplicationService(JdbcTemplate jdbcTemplate) {
+        this(jdbcTemplate, new MediaUploadTicketService(jdbcTemplate));
+    }
+
+    @Autowired
+    public ChatApplicationService(JdbcTemplate jdbcTemplate, MediaUploadTicketService mediaUploadTicketService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.mediaUploadTicketService = mediaUploadTicketService;
     }
 
     @Transactional
@@ -52,11 +62,19 @@ public class ChatApplicationService {
         if (existingId != null) {
             return existingId;
         }
-        jdbcTemplate.update("""
-                INSERT INTO im_conversation (
-                  conversation_no, owner_user_id, peer_user_id, conversation_type, last_seq, last_message_summary, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, 0, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """, conversationNo, minUserId, maxUserId, CONVERSATION_TYPE_SINGLE);
+        try {
+            jdbcTemplate.update("""
+                    INSERT INTO im_conversation (
+                      conversation_no, owner_user_id, peer_user_id, conversation_type, last_seq, last_message_summary, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, 0, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """, conversationNo, minUserId, maxUserId, CONVERSATION_TYPE_SINGLE);
+        } catch (DuplicateKeyException ex) {
+            Long winnerId = queryLong("SELECT id FROM im_conversation WHERE conversation_no = ?", conversationNo);
+            if (winnerId == null) {
+                throw new IllegalStateException("conversation-create-duplicate-without-existing-row", ex);
+            }
+            return winnerId;
+        }
         return requireLong("SELECT id FROM im_conversation WHERE conversation_no = ?", conversationNo);
     }
 
@@ -64,7 +82,7 @@ public class ChatApplicationService {
     public ChatMessageAck sendMessage(SendMessageCommand command) {
         validateMessage(command);
         Long conversationId = resolveConversationId(command);
-        Conversation conversation = requireConversation(conversationId);
+        Conversation conversation = requireConversationForUpdate(conversationId);
         validateConversationParticipants(conversation, command);
         String clientKey = clientMessageKey(conversationId, command.getSenderId(), command.getClientMsgId());
         ChatMessage existing = findMessageByClientKey(clientKey);
@@ -92,11 +110,13 @@ public class ChatApplicationService {
     public List<ConversationListItemResponse> listConversations(Long userId) {
         validateUserId(userId);
         return jdbcTemplate.query("""
-                SELECT id, owner_user_id, peer_user_id, last_seq, last_message_summary, updated_at
-                FROM im_conversation
-                WHERE owner_user_id = ? OR peer_user_id = ?
-                ORDER BY updated_at DESC, id DESC
-                """, (rs, rowNum) -> toConversationItem(rs, userId), userId, userId);
+                SELECT c.id, c.owner_user_id, c.peer_user_id, c.last_seq, c.last_message_summary, c.updated_at,
+                       peer.nickname AS peer_nickname, peer.avatar_url AS peer_avatar_url
+                FROM im_conversation c
+                LEFT JOIN user_account peer ON peer.id = CASE WHEN c.owner_user_id = ? THEN c.peer_user_id ELSE c.owner_user_id END AND peer.status = 'ACTIVE'
+                WHERE c.owner_user_id = ? OR c.peer_user_id = ?
+                ORDER BY c.updated_at DESC, c.id DESC
+                """, (rs, rowNum) -> toConversationItem(rs, userId), userId, userId, userId);
     }
 
     @Transactional
@@ -135,7 +155,7 @@ public class ChatApplicationService {
         long lastServerSeq = safeLastServerSeq(conversation);
         long readSeq = getReadSeq(conversationId, userId);
         upsertReceiptSeq(conversationId, userId, readSeq, lastServerSeq);
-        return new DeliveryReceiptResponse(conversationId, lastServerSeq, readSeq, lastServerSeq, unreadCount(lastServerSeq, readSeq));
+        return new DeliveryReceiptResponse(conversationId, lastServerSeq, readSeq, lastServerSeq, unreadCount(conversationId, userId, readSeq));
     }
 
     @Transactional
@@ -154,7 +174,7 @@ public class ChatApplicationService {
         }
         long nextDeliveredSeq = Math.max(getDeliveredSeq(conversationId, userId), nextReadSeq);
         upsertReceiptSeq(conversationId, userId, nextReadSeq, nextDeliveredSeq);
-        return new ReadConversationResponse(conversationId, nextReadSeq, nextDeliveredSeq, lastServerSeq, unreadCount(lastServerSeq, nextReadSeq));
+        return new ReadConversationResponse(conversationId, nextReadSeq, nextDeliveredSeq, lastServerSeq, unreadCount(conversationId, userId, nextReadSeq));
     }
 
     private Long resolveConversationId(SendMessageCommand command) {
@@ -177,11 +197,13 @@ public class ChatApplicationService {
         ConversationListItemResponse item = new ConversationListItemResponse();
         item.setConversationId(conversationId);
         item.setPeerUserId(Objects.equals(userId, rs.getLong("owner_user_id")) ? rs.getLong("peer_user_id") : rs.getLong("owner_user_id"));
+        item.setPeerNickname(rs.getString("peer_nickname"));
+        item.setPeerAvatarUrl(rs.getString("peer_avatar_url"));
         item.setLastMessageSummary(rs.getString("last_message_summary"));
         item.setLastServerSeq(lastServerSeq);
         item.setDeliveredSeq(deliveredSeq);
         item.setReadSeq(readSeq);
-        item.setUnreadCount(unreadCount(lastServerSeq, readSeq));
+        item.setUnreadCount(unreadCount(conversationId, userId, readSeq));
         item.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));
         return item;
     }
@@ -263,14 +285,7 @@ public class ChatApplicationService {
                 || !url.startsWith("/uploads/")) {
             throw new IllegalArgumentException("image url invalid");
         }
-        Integer count = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM media_upload_ticket
-                WHERE owner_user_id = ? AND scene = 'CHAT_IMAGE' AND storage_url = ? AND status = 'ISSUED'
-                  AND expires_at > CURRENT_TIMESTAMP
-                """, Integer.class, senderId, url);
-        if (count == null || count <= 0) {
-            throw new IllegalArgumentException("chat image ticket invalid");
-        }
+        mediaUploadTicketService.requireUploadedStorageUrl(senderId, "CHAT_IMAGE", url);
     }
 
     private Map<String, Object> parseJsonObject(String content) {
@@ -365,8 +380,13 @@ public class ChatApplicationService {
                 """, conversationId, userId, readSeq, deliveredSeq);
     }
 
-    private long unreadCount(long lastServerSeq, long readSeq) {
-        return Math.max(0L, lastServerSeq - readSeq);
+    private long unreadCount(Long conversationId, Long userId, long readSeq) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM im_message
+                WHERE conversation_id = ? AND receiver_id = ? AND server_seq > ?
+                """, Integer.class, conversationId, userId, readSeq);
+        return count == null ? 0L : count.longValue();
     }
 
     private long safeLastServerSeq(Conversation conversation) {
@@ -436,6 +456,19 @@ public class ChatApplicationService {
                 SELECT id, owner_user_id, peer_user_id, conversation_type, last_seq, last_message_summary, created_at, updated_at
                 FROM im_conversation
                 WHERE id = ?
+                """, (rs, rowNum) -> mapConversation(rs), conversationId);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("conversation not found");
+        }
+        return rows.get(0);
+    }
+
+    private Conversation requireConversationForUpdate(Long conversationId) {
+        List<Conversation> rows = jdbcTemplate.query("""
+                SELECT id, owner_user_id, peer_user_id, conversation_type, last_seq, last_message_summary, created_at, updated_at
+                FROM im_conversation
+                WHERE id = ?
+                FOR UPDATE
                 """, (rs, rowNum) -> mapConversation(rs), conversationId);
         if (rows.isEmpty()) {
             throw new IllegalArgumentException("conversation not found");

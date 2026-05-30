@@ -9,15 +9,27 @@ export interface UserProfileResponse {
   avatarUrl?: string
   mainRole: string
   gender?: UserGender
+  age?: number | null
   city?: string
   bio?: string
   videoIdentityStatus: 'UNVERIFIED' | 'PENDING' | 'APPROVED' | 'REJECTED' | string
   videoVerified: boolean
+  videoIdentityUrl?: string | null
+  showcaseImageUrls?: string[]
   followedByMe?: boolean
   followerCount?: number
   followingCount?: number
   sellerCharmScore?: number
   buyerPowerScore?: number
+  level?: {
+    level: number
+    title: string
+    track: 'POWER' | 'CHARM' | string
+    score: number
+    currentLevelScore?: number | null
+    nextLevelScore?: number | null
+    progressPercent?: number | null
+  } | null
 }
 
 export interface AccountSecurityResponse {
@@ -40,10 +52,11 @@ export interface SubmitVideoIdentityRequest {
 export interface UpdateUserProfileRequest {
   nickname: string
   avatarUrl?: string
+  mainRole?: string
   gender: 'god' | 'goddess' | string
-  mainRole: 'BUYER' | 'SELLER' | 'BOTH' | string
   city?: string
   bio?: string
+  showcaseImageUrls?: string[]
 }
 
 export interface UpdateUserNoRequest {

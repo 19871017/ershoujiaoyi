@@ -1,57 +1,138 @@
 <template>
   <view class="page-shell public-profile">
-    <view v-if="profile.videoVerified" class="video-verify-card ds-card">
-      <view class="verify-left">
-        <view class="video-icon">▶</view>
-        <view class="video-title">视频认证卖家</view>
+    <view v-if="hasIdentityVideo" class="video-verify-card ds-card">
+      <video
+        class="verify-video-bg"
+        :src="identityVideoUrl"
+        autoplay
+        muted
+        loop
+        object-fit="cover"
+        :controls="false"
+        :show-center-play-btn="false"
+        :show-play-btn="false"
+        :enable-progress-gesture="false"
+      />
+      <view class="verify-card-shade"></view>
+      <view class="verify-copy">
+        <view class="verify-kicker">VIDEO VERIFIED</view>
+        <view class="verify-title">视频认证</view>
       </view>
-      <view class="video-badge">已核验</view>
     </view>
 
-    <view class="hero ds-card">
-      <view class="avatar">{{ avatarText }}</view>
-      <view class="main">
-        <view class="name-row">
-          <text class="name">{{ profile.nickname }}</text>
-          <text v-if="profile.videoVerified" class="verify video">视频认证</text>
+    <view v-if="profileLoaded" class="hero ds-card">
+      <view class="profile-top">
+        <view class="avatar-wrap">
+          <view class="avatar" :class="{ image: !!safeAvatarUrl }">
+            <image v-if="safeAvatarUrl" class="avatar-image" :src="safeAvatarUrl" mode="aspectFill" />
+            <text v-else>{{ avatarText }}</text>
+          </view>
+          <view v-if="hasIdentityVideo" class="avatar-verify">✓</view>
         </view>
-        <view class="bio">{{ profile.userNo || '小原圈用户' }}</view>
-        <view v-if="profile.videoVerified" class="tag-row">
-          <text class="tag">视频认证卖家</text>
+        <view class="main">
+          <view class="name-row">
+            <text class="gender-mark" :class="profileGender">{{ genderSymbol }}</text>
+            <text class="name">{{ profile.nickname }}</text>
+            <text v-if="isSellerProfile" class="role-chip">{{ hasIdentityVideo ? '认证卖家' : '卖家' }}</text>
+            <text v-if="profileLevel" class="level-chip level-glow" :class="[levelTrackClass, levelGlowClass]">LV.{{ profileLevel.level }} {{ profileLevel.title }}</text>
+          </view>
+          <view class="meta-line">{{ profileMetaText }}</view>
+        </view>
+        <button v-if="hasIdentityVideo" class="verify-entry" @click="openVideoPreview">认证视频</button>
+      </view>
+      <view class="inline-bio">
+        <text class="bio-title">简介</text>
+        <text class="bio">{{ profileBioText }}</text>
+      </view>
+      <view class="stats-card">
+        <view class="stat-item">
+          <text class="stat-label">粉丝</text>
+          <text class="stat-value">{{ compactNumber(profile.followerCount) }}</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-label">关注</text>
+          <text class="stat-value">{{ compactNumber(profile.followingCount) }}</text>
+        </view>
+        <view class="stat-item value-highlight" :class="{ charm: isSellerProfile, power: !isSellerProfile }">
+          <text class="stat-kicker">{{ primaryScoreLabel }}</text>
+          <text class="stat-value big">{{ compactNumber(primaryScoreValue) }}</text>
         </view>
       </view>
     </view>
 
     <view v-if="loadError" class="empty-card ds-card">{{ loadError }}</view>
 
-    <view v-if="profileLoaded" class="stats-card ds-card">
-      <view class="stat-item">
-        <text class="stat-value">{{ compactNumber(profile.followerCount) }}</text>
-        <text class="stat-label">粉丝</text>
-      </view>
-      <view class="stat-item">
-        <text class="stat-value">{{ compactNumber(profile.followingCount) }}</text>
-        <text class="stat-label">关注</text>
-      </view>
-      <view class="stat-item value-highlight" :class="{ charm: isSellerProfile, power: !isSellerProfile }">
-        <text class="stat-kicker">{{ primaryScoreLabel }}</text>
-        <text class="stat-value big">{{ compactNumber(primaryScoreValue) }}</text>
-        <text class="stat-label">{{ primaryScoreHint }}</text>
-      </view>
-    </view>
-
-    <view class="action-row">
+    <view v-if="profileLoaded" class="action-row">
       <button class="secondary-btn" @click="toggleFollow">{{ followed ? '已关注' : '关注' }}</button>
       <button class="primary-btn" @click="chat">私信</button>
       <button class="gift-btn" @click="openGift">送礼物</button>
       <button class="report-btn" @click="report">举报</button>
     </view>
 
-    <view class="section-card ds-card">
-      <view class="section-title">在售宝贝</view>
-      <view v-if="productsError" class="empty-row">{{ productsError }}</view>
-      <view v-else-if="!products.length" class="empty-row">暂无在售商品</view>
-      <view v-for="item in products" :key="item.productId" class="product-row" @click="openProduct(item.productId)">
+    <view v-if="showcasePhotos.length" class="showcase-card ds-card">
+      <view class="section-title">照片</view>
+      <scroll-view class="showcase-scroll" scroll-x>
+        <view class="showcase-strip">
+          <image
+            v-for="url in showcasePhotos"
+            :key="url"
+            class="showcase-photo"
+            :src="url"
+            mode="aspectFill"
+            @click="openPhotoPreview(url)"
+          />
+        </view>
+      </scroll-view>
+    </view>
+
+    <view v-if="previewPhotoUrl" class="photo-preview" @click="closePhotoPreview">
+      <image class="photo-preview-image" :src="previewPhotoUrl" mode="aspectFit" />
+    </view>
+
+    <view v-if="videoPreviewOpen" class="video-preview" @click="closeVideoPreview">
+      <view class="video-preview-panel" @click.stop>
+        <video
+          class="video-preview-player"
+          :src="identityVideoUrl"
+          controls
+          autoplay
+          object-fit="contain"
+          :show-center-play-btn="true"
+        />
+      </view>
+    </view>
+
+    <view v-if="showSellerTradePanel" class="section-card ds-card seller-trade-card">
+      <view class="section-head compact">
+        <view>
+          <view class="section-title">卖家宝贝</view>
+          <view class="section-subtitle">在售 {{ products.length }} · 已售 {{ soldProducts.length }}</view>
+        </view>
+        <view class="seller-verified-chip">认证卖家</view>
+      </view>
+
+      <view class="trade-block">
+        <view class="trade-block-title">在售商品</view>
+        <view v-if="productsError" class="empty-row">暂无在售宝贝</view>
+        <view v-else-if="!products.length" class="empty-row">暂无在售商品</view>
+        <view v-for="item in products" :key="`active-${item.productId}`" class="product-row" @click="openProduct(item.productId)">
+          <view class="product-cover" :class="{ image: !!item.coverImageUrl }">
+            <image v-if="item.coverImageUrl" class="product-cover-image" :src="item.coverImageUrl" mode="aspectFill" />
+            <text v-else>{{ productIcon(item.title) }}</text>
+          </view>
+          <view class="product-main">
+            <view class="product-title">{{ item.title }}</view>
+            <view class="product-meta">¥{{ item.price }}</view>
+          </view>
+          <view class="product-status active">在售</view>
+        </view>
+      </view>
+
+      <view class="trade-block sold">
+        <view class="trade-block-title">已售历史</view>
+        <view v-if="soldProductsError" class="empty-row">暂无已售记录</view>
+        <view v-else-if="!soldProducts.length" class="empty-row">暂无已售记录</view>
+        <view v-for="item in soldProducts" :key="`sold-${item.productId}`" class="product-row sold-row">
         <view class="product-cover" :class="{ image: !!item.coverImageUrl }">
           <image v-if="item.coverImageUrl" class="product-cover-image" :src="item.coverImageUrl" mode="aspectFill" />
           <text v-else>{{ productIcon(item.title) }}</text>
@@ -60,6 +141,8 @@
           <view class="product-title">{{ item.title }}</view>
           <view class="product-meta">¥{{ item.price }}</view>
         </view>
+          <view class="product-status sold">已售</view>
+        </view>
       </view>
     </view>
   </view>
@@ -67,16 +150,35 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { followPublicProfile, getPublicProfile, unfollowPublicProfile, type UserProfileResponse } from '../../../api/modules/user'
-import { listSellerProducts, type ProductListItemResponse } from '../../../api/modules/product'
-
-const unavailableProfileMessage = '卖家数据暂时不可用，未展示本地卖家样例'
-const noBackendProductsMessage = '暂无后端公开在售商品，未展示本地商品样例'
-const productLoadFailedMessage = '卖家商品加载失败，未展示本地商品样例'
+import { followPublicProfile, getMyProfile, getPublicProfile, unfollowPublicProfile, type UserProfileResponse } from '../../../api/modules/user'
+import { devRuntimeUserId, isDevRuntimeEnabled, resolveBackendMediaUrl } from '../../../api/http'
+import { listSellerProducts, listSellerSoldProducts, type ProductListItemResponse } from '../../../api/modules/product'
+import {
+  assertProductList,
+  assertPublicProfile,
+  compactNumber,
+  decodeRouteValue,
+  goddessLevelTitles,
+  godLevelTitles,
+  isValidBackendUserId,
+  levelGlow,
+  levelThresholds,
+  noBackendProductsMessage,
+  productIcon,
+  productImageStoragePrefix,
+  productLoadFailedMessage,
+  showcaseImageStoragePrefix,
+  soldProductLoadFailedMessage,
+  unavailableProfileMessage,
+  validatedPublicMediaUrl,
+  videoIdentityStoragePrefix
+} from './profile-integrity'
 
 const userId = ref('')
+const currentUserId = ref('')
 const loadError = ref('')
 const productsError = ref('')
+const soldProductsError = ref('')
 const emptyProfile: UserProfileResponse = {
   userId: 0,
   nickname: '小原圈用户',
@@ -87,28 +189,69 @@ const emptyProfile: UserProfileResponse = {
   followerCount: 0,
   followingCount: 0,
   sellerCharmScore: 0,
-  buyerPowerScore: 0
+  buyerPowerScore: 0,
+  showcaseImageUrls: [],
+  level: null
 }
 const profile = reactive<UserProfileResponse>({ ...emptyProfile })
 const profileLoaded = ref(false)
 const sellerProducts = ref<ProductListItemResponse[]>([])
+const sellerSoldProducts = ref<ProductListItemResponse[]>([])
 const followed = computed(() => profile.followedByMe === true)
 const avatarText = computed(() => (profile.nickname || '原').slice(-1))
-const products = computed(() => sellerProducts.value)
+const safeAvatarUrl = computed(() => resolveBackendMediaUrl(validatedPublicMediaUrl(profile.avatarUrl || '', showcaseImageStoragePrefix)))
+const products = computed(() => sellerProducts.value.map((item) => ({ ...item, coverImageUrl: resolveBackendMediaUrl(validatedPublicMediaUrl(item.coverImageUrl, productImageStoragePrefix)) })))
+const soldProducts = computed(() => sellerSoldProducts.value.map((item) => ({ ...item, coverImageUrl: resolveBackendMediaUrl(validatedPublicMediaUrl(item.coverImageUrl, productImageStoragePrefix)) })))
 const isSellerProfile = computed(() => ['SELLER', 'BOTH'].includes((profile.mainRole || '').toUpperCase()))
+const profileGender = computed(() => profile.gender === 'god' ? 'god' : 'goddess')
+const genderSymbol = computed(() => profileGender.value === 'god' ? '♂' : '♀')
+const hasApprovedSellerVideo = computed(() => profileLoaded.value && isSellerProfile.value && profile.videoVerified === true && profile.videoIdentityStatus === 'APPROVED')
+const showSellerTradePanel = computed(() => profileLoaded.value && isSellerProfile.value)
+const identityVideoUrl = computed(() => hasApprovedSellerVideo.value ? resolveBackendMediaUrl(validatedPublicMediaUrl(profile.videoIdentityUrl || '', videoIdentityStoragePrefix)) : '')
+const hasIdentityVideo = computed(() => !!identityVideoUrl.value)
+const showcasePhotos = computed(() => profileLoaded.value ? (profile.showcaseImageUrls || []).map((url) => resolveBackendMediaUrl(validatedPublicMediaUrl(url, showcaseImageStoragePrefix))).filter((url) => !!url) : [])
 const primaryScoreLabel = computed(() => isSellerProfile.value ? '魅力值' : '实力值')
 const primaryScoreValue = computed(() => isSellerProfile.value ? profile.sellerCharmScore : profile.buyerPowerScore)
 const primaryScoreHint = computed(() => isSellerProfile.value ? '收礼 1 元 = 1 分' : '消费/送礼 1 元 = 1 分')
+const profileLevel = computed(() => profile.level || buildFallbackLevel())
+const levelTrackClass = computed(() => profileLevel.value?.track === 'POWER' ? 'power' : 'charm')
+const levelGlowClass = computed(() => levelGlow(profileLevel.value?.level))
+const previewPhotoUrl = ref('')
+const videoPreviewOpen = ref(false)
+const profileBioText = computed(() => {
+  const bio = String(profile.bio || '').trim()
+  return bio || '暂未填写个人简介'
+})
+const profileMetaText = computed(() => {
+  const ageText = profile.age ? `${profile.age}岁` : ''
+  const parts = [ageText, profile.city, profile.userNo].map((item) => String(item || '').trim()).filter(Boolean)
+  return parts.join(' · ') || '小原圈'
+})
+const isSelfProfile = computed(() => isValidBackendUserId(userId.value) && userId.value === currentUserId.value)
 
 function readQuery(): void {
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as unknown as { options?: Record<string, string> } | undefined
   const hashParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.hash.split('?')[1] || '') : undefined
-  userId.value = currentPage?.options?.userId || hashParams?.get('userId') || userId.value
+  const routeUserId = decodeRouteValue('userId', currentPage?.options?.userId ?? hashParams?.get('userId') ?? '')
+  userId.value = isValidBackendUserId(routeUserId) ? routeUserId : ''
 }
 
-function isValidBackendUserId(value: string): boolean {
-  return /^[1-9]\d*$/.test(value)
+async function resolveCurrentUserId(): Promise<void> {
+  try {
+    const data = await getMyProfile()
+    currentUserId.value = Number.isSafeInteger(data.userId) && data.userId > 0 ? String(data.userId) : ''
+  } catch (error) {
+    const fallbackUserId = canUseLocalUserFallback() ? String(devRuntimeUserId() || '') : ''
+    currentUserId.value = isValidBackendUserId(fallbackUserId) ? fallbackUserId : ''
+    console.warn('public profile current user resolve failed', { error })
+  }
+}
+
+function canUseLocalUserFallback(): boolean {
+  if (isDevRuntimeEnabled()) return true
+  if (typeof window === 'undefined' || !window.location?.hostname) return false
+  return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
 }
 
 function resetProfile(): void {
@@ -116,18 +259,19 @@ function resetProfile(): void {
   Object.assign(profile, emptyProfile)
 }
 
-function compactNumber(value: number | undefined): string {
-  const numberValue = Number(value || 0)
-  if (!Number.isFinite(numberValue) || numberValue <= 0) return '0'
-  if (numberValue >= 10000) return `${(numberValue / 10000).toFixed(numberValue >= 100000 ? 0 : 1)}万`
-  return String(Math.floor(numberValue))
-}
-
-function productIcon(title: string): string {
-  if (title.includes('裙')) return '👗'
-  if (title.includes('鞋')) return '👠'
-  if (title.includes('袜')) return '🧦'
-  return '👜'
+function buildFallbackLevel() {
+  const power = profileGender.value === 'god'
+  const score = Math.max(0, Math.floor(Number(power ? profile.buyerPowerScore : profile.sellerCharmScore) || 0))
+  let level = 1
+  for (let index = 0; index < levelThresholds.length; index += 1) {
+    if (score >= levelThresholds[index]) level = index + 1
+  }
+  return {
+    level,
+    title: (power ? godLevelTitles : goddessLevelTitles)[level - 1],
+    track: power ? 'POWER' : 'CHARM',
+    score
+  }
 }
 
 function failClosedProducts(message = noBackendProductsMessage): void {
@@ -135,66 +279,131 @@ function failClosedProducts(message = noBackendProductsMessage): void {
   productsError.value = message
 }
 
+function failClosedSoldProducts(message = ''): void {
+  sellerSoldProducts.value = []
+  soldProductsError.value = message
+}
+
 function navigateToUserRoute(missingUserIdTitle: string, buildUrl: (backendUserId: string) => string): void {
-  if (!isValidBackendUserId(userId.value)) {
+  if (!isValidBackendUserId(userId.value) || !profileLoaded.value) {
     uni.showToast({ title: missingUserIdTitle, icon: 'none' })
     return
   }
-  uni.navigateTo({ url: buildUrl(userId.value) })
+  const route = {
+    url: buildUrl(userId.value),
+    fail: (error: unknown) => {
+      console.warn('public profile navigation failed', { userId: userId.value, error })
+      uni.showToast({ title: '暂时无法打开目标页面，请稍后重试', icon: 'none' })
+    }
+  }
+  try {
+    uni.navigateTo(route)
+  } catch (error) {
+    console.warn('public profile navigation failed', { userId: userId.value, error })
+    uni.showToast({ title: '暂时无法打开目标页面，请稍后重试', icon: 'none' })
+  }
 }
 
-async function loadProfile(): Promise<void> {
+function switchToMe(title = '这是你自己的主页'): void {
+  uni.showToast({ title, icon: 'none' })
+  try {
+    uni.switchTab({ url: '/pages/tabbar/me/index' })
+  } catch (error) {
+    console.warn('public profile switch to me failed', { error })
+    uni.reLaunch({ url: '/pages/tabbar/me/index' })
+  }
+}
+
+async function loadProfile(): Promise<boolean> {
   if (!isValidBackendUserId(userId.value)) {
     resetProfile()
     loadError.value = unavailableProfileMessage
     failClosedProducts()
-    return
+    failClosedSoldProducts()
+    return false
   }
   try {
     const data = await getPublicProfile(userId.value)
+    assertPublicProfile(data, userId.value)
     Object.assign(profile, data)
     profileLoaded.value = true
     loadError.value = ''
-  } catch {
+    return true
+  } catch (error) {
     resetProfile()
+    failClosedProducts()
+    failClosedSoldProducts()
     loadError.value = unavailableProfileMessage
+    console.warn('public profile load failed', { userId: userId.value, error })
     uni.showToast({ title: '卖家数据暂时不可用', icon: 'none' })
+    return false
   }
 }
 
 async function loadSellerProducts(): Promise<void> {
   if (!isValidBackendUserId(userId.value)) {
     failClosedProducts()
+    failClosedSoldProducts()
+    return
+  }
+  if (!showSellerTradePanel.value) {
+    failClosedProducts('')
+    failClosedSoldProducts()
     return
   }
   try {
-    sellerProducts.value = await listSellerProducts(userId.value)
+    const [activeData, soldData] = await Promise.all([
+      listSellerProducts(userId.value),
+      listSellerSoldProducts(userId.value)
+    ])
+    assertProductList(activeData, 'ACTIVE')
+    assertProductList(soldData, 'SOLD')
+    const data = activeData
+    sellerProducts.value = data
     productsError.value = sellerProducts.value.length ? '' : noBackendProductsMessage
-  } catch {
+    sellerSoldProducts.value = soldData
+    soldProductsError.value = ''
+  } catch (error) {
+    console.warn('public profile products load failed', { userId: userId.value, error })
     failClosedProducts(productLoadFailedMessage)
+    failClosedSoldProducts(soldProductLoadFailedMessage)
   }
 }
 
 async function toggleFollow(): Promise<void> {
-  if (!isValidBackendUserId(userId.value)) {
+  if (isSelfProfile.value) {
+    switchToMe('不能关注自己')
+    return
+  }
+  if (!isValidBackendUserId(userId.value) || !profileLoaded.value) {
     uni.showToast({ title: '缺少真实用户ID，未执行任何关注变更', icon: 'none' })
     return
   }
   const wasFollowing = followed.value
   try {
     const data = wasFollowing ? await unfollowPublicProfile(userId.value) : await followPublicProfile(userId.value)
+    assertPublicProfile(data, userId.value)
     Object.assign(profile, data)
     uni.showToast({ title: wasFollowing ? '已取消关注' : '已关注', icon: 'none' })
-  } catch {
+  } catch (error) {
+    console.warn('public profile follow mutation failed', { userId: userId.value, wasFollowing, error })
     uni.showToast({ title: wasFollowing ? '取消关注没有提交成功，未执行本地关注变更' : '关注没有提交成功，未执行本地关注变更', icon: 'none' })
   }
 }
 
 function chat(): void {
+  if (isSelfProfile.value) {
+    switchToMe('不能给自己发私信')
+    return
+  }
   navigateToUserRoute('缺少真实用户ID，未进入私信', (backendUserId) => `/pages/chat/conversation/index?receiverId=${backendUserId}`)
 }
 
 function openGift(): void {
+  if (isSelfProfile.value) {
+    switchToMe('不能给自己送礼物')
+    return
+  }
   navigateToUserRoute('缺少真实用户ID，未进入送礼', (backendUserId) => `/pages/gift/index?mode=send&receiverId=${backendUserId}&sceneType=PROFILE&sceneId=${backendUserId}`)
 }
 
@@ -202,64 +411,61 @@ function report(): void {
   navigateToUserRoute('缺少真实用户ID，未进入举报', (backendUserId) => `/pages/report/submit/index?targetType=USER&targetId=${backendUserId}`)
 }
 
+function openPhotoPreview(url: string): void {
+  previewPhotoUrl.value = url
+}
+
+function closePhotoPreview(): void {
+  previewPhotoUrl.value = ''
+}
+
+function openVideoPreview(): void {
+  if (!hasIdentityVideo.value) return
+  videoPreviewOpen.value = true
+}
+
+function closeVideoPreview(): void {
+  videoPreviewOpen.value = false
+}
+
 function openProduct(productId: number): void {
   if (!productId || productId <= 0) {
     uni.showToast({ title: '缺少后端商品编号，未打开商品详情', icon: 'none' })
     return
   }
-  uni.navigateTo({ url: `/pages/product/detail/index?productId=${productId}` })
+  const route = {
+    url: `/pages/product/detail/index?productId=${encodeURIComponent(String(productId))}`,
+    fail: (error: unknown) => {
+      console.warn('public profile product navigation failed', { productId, error })
+      uni.showToast({ title: '暂时无法打开商品详情，请稍后重试', icon: 'none' })
+    }
+  }
+  try {
+    uni.navigateTo(route)
+  } catch (error) {
+    console.warn('public profile product navigation failed', { productId, error })
+    uni.showToast({ title: '暂时无法打开商品详情，请稍后重试', icon: 'none' })
+  }
 }
 
-onMounted(() => {
-  readQuery()
-  loadProfile()
-  loadSellerProducts()
-})
+async function initializePublicProfile(): Promise<void> {
+  try {
+    readQuery()
+    await resolveCurrentUserId()
+    if (isSelfProfile.value) {
+      switchToMe()
+      return
+    }
+    if (await loadProfile()) await loadSellerProducts()
+  } catch (error) {
+    resetProfile()
+    failClosedProducts()
+    loadError.value = unavailableProfileMessage
+    console.warn('public profile initialize failed', { error })
+  }
+}
+
+onMounted(() => { void initializePublicProfile() })
 </script>
 
-<style scoped>
-.public-profile{background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%)}
-.video-verify-card{margin-top:18rpx;padding:22rpx;border-color:#ffb37c;background:linear-gradient(135deg,#fff2e4,#fffaf6);display:flex;align-items:center;justify-content:space-between;gap:16rpx;box-shadow:0 16rpx 34rpx rgba(255,122,69,.14)}
-.verify-left{display:flex;align-items:center;gap:16rpx;min-width:0}
-.video-icon{width:72rpx;height:72rpx;border-radius:50%;background:linear-gradient(135deg,#ff7a45,#ff3f8d);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26rpx;font-weight:950;box-shadow:0 10rpx 24rpx rgba(255,63,141,.18)}
-.video-title{color:#3a2a1f;font-size:30rpx;font-weight:950}
-.video-badge{flex-shrink:0;padding:9rpx 14rpx;border-radius:999rpx;background:#fff;color:#ff3f8d;font-size:20rpx;font-weight:950}
-.hero,.section-card{margin-top:18rpx;padding:22rpx;border-color:#ffd9bd}
-.hero{display:flex;gap:18rpx;align-items:center;background:linear-gradient(135deg,#fff,#fff3e7)}
-.avatar{width:104rpx;height:104rpx;border-radius:50%;background:linear-gradient(135deg,#ff7a45,#ffb08a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:42rpx;font-weight:950}
-.main{flex:1;min-width:0}
-.name-row{display:flex;align-items:center;gap:10rpx;flex-wrap:wrap}
-.name{color:#3a2a1f;font-size:33rpx;font-weight:950}
-.verify,.tag{padding:7rpx 12rpx;border-radius:999rpx;background:#fff;color:#ff7a45;font-size:19rpx;font-weight:900}
-.verify.video{background:#ff7a45;color:#fff}
-.bio{margin-top:8rpx;color:#7b5542;font-size:23rpx;line-height:1.45}
-.tag-row{margin-top:10rpx;display:flex;gap:8rpx;flex-wrap:wrap}
-.stats-card{margin-top:18rpx;padding:18rpx;border-color:#ffd9bd;display:grid;grid-template-columns:repeat(2,148rpx) minmax(0,1fr);gap:10rpx;background:linear-gradient(135deg,#fff,#fff8ef)}
-.stat-item{min-width:0;padding:14rpx 8rpx;border-radius:22rpx;background:#fffaf6;text-align:center;box-shadow:inset 0 0 0 1rpx rgba(255,217,189,.58)}
-.stat-value{display:block;color:#3a2a1f;font-size:30rpx;font-weight:950;line-height:1.1}
-.stat-value.big{font-size:38rpx;letter-spacing:-1rpx}
-.stat-kicker{display:block;color:#7b5542;font-size:20rpx;font-weight:950;letter-spacing:2rpx}
-.stat-label{display:block;margin-top:8rpx;color:#9b7560;font-size:20rpx;font-weight:900;white-space:nowrap}
-.value-highlight{padding:13rpx 16rpx;text-align:left;background:linear-gradient(135deg,#fffaf6,#fff0e3)}
-.value-highlight.charm{background:linear-gradient(135deg,#fff8ef,#ffe6ee)}
-.value-highlight.power{background:linear-gradient(135deg,#f8fbff,#e8efff)}
-.stat-item.charm .stat-value{color:#d94673}
-.stat-item.power .stat-value{color:#1d4ed8}
-.action-row{margin-top:18rpx;display:grid;grid-template-columns:repeat(4,1fr);gap:10rpx}
-.gift-btn,.report-btn{min-height:72rpx;border-radius:999rpx;font-size:22rpx;font-weight:900}
-.gift-btn{background:#fff3e7;color:#ff7a45}
-.report-btn{background:#fff;color:#9b7560;border:1rpx solid #ffd9bd}
-.empty-card,.empty-row{margin-top:18rpx;padding:24rpx;text-align:center;color:#9b7560;border-color:#ffd9bd}
-.section-title{color:#3a2a1f;font-size:28rpx;font-weight:950}
-.product-row{margin-top:14rpx;padding:16rpx;border-radius:24rpx;background:#fffaf6;display:flex;align-items:center;gap:14rpx}
-.product-cover{width:88rpx;height:88rpx;border-radius:22rpx;background:#fff;color:#b9856a;display:flex;align-items:center;justify-content:center;font-size:32rpx;font-weight:900;overflow:hidden}
-.product-cover.image{background:#fff3e7}
-.product-cover-image{width:100%;height:100%;display:block}
-.product-main{flex:1;min-width:0}
-.product-title{color:#3a2a1f;font-size:24rpx;font-weight:900;line-height:1.45}
-.product-meta{margin-top:6rpx;color:#ff7a45;font-size:22rpx;font-weight:900}
-@media (max-width: 360px){
-  .stats-card{grid-template-columns:repeat(2,minmax(0,1fr));}
-  .value-highlight{grid-column:1 / -1;text-align:center;}
-}
-</style>
+<style scoped lang="scss" src="./style.scss"></style>

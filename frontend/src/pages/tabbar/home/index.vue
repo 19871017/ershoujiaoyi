@@ -1,7 +1,7 @@
 <template>
   <view class="page-shell home-page">
-    <swiper class="banner-swiper" circular autoplay :interval="3600" :duration="520" indicator-dots indicator-color="rgba(255,255,255,.55)" indicator-active-color="#ffffff">
-      <swiper-item v-for="item in decoratedBanners" :key="item.id">
+    <swiper v-if="visibleBanners.length" class="banner-swiper" circular autoplay :interval="3600" :duration="520" indicator-dots indicator-color="rgba(255,255,255,.55)" indicator-active-color="#ffffff">
+      <swiper-item v-for="item in visibleBanners" :key="item.id">
         <view class="banner-card tapable" @click="handleBanner(item.action)">
           <image class="banner-bg" :src="item.imageUrl" mode="aspectFill" />
           <view class="banner-shade"></view>
@@ -11,6 +11,10 @@
         </view>
       </swiper-item>
     </swiper>
+    <view v-else class="banner-empty ds-card">
+      <view class="banner-empty-title">{{ bannerLoadError ? '首页轮播暂时不可用' : '首页轮播待后台配置' }}</view>
+      <view class="banner-empty-desc">首页图片以后台轮播配置为准，未获取到服务端配置时不展示本地兜底图。</view>
+    </view>
 
     <view class="ranking-entrance">
       <view v-for="card in rankingCards" :key="card.tab" class="ranking-card tapable" :class="card.themeClass" @click="openRanking(card.tab)">
@@ -23,7 +27,7 @@
     </view>
 
     <view class="section-head">
-      <view class="section-title">今日小原圈 {{ products.length }} 件后端在售宝贝</view>
+      <view class="section-title">今日上新 · {{ products.length }} 件后端在售宝贝</view>
       <view class="secondary-btn small tapable" @click="openSearch">搜宝贝</view>
     </view>
 
@@ -85,66 +89,28 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { getHomeBanners, type HomeBannerAction, type HomeBannerResponse } from '../../../api/modules/home'
+import { getHomeBanners, type HomeBannerResponse } from '../../../api/modules/home'
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
-import homeBannerCloset from '../../../assets/home/home-banner-closet.png'
-import homeBannerRanking from '../../../assets/home/home-banner-ranking.png'
-import homeBannerCommunity from '../../../assets/home/home-banner-community.png'
-import rankingGoddessArtwork from '../../../assets/ranking/ranking-goddess-desktop.png'
-import rankingGodArtwork from '../../../assets/ranking/ranking-god-desktop.png'
-
-type BannerAction = HomeBannerAction
-type RankingTab = 'goddess' | 'god'
-type RankingCard = {
-  tab: RankingTab
-  themeClass: string
-  artwork: string
-  title: string
-}
-
-const launchReadinessMarkers = [
-  '暂未加载到后端在售宝贝',
-  '商品接口暂时不可用，未展示本地演示宝贝',
-  '件后端在售宝贝'
-]
+import {
+  CARD_HEIGHT_RPX,
+  MANUAL_SCROLL_RESUME_DELAY,
+  MIN_SIMULATED_PRODUCTS,
+  PRODUCT_COLUMNS,
+  ROW_GAP_RPX,
+  VISIBLE_ROWS,
+  compactPrice,
+  formatPublishTime,
+  iconFor,
+  launchReadinessMarkers,
+  rankingCards,
+  statusLabel,
+  toneClass,
+  type BannerAction
+} from './home-data'
 
 const banners = ref<HomeBannerResponse[]>([])
-const homeBannerArtwork: Record<BannerAction, string> = {
-  closet: homeBannerCloset,
-  ranking: homeBannerRanking,
-  forum: homeBannerCommunity,
-  search: homeBannerCloset,
-  none: homeBannerCommunity
-}
-const decoratedBanners = computed(() => banners.value.map((item) => ({
-  ...item,
-  imageUrl: homeBannerArtwork[item.action] || item.imageUrl
-})))
-const rankingArtwork = {
-  goddess: rankingGoddessArtwork,
-  god: rankingGodArtwork
-}
-const rankingCards: RankingCard[] = [
-  {
-    tab: 'goddess',
-    themeClass: 'ranking-goddess',
-    artwork: rankingArtwork.goddess,
-    title: '魅力女神榜'
-  },
-  {
-    tab: 'god',
-    themeClass: 'ranking-god',
-    artwork: rankingArtwork.god,
-    title: '霸总男神榜'
-  }
-]
-
-const PRODUCT_COLUMNS = 2
-const VISIBLE_ROWS = 3
-const MIN_SIMULATED_PRODUCTS = 20
-const CARD_HEIGHT_RPX = 328
-const ROW_GAP_RPX = 16
-const MANUAL_SCROLL_RESUME_DELAY = 6000
+const bannerLoadError = ref(false)
+const visibleBanners = computed(() => banners.value.filter(item => !!item.imageUrl))
 const loading = ref(false)
 const errorMessage = ref('')
 const products = ref<ProductListItemResponse[]>([])
@@ -191,10 +157,12 @@ function rpxToPx(value: number) {
   return (uni as unknown as { upx2px: (size: number) => number }).upx2px(value)
 }
 async function loadBanners() {
+  bannerLoadError.value = false
   try {
     banners.value = await getHomeBanners()
   } catch (error) {
     banners.value = []
+    bannerLoadError.value = true
   }
 }
 
@@ -226,20 +194,6 @@ function handleBanner(action: BannerAction) {
 function openSearch() { uni.navigateTo({ url: '/pages/search/result/index?keyword=%E5%BF%83%E7%88%B1%E4%B9%8B%E7%89%A9' }) }
 function openRanking(tab: 'goddess' | 'god') { uni.navigateTo({ url: `/pages/ranking/index?tab=${tab}` }) }
 function openForum() { uni.switchTab({ url: '/pages/tabbar/message/index' }); showToast('已进入') }
-function statusLabel(status: string) { return status === 'created' || status === 'ACTIVE' ? '在售' : status }
-function compactPrice(price: string) { return Number(price).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
-function iconFor(title: string) { if (title.includes('裙')) return '👗'; if (title.includes('鞋')) return '👠'; if (title.includes('袜')) return '🧦'; return '👜' }
-function toneClass(id: number) { return `tone-${id % 4}` }
-function formatPublishTime(createdAt: string) {
-  const date = new Date(createdAt)
-  if (Number.isNaN(date.getTime())) return '刚刚上新'
-  const diffHours = Math.max(0, (Date.now() - date.getTime()) / (1000 * 60 * 60))
-  if (diffHours < 1) return '刚刚上新'
-  if (diffHours < 24) return `${Math.floor(diffHours)} 小时前`
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 7) return `${diffDays} 天前`
-  return `${date.getMonth() + 1}/${date.getDate()} 上新`
-}
 function scheduleResumeRoll() {
   if (resumeRollTimer) clearTimeout(resumeRollTimer)
   resumeRollTimer = setTimeout(() => {
@@ -295,63 +249,4 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped>
-.home-page { padding-top:16rpx; background:radial-gradient(circle at 14% 2%, rgba(255,195,128,.30), transparent 26%), linear-gradient(180deg,#fff7ed 0%,#fffdfa 48%,#fff5ee 100%); }
-.banner-swiper { height:230rpx; border-radius:34rpx; overflow:hidden; }
-.banner-card { position:relative; height:230rpx; padding:24rpx 26rpx; border-radius:34rpx; overflow:hidden; display:flex; align-items:center; justify-content:space-between; box-sizing:border-box; box-shadow:0 16rpx 32rpx rgba(255,122,69,.16); background:linear-gradient(135deg,#ff7a45 0%,#ffb36f 48%,#ffe1b8 100%); }
-.banner-bg { position:absolute; inset:0; width:100%; height:100%; }
-.banner-shade { position:absolute; inset:0; background:linear-gradient(90deg,rgba(42,24,12,.58) 0%,rgba(42,24,12,.26) 54%,rgba(42,24,12,.06) 100%); }
-.banner-copy { position:relative; z-index:2; width:68%; color:#fff; }
-.banner-title { font-size:40rpx; line-height:1.13; font-weight:950; letter-spacing:-1rpx; text-shadow:0 5rpx 14rpx rgba(80,35,18,.18); }
-.ranking-entrance { margin:14rpx 0 8rpx; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12rpx; }
-.ranking-card { position:relative; height:220rpx; padding:14rpx; border-radius:28rpx; overflow:hidden; box-sizing:border-box; display:flex; flex-direction:column; justify-content:flex-start; box-shadow:0 18rpx 34rpx rgba(80,35,18,.16), inset 0 0 0 1rpx rgba(255,255,255,.46); border:1rpx solid rgba(255,255,255,.78); isolation:isolate; }
-.ranking-card::before { content:""; position:absolute; inset:0; z-index:2; pointer-events:none; background:linear-gradient(135deg,rgba(255,255,255,.42) 0%,rgba(255,255,255,0) 34%,rgba(255,255,255,.20) 100%); mix-blend-mode:screen; }
-.ranking-card::after { content:""; position:absolute; z-index:2; left:16rpx; top:14rpx; width:76rpx; height:1rpx; background:linear-gradient(90deg,rgba(255,255,255,.92),rgba(255,255,255,0)); box-shadow:0 12rpx 30rpx rgba(255,255,255,.48); pointer-events:none; }
-.ranking-goddess { background:linear-gradient(145deg,#8f234c 0%,#fa6f9a 43%,#f7b955 100%); }
-.ranking-god { background:linear-gradient(145deg,#07122f 0%,#1d4ed8 52%,#7c3aed 100%); }
-.ranking-art { position:absolute; left:0; right:0; top:0; bottom:0; background-repeat:no-repeat; background-size:cover; background-position:60% 4%; transform:scale(1.035); transform-origin:top center; filter:saturate(1.08) contrast(1.04); }
-.ranking-god .ranking-art { background-position:61% 3%; }
-.ranking-text-mask { position:absolute; inset:0; z-index:1; pointer-events:none; background:radial-gradient(circle at 18% 24%,rgba(255,245,226,.42) 0%,rgba(255,213,219,.22) 30%,rgba(255,213,219,0) 55%), linear-gradient(90deg,rgba(66,18,34,.48) 0%,rgba(66,18,34,.18) 39%,rgba(66,18,34,0) 72%), linear-gradient(180deg,rgba(255,246,230,.16) 0%,rgba(255,246,230,0) 48%,rgba(255,246,230,.26) 100%); }
-.ranking-god .ranking-text-mask { background:radial-gradient(circle at 18% 24%,rgba(222,239,255,.38) 0%,rgba(112,167,255,.20) 32%,rgba(112,167,255,0) 56%), linear-gradient(90deg,rgba(5,12,34,.56) 0%,rgba(5,12,34,.22) 42%,rgba(5,12,34,0) 76%), linear-gradient(180deg,rgba(233,241,255,.16) 0%,rgba(233,241,255,0) 48%,rgba(233,241,255,.22) 100%); }
-.ranking-copy { position:relative; z-index:4; display:inline-flex; align-items:center; width:max-content; max-width:238rpx; padding:10rpx 12rpx 12rpx; border-radius:20rpx; background:radial-gradient(circle at 44% 48%,rgba(255,239,204,.30),rgba(255,239,204,0) 70%); }
-.ranking-title { color:#fff6df; font-size:32rpx; line-height:1.05; font-weight:950; letter-spacing:2.6rpx; font-family:"Songti SC","STSong","PingFang SC",serif; white-space:nowrap; text-shadow:0 2rpx 0 rgba(120,45,22,.28), 0 7rpx 18rpx rgba(76,18,34,.46), 0 0 18rpx rgba(255,233,170,.42); }
-.ranking-title::after { content:""; position:absolute; left:6rpx; right:12rpx; bottom:5rpx; height:12rpx; border-radius:999rpx; z-index:-1; background:linear-gradient(90deg,rgba(255,219,146,.58),rgba(255,158,188,.20),rgba(255,158,188,0)); filter:blur(2rpx); }
-.ranking-god .ranking-copy { background:radial-gradient(circle at 44% 48%,rgba(210,232,255,.24),rgba(210,232,255,0) 70%); }
-.ranking-god .ranking-title { color:#f5fbff; text-shadow:0 2rpx 0 rgba(9,28,78,.30), 0 7rpx 18rpx rgba(3,10,35,.58), 0 0 18rpx rgba(142,197,255,.42); }
-.ranking-god .ranking-title::after { background:linear-gradient(90deg,rgba(164,211,255,.54),rgba(142,120,255,.22),rgba(142,120,255,0)); }
-.section-head { margin:22rpx 0 12rpx; display:flex; align-items:center; justify-content:space-between; }
-.section-title { font-size:31rpx; font-weight:950; color:#3a2a1f; }
-.small { min-height:54rpx; padding:0 18rpx; font-size:21rpx; color:#ff7a45; background:#fff3e7; }
-.state { margin-bottom:12rpx; padding:18rpx; color:#9b7560; font-size:23rpx; }
-.muted { background:#fff3e7; color:#b45374; }
-.product-marquee { height:1016rpx; overflow:hidden; }
-.product-grid-track { display:flex; flex-direction:column; gap:16rpx; }
-.product-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16rpx; }
-.product-grid-card { padding:12rpx; border-color:#ffd9bd; box-sizing:border-box; border-radius:28rpx; background:linear-gradient(180deg,rgba(255,255,255,.98) 0%,rgba(255,246,238,.98) 100%); box-shadow:0 18rpx 28rpx rgba(255,140,84,.10); }
-.product-grid-card--ghost { visibility:hidden; pointer-events:none; }
-.product-cover-wrap { position:relative; width:100%; height:196rpx; border-radius:22rpx; overflow:hidden; display:flex; align-items:center; justify-content:center; }
-.product-cover { width:100%; height:100%; }
-.product-cover-fallback { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:68rpx; }
-.product-status-chip { position:absolute; right:12rpx; bottom:12rpx; padding:6rpx 14rpx; border-radius:999rpx; background:rgba(255,255,255,.94); color:#ff7a45; font-size:18rpx; font-weight:900; box-shadow:0 6rpx 16rpx rgba(80,35,18,.10); }
-.tone-0 { background:#fff3e7; } .tone-1 { background:#fff2e9; } .tone-2 { background:#f2edff; } .tone-3 { background:#fff7d6; }
-.product-grid-info { display:flex; flex-direction:column; gap:10rpx; padding:12rpx 4rpx 2rpx; }
-.product-grid-title { min-height:64rpx; font-size:24rpx; line-height:1.34; font-weight:900; color:#3a2a1f; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.product-grid-seller { display:flex; align-items:center; justify-content:space-between; gap:10rpx; }
-.seller-badge { display:inline-flex; align-items:center; gap:10rpx; min-width:0; padding:8rpx 12rpx 8rpx 8rpx; border-radius:999rpx; background:linear-gradient(135deg,rgba(255,243,231,.96) 0%,rgba(255,234,220,.92) 100%); box-shadow:inset 0 0 0 1rpx rgba(255,165,120,.30), 0 8rpx 18rpx rgba(255,138,83,.12); }
-.seller-avatar-wrap { width:34rpx; height:34rpx; border-radius:50%; background:linear-gradient(135deg,#ff8e5e 0%,#ffb27d 100%); display:flex; align-items:center; justify-content:center; flex:0 0 auto; box-shadow:0 6rpx 12rpx rgba(255,122,69,.18); }
-.seller-avatar { color:#fff; font-size:18rpx; font-weight:950; }
-.seller-name { max-width:140rpx; color:#7a4e31; font-size:19rpx; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.seller-time { flex:0 0 auto; color:#9b7560; font-size:19rpx; font-weight:700; }
-.product-grid-bottom { display:flex; align-items:flex-end; justify-content:space-between; gap:12rpx; }
-.price { color:#ff7a45; font-size:30rpx; font-weight:950; }
-@media (max-width: 360px) {
-  .banner-swiper,.banner-card { height:210rpx; }
-  .banner-title { font-size:36rpx; }
-  .ranking-entrance { gap:10rpx; }
-  .ranking-card { height:204rpx; padding:12rpx; border-radius:24rpx; }
-  .ranking-copy { max-width:214rpx; padding:9rpx 10rpx 11rpx; border-radius:18rpx; }
-  .ranking-title { font-size:28rpx; letter-spacing:1.6rpx; }
-  .product-marquee { height:980rpx; }
-}
-</style>
-
+<style scoped lang="scss" src="./style.scss"></style>

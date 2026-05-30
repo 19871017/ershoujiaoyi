@@ -31,7 +31,7 @@ class AuditApplicationServiceTest {
 
     @Test
     void shouldCreateReportAuditRecordAsPending() {
-        String evidenceUrl = serviceMedia().issue(1L, "REPORT_EVIDENCE", "image/png", 600_000L, "report-proof.png").storageUrl();
+        String evidenceUrl = uploadedReportEvidence(1L, "report-proof.png");
         AuditRecordResponse response = service.submitReport(1L, "product", "PRODUCT-100001", "SPAM", "bad content", List.of(evidenceUrl));
 
         assertNotNull(response.auditNo());
@@ -125,7 +125,7 @@ class AuditApplicationServiceTest {
 
     @Test
     void getAdminAuditDetailShouldReturnSafePersistedRecordOnly() {
-        String evidenceUrl = serviceMedia().issue(5L, "REPORT_EVIDENCE", "image/png", 600_000L, "report-admin-proof.png").storageUrl();
+        String evidenceUrl = uploadedReportEvidence(5L, "report-admin-proof.png");
         AuditRecordResponse created = service.submitReport(5L, "chat", "CHAT-100088", "HARASSMENT", "辱骂骚扰，凭证手机号 13800138000", List.of(evidenceUrl));
 
         AuditRecordResponse detail = service.getAdminDetail(created.auditNo());
@@ -308,6 +308,13 @@ class AuditApplicationServiceTest {
         String videoUrl = serviceMedia().issue(userId, "VIDEO_IDENTITY", "video/mp4", 5_000_000L, filename).storageUrl();
         jdbcTemplate.update("update media_upload_ticket set status = 'UPLOADED' where storage_url = ?", videoUrl);
         return videoUrl;
+    }
+
+    private String uploadedReportEvidence(Long userId, String filename) {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        String storageUrl = serviceMedia().issue(userId, "REPORT_EVIDENCE", "image/png", 600_000L, filename).storageUrl();
+        jdbcTemplate.update("update media_upload_ticket set status = 'UPLOADED' where owner_user_id = ? and storage_url = ?", userId, storageUrl);
+        return storageUrl;
     }
 
     private MediaUploadTicketService serviceMedia() {

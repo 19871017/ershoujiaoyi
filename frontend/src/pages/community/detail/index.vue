@@ -35,7 +35,7 @@
     <view class="comment-card ds-card">
       <view class="section-title">评论互动</view>
       <view v-if="!comments.length" class="comment-empty">暂无平台评论</view>
-      <view v-for="item in comments" :key="item.id" class="comment-row">
+      <view v-for="(item, index) in comments" :key="item.id" class="comment-row" :class="{ 'last-comment': index === comments.length - 1 }">
         <view class="comment-avatar">{{ item.avatar }}</view>
         <view class="comment-main">
           <view class="comment-name">{{ item.name }}</view>
@@ -54,13 +54,13 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createCommunityComment, getCommunityPostDetail, likeCommunityPost, unlikeCommunityPost } from '../../../api/modules/community'
 import { followPublicProfile, getPublicProfile, unfollowPublicProfile } from '../../../api/modules/user'
-
-interface CommentItem { id: string; avatar: string; name: string; text: string }
-
-const launchReadinessMarkers = [
-  '缺少后端作者ID，未执行任何关注变更',
-  '关注状态没有提交成功，未执行本地关注变更'
-]
+import {
+  firstChar,
+  formatDateTime,
+  isValidBackendUserId,
+  isValidCommunityPostId,
+  type CommentItem
+} from './community-detail-helpers'
 
 const topic = ref('')
 const postId = ref('')
@@ -97,10 +97,6 @@ function readQuery() {
   topic.value = current?.options?.topic || hashParams?.get('topic') || ''
   postId.value = current?.options?.postId || hashParams?.get('postId') || ''
 }
-function firstChar(value: string | undefined) { return value?.trim()?.slice(0, 1) || '用' }
-function formatDateTime(value: string | undefined) { return value ? value.replace('T', ' ').slice(0, 16) : '--' }
-function isValidCommunityPostId(value: string) { return /^[1-9]\d{0,18}$/.test(value) }
-function isValidBackendUserId(value: number | null) { return typeof value === 'number' && Number.isInteger(value) && value > 0 }
 async function loadDetail() {
   if (!isValidCommunityPostId(postId.value)) {
     errorText.value = '缺少有效动态编号，动态详情暂时不可用'
@@ -212,20 +208,4 @@ function reportPost() {
 onMounted(() => { readQuery(); loadDetail() })
 </script>
 
-<style scoped>
-.detail-page { background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%); }
-.post-card,.goods-card,.comment-card,.empty-card { margin-top:18rpx; padding:22rpx; border-color:#ffd9bd; }
-.empty-card { color:#9b7560; font-size:24rpx; line-height:1.6; }
-.post-head,.goods-card,.comment-row,.comment-form { display:flex; align-items:center; gap:14rpx; }
-.avatar,.comment-avatar { width:72rpx; height:72rpx; border-radius:50%; background:#ff7a45; color:#fff; display:flex; align-items:center; justify-content:center; font-size:28rpx; font-weight:950; }
-.author,.goods-main,.comment-main { flex:1; min-width:0; }.name,.section-title,.goods-title,.comment-name { color:#3a2a1f; font-weight:950; }
-.meta,.goods-desc,.comment-empty { margin-top:5rpx; color:#9b7560; font-size:21rpx; }
-.follow { padding:9rpx 16rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:20rpx; font-weight:900; }
-.title { margin-top:20rpx; color:#3a2a1f; font-size:34rpx; font-weight:950; line-height:1.3; }
-.content { margin-top:14rpx; color:#604050; font-size:26rpx; line-height:1.65; }
-.image-grid { margin-top:16rpx; display:grid; grid-template-columns:repeat(3,1fr); gap:12rpx; }.post-image { width:100%; height:160rpx; border-radius:24rpx; background:#fff3e7; }
-.action-row { margin-top:18rpx; display:flex; gap:30rpx; color:#9b7560; font-size:23rpx; font-weight:900; }
-.goods-icon { width:72rpx; height:72rpx; border-radius:24rpx; background:#fff3e7; display:flex; align-items:center; justify-content:center; font-size:38rpx; }.goods-go { color:#ff7a45; font-size:22rpx; font-weight:950; }
-.comment-row { align-items:flex-start; padding:18rpx 0; border-bottom:1rpx solid #ffe5ef; }.comment-text { margin-top:6rpx; color:#7b5542; font-size:23rpx; line-height:1.5; }
-.comment-form { margin-top:16rpx; }.comment-input { flex:1; height:68rpx; padding:0 18rpx; border-radius:999rpx; background:#fffaf6; border:1rpx solid #ffd9bd; font-size:23rpx; }.send-btn { width:102rpx; height:68rpx; line-height:68rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:23rpx; font-weight:950; }
-</style>
+<style scoped lang="scss" src="./style.scss"></style>

@@ -3,7 +3,13 @@ const path = require('path')
 
 const root = path.resolve(__dirname, '..')
 const file = 'src/pages/user/public-profile/index.vue'
-const source = fs.readFileSync(path.join(root, file), 'utf8')
+const supportFiles = [
+  'src/pages/user/public-profile/profile-integrity.ts'
+]
+const source = [
+  ...supportFiles.map((supportFile) => fs.readFileSync(path.join(root, supportFile), 'utf8')),
+  fs.readFileSync(path.join(root, file), 'utf8')
+].join('\n')
 
 const failures = []
 
@@ -30,8 +36,9 @@ const requiredMarkers = [
   '未展示本地卖家样例',
   "const unavailableProfileMessage = '卖家数据暂时不可用，未展示本地卖家样例'",
   'const sellerProducts = ref<ProductListItemResponse[]>([])',
-  'const products = computed(() => sellerProducts.value)',
   'listSellerProducts(userId.value)',
+  "assertProductList(activeData, 'ACTIVE')",
+  "assertProductList(soldData, 'SOLD')",
   '卖家商品加载失败，未展示本地商品样例',
   '暂无后端公开在售商品，未展示本地商品样例',
   'function openProduct(productId: number): void',
@@ -48,7 +55,27 @@ const requiredMarkers = [
   '缺少真实用户ID，未执行任何关注变更',
   '缺少真实用户ID，未进入私信',
   '缺少真实用户ID，未进入送礼',
-  '缺少真实用户ID，未进入举报'
+  '缺少真实用户ID，未进入举报',
+  'v-if="hasIdentityVideo"',
+  "const videoIdentityStoragePrefix = '/uploads/video-identity/'",
+  "const showcaseImageStoragePrefix = '/uploads/community-image/'",
+  "const productImageStoragePrefix = '/uploads/product-image/'",
+  'function validatedPublicMediaUrl(url: unknown, expectedPrefix: string): string',
+  ':src="identityVideoUrl"',
+  ':src="safeAvatarUrl"',
+  'function decodeRouteValue(fieldName: string, value: string): string',
+  "console.warn('public profile route decode failed'",
+  "console.warn('public profile load failed'",
+  "console.warn('public profile navigation failed'",
+  "console.warn('public profile products load failed'",
+  "console.warn('public profile follow mutation failed'",
+  "console.warn('public profile product navigation failed'",
+  "console.warn('public profile rejected media url'",
+  "console.warn('public profile initialize failed'",
+  "function assertProductList(value: unknown, expectedStatus: 'ACTIVE' | 'SOLD' = 'ACTIVE'): asserts value is ProductListItemResponse[]",
+  'function assertPublicProfile(value: unknown, expectedUserId: string): asserts value is UserProfileResponse',
+  "throw new Error('public profile userId mismatch')",
+  "throw new Error('public profile video verified mismatch')"
 ]
 
 const forbiddenStaticTrustTagPatterns = [
@@ -73,6 +100,19 @@ for (const marker of requiredMarkers) {
   if (!source.includes(marker)) failures.push(`${file}: missing fail-closed public-profile marker: ${marker}`)
 }
 
+const forbiddenFakeSuccessPatterns = [
+  { label: 'direct local follow state assignment', pattern: /profile\.followedByMe\s*=(?!=)/ },
+  { label: 'direct local follower count mutation', pattern: /profile\.followerCount\s*(?:\+\+|--|[+\-]=|=\s*profile\.followerCount\s*[+\-])/ },
+  { label: 'direct local following count mutation', pattern: /profile\.followingCount\s*(?:\+\+|--|[+\-]=|=\s*profile\.followingCount\s*[+\-])/ },
+  { label: 'fallback non-empty product array assignment', pattern: /sellerProducts\.value\s*=\s*\[\s*\{/ },
+  { label: 'inline local profile success assignment', pattern: /Object\.assign\(profile,\s*\{(?!\s*\.\.emptyProfile)/s },
+  { label: 'local profile spread success assignment', pattern: /Object\.assign\(profile,\s*\{\s*\.\.profile/s }
+]
+
+for (const { label, pattern } of forbiddenFakeSuccessPatterns) {
+  if (pattern.test(source)) failures.push(`${file}: forbidden fake public-profile success pattern found: ${label}`)
+}
+
 const invalidLoadGuards = [
   "startsWith('PREVIEW')",
   "startsWith(\"PREVIEW\")",
@@ -89,6 +129,62 @@ if (!/if\s*\(\s*!isValidBackendUserId\(userId\.value\)\s*\)\s*\{[^}]*resetProfil
   failures.push(`${file}: loadProfile must fail closed for all invalid route userIds before fetching seller data`)
 }
 
+if (!source.includes("const routeUserId = decodeRouteValue('userId'") || !source.includes('userId.value = isValidBackendUserId(routeUserId) ? routeUserId :')) {
+  failures.push(`${file}: route userId must be decoded fail-closed and validated before profile/product requests`)
+}
+
+if (!source.includes('assertPublicProfile(data, userId.value)') || !source.includes("if (String(backendProfile.userId) !== expectedUserId) throw new Error('public profile userId mismatch')")) {
+  failures.push(`${file}: public profile must validate backend-returned userId before assigning profile state`)
+}
+
+if (!/function assertPublicProfile\(value: unknown, expectedUserId: string\): asserts value is UserProfileResponse[\s\S]*Number\.isSafeInteger\(backendProfile\.userId\)[\s\S]*typeof backendProfile\.nickname !== 'string'[\s\S]*typeof backendProfile\.videoVerified !== 'boolean'[\s\S]*backendProfile\.videoVerified === true && !validatedPublicMediaUrl\(backendProfile\.videoIdentityUrl, videoIdentityStoragePrefix\)[\s\S]*backendProfile\.showcaseImageUrls\.some\(\(url\) => typeof url !== 'string' \|\| !validatedPublicMediaUrl\(url, showcaseImageStoragePrefix\)\)[\s\S]*typeof backendProfile\.followedByMe !== 'boolean'/s.test(source)) {
+  failures.push(`${file}: public profile must validate backend profile shape and approved media URLs before rendering trust/profile state`)
+}
+
+if (!/const products = computed\(\(\) => sellerProducts\.value\.map[\s\S]*coverImageUrl: resolveBackendMediaUrl\(validatedPublicMediaUrl\(item\.coverImageUrl, productImageStoragePrefix\)\)/s.test(source)) {
+  failures.push(`${file}: public profile product computed state must validate coverImageUrl against PRODUCT_IMAGE media prefix`)
+}
+
+if (!/const hasApprovedSellerVideo = computed\(\(\) =>[\s\S]*profileLoaded\.value[\s\S]*isSellerProfile\.value[\s\S]*profile\.videoVerified === true[\s\S]*profile\.videoIdentityStatus === 'APPROVED'/s.test(source)) {
+  failures.push(`${file}: public profile video trust state must require loaded seller profile and APPROVED backend video identity`)
+}
+
+if (!/const identityVideoUrl = computed\(\(\) => hasApprovedSellerVideo\.value \? resolveBackendMediaUrl\(validatedPublicMediaUrl\(profile\.videoIdentityUrl \|\| '', videoIdentityStoragePrefix\)\) : ''\)/s.test(source)) {
+  failures.push(`${file}: public profile approved video URL must be validated against VIDEO_IDENTITY prefix before display`)
+}
+
+if (!/const safeAvatarUrl = computed\(\(\) => resolveBackendMediaUrl\(validatedPublicMediaUrl\(profile\.avatarUrl \|\| '', showcaseImageStoragePrefix\)\)\)/s.test(source)) {
+  failures.push(`${file}: public profile avatar URL must be validated against COMMUNITY_IMAGE prefix before display`)
+}
+
+if (!/function assertProductList\(value: unknown, expectedStatus: 'ACTIVE' \| 'SOLD' = 'ACTIVE'\): asserts value is ProductListItemResponse\[\][\s\S]*Number\.isSafeInteger\(product\.productId\)[\s\S]*typeof product\.title !== 'string'[\s\S]*typeof product\.price !== 'string'[\s\S]*expectedStatus === 'ACTIVE' && product\.visible !== true[\s\S]*product\.status !== expectedStatus[\s\S]*product\.auditState !== 'APPROVED'[\s\S]*assertProductList\(activeData, 'ACTIVE'\)[\s\S]*sellerProducts\.value = data/s.test(source)) {
+  failures.push(`${file}: public profile must validate backend product list shape and public visibility before rendering seller products`)
+}
+
+if (!/async function toggleFollow\(\): Promise<void>\s*\{[\s\S]*!profileLoaded\.value[\s\S]*assertPublicProfile\(data, userId\.value\)[\s\S]*Object\.assign\(profile, data\)/s.test(source)) {
+  failures.push(`${file}: public profile follow mutation must require loaded backend profile and validate returned user state before assigning`)
+}
+
+if (!/async function initializePublicProfile\(\): Promise<void>\s*\{[\s\S]*try\s*\{[\s\S]*readQuery\(\)[\s\S]*if \(await loadProfile\(\)\) await loadSellerProducts\(\)[\s\S]*catch \(error\)\s*\{[\s\S]*resetProfile\(\)[\s\S]*failClosedProducts\(\)[\s\S]*console\.warn\('public profile initialize failed'/s.test(source)) {
+  failures.push(`${file}: public profile must load seller products only after profile id validation succeeds and fail closed on initialization errors`)
+}
+
+if (!source.includes("url.startsWith('local://')") || !source.includes("url.startsWith('blob:')") || !source.includes("url.startsWith('data:')") || !source.includes('url.startsWith(expectedPrefix) ? url.slice(expectedPrefix.length)') || !source.includes("lower.includes('%2e')") || !source.includes("url.includes('\\\\')") || !source.includes("console.warn('public profile rejected media url'")) {
+  failures.push(`${file}: public profile must reject local/blob/data/placeholder/traversal media and enforce backend media prefixes before public display with diagnostics`)
+}
+
+if (!source.includes('coverImageUrl: resolveBackendMediaUrl(validatedPublicMediaUrl(item.coverImageUrl, productImageStoragePrefix))')) {
+  failures.push(`${file}: public profile product cover images must be validated against backend PRODUCT_IMAGE media prefix before display`)
+}
+
+if (!/const showcasePhotos = computed\(\(\) => profileLoaded\.value \?[\s\S]*profile\.showcaseImageUrls[\s\S]*resolveBackendMediaUrl\(validatedPublicMediaUrl\(url, showcaseImageStoragePrefix\)\)[\s\S]*\.filter\(\(url\) => !!url\)/s.test(source)) {
+  failures.push(`${file}: public profile showcase photos must only render after backend profile loads and must validate COMMUNITY_IMAGE URLs`)
+}
+
+if (source.includes(':src="profile.avatarUrl"') || !source.includes(':src="safeAvatarUrl"')) {
+  failures.push(`${file}: public profile avatar must be validated against backend COMMUNITY_IMAGE media prefix before display`)
+}
+
 const forbiddenNavigationPatterns = [
   /function chat\(\)\{[^}]*if\(!userId\.value\)/,
   /function openGift\(\)\{[^}]*if\(!userId\.value\)/,
@@ -97,6 +193,13 @@ const forbiddenNavigationPatterns = [
 
 for (const pattern of forbiddenNavigationPatterns) {
   if (pattern.test(source)) failures.push(`${file}: public-profile sensitive navigation must validate positive backend userId, not only non-empty id`)
+}
+
+if (!/function navigateToUserRoute\(missingUserIdTitle: string, buildUrl: \(backendUserId: string\) => string\): void\s*\{[\s\S]*!profileLoaded\.value[\s\S]*try\s*\{\s*uni\.navigateTo\(route\)[\s\S]*catch \(error\)\s*\{[\s\S]*console\.warn\('public profile navigation failed'/s.test(source)) {
+  failures.push(`${file}: public-profile user navigation must require loaded backend profile and handle async/synchronous failures`)
+}
+if (!/function openProduct\(productId: number\): void\s*\{[\s\S]*try\s*\{\s*uni\.navigateTo\(route\)[\s\S]*catch \(error\)\s*\{[\s\S]*console\.warn\('public profile product navigation failed'/s.test(source)) {
+  failures.push(`${file}: public-profile product navigation must handle async and synchronous failures`)
 }
 
 if (failures.length) {

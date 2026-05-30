@@ -202,7 +202,7 @@ public class CommunityApplicationService {
                     if (url.startsWith("local://") || lower.contains("placeholder") || lower.contains("preview")) {
                         throw new IllegalArgumentException("invalid image url");
                     }
-                    mediaUploadTicketService.requireIssuedStorageUrl(authorId, "COMMUNITY_IMAGE", url);
+                    mediaUploadTicketService.requireUploadedStorageUrl(authorId, "COMMUNITY_IMAGE", url);
                 })
                 .collect(Collectors.toList());
     }

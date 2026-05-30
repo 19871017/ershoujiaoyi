@@ -1,8 +1,10 @@
 package com.secondhand.platform.modules.admin;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -40,8 +42,15 @@ class AdminSessionControllerTest {
     }
 
     @Test
+    void schemaInitializesAdminLoginAttemptTableForLockoutPersistence() {
+        Integer count = jdbcTemplate.queryForObject("select count(1) from admin_login_attempt", Integer.class);
+
+        assertEquals(0, count);
+    }
+
+    @Test
     void adminLoginReturnsPersistedPermissionsForActiveOperatorOnly() throws Exception {
-        createUserThroughPasswordLogin("13900000071", "admin-pass-71");
+        createRegisteredUser("13900000071", "admin-pass-71");
         Long userId = jdbcTemplate.queryForObject("select id from user_account where phone = ?", Long.class, "13900000071");
         grantPermission(userId, "audit:read");
         grantPermission(userId, "finance:read");
@@ -61,7 +70,7 @@ class AdminSessionControllerTest {
 
     @Test
     void adminLoginRejectsUsersWithoutExplicitAdminPermission() throws Exception {
-        createUserThroughPasswordLogin("13900000072", "admin-pass-72");
+        createRegisteredUser("13900000072", "admin-pass-72");
 
         mvc.perform(post("/api/admin/session/login")
                         .contentType("application/json")
@@ -72,7 +81,7 @@ class AdminSessionControllerTest {
 
     @Test
     void adminLoginPersistsServerIssuedSessionAndGuardRequiresIt() throws Exception {
-        createUserThroughPasswordLogin("13900000074", "admin-pass-74");
+        createRegisteredUser("13900000074", "admin-pass-74");
         Long userId = jdbcTemplate.queryForObject("select id from user_account where phone = ?", Long.class, "13900000074");
         grantPermission(userId, "audit:read");
 
@@ -85,12 +94,12 @@ class AdminSessionControllerTest {
                 .andExpect(jsonPath("$.data.expiresAt").isString());
 
         String sessionId = jdbcTemplate.queryForObject("select session_id from admin_session where user_id = ?", String.class, userId);
-        org.junit.jupiter.api.Assertions.assertNotNull(sessionId);
+        assertNotNull(sessionId);
     }
 
     @Test
     void adminLoginRejectsWrongPasswordAndInactiveOperator() throws Exception {
-        createUserThroughPasswordLogin("13900000073", "admin-pass-73");
+        createRegisteredUser("13900000073", "admin-pass-73");
         Long userId = jdbcTemplate.queryForObject("select id from user_account where phone = ?", Long.class, "13900000073");
         grantPermission(userId, "audit:read");
 
@@ -108,8 +117,34 @@ class AdminSessionControllerTest {
     }
 
     @Test
+    void adminLoginLocksMobileAfterRepeatedFailuresAndClearsAfterSuccessfulLogin() throws Exception {
+        createRegisteredUser("13900000077", "admin-pass-77");
+        Long userId = jdbcTemplate.queryForObject("select id from user_account where phone = ?", Long.class, "13900000077");
+        grantPermission(userId, "audit:read");
+
+        for (int i = 0; i < 5; i++) {
+            mvc.perform(post("/api/admin/session/login")
+                            .contentType("application/json")
+                            .content("{\"mobile\":\"13900000077\",\"password\":\"wrong-pass\"}"))
+                    .andExpect(status().isForbidden());
+        }
+        mvc.perform(post("/api/admin/session/login")
+                        .contentType("application/json")
+                        .content("{\"mobile\":\"13900000077\",\"password\":\"admin-pass-77\"}"))
+                .andExpect(status().isForbidden());
+
+        jdbcTemplate.update("update admin_login_attempt set locked_until = DATEADD('MINUTE', -1, CURRENT_TIMESTAMP) where mobile = ?", "13900000077");
+        mvc.perform(post("/api/admin/session/login")
+                        .contentType("application/json")
+                        .content("{\"mobile\":\"13900000077\",\"password\":\"admin-pass-77\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userId").value(String.valueOf(userId)));
+        assertEquals(0, jdbcTemplate.queryForObject("select count(1) from admin_login_attempt where mobile = ?", Integer.class, "13900000077"));
+    }
+
+    @Test
     void adminLogoutRevokesOnlyMatchingServerIssuedSession() throws Exception {
-        createUserThroughPasswordLogin("13900000075", "admin-pass-75");
+        createRegisteredUser("13900000075", "admin-pass-75");
         Long userId = jdbcTemplate.queryForObject("select id from user_account where phone = ?", Long.class, "13900000075");
         grantPermission(userId, "audit:read");
 
@@ -125,12 +160,12 @@ class AdminSessionControllerTest {
                 .andExpect(status().isOk());
 
         Boolean revoked = jdbcTemplate.queryForObject("select revoked from admin_session where session_id = ?", Boolean.class, sessionId);
-        org.junit.jupiter.api.Assertions.assertEquals(Boolean.TRUE, revoked);
+        assertEquals(Boolean.TRUE, revoked);
     }
 
     @Test
     void adminSessionMeRehydratesOnlyActiveUnrevokedSessionWithCurrentPermissions() throws Exception {
-        createUserThroughPasswordLogin("13900000076", "admin-pass-76");
+        createRegisteredUser("13900000076", "admin-pass-76");
         Long userId = jdbcTemplate.queryForObject("select id from user_account where phone = ?", Long.class, "13900000076");
         grantPermission(userId, "audit:read");
         grantPermission(userId, "order:read");
@@ -159,11 +194,12 @@ class AdminSessionControllerTest {
                 .andExpect(status().isForbidden());
     }
 
-    private void createUserThroughPasswordLogin(String mobile, String password) {
+    private void createRegisteredUser(String mobile, String password) {
         LoginRequest request = new LoginRequest();
         request.setMobile(mobile);
         request.setPassword(password);
-        authApplicationService.login(request);
+        request.setGender("goddess");
+        authApplicationService.register(request, "127.0.0." + mobile.substring(mobile.length() - 2));
     }
 
     private void grantPermission(Long userId, String permission) {

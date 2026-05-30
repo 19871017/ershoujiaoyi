@@ -32,6 +32,18 @@ public class ProductApplicationService {
     private static final String STATUS_SOLD = "SOLD";
     private static final String AUDIT_PENDING = "PENDING";
     private static final String AUDIT_APPROVED = "APPROVED";
+    private static final String CERTIFIED_PRODUCT_SELLER_FILTER = """
+            and exists (
+                select 1
+                from user_account a
+                join user_profile up on up.user_id = a.id
+                where a.id = p.seller_id
+                  and a.status = 'ACTIVE'
+                  and UPPER(COALESCE(up.main_role, 'BUYER')) IN ('SELLER', 'BOTH')
+                  and up.video_identity_status = 'APPROVED'
+                  and up.video_verified = TRUE
+            )
+            """;
 
     private final JdbcTemplate jdbcTemplate;
     private final MediaUploadTicketService mediaUploadTicketService;
@@ -73,7 +85,15 @@ public class ProductApplicationService {
 
     public List<ProductListItemResponse> listProducts() {
         return jdbcTemplate.query(
-                "select id,product_no,title,price,product_status,audit_status,visible,created_at,image_urls from product_item where visible = true and product_status = ? and audit_status = ? order by created_at desc, id desc",
+                """
+                        select p.id,p.product_no,p.seller_id,ua.nickname as seller_nickname,ua.avatar_url as seller_avatar_url,up.gender as seller_gender,p.title,p.category,up.city as seller_city,up.video_verified as seller_video_verified,p.price,p.product_status,p.audit_status,p.visible,p.created_at,p.image_urls
+                        from product_item p
+                        join user_account ua on ua.id = p.seller_id
+                        left join user_profile up on up.user_id = p.seller_id
+                        where p.visible = true and p.product_status = ? and p.audit_status = ?
+                        """ + CERTIFIED_PRODUCT_SELLER_FILTER + """
+                        order by created_at desc, id desc
+                        """,
                 this::mapListItem,
                 STATUS_ACTIVE,
                 AUDIT_APPROVED
@@ -83,7 +103,15 @@ public class ProductApplicationService {
     public List<ProductListItemResponse> listProductsBySeller(Long sellerId) {
         requirePositiveId(sellerId, "valid sellerId required");
         return jdbcTemplate.query(
-                "select id,product_no,title,price,product_status,audit_status,visible,created_at,image_urls from product_item where seller_id = ? and visible = true and product_status = ? and audit_status = ? order by created_at desc, id desc",
+                """
+                        select p.id,p.product_no,p.seller_id,ua.nickname as seller_nickname,ua.avatar_url as seller_avatar_url,up.gender as seller_gender,p.title,p.category,up.city as seller_city,up.video_verified as seller_video_verified,p.price,p.product_status,p.audit_status,p.visible,p.created_at,p.image_urls
+                        from product_item p
+                        join user_account ua on ua.id = p.seller_id
+                        left join user_profile up on up.user_id = p.seller_id
+                        where p.seller_id = ? and p.visible = true and p.product_status = ? and p.audit_status = ?
+                        """ + CERTIFIED_PRODUCT_SELLER_FILTER + """
+                        order by created_at desc, id desc
+                        """,
                 this::mapListItem,
                 sellerId,
                 STATUS_ACTIVE,
@@ -91,10 +119,37 @@ public class ProductApplicationService {
         );
     }
 
+    public List<ProductListItemResponse> listSoldProductsBySeller(Long sellerId) {
+        requirePositiveId(sellerId, "valid sellerId required");
+        return jdbcTemplate.query(
+                """
+                        select p.id,p.product_no,p.seller_id,ua.nickname as seller_nickname,ua.avatar_url as seller_avatar_url,up.gender as seller_gender,p.title,p.category,up.city as seller_city,up.video_verified as seller_video_verified,p.price,p.product_status,p.audit_status,p.visible,p.created_at,p.image_urls
+                        from product_item p
+                        join user_account ua on ua.id = p.seller_id
+                        left join user_profile up on up.user_id = p.seller_id
+                        where p.seller_id = ? and p.product_status = ? and p.audit_status = ?
+                        """ + CERTIFIED_PRODUCT_SELLER_FILTER + """
+                        order by p.updated_at desc, p.id desc
+                        limit 30
+                        """,
+                this::mapListItem,
+                sellerId,
+                STATUS_SOLD,
+                AUDIT_APPROVED
+        );
+    }
+
     public List<ProductListItemResponse> listMyProducts(Long sellerId) {
         requirePositiveId(sellerId, "valid sellerId required");
         return jdbcTemplate.query(
-                "select id,product_no,title,price,product_status,audit_status,visible,created_at,image_urls from product_item where seller_id = ? order by created_at desc, id desc",
+                """
+                        select p.id,p.product_no,p.seller_id,ua.nickname as seller_nickname,ua.avatar_url as seller_avatar_url,up.gender as seller_gender,p.title,p.category,up.city as seller_city,up.video_verified as seller_video_verified,p.price,p.product_status,p.audit_status,p.visible,p.created_at,p.image_urls
+                        from product_item p
+                        join user_account ua on ua.id = p.seller_id
+                        left join user_profile up on up.user_id = p.seller_id
+                        where p.seller_id = ?
+                        order by p.created_at desc, p.id desc
+                        """,
                 this::mapListItem,
                 sellerId
         );
@@ -103,7 +158,16 @@ public class ProductApplicationService {
     public List<ProductListItemResponse> listFavorites(Long userId) {
         requirePositiveId(userId, "valid userId required");
         return jdbcTemplate.query(
-                "select p.id,p.product_no,p.title,p.price,p.product_status,p.audit_status,p.visible,p.created_at,p.image_urls from product_favorite f join product_item p on p.id = f.product_id where f.user_id = ? and p.visible = true and p.product_status = ? and p.audit_status = ? order by f.created_at desc, f.id desc",
+                """
+                        select p.id,p.product_no,p.seller_id,ua.nickname as seller_nickname,ua.avatar_url as seller_avatar_url,up.gender as seller_gender,p.title,p.category,up.city as seller_city,up.video_verified as seller_video_verified,p.price,p.product_status,p.audit_status,p.visible,p.created_at,p.image_urls
+                        from product_favorite f
+                        join product_item p on p.id = f.product_id
+                        join user_account ua on ua.id = p.seller_id
+                        left join user_profile up on up.user_id = p.seller_id
+                        where f.user_id = ? and p.visible = true and p.product_status = ? and p.audit_status = ?
+                        """ + CERTIFIED_PRODUCT_SELLER_FILTER + """
+                        order by f.created_at desc, f.id desc
+                        """,
                 this::mapListItem,
                 userId,
                 STATUS_ACTIVE,
@@ -192,6 +256,9 @@ public class ProductApplicationService {
         }
         if (STATUS_SOLD.equals(existing.status()) || existing.lockedOrderNo() != null) {
             throw new IllegalArgumentException("product cannot change visibility after locked or sold");
+        }
+        if (visible) {
+            requireCertifiedSeller(sellerId);
         }
         String nextStatus = visible ? STATUS_ACTIVE : STATUS_OFFLINE;
         int changed = jdbcTemplate.update(
@@ -298,6 +365,7 @@ public class ProductApplicationService {
         if (!STATUS_ACTIVE.equals(product.status()) || !AUDIT_APPROVED.equals(product.auditState()) || !product.visible()) {
             throw new IllegalArgumentException("product-not-saleable");
         }
+        requireCertifiedSeller(product.sellerId());
         return product;
     }
 
@@ -305,7 +373,14 @@ public class ProductApplicationService {
         return new ProductListItemResponse(
                 rs.getLong("id"),
                 rs.getString("product_no"),
+                rs.getLong("seller_id"),
+                rs.getString("seller_nickname"),
+                rs.getString("seller_avatar_url"),
+                rs.getString("seller_gender"),
                 rs.getString("title"),
+                rs.getString("category"),
+                rs.getString("seller_city"),
+                rs.getBoolean("seller_video_verified"),
                 rs.getBigDecimal("price"),
                 firstImageUrl(decodeImageUrls(rs.getString("image_urls"))),
                 rs.getString("product_status"),
@@ -418,7 +493,7 @@ public class ProductApplicationService {
             if (imageUrl.startsWith("local://") || imageUrl.toLowerCase(Locale.ROOT).contains("placeholder") || imageUrl.toLowerCase(Locale.ROOT).contains("preview")) {
                 throw new IllegalArgumentException("product image url invalid");
             }
-            mediaUploadTicketService.requireIssuedStorageUrl(sellerId, "PRODUCT_IMAGE", imageUrl);
+            mediaUploadTicketService.requireUploadedStorageUrl(sellerId, "PRODUCT_IMAGE", imageUrl);
         }
         return cleaned;
     }

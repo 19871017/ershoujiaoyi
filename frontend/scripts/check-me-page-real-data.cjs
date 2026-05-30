@@ -3,7 +3,13 @@ const path = require('path')
 
 const root = path.resolve(__dirname, '..')
 const file = 'src/pages/tabbar/me/index.vue'
-const source = fs.readFileSync(path.join(root, file), 'utf8')
+const supportFiles = [
+  'src/pages/tabbar/me/me-data.ts'
+]
+const source = [
+  ...supportFiles.map((supportFile) => fs.readFileSync(path.join(root, supportFile), 'utf8')),
+  fs.readFileSync(path.join(root, file), 'utf8')
+].join('\n')
 
 const failures = []
 

@@ -91,5 +91,25 @@ async function loadFavorites() {
 onMounted(loadFavorites)
 </script>
 <style scoped>
-.favorite-page{background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%)}.hero,.fav-card,.empty-card{margin-top:18rpx;padding:22rpx;border-color:#ffd9bd}.hero{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#fff,#fff3e7)}.kicker{color:#ff7a45;font-size:22rpx;font-weight:950}.hero-icon{width:82rpx;height:82rpx;border-radius:28rpx;background:#ff7a45;color:#fff;display:flex;align-items:center;justify-content:center;font-size:38rpx}.filter-row{margin-top:18rpx;display:flex;gap:12rpx;overflow-x:auto}.filter-chip{flex:none;padding:13rpx 20rpx;border-radius:999rpx;background:#fff;border:1rpx solid #ffd9bd;color:#9b7560;font-size:22rpx;font-weight:900}.filter-chip.active{background:#3a2a1f;color:#fff}.empty-card{color:#9b7560;font-size:24rpx;line-height:1.5;text-align:center;background:#fffdfa}.empty-card.danger{background:#fff3e7;color:#7b5542}.fav-grid{margin-top:16rpx;display:grid;grid-template-columns:repeat(2,1fr);gap:14rpx}.cover{height:180rpx;border-radius:28rpx;background:#fff3e7;display:flex;align-items:center;justify-content:center;font-size:58rpx;overflow:hidden}.cover text{font-size:58rpx}.cover-img{width:100%;height:100%}.title{margin-top:12rpx;color:#3a2a1f;font-size:25rpx;font-weight:950}.meta{margin-top:6rpx;color:#9b7560;font-size:20rpx}.bottom{margin-top:10rpx;display:flex;align-items:center;justify-content:space-between;color:#ff3f8d;font-size:28rpx;font-weight:950}.mini-btn{margin:0;padding:0 16rpx;height:46rpx;line-height:46rpx;border-radius:999rpx;background:#fff;border:1rpx solid #ffd9bd;color:#7b5542;font-size:20rpx}
+.favorite-page { min-height:100vh; padding-top:18rpx; padding-bottom:44rpx; background:radial-gradient(circle at 12% 0%,rgba(255,202,150,.26),transparent 28%),radial-gradient(circle at 88% 16%,rgba(255,226,214,.42),transparent 24%),linear-gradient(180deg,#fff8f0 0%,#fffdfa 55%,#fff5ee 100%); }
+.hero,.fav-card,.empty-card { margin-top:16rpx; padding:22rpx; border-color:rgba(255,217,189,.78); box-shadow:0 15rpx 30rpx rgba(132,70,36,.08); }
+.hero { margin-top:0; display:flex; justify-content:space-between; align-items:center; gap:20rpx; background:linear-gradient(135deg,rgba(255,255,255,.98),rgba(255,244,234,.96)); }
+.fav-card,.empty-card { background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(255,248,242,.97)); }
+.kicker { color:#df6735; font-size:22rpx; font-weight:950; letter-spacing:.18rpx; }
+.hero-icon,.cover { display:flex; align-items:center; justify-content:center; }
+.hero-icon { width:82rpx; height:82rpx; border-radius:28rpx; background:linear-gradient(135deg,#ef6f3f,#ff8b76); color:#fffaf4; font-size:38rpx; box-shadow:0 12rpx 24rpx rgba(255,122,69,.17); flex:0 0 auto; }
+.filter-row { margin-top:18rpx; display:flex; gap:12rpx; overflow-x:auto; padding-bottom:4rpx; }
+.filter-chip,.mini-btn { border-radius:999rpx; background:rgba(255,255,255,.92); border:1rpx solid rgba(255,217,189,.78); }
+.filter-chip { flex:none; padding:13rpx 20rpx; color:#8f6b57; font-size:22rpx; font-weight:900; box-shadow:0 8rpx 16rpx rgba(132,70,36,.05); }
+.filter-chip.active { background:linear-gradient(135deg,#3a261a,#6f432b); color:#fffaf4; border-color:rgba(58,38,26,.82); box-shadow:0 10rpx 20rpx rgba(58,38,26,.13); }
+.empty-card { color:#8f6b57; font-size:24rpx; line-height:1.5; text-align:center; font-weight:760; }
+.empty-card.danger { background:#fff7f7; color:#be123c; border-color:#fecaca; }
+.fav-grid { margin-top:16rpx; display:grid; grid-template-columns:repeat(2,1fr); gap:14rpx; }
+.cover { height:180rpx; border-radius:28rpx; background:linear-gradient(135deg,#fff3e7,#ffe5ef); font-size:58rpx; overflow:hidden; box-shadow:inset 0 0 0 1rpx rgba(255,217,189,.52); }
+.cover text { font-size:58rpx; }
+.cover-img { width:100%; height:100%; }
+.title { margin-top:12rpx; color:#342116; font-size:25rpx; line-height:1.35; font-weight:950; letter-spacing:.12rpx; }
+.meta { margin-top:6rpx; color:#8f6b57; font-size:20rpx; line-height:1.38; font-weight:650; }
+.bottom { margin-top:10rpx; display:flex; align-items:center; justify-content:space-between; gap:10rpx; color:#df6735; font-size:28rpx; font-weight:950; }
+.mini-btn { margin:0; padding:0 16rpx; height:46rpx; line-height:46rpx; color:#7b5542; font-size:20rpx; font-weight:900; }
 </style>

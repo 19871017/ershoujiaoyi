@@ -9,6 +9,7 @@ import com.secondhand.platform.modules.audit.application.AuditApplicationService
 import com.secondhand.platform.shared.web.CurrentUserResolver;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
@@ -22,9 +23,10 @@ class AuditControllerTest {
     @Test
     void legacyAuditSubmitEndpointMustNotReturnFakeSuccess() throws Exception {
         EmbeddedDatabase database = database();
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
         AuditController controller = new AuditController(
-                new AuditApplicationService(new JdbcTemplate(database)),
-                new CurrentUserResolver()
+                new AuditApplicationService(jdbcTemplate),
+                devCurrentUserResolver(jdbcTemplate)
         );
         MockMvc mvc = MockMvcBuilders.standaloneSetup(controller).build();
 
@@ -37,11 +39,13 @@ class AuditControllerTest {
     @Test
     void reportEndpointPersistsRealAuditRecord() throws Exception {
         EmbeddedDatabase database = database();
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
         AuditController controller = new AuditController(
-                new AuditApplicationService(new JdbcTemplate(database)),
-                new CurrentUserResolver()
+                new AuditApplicationService(jdbcTemplate),
+                devCurrentUserResolver(jdbcTemplate)
         );
         MockMvc mvc = MockMvcBuilders.standaloneSetup(controller).build();
+        createActiveUser(jdbcTemplate, 1L);
         ReportRequest request = new ReportRequest();
         request.setTargetType("PRODUCT");
         request.setTargetId("PRODUCT-100001");
@@ -50,6 +54,7 @@ class AuditControllerTest {
 
         mvc.perform(post("/api/audit/reports")
                         .header("X-User-Id", "1")
+                        .header("X-Dev-Mode", "enabled")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -70,7 +75,7 @@ class AuditControllerTest {
                 .storageUrl();
         AuditController controller = new AuditController(
                 new AuditApplicationService(jdbcTemplate),
-                new CurrentUserResolver()
+                devCurrentUserResolver(jdbcTemplate)
         );
         MockMvc mvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new com.secondhand.platform.shared.web.GlobalExceptionHandler())
@@ -81,6 +86,7 @@ class AuditControllerTest {
 
         mvc.perform(post("/api/audit/video-identity")
                         .header("X-User-Id", String.valueOf(userId))
+                        .header("X-Dev-Mode", "enabled")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadRequest())
@@ -94,6 +100,19 @@ class AuditControllerTest {
         org.junit.jupiter.api.Assertions.assertEquals("UNVERIFIED", identityStatus);
         org.junit.jupiter.api.Assertions.assertEquals("UNVERIFIED", videoStatus);
         org.junit.jupiter.api.Assertions.assertEquals(false, videoVerified);
+    }
+
+    private void createActiveUser(JdbcTemplate jdbcTemplate, Long userId) {
+        jdbcTemplate.update("""
+                INSERT INTO user_account (id, user_no, phone, password_hash, nickname, status)
+                VALUES (?, ?, ?, ?, ?, 'ACTIVE')
+                """, userId, "U-AUDIT-" + userId, "1393000" + userId, "hash", "审核用户" + userId);
+    }
+
+    private CurrentUserResolver devCurrentUserResolver(JdbcTemplate jdbcTemplate) {
+        MockEnvironment environment = new MockEnvironment();
+        environment.setActiveProfiles("dev");
+        return new CurrentUserResolver(jdbcTemplate, environment);
     }
 
     private EmbeddedDatabase database() {

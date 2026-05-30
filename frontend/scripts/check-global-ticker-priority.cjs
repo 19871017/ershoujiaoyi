@@ -4,6 +4,7 @@ const path = require('path')
 const root = path.resolve(__dirname, '..')
 const tickerFile = 'src/components/GlobalTicker.vue'
 const httpFile = 'src/api/http.ts'
+const mockDataFile = 'src/api/mock-data.ts'
 const globalTickerTag = '<GlobalTicker />'
 const appGlobalTickerImport = "import GlobalTicker from './components/GlobalTicker.vue'"
 const pageGlobalTickerImport = "import GlobalTicker from '../../../components/GlobalTicker.vue'"
@@ -19,8 +20,19 @@ const globalTickerPages = [
   'src/pages/tabbar/me/index.vue',
   'src/pages/user/profile/index.vue'
 ]
-const tickerSource = fs.readFileSync(path.join(root, tickerFile), 'utf8')
+const tickerSupportFiles = [
+  'src/components/global-ticker-helpers.ts',
+  'src/components/global-ticker.scss'
+]
+const tickerSource = [
+  fs.readFileSync(path.join(root, tickerFile), 'utf8'),
+  ...tickerSupportFiles.map((supportFile) => fs.readFileSync(path.join(root, supportFile), 'utf8'))
+].join('\n')
 const httpSource = fs.readFileSync(path.join(root, httpFile), 'utf8')
+const httpMockSource = [
+  httpSource,
+  fs.readFileSync(path.join(root, mockDataFile), 'utf8')
+].join('\n')
 const failures = []
 
 const forbiddenOrder = 'items.value = [...announcementItems, ...giftItems, ...noticeItems].slice(0, 6)'
@@ -57,15 +69,15 @@ if (!tickerTextScrolls) {
   failures.push(`${tickerFile}: ticker text must scroll horizontally so a single pinned announcement still visibly rotates`)
 }
 
-if (!httpSource.includes("url === '/api/announcements/ticker'")) {
+if (!httpMockSource.includes("url === '/api/announcements/ticker'")) {
   failures.push(`${httpFile}: mock mode must include announcement ticker data for demo testing`)
 }
 
-if (!httpSource.includes('enabled: true') || !httpSource.includes('演示公告')) {
+if (!httpMockSource.includes('enabled: true') || !httpMockSource.includes('演示公告')) {
   failures.push(`${httpFile}: mock announcement ticker must be enabled and clearly marked as demo copy`)
 }
 
-if (!httpSource.includes("url === '/api/gifts/recent'") || !httpSource.includes('mockRecentGiftFeed()')) {
+if (!httpMockSource.includes("url === '/api/gifts/recent'") || !httpMockSource.includes('mockRecentGiftFeed()')) {
   failures.push(`${httpFile}: mock mode must include recent gift feed data for ticker demo testing`)
 }
 

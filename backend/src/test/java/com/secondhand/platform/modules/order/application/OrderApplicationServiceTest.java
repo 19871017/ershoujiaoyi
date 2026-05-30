@@ -60,6 +60,19 @@ class OrderApplicationServiceTest {
     }
 
     @Test
+    void createOrderShouldRejectSelfPurchaseBeforeLockingProduct() {
+        CreateProductResponse product = approvedProduct("自买风险商品", "168.00", 7002L);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> orderService.createOrder(orderRequest(product.getProductId()), 7002L));
+
+        assertEquals("cannot buy your own product", ex.getMessage());
+        assertEquals(0, jdbcTemplate.queryForObject("select count(*) from trade_order where product_id = ?", Integer.class, product.getProductId()));
+        assertEquals("ACTIVE", jdbcTemplate.queryForObject("select product_status from product_item where id = ?", String.class, product.getProductId()));
+        assertEquals(0, jdbcTemplate.queryForObject("select count(*) from product_item where id = ? and locked_order_no is not null", Integer.class, product.getProductId()));
+    }
+
+    @Test
     void payOrderShouldPersistPaidStatusAndReplayAfterServiceRecreation() {
         CreateProductResponse product = approvedProduct("白色玛丽珍鞋", "99.00");
         CreateOrderResponse order = orderService.createOrder(orderRequest(product.getProductId()), 3001L);
@@ -302,14 +315,16 @@ class OrderApplicationServiceTest {
     }
 
     private CreateProductResponse approvedProduct(String title, String price, Long sellerId) {
+        upsertSellerProfile(sellerId);
         CreateProductRequest request = new CreateProductRequest();
         request.setTitle(title);
         request.setDescription("订单测试商品");
         request.setPrice(new BigDecimal(price));
-        String issued = new com.secondhand.platform.modules.media.application.MediaUploadTicketService(jdbcTemplate)
+        String uploaded = new com.secondhand.platform.modules.media.application.MediaUploadTicketService(jdbcTemplate)
                 .issue(sellerId, "PRODUCT_IMAGE", "image/jpeg", 300_000L, title + ".jpg")
                 .storageUrl();
-        request.setImageUrls(List.of(issued));
+        jdbcTemplate.update("UPDATE media_upload_ticket SET status = 'UPLOADED' WHERE owner_user_id = ? AND storage_url = ?", sellerId, uploaded);
+        request.setImageUrls(List.of(uploaded));
         CreateProductResponse response = productService.createProduct(sellerId, request);
         productService.approveForSale(response.getProductId());
         return response;
@@ -320,6 +335,19 @@ class OrderApplicationServiceTest {
         request.setGoodsId(productId);
         request.setAcceptedTradeRule(true);
         return request;
+    }
+
+    private void upsertSellerProfile(Long userId) {
+        Integer accountRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_account WHERE id = ?", Integer.class, userId);
+        if (accountRows == null || accountRows == 0) {
+            jdbcTemplate.update("INSERT INTO user_account (id, user_no, phone, password_hash, nickname, status) VALUES (?, ?, ?, ?, ?, ?)", userId, "U-ORDER-" + userId, "1380014" + String.format("%04d", userId), "hash", "订单卖家" + userId, "ACTIVE");
+        }
+        Integer profileRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_profile WHERE user_id = ?", Integer.class, userId);
+        if (profileRows == null || profileRows == 0) {
+            jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, main_role, video_identity_status, video_verified) VALUES (?, ?, ?, ?, ?)", userId, "VERIFIED", "SELLER", "APPROVED", true);
+            return;
+        }
+        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "SELLER", "APPROVED", true, userId);
     }
 
     private OrderReviewRequest reviewRequest(int descriptionScore, int serviceScore, int shippingScore, String content) {

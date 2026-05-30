@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.secondhand.platform.modules.chat.ChatMessageAck;
 import com.secondhand.platform.modules.chat.ChatMessageResponse;
+import com.secondhand.platform.modules.chat.ConversationListItemResponse;
 import com.secondhand.platform.modules.chat.DeliveryReceiptResponse;
 import com.secondhand.platform.modules.chat.MessageSyncResponse;
 import com.secondhand.platform.modules.chat.ReadConversationResponse;
@@ -69,6 +70,19 @@ class ChatApplicationServiceTest {
     }
 
     @Test
+    void listConversationsShouldIncludePeerProfileFields() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        insertUserAccount(2L, "真实卖家", "/uploads/avatar/seller.png");
+        service.sendMessage(text(conversationId, "profile-1", 1L, 2L, "hello"));
+
+        ConversationListItemResponse item = service.listConversations(1L).get(0);
+
+        assertEquals(2L, item.getPeerUserId());
+        assertEquals("真实卖家", item.getPeerNickname());
+        assertEquals("/uploads/avatar/seller.png", item.getPeerAvatarUrl());
+    }
+
+    @Test
     void syncShouldRespectAfterSeqLimitAndUpdateDeliveredSeq() {
         Long conversationId = service.createConversation(conversation(1L, 2L));
         service.sendMessage(text(conversationId, "c1", 1L, 2L, "one"));
@@ -91,7 +105,24 @@ class ChatApplicationServiceTest {
         DeliveryReceiptResponse delivered = service.markConversationDelivered(conversationId, 2L);
         assertEquals(3L, delivered.getDeliveredSeq());
         assertEquals(3L, delivered.getLastServerSeq());
+        assertEquals(2L, delivered.getUnreadCount());
         assertEquals(3L, service.listConversations(2L).get(0).getDeliveredSeq());
+    }
+
+    @Test
+    void unreadCountShouldOnlyIncludeMessagesReceivedByViewer() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        service.sendMessage(text(conversationId, "c1", 1L, 2L, "one"));
+        service.sendMessage(text(conversationId, "c2", 2L, 1L, "two"));
+        service.sendMessage(text(conversationId, "c3", 1L, 2L, "three"));
+
+        assertEquals(1L, service.listConversations(1L).get(0).getUnreadCount());
+        assertEquals(2L, service.listConversations(2L).get(0).getUnreadCount());
+
+        ReadConversationResponse readBySecondUser = service.markConversationRead(conversationId, 2L, 1L);
+
+        assertEquals(1L, readBySecondUser.getUnreadCount());
+        assertEquals(1L, service.listConversations(2L).get(0).getUnreadCount());
     }
 
     @Test
@@ -148,6 +179,11 @@ class ChatApplicationServiceTest {
         assertEquals(1L, reloaded.listConversations(1L).get(0).getLastServerSeq());
     }
 
+    private void insertUserAccount(Long userId, String nickname, String avatarUrl) {
+        jdbcTemplate.update("INSERT INTO user_account (id, user_no, phone, password_hash, nickname, avatar_url, status) VALUES (?, ?, ?, 'hash', ?, ?, 'ACTIVE')",
+                userId, "U" + userId, "1380000" + userId, nickname, avatarUrl);
+    }
+
     private CreateConversationCommand conversation(Long ownerUserId, Long peerUserId) {
         CreateConversationCommand command = new CreateConversationCommand();
         command.setOwnerUserId(ownerUserId);
@@ -186,7 +222,7 @@ class ChatApplicationServiceTest {
         jdbcTemplate.update("""
                 INSERT INTO media_upload_ticket (
                   ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
-                ) VALUES (?, ?, 'CHAT_IMAGE', 'chat.png', 'image/png', 1024, ?, 'hash', 'ISSUED', CURRENT_TIMESTAMP, DATEADD('HOUR', 1, CURRENT_TIMESTAMP))
+                ) VALUES (?, ?, 'CHAT_IMAGE', 'chat.png', 'image/png', 1024, ?, 'hash', 'UPLOADED', CURRENT_TIMESTAMP, DATEADD('HOUR', 1, CURRENT_TIMESTAMP))
                 """, "TICKET-" + ownerUserId + '-' + Math.abs(storageUrl.hashCode()), ownerUserId, storageUrl);
         return storageUrl;
     }
@@ -195,7 +231,7 @@ class ChatApplicationServiceTest {
         jdbcTemplate.update("""
                 INSERT INTO media_upload_ticket (
                   ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
-                ) VALUES (?, ?, 'CHAT_IMAGE', 'chat.png', 'image/png', 1024, ?, 'hash', 'ISSUED', DATEADD('HOUR', -2, CURRENT_TIMESTAMP), DATEADD('HOUR', -1, CURRENT_TIMESTAMP))
+                ) VALUES (?, ?, 'CHAT_IMAGE', 'chat.png', 'image/png', 1024, ?, 'hash', 'UPLOADED', DATEADD('HOUR', -2, CURRENT_TIMESTAMP), DATEADD('HOUR', -1, CURRENT_TIMESTAMP))
                 """, "EXPIRED-TICKET-" + ownerUserId + '-' + Math.abs(storageUrl.hashCode()), ownerUserId, storageUrl);
         return storageUrl;
     }

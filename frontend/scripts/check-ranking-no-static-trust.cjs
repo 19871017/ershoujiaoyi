@@ -3,7 +3,13 @@ const path = require('path')
 
 const root = path.resolve(__dirname, '..')
 const sourcePath = path.join(root, 'src/pages/ranking/index.vue')
-const source = fs.readFileSync(sourcePath, 'utf8')
+const supportFiles = [
+  'src/pages/ranking/ranking-data.ts'
+]
+const source = [
+  ...supportFiles.map((supportFile) => fs.readFileSync(path.join(root, supportFile), 'utf8')),
+  fs.readFileSync(sourcePath, 'utf8')
+].join('\n')
 
 const failures = []
 
@@ -36,8 +42,8 @@ if (!source.includes('const rankings = ref<RankingUser[]>([])')) {
 if (!source.includes('listUserRankings(activeGender.value, activePeriod.value, 100)') || !source.includes("loadError.value = '榜单加载失败，请稍后重试'")) {
   failures.push('ranking page must load backend rankings with period-aware top 100 queries and fail closed instead of static ranking rows')
 }
-if (!source.includes('当前榜单还没有女神收礼数据') || !source.includes('当前榜单还没有男神消费数据')) {
-  failures.push('ranking page must keep backend-empty fail-closed messages for both goddess and god rankings when no rows are returned')
+if (!source.includes('当前榜单还没有女神魅力值数据') || !source.includes('当前榜单还没有男神实力值数据')) {
+  failures.push('ranking page must keep backend-empty fail-closed metric messages for both goddess and god rankings when no rows are returned')
 }
 if (!source.includes('const stats = computed(() => [') || !source.includes("{ value: `${filteredRankings.value.length}`, label: '上榜人数' }") || !source.includes('giftScore')) {
   failures.push('ranking page stats must aggregate backend-loaded leaderboard rows only')

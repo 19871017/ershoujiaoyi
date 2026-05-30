@@ -38,7 +38,14 @@ export interface UpdateProductResponse {
 export interface ProductListItemResponse {
   productId: number
   productNo: string
+  sellerId?: number
+  sellerNickname?: string | null
+  sellerAvatarUrl?: string | null
+  sellerGender?: string | null
   title: string
+  category?: string
+  sellerCity?: string
+  sellerVideoVerified?: boolean
   price: string
   coverImageUrl: string | null
   status: ProductCreateStatus
@@ -69,6 +76,10 @@ export function listProducts() {
 
 export function listSellerProducts(sellerId: number | string) {
   return get<ProductListItemResponse[]>(`/api/products/seller/${encodeURIComponent(String(sellerId))}`)
+}
+
+export function listSellerSoldProducts(sellerId: number | string) {
+  return get<ProductListItemResponse[]>(`/api/products/seller/${encodeURIComponent(String(sellerId))}/sold`)
 }
 
 export function listMyProducts() {

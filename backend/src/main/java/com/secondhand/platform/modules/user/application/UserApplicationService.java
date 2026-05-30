@@ -20,8 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserApplicationService {
-    private static final Set<String> ALLOWED_ROLES = Set.of("BUYER", "SELLER", "BOTH");
+    private static final int MAX_SHOWCASE_PHOTOS = 6;
+    private static final String VIDEO_IDENTITY_STORAGE_PREFIX = "/uploads/video-identity/";
     private static final Set<String> ALLOWED_GENDERS = Set.of("god", "goddess");
+    private static final Set<String> VIDEO_IDENTITY_PUBLIC_ROLES = Set.of("SELLER", "BOTH");
     private static final Set<String> ADMIN_SEARCH_RESERVED_WORDS = Set.of("preview", "demo", "mock", "sample", "placeholder");
     private static final Set<String> USER_NO_RESERVED_WORDS = Set.of("preview", "demo", "mock", "sample", "placeholder", "admin", "system", "official", "root");
     private static final Pattern USER_NO_PATTERN = Pattern.compile("[A-Za-z][A-Za-z0-9_]{4,19}");
@@ -32,10 +34,11 @@ public class UserApplicationService {
     public UserApplicationService(JdbcTemplate jdbcTemplate, MediaUploadTicketService mediaUploadTicketService) {
         this.jdbcTemplate = jdbcTemplate;
         this.mediaUploadTicketService = mediaUploadTicketService;
+        ensureShowcasePhotoTable();
     }
 
     public UserProfileResponse currentUserProfile(Long userId) {
-        return loadProfile(userId);
+        return loadProfile(userId, null, true);
     }
 
     public UserProfileResponse publicProfile(Long userId) {
@@ -54,10 +57,6 @@ public class UserApplicationService {
             throw new IllegalArgumentException("profile request required");
         }
         String nickname = normalizeRequired(request.getNickname(), 1, 16, "nickname invalid");
-        String mainRole = normalizeRequired(request.getMainRole(), 1, 16, "mainRole invalid");
-        if (!ALLOWED_ROLES.contains(mainRole)) {
-            throw new IllegalArgumentException("mainRole invalid");
-        }
         String gender = normalizeRequired(request.getGender(), 1, 16, "gender invalid").toLowerCase(Locale.ROOT);
         if (!ALLOWED_GENDERS.contains(gender)) {
             throw new IllegalArgumentException("gender invalid");
@@ -65,9 +64,16 @@ public class UserApplicationService {
         String city = normalizeOptional(request.getCity(), 24, "city invalid");
         String bio = normalizeOptional(request.getBio(), 60, "bio invalid");
         String avatarUrl = normalizeOptional(request.getAvatarUrl(), 512, "avatarUrl invalid");
+        List<String> showcaseImageUrls = normalizeShowcaseImageUrls(request.getShowcaseImageUrls());
         ensureActiveUser(userId);
         if (avatarUrl != null) {
             avatarUrl = mediaUploadTicketService.requireUploadedStorageUrl(userId, "COMMUNITY_IMAGE", avatarUrl).storageUrl();
+        }
+        List<String> persistedShowcaseImageUrls = request.getShowcaseImageUrls() == null ? List.of() : loadPersistedShowcasePhotos(userId);
+        for (String imageUrl : showcaseImageUrls) {
+            if (!persistedShowcaseImageUrls.contains(imageUrl)) {
+                mediaUploadTicketService.requireUploadedStorageUrl(userId, "COMMUNITY_IMAGE", imageUrl);
+            }
         }
         jdbcTemplate.update("""
                 UPDATE user_account
@@ -76,9 +82,12 @@ public class UserApplicationService {
                 """, nickname, avatarUrl, userId);
         jdbcTemplate.update("""
                 UPDATE user_profile
-                SET gender = ?, main_role = ?, city = ?, bio = ?, updated_at = CURRENT_TIMESTAMP
+                SET gender = ?, city = ?, bio = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE user_id = ?
-                """, gender, mainRole, city, bio, userId);
+                """, gender, city, bio, userId);
+        if (request.getShowcaseImageUrls() != null) {
+            replaceShowcasePhotos(userId, showcaseImageUrls);
+        }
         return currentUserProfile(userId);
     }
 
@@ -111,7 +120,6 @@ public class UserApplicationService {
             throw new IllegalArgumentException("userNo request required");
         }
         ensureActiveUser(userId);
-        ensureUserNoChangeLogTable();
         String nextUserNo = normalizeUserNo(request.getUserNo());
         String currentUserNo = currentUserNo(userId);
         if (currentUserNo.equals(nextUserNo)) {
@@ -274,6 +282,7 @@ public class UserApplicationService {
                        p.main_role,
                        p.video_identity_status,
                        p.video_verified,
+                       video_identity.reason AS video_identity_url,
                        COUNT(DISTINCT f.id) AS follower_count,
                        COALESCE(g.gift_score, 0) AS gift_score,
                        CASE WHEN ? = TRUE AND EXISTS (
@@ -282,11 +291,18 @@ public class UserApplicationService {
                 FROM user_account a
                 JOIN user_profile p ON p.user_id = a.id
                 LEFT JOIN user_follow f ON f.followed_id = a.id
+                LEFT JOIN audit_record video_identity ON video_identity.id = (
+                    SELECT MAX(ar.id)
+                    FROM audit_record ar
+                    WHERE ar.audit_type = 'VIDEO_IDENTITY'
+                      AND ar.target_id = CONCAT('', a.id)
+                      AND ar.status = 'APPROVED'
+                )
                 LEFT JOIN (
                     %s
                 ) g ON g.owner_user_id = a.id
                 WHERE a.status = 'ACTIVE' AND LOWER(p.gender) = ?
-                GROUP BY a.id, a.nickname, a.avatar_url, p.gender, p.city, p.bio, p.main_role, p.video_identity_status, p.video_verified, g.gift_score
+                GROUP BY a.id, a.nickname, a.avatar_url, p.gender, p.city, p.bio, p.main_role, p.video_identity_status, p.video_verified, video_identity.reason, g.gift_score
                 ORDER BY gift_score DESC, a.id ASC
                 LIMIT ?
                 """, scoreSubquery);
@@ -301,7 +317,13 @@ public class UserApplicationService {
         rankingParams.add(limit);
         List<UserRankingResponse> rows = jdbcTemplate.query(rankingSql, (rs, rowNum) -> {
             String videoStatus = rs.getString("video_identity_status") == null ? "UNVERIFIED" : rs.getString("video_identity_status");
-            boolean approvedVideo = "APPROVED".equalsIgnoreCase(videoStatus) && rs.getBoolean("video_verified");
+            String mainRole = rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role");
+            String rawVideoIdentityUrl = rs.getString("video_identity_url");
+            boolean approvedVideo = "APPROVED".equalsIgnoreCase(videoStatus)
+                    && rs.getBoolean("video_verified")
+                    && VIDEO_IDENTITY_PUBLIC_ROLES.contains(mainRole.toUpperCase(Locale.ROOT))
+                    && isCanonicalVideoIdentityUrl(rawVideoIdentityUrl);
+            String responseVideoStatus = approvedVideo ? "APPROVED" : "UNVERIFIED";
             return new UserRankingResponse(
                     rs.getLong("id"),
                     rowNum + 1,
@@ -310,8 +332,8 @@ public class UserApplicationService {
                     rs.getString("gender"),
                     rs.getString("city"),
                     rs.getString("bio"),
-                    rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role"),
-                    videoStatus,
+                    mainRole,
+                    responseVideoStatus,
                     approvedVideo,
                     rs.getInt("follower_count"),
                     rs.getInt("gift_score"),
@@ -325,10 +347,14 @@ public class UserApplicationService {
     }
 
     private UserProfileResponse loadProfile(Long userId) {
-        return loadProfile(userId, null);
+        return loadProfile(userId, null, false);
     }
 
     private UserProfileResponse loadProfile(Long userId, Long viewerId) {
+        return loadProfile(userId, viewerId, false);
+    }
+
+    private UserProfileResponse loadProfile(Long userId, Long viewerId, boolean exposePendingVideoIdentityUrl) {
         if (userId == null || userId <= 0) {
             throw new IllegalArgumentException("userId required");
         }
@@ -337,7 +363,8 @@ public class UserApplicationService {
                        COALESCE(followers.follower_count, 0) AS follower_count,
                        COALESCE(following.following_count, 0) AS following_count,
                        COALESCE(received_gifts.seller_charm_score, 0) AS seller_charm_score,
-                       FLOOR(COALESCE(sent_gifts.sent_gift_amount, 0) + COALESCE(paid_orders.paid_order_amount, 0)) AS buyer_power_score
+                       FLOOR(COALESCE(sent_gifts.sent_gift_amount, 0) + COALESCE(paid_orders.paid_order_amount, 0)) AS buyer_power_score,
+                       CASE WHEN video_identity.reason LIKE '/uploads/video-identity/%' THEN video_identity.reason ELSE NULL END AS video_identity_url
                 FROM user_account a
                 LEFT JOIN user_profile p ON p.user_id = a.id
                 LEFT JOIN (
@@ -368,21 +395,38 @@ public class UserApplicationService {
                     WHERE order_status IN ('PAID', 'SHIPPED', 'COMPLETED')
                     GROUP BY buyer_id
                 ) paid_orders ON paid_orders.buyer_id = a.id
+                LEFT JOIN audit_record video_identity ON video_identity.id = (
+                    SELECT MAX(ar.id)
+                    FROM audit_record ar
+                    WHERE ar.audit_type = 'VIDEO_IDENTITY'
+                      AND ar.target_id = CONCAT('', a.id)
+                      AND ar.status = p.video_identity_status
+                      AND ar.status IN ('APPROVED', 'PENDING')
+                )
                 WHERE a.id = ? AND a.status = 'ACTIVE'
                 """, (rs, rowNum) -> {
                     String videoStatus = rs.getString("video_identity_status") == null ? "UNVERIFIED" : rs.getString("video_identity_status");
+                    String mainRole = rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role");
+                    String rawVideoIdentityUrl = rs.getString("video_identity_url");
+                    String storedVideoIdentityUrl = isCanonicalVideoIdentityUrl(rawVideoIdentityUrl) ? rawVideoIdentityUrl : null;
                     boolean approvedVideo = "APPROVED".equals(videoStatus) && rs.getBoolean("video_verified");
+                    boolean sellerApprovedVideo = approvedVideo && VIDEO_IDENTITY_PUBLIC_ROLES.contains(mainRole.toUpperCase(Locale.ROOT)) && storedVideoIdentityUrl != null;
+                    boolean pendingOwnVideo = exposePendingVideoIdentityUrl && "PENDING".equals(videoStatus) && storedVideoIdentityUrl != null;
+                    String responseVideoStatus = sellerApprovedVideo || pendingOwnVideo ? videoStatus : "UNVERIFIED";
+                    String videoIdentityUrl = sellerApprovedVideo || pendingOwnVideo ? storedVideoIdentityUrl : null;
                     return new UserProfileResponse(
                             rs.getLong("id"),
                             rs.getString("user_no"),
                             rs.getString("nickname"),
                             rs.getString("avatar_url"),
-                            rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role"),
+                            mainRole,
                             rs.getString("gender"),
                             rs.getString("city"),
                             rs.getString("bio"),
-                            videoStatus,
-                            approvedVideo,
+                            responseVideoStatus,
+                            sellerApprovedVideo,
+                            videoIdentityUrl,
+                            loadShowcasePhotos(rs.getLong("id"), sellerApprovedVideo),
                             viewerId != null && isFollowedBy(viewerId, rs.getLong("id")),
                             rs.getInt("follower_count"),
                             rs.getInt("following_count"),
@@ -394,6 +438,87 @@ public class UserApplicationService {
             throw new IllegalArgumentException("user not found");
         }
         return rows.get(0);
+    }
+
+    private boolean isCanonicalVideoIdentityUrl(String url) {
+        if (url == null || !url.startsWith(VIDEO_IDENTITY_STORAGE_PREFIX)) {
+            return false;
+        }
+        String lower = url.toLowerCase(Locale.ROOT);
+        String relativePath = url.substring(VIDEO_IDENTITY_STORAGE_PREFIX.length());
+        if (relativePath.isBlank()
+                || url.startsWith("local://")
+                || url.startsWith("blob:")
+                || url.startsWith("data:")
+                || lower.contains("placeholder")
+                || lower.contains("%2e")
+                || lower.contains("%2f")
+                || lower.contains("%5c")
+                || url.contains("\\")
+                || url.contains("..")
+                || url.contains("//")) {
+            return false;
+        }
+        for (String segment : relativePath.split("/")) {
+            if (segment.isBlank()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void ensureShowcasePhotoTable() {
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS user_showcase_photo (
+                  user_id BIGINT NOT NULL,
+                  image_url VARCHAR(512) NOT NULL,
+                  sort_order INT NOT NULL DEFAULT 0,
+                  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  PRIMARY KEY (user_id, image_url)
+                )
+                """);
+    }
+
+    private List<String> normalizeShowcaseImageUrls(List<String> urls) {
+        if (urls == null) {
+            return List.of();
+        }
+        List<String> normalized = urls.stream()
+                .map(url -> normalizeOptional(url, 512, "showcaseImageUrl invalid"))
+                .filter(url -> url != null)
+                .distinct()
+                .toList();
+        if (normalized.size() > MAX_SHOWCASE_PHOTOS) {
+            throw new IllegalArgumentException("showcaseImageUrls too many");
+        }
+        return normalized;
+    }
+
+    private void replaceShowcasePhotos(Long userId, List<String> urls) {
+        jdbcTemplate.update("DELETE FROM user_showcase_photo WHERE user_id = ?", userId);
+        for (int i = 0; i < urls.size(); i++) {
+            jdbcTemplate.update("""
+                    INSERT INTO user_showcase_photo (user_id, image_url, sort_order, created_at)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                    """, userId, urls.get(i), i);
+        }
+    }
+
+    private List<String> loadShowcasePhotos(Long userId, boolean approvedVideo) {
+        if (!approvedVideo) {
+            return List.of();
+        }
+        return loadPersistedShowcasePhotos(userId);
+    }
+
+    private List<String> loadPersistedShowcasePhotos(Long userId) {
+        return jdbcTemplate.query("""
+                SELECT image_url
+                FROM user_showcase_photo
+                WHERE user_id = ?
+                ORDER BY sort_order ASC, created_at ASC
+                LIMIT ?
+                """, (rs, rowNum) -> rs.getString("image_url"), userId, MAX_SHOWCASE_PHOTOS);
     }
 
     private String maskPhone(String phone) {
@@ -460,22 +585,6 @@ public class UserApplicationService {
                 String.class,
                 userId
         );
-    }
-
-    private void ensureUserNoChangeLogTable() {
-        jdbcTemplate.execute("""
-                CREATE TABLE IF NOT EXISTS user_no_change_log (
-                  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                  user_id BIGINT NOT NULL UNIQUE,
-                  old_user_no VARCHAR(64) NOT NULL,
-                  new_user_no VARCHAR(64) NOT NULL,
-                  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-                )
-                """);
-        jdbcTemplate.execute("""
-                CREATE INDEX IF NOT EXISTS idx_user_no_change_log_new_no
-                ON user_no_change_log(new_user_no)
-                """);
     }
 
     private void ensureUserNoChangeAvailable(Long userId) {

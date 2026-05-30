@@ -38,7 +38,10 @@
         <view class="seller-main">
           <view class="seller-name">{{ sellerName }}</view>
           <view class="seller-desc">{{ sellerTrustText }}</view>
-          <view class="tag-row"><text v-for="tag in sellerTags" :key="tag" class="mini-tag">{{ tag }}</text></view>
+          <view class="tag-row">
+            <text v-for="tag in sellerTags" :key="tag" class="mini-tag">{{ tag }}</text>
+            <text v-if="!sellerTags.length" class="mini-tag muted">认证状态以服务端资料为准</text>
+          </view>
         </view>
         <button class="mini-btn" @click.stop="contactSeller">私信</button>
       </view>
@@ -84,6 +87,27 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { favoriteProduct, getProductDetail, unfavoriteProduct, type ProductDetailResponse } from '../../../api/modules/product'
 import { resolveProductSellerContactTarget } from '../../../api/modules/order-contact'
 import { getPublicProfile, type UserProfileResponse } from '../../../api/modules/user'
+import {
+  assertProductDetail,
+  assertSellerProfile,
+  compactNumber,
+  compactPrice,
+  communityImageStoragePrefix,
+  decodeRouteValue,
+  defaultConfirmItems,
+  iconFor,
+  isFiniteNumber,
+  isPositiveIntegerId,
+  isValidBackendProductId,
+  isValidBackendUserId,
+  productImageStoragePrefix,
+  safeRules,
+  sellerProfileFailedText,
+  sellerProfileFallbackText,
+  toneClass,
+  validatedDisplayMediaUrl,
+  videoIdentityStoragePrefix
+} from './product-detail-integrity'
 
 const productId = ref<number>(0)
 const loading = ref(false)
@@ -96,29 +120,21 @@ const sellerProfileLoadFailed = ref(false)
 const activeImageIndex = ref(0)
 const favorited = ref(false)
 const favoriteLoading = ref(false)
-const safeRules = [
-  { icon: '🛡️', title: '平台交易', desc: '订单、支付和售后状态以服务端记录为准' },
-  { icon: '💬', title: '会话记录', desc: '沟通内容以服务端会话记录为准' },
-  { icon: '📦', title: '交付确认', desc: '交付与收货状态以服务端订单记录为准' }
-]
-const confirmItems = reactive([
-  { key: 'rule', label: '已阅读订单、支付和售后状态以服务端记录为准', checked: true },
-  { key: 'condition', label: '已确认商品成色和瑕疵说明', checked: false },
-  { key: 'address', label: '已确认收货信息；交付与收货状态以服务端订单记录为准', checked: false }
-])
-const displayImages = computed(() => detail.value?.imageUrls?.length ? detail.value.imageUrls : ['', '', ''])
+const confirmItems = reactive(defaultConfirmItems.map((item) => ({ ...item })))
+const displayImages = computed(() => {
+  const urls = (detail.value?.imageUrls || []).filter((url) => validatedDisplayMediaUrl(url, productImageStoragePrefix, 'product-image'))
+  return urls.length ? urls : ['', '', '']
+})
 const activeImage = computed(() => displayImages.value[activeImageIndex.value] || '')
 const statusText = computed(() => detail.value?.status === 'created' ? '在售' : detail.value?.status || '未知')
 const auditText = computed(() => detail.value?.auditState === 'pending' ? '审核中' : detail.value?.auditState || '审核状态')
-const sellerProfileFallbackText = '商品卖家信息以服务端返回为准 · 暂无服务端信用/成交统计'
-const sellerProfileFailedText = '卖家资料暂时不可用，未展示本地卖家样例'
 const sellerName = computed(() => {
   if (sellerProfile.value?.nickname) return sellerProfile.value.nickname
   if (detail.value?.sellerId) return `卖家 ${detail.value.sellerId}`
   return '商品卖家'
 })
 const sellerCity = computed(() => sellerProfile.value?.city || '卖家城市以服务端资料为准')
-const sellerAvatarUrl = computed(() => sellerProfile.value?.avatarUrl || '')
+const sellerAvatarUrl = computed(() => validatedDisplayMediaUrl(sellerProfile.value?.avatarUrl || '', communityImageStoragePrefix, 'seller-avatar'))
 const sellerIsSellerProfile = computed(() => ['SELLER', 'BOTH'].includes((sellerProfile.value?.mainRole || '').toUpperCase()))
 const sellerScoreLabel = computed(() => sellerIsSellerProfile.value ? '魅力值' : '实力值')
 const sellerScoreValue = computed(() => sellerIsSellerProfile.value ? sellerProfile.value?.sellerCharmScore : sellerProfile.value?.buyerPowerScore)
@@ -127,22 +143,14 @@ const sellerTrustText = computed(() => {
   if (!sellerProfile.value || !isFiniteNumber(sellerProfile.value.followerCount) || !isFiniteNumber(sellerScoreValue.value)) return sellerProfileFallbackText
   return `粉丝 ${compactNumber(sellerProfile.value.followerCount)} · ${sellerScoreLabel.value} ${compactNumber(sellerScoreValue.value)}`
 })
-const sellerTags = computed<string[]>(() => sellerProfile.value?.videoVerified ? ['视频认证卖家'] : [])
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value)
-}
-function readProductId() {
+const sellerHasVerifiedVideo = computed(() => sellerProfile.value?.videoVerified === true && sellerProfile.value.videoIdentityStatus === 'APPROVED' && !!validatedDisplayMediaUrl(sellerProfile.value?.videoIdentityUrl || '', videoIdentityStoragePrefix, 'seller-video'))
+const sellerTags = computed<string[]>(() => sellerHasVerifiedVideo.value ? ['视频认证卖家'] : [])
+function readProductId(): void {
   const pages = getCurrentPages()
   const current = pages.length > 0 ? (pages[pages.length - 1] as unknown as { options?: Record<string, string> }) : undefined
-  const fromPages = Number(current?.options?.productId || 0)
-  const fromHash = typeof window !== 'undefined'
-    ? Number(new URLSearchParams(window.location.hash.split('?')[1] || '').get('productId') || 0)
-    : 0
-  productId.value = fromPages || fromHash || 0
-}
-function isValidBackendUserId(value: unknown): boolean {
-  const numeric = Number(value)
-  return Number.isInteger(numeric) && numeric > 0
+  const hashParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.hash.split('?')[1] || '') : undefined
+  const routeProductId = decodeRouteValue('productId', current?.options?.productId ?? hashParams?.get('productId') ?? '')
+  productId.value = isValidBackendProductId(routeProductId) ? Number(routeProductId) : 0
 }
 function resetSellerProfile(): void {
   sellerProfile.value = null
@@ -152,8 +160,14 @@ async function loadSellerProfile(sellerId: number | null | undefined): Promise<v
   resetSellerProfile()
   if (!isValidBackendUserId(sellerId)) return
   try {
-    sellerProfile.value = await getPublicProfile(Number(sellerId))
+    const profile = await getPublicProfile(Number(sellerId))
+    assertSellerProfile(profile, Number(sellerId))
+    sellerProfile.value = profile
   } catch (error) {
+    if (error instanceof Error && error.message === 'product seller profile userId mismatch') {
+      console.warn('product seller profile integrity failed', { productId: productId.value, sellerId, error })
+      throw error
+    }
     console.warn('product seller profile unavailable', { productId: productId.value, sellerId, error })
     sellerProfile.value = null
     sellerProfileLoadFailed.value = true
@@ -166,33 +180,59 @@ async function loadDetail(): Promise<void> {
   resetSellerProfile()
   try {
     const productDetail = await getProductDetail(productId.value)
+    assertProductDetail(productDetail)
+    if (productDetail.productId !== productId.value) throw new Error('product detail productId mismatch')
     detail.value = productDetail
+    activeImageIndex.value = 0
     favorited.value = productDetail.favoritedByMe === true
     await loadSellerProfile(productDetail.sellerId)
   } catch (error) {
+    console.warn('product detail load failed', { productId: productId.value, error })
     errorMessage.value = error instanceof Error ? error.message : '商品详情加载失败，请稍后重试'
     detail.value = null
     favorited.value = false
     resetSellerProfile()
   } finally { loading.value = false }
 }
-async function createAndPay() {
+async function createAndPay(): Promise<void> {
   if (!detail.value) return
   const unconfirmed = confirmItems.find((item) => !item.checked)
   if (unconfirmed) { uni.showToast({ title: '请先完成购买前确认', icon: 'none' }); return }
   ordering.value = true
   orderMessage.value = ''
+  const route = {
+    url: `/pages/order/confirm/index?productId=${encodeURIComponent(String(detail.value.productId))}`,
+    fail: (error: unknown) => {
+      console.warn('product order confirmation navigation failed', { productId: detail.value?.productId, error })
+      orderMessage.value = '确认订单页面打开失败，请稍后重试'
+    },
+    complete: () => { ordering.value = false }
+  }
   try {
-    uni.navigateTo({ url: `/pages/order/confirm/index?productId=${detail.value.productId}` })
-  } catch {
+    uni.navigateTo(route)
+  } catch (error) {
+    ordering.value = false
+    console.warn('product order confirmation navigation failed', { productId: detail.value?.productId, error })
     orderMessage.value = '确认订单页面打开失败，请稍后重试'
-  } finally { ordering.value = false }
+  }
 }
-function contactSeller() {
+function contactSeller(): void {
   if (!detail.value) return
   const target = resolveProductSellerContactTarget(detail.value)
   if (!target.receiverId) return uni.showToast({ title: target.error || '无法发起聊天', icon: 'none' })
-  uni.navigateTo({ url: `/pages/chat/conversation/index?receiverId=${target.receiverId}&productId=${detail.value.productId}` })
+  const route = {
+    url: `/pages/chat/conversation/index?receiverId=${encodeURIComponent(target.receiverId)}&productId=${encodeURIComponent(String(detail.value.productId))}`,
+    fail: (error: unknown) => {
+      console.warn('product seller chat navigation failed', { productId: detail.value?.productId, receiverId: target.receiverId, error })
+      uni.showToast({ title: '暂时无法打开私信，请稍后重试', icon: 'none' })
+    }
+  }
+  try {
+    uni.navigateTo(route)
+  } catch (error) {
+    console.warn('product seller chat navigation failed', { productId: detail.value?.productId, receiverId: target.receiverId, error })
+    uni.showToast({ title: '暂时无法打开私信，请稍后重试', icon: 'none' })
+  }
 }
 function openSellerProfile(): void {
   const sellerId = detail.value?.sellerId
@@ -204,28 +244,45 @@ function openSellerProfile(): void {
     uni.showToast({ title: '卖家资料暂时不可用，未打开主页', icon: 'none' })
     return
   }
-  uni.navigateTo({ url: `/pages/user/public-profile/index?userId=${sellerId}` })
+  const route = {
+    url: `/pages/user/public-profile/index?userId=${encodeURIComponent(String(sellerId))}`,
+    fail: (error: unknown) => {
+      console.warn('product seller profile navigation failed', { productId: detail.value?.productId, sellerId, error })
+      uni.showToast({ title: '暂时无法打开卖家主页，请稍后重试', icon: 'none' })
+    }
+  }
+  try {
+    uni.navigateTo(route)
+  } catch (error) {
+    console.warn('product seller profile navigation failed', { productId: detail.value?.productId, sellerId, error })
+    uni.showToast({ title: '暂时无法打开卖家主页，请稍后重试', icon: 'none' })
+  }
 }
-function isValidProductReportTargetId(value: unknown) {
-  const numeric = Number(value)
-  return Number.isInteger(numeric) && numeric > 0
+function isValidProductReportTargetId(value: unknown): boolean {
+  return isPositiveIntegerId(value)
 }
-function reportProduct() {
+function reportProduct(): void {
   const reportTargetId = detail.value?.productId ?? productId.value
   if (!isValidProductReportTargetId(reportTargetId)) {
     uni.showToast({ title: '缺少有效商品编号，不能提交举报', icon: 'none' })
     return
   }
-  uni.navigateTo({ url: `/pages/report/submit/index?targetType=GOODS&targetId=${encodeURIComponent(String(reportTargetId))}` })
+  const route = {
+    url: `/pages/report/submit/index?targetType=GOODS&targetId=${encodeURIComponent(String(reportTargetId))}`,
+    fail: (error: unknown) => {
+      console.warn('product report navigation failed', { productId: reportTargetId, error })
+      uni.showToast({ title: '暂时无法打开举报页，请稍后重试', icon: 'none' })
+    }
+  }
+  try {
+    uni.navigateTo(route)
+  } catch (error) {
+    console.warn('product report navigation failed', { productId: reportTargetId, error })
+    uni.showToast({ title: '暂时无法打开举报页，请稍后重试', icon: 'none' })
+  }
 }
-function shareProduct() { uni.showToast({ title: '分享功能暂时不可用，请稍后重试', icon: 'none' }) }
-function compactNumber(value: number | undefined): string {
-  const numberValue = Number(value || 0)
-  if (!Number.isFinite(numberValue) || numberValue <= 0) return '0'
-  if (numberValue >= 10000) return `${(numberValue / 10000).toFixed(numberValue >= 100000 ? 0 : 1)}万`
-  return String(Math.floor(numberValue))
-}
-async function toggleFavorite() {
+function shareProduct(): void { uni.showToast({ title: '分享功能暂时不可用，请稍后重试', icon: 'none' }) }
+async function toggleFavorite(): Promise<void> {
   if (!detail.value?.productId || detail.value.productId <= 0) {
     uni.showToast({ title: '商品缺少后端 productId，未执行收藏变更', icon: 'none' })
     return
@@ -243,61 +300,14 @@ async function toggleFavorite() {
       favorited.value = true
       uni.showToast({ title: '收藏已提交后端', icon: 'none' })
     }
-  } catch {
+  } catch (error) {
+    console.warn('product favorite mutation failed', { productId: detail.value?.productId, wasFavorited, error })
     uni.showToast({ title: '收藏接口调用失败，未执行本地收藏变更', icon: 'none' })
   } finally {
     favoriteLoading.value = false
   }
 }
-function compactPrice(price: string) { return Number(price).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
-function iconFor(title: string) { if (title.includes('裙')) return '👗'; if (title.includes('鞋')) return '👠'; if (title.includes('袜')) return '🧦'; return '👜' }
-function toneClass(id: number) { return `tone-${id % 4}` }
 onMounted(() => { readProductId(); loadDetail() })
 </script>
 
-<style scoped>
-.detail-page { padding-top:12rpx; padding-bottom:128rpx; background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 52%,#fff7ed 100%); }
-.detail-body { display:flex; flex-direction:column; gap:12rpx; }
-.hero-card,.info-card,.seller-card,.rule-card,.action-panel,.message { padding:14rpx; border-color:#ffd9bd; }
-.hero { height:300rpx; border-radius:24rpx; display:flex; align-items:center; justify-content:center; font-size:68rpx; overflow:hidden; box-shadow:0 14rpx 30rpx rgba(255,122,69,.12); }
-.hero-img { width:100%; height:100%; }
-.thumb-row { margin-top:10rpx; display:flex; gap:8rpx; }
-.thumb { width:66rpx; height:66rpx; border-radius:18rpx; background:#fff3e7; display:flex; align-items:center; justify-content:center; border:2rpx solid transparent; overflow:hidden; font-size:26rpx; }
-.thumb image { width:100%; height:100%; }
-.thumb.active { border-color:#ff7a45; }
-.tone-0 { background:#fff3e7; } .tone-1 { background:#fff4e7; } .tone-2 { background:#fdf2f8; } .tone-3 { background:#fff7ed; }
-.title-row { display:flex; gap:10rpx; align-items:flex-start; }
-.title { flex:1; font-size:31rpx; line-height:1.3; font-weight:950; color:#3a2a1f; }
-.favorite { width:48rpx; height:48rpx; border-radius:50%; background:#fff3e7; color:#ff7a45; display:flex; align-items:center; justify-content:center; font-size:21rpx; }
-.favorite.active { background:#ff7a45; color:#fff; }
-.price { margin-top:8rpx; font-size:38rpx; font-weight:950; color:#ff7a45; }
-.desc,.rule-line,.message { margin-top:10rpx; color:#7b5542; line-height:1.42; font-size:23rpx; }
-.meta-row { margin-top:10rpx; display:flex; gap:8rpx; flex-wrap:wrap; }
-.pill { padding:6rpx 12rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:20rpx; font-weight:850; }
-.pill.green { background:#fff8e8; color:#b45309; }
-.pill.soft { background:#f0fdf4; color:#15803d; }
-.seller-card { display:flex; align-items:center; gap:10rpx; }
-.seller-avatar { width:58rpx; height:58rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:26rpx; font-weight:950; overflow:hidden; }
-.seller-avatar.image { background:#fff3e7; }
-.seller-avatar-img { width:100%; height:100%; display:block; }
-.seller-main { flex:1; min-width:0; }
-.seller-name { color:#3a2a1f; font-size:21rpx; font-weight:950; }
-.seller-desc { margin-top:6rpx; color:#9b7560; font-size:21rpx; }
-.tag-row { margin-top:8rpx; display:flex; gap:8rpx; flex-wrap:wrap; }
-.mini-tag { padding:5rpx 10rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:18rpx; font-weight:850; }
-.mini-btn { margin:0; padding:0 18rpx; height:46rpx; line-height:46rpx; border-radius:999rpx; background:#fff; color:#ff7a45; border:1rpx solid #ffd9bd; font-size:21rpx; font-weight:900; }
-.section-title,.panel-title { color:#3a2a1f; font-size:25rpx; font-weight:950; }
-.safe-grid { margin-top:10rpx; display:flex; flex-direction:column; gap:8rpx; }
-.safe-item { padding:12rpx; border-radius:18rpx; background:#fffaf6; display:flex; gap:14rpx; }
-.safe-icon { font-size:26rpx; }
-.safe-title { color:#3a2a1f; font-size:21rpx; font-weight:950; }
-.safe-desc { margin-top:4rpx; color:#9b7560; font-size:21rpx; }
-.confirm-row { margin-top:10rpx; display:flex; align-items:center; gap:12rpx; color:#7b5542; font-size:23rpx; font-weight:850; }
-.check { width:30rpx; height:30rpx; border-radius:50%; border:1rpx solid #ffd9bd; color:transparent; display:flex; align-items:center; justify-content:center; }
-.check.active { background:#ff7a45; border-color:#ff7a45; color:#fff; }
-.bottom-actions { position:fixed; left:0; right:0; bottom:0; padding:12rpx 14rpx calc(12rpx + env(safe-area-inset-bottom)); background:rgba(255,247,251,.96); border-top:1rpx solid #ffd9bd; display:flex; gap:10rpx; z-index:20; }
-.icon-btn { margin:0; padding:0 14rpx; min-width:86rpx; height:52rpx; line-height:52rpx; border-radius:999rpx; background:#fff; border:1rpx solid #ffd9bd; color:#7b5542; font-size:21rpx; font-weight:900; }
-.action { flex:1; min-width:0; height:52rpx; line-height:52rpx; font-size:20rpx; }
-.state { padding:28rpx; color:#6b7280; }
-.error { color:#ef4444; }
-</style>
+<style scoped lang="scss" src="./style.scss"></style>

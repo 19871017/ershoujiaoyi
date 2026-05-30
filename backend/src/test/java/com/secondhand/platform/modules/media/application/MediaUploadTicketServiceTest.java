@@ -65,7 +65,7 @@ class MediaUploadTicketServiceTest {
         assertTrue(service.issue(7L, "AFTER_SALES_EVIDENCE", "image/png", 600_000L, "refund-proof.png")
                 .storageUrl().startsWith("/uploads/evidence/after-sales/7/"));
         assertTrue(service.issue(7L, "REPORT_EVIDENCE", "image/webp", 600_000L, "report-proof.webp")
-                .storageUrl().startsWith("/uploads/evidence/report/7/"));
+                .storageUrl().startsWith("/uploads/report-evidence/7/"));
         assertTrue(service.issue(7L, "CHAT_IMAGE", "image/jpeg", 600_000L, "chat-proof.jpg")
                 .storageUrl().startsWith("/uploads/chat-image/7/"));
         assertThrows(IllegalArgumentException.class, () -> service.issue(7L, "AFTER_SALES_EVIDENCE", "image/png", 10_000_001L, "too-large.png"));

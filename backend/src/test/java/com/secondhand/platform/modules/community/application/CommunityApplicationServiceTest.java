@@ -126,7 +126,7 @@ class CommunityApplicationServiceTest {
     }
 
     @Test
-    void createPostShouldRejectUnissuedCommunityImages() {
+    void createPostShouldRejectUnuploadedCommunityImages() {
         assertThrows(IllegalArgumentException.class, () -> service.createPost(15L,
                 post("图片凭证校验", "穿搭交流", "社区图片必须先拿平台上传凭证。", List.of("https://img.example.com/fake.jpg"))));
         assertThrows(IllegalArgumentException.class, () -> service.createPost(15L,
@@ -134,9 +134,11 @@ class CommunityApplicationServiceTest {
     }
 
     private String issuedCommunityImage(Long userId, String filename) {
-        return new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database))
+        String storageUrl = new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database))
                 .issue(userId, "COMMUNITY_IMAGE", "image/jpeg", 300_000L, filename)
                 .storageUrl();
+        new JdbcTemplate(database).update("UPDATE media_upload_ticket SET status = 'UPLOADED' WHERE owner_user_id = ? AND storage_url = ?", userId, storageUrl);
+        return storageUrl;
     }
 
     private CreateCommunityPostRequest post(String title, String topic, String content, List<String> imageUrls) {

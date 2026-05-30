@@ -57,6 +57,9 @@ public class OrderApplicationService {
         }
 
         ProductSnapshot productSnapshot = productApplicationService.snapshotForOrder(request.getGoodsId());
+        if (Objects.equals(productSnapshot.getSellerId(), buyerId)) {
+            throw new IllegalArgumentException("cannot buy your own product");
+        }
         ensureNoPendingOrder(productSnapshot.getProductId());
         String orderNo = generateNo("OD", productSnapshot.getProductId(), productSnapshot.getProductNo(), buyerId);
         productApplicationService.reserveForOrder(productSnapshot.getProductId(), orderNo);
@@ -130,7 +133,7 @@ public class OrderApplicationService {
                 STATUS_PENDING_PAY
         );
         if (changed == 0) {
-            return toPayResponse(findByOrderNoRequired(order.orderNo()), true);
+            throw new IllegalStateException("order-payment-state-update-failed");
         }
         return toPayResponse(findByOrderNoRequired(order.orderNo()), ledger.idempotentReplay());
     }
@@ -193,7 +196,7 @@ public class OrderApplicationService {
                 where order_no = ? and buyer_id = ? and order_status = ?
                 """, STATUS_COMPLETED, safeOrderNo, buyerId, STATUS_SHIPPED);
         if (changed == 0) {
-            return detailOrder(safeOrderNo, buyerId);
+            throw new IllegalStateException("order-confirm-state-update-failed");
         }
         return detailOrder(safeOrderNo, buyerId);
     }

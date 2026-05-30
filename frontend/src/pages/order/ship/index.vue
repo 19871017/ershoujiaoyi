@@ -9,15 +9,26 @@
       <view class="hero-icon">📦</view>
     </view>
 
+    <view v-if="errorText" class="status-card ds-card danger">
+      <view class="section-title">暂不能发货</view>
+      <view class="safe-line">{{ errorText }}</view>
+    </view>
+
     <view class="form-card ds-card">
-      <view class="section-title">订单 {{ orderNo || '未选择' }}</view>
+      <view class="section-head">
+        <view>
+          <view class="section-title">订单 {{ orderNo || '未选择' }}</view>
+          <view class="section-desc">提交后以服务端订单履约状态为准，页面不会本地伪造发货成功。</view>
+        </view>
+        <view class="order-chip">{{ shipType === 'EXPRESS' ? '快递' : '交付' }}</view>
+      </view>
       <view class="ship-row">
         <view v-for="item in shipTypes" :key="item.value" class="ship-chip tapable" :class="{ active: shipType === item.value }" @click="shipType = item.value">{{ item.label }}</view>
       </view>
       <input v-if="shipType === 'EXPRESS'" v-model.trim="company" class="field" maxlength="24" placeholder="快递公司，例如顺丰/圆通" />
       <input v-if="shipType === 'EXPRESS'" v-model.trim="trackingNo" class="field" maxlength="40" placeholder="运单号" />
       <textarea v-model.trim="remark" class="textarea" maxlength="80" :placeholder="shipType === 'MEETUP' ? '请填写线下交付地点/时间，正式履约状态以平台订单记录为准' : '发货备注，可说明包装、清洁、票据等'" />
-      <button class="primary-btn" :disabled="submitting" @click="submitShip">{{ submitting ? '提交中...' : '确认发货' }}</button>
+      <button class="primary-btn" :disabled="submitting || !orderNo" @click="submitShip">{{ submitting ? '提交中...' : '确认发货' }}</button>
     </view>
 
     <view class="safe-card ds-card">
@@ -31,38 +42,80 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { shipOrder, type ShippingType } from '../../../api/modules/order'
+import { assertBackendShipResponse, decodeRouteValue, isValidBackendOrderNo, shipTypes } from './order-ship-helpers'
 
 const orderNo = ref('')
-const shipTypes: Array<{ label: string; value: ShippingType }> = [
-  { label: '快递邮寄', value: 'EXPRESS' },
-  { label: '线下交付', value: 'MEETUP' }
-]
+const errorText = ref('')
 const shipType = ref<ShippingType>('EXPRESS')
 const company = ref('')
 const trackingNo = ref('')
 const remark = ref('')
 const submitting = ref(false)
-function readQuery() {
+
+function readQuery(): void {
   const pages = getCurrentPages()
   const current = pages.length ? pages[pages.length - 1] as unknown as { options?: Record<string, string> } : undefined
   const hashParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.hash.split('?')[1] || '') : undefined
-  orderNo.value = current?.options?.orderNo || hashParams?.get('orderNo') || ''
+  const routeOrderNo = decodeRouteValue('orderNo', current?.options?.orderNo || hashParams?.get('orderNo') || '')
+  if (routeOrderNo && !isValidBackendOrderNo(routeOrderNo)) {
+    console.warn('order ship invalid route orderNo', { rawLength: routeOrderNo.length, rawPreview: routeOrderNo.slice(0, 24) })
+  }
+  if (!isValidBackendOrderNo(routeOrderNo)) {
+    orderNo.value = ''
+    errorText.value = '缺少有效订单号，请从订单列表进入发货'
+    return
+  }
+  orderNo.value = routeOrderNo
+  errorText.value = ''
 }
-async function submitShip() {
-  if (!orderNo.value) return uni.showToast({ title: '缺少订单号', icon: 'none' })
-  if (shipType.value === 'EXPRESS' && (!company.value || !trackingNo.value)) return uni.showToast({ title: '请填写快递公司和运单号', icon: 'none' })
-  if (shipType.value === 'MEETUP' && !remark.value) return uni.showToast({ title: '请填写线下交付备注', icon: 'none' })
+
+async function submitShip(): Promise<void> {
+  const safeOrderNo = orderNo.value
+  const safeCompany = company.value.trim()
+  const safeTrackingNo = trackingNo.value.trim()
+  const safeRemark = remark.value.trim()
+  if (!isValidBackendOrderNo(safeOrderNo)) return uni.showToast({ title: '订单编号无效，已阻止发货', icon: 'none' })
+  if (shipType.value === 'EXPRESS' && (!safeCompany || !safeTrackingNo)) return uni.showToast({ title: '请填写快递公司和运单号', icon: 'none' })
+  if (shipType.value === 'MEETUP' && !safeRemark) return uni.showToast({ title: '请填写线下交付备注', icon: 'none' })
+
   submitting.value = true
   try {
-    const res = await shipOrder(orderNo.value, { shippingType: shipType.value, shippingCompany: company.value, trackingNo: trackingNo.value, remark: remark.value })
-    uni.showModal({ title: '已同步发货', content: `订单已更新为已发货，发货时间：${res.shippedAt || '刚刚'}`, showCancel: true, confirmText: '查看物流', cancelText: '返回订单', success: (modal) => { const url = modal.confirm ? `/pages/order/logistics/index?orderNo=${encodeURIComponent(orderNo.value)}` : `/pages/order/detail/index?orderNo=${encodeURIComponent(orderNo.value)}`; uni.redirectTo({ url }) } })
+    const response = await shipOrder(safeOrderNo, { shippingType: shipType.value, shippingCompany: safeCompany, trackingNo: safeTrackingNo, remark: safeRemark })
+    assertBackendShipResponse(response, safeOrderNo)
+    const modalOptions = {
+      title: '已同步发货',
+      content: `订单已由服务端更新为已发货，发货时间：${response.shippedAt}`,
+      showCancel: true,
+      confirmText: '查看物流',
+      cancelText: '返回订单',
+      fail(error: unknown) {
+        console.warn('order ship success modal failed', { orderNo: safeOrderNo, error })
+        uni.showToast({ title: '发货状态已同步，请从订单详情查看', icon: 'none' })
+      },
+      success(modal: { confirm?: boolean }) {
+        redirectAfterShip(safeOrderNo, modal.confirm === true)
+      }
+    }
+    uni.showModal(modalOptions)
   } catch (error) {
-    uni.showToast({ title: error instanceof Error ? error.message : '发货失败', icon: 'none' })
-  } finally { submitting.value = false }
+    console.warn('order ship submit failed', { orderNo: safeOrderNo, shippingType: shipType.value, error })
+    uni.showToast({ title: '发货信息未同步，请检查订单状态后重试', icon: 'none' })
+  } finally {
+    submitting.value = false
+  }
+}
+function redirectAfterShip(orderNoSnapshot: string, showLogistics: boolean): void {
+  const page = showLogistics ? '/pages/order/logistics/index' : '/pages/order/detail/index'
+  const route = {
+    url: `${page}?orderNo=${encodeURIComponent(orderNoSnapshot)}`,
+    fail(error: unknown) {
+      console.warn('order ship redirect failed', { orderNo: orderNoSnapshot, target: page, error })
+      uni.showToast({ title: '发货状态已同步，但暂时无法打开订单页', icon: 'none' })
+    }
+  }
+  uni.redirectTo(route)
 }
 onMounted(readQuery)
 </script>
 
-<style scoped>
-.ship-page { background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%); }.hero,.form-card,.safe-card { margin-top:18rpx; padding:22rpx; border-color:#ffd9bd; }.hero { display:flex; justify-content:space-between; align-items:center; background:linear-gradient(135deg,#fff,#fff3e7); }.kicker { color:#ff7a45; font-size:22rpx; font-weight:950; }.hero-icon { width:82rpx; height:82rpx; border-radius:28rpx; background:#ff7a45; color:#fff; display:flex; align-items:center; justify-content:center; font-size:38rpx; }.section-title { color:#3a2a1f; font-size:29rpx; font-weight:950; }.ship-row { margin-top:16rpx; display:grid; grid-template-columns:repeat(2,1fr); gap:12rpx; }.ship-chip { padding:16rpx; border-radius:999rpx; text-align:center; background:#fffaf6; border:1rpx solid #ffd9bd; color:#7b5542; font-size:23rpx; font-weight:900; }.ship-chip.active { background:#fff3e7; border-color:#ff7a45; color:#ff7a45; }.field,.textarea { box-sizing:border-box; width:100%; margin-top:16rpx; padding:0 18rpx; border-radius:24rpx; background:#fffaf6; border:1rpx solid #ffd9bd; color:#3a2a1f; font-size:24rpx; }.field { height:82rpx; }.textarea { height:130rpx; padding-top:18rpx; }.primary-btn { margin-top:18rpx; }.primary-btn[disabled] { opacity:.65; }.safe-line { margin-top:8rpx; color:#9b7560; font-size:22rpx; line-height:1.55; }
-</style>
+<style scoped lang="scss" src="./style.scss"></style>

@@ -1,32 +1,24 @@
 package com.secondhand.platform.shared.web;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
 public class AdminAccessGuard {
-    private final CurrentUserResolver currentUserResolver;
     private final JdbcTemplate jdbcTemplate;
 
-    public AdminAccessGuard(CurrentUserResolver currentUserResolver, JdbcTemplate jdbcTemplate) {
-        this.currentUserResolver = currentUserResolver;
+    public AdminAccessGuard(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    /**
-     * Admin APIs require a resolved operator identity and an enabled persisted permission.
-     * Legacy development opt-in headers are no longer authorization factors.
-     */
     public long requireAdmin(HttpServletRequest request) {
         return requireAdmin(request, "audit:read");
     }
 
     public long requireAdminSession(HttpServletRequest request) {
-        if (request == null) {
-            throw new SecurityException("admin access required");
-        }
-        long adminUserId = currentUserResolver.resolve(request);
+        long adminUserId = resolveAdminUserId(request);
         if (!hasActiveSession(adminUserId, request.getHeader("X-Admin-Session"))) {
             throw new SecurityException("admin session required");
         }
@@ -34,10 +26,7 @@ public class AdminAccessGuard {
     }
 
     public long requireAdmin(HttpServletRequest request, String permissionCode) {
-        if (request == null) {
-            throw new SecurityException("admin access required");
-        }
-        long adminUserId = currentUserResolver.resolve(request);
+        long adminUserId = resolveAdminUserId(request);
         if (!hasActiveSession(adminUserId, request.getHeader("X-Admin-Session"))) {
             throw new SecurityException("admin session required");
         }
@@ -45,6 +34,17 @@ public class AdminAccessGuard {
             throw new SecurityException("admin permission required");
         }
         return adminUserId;
+    }
+
+    private long resolveAdminUserId(HttpServletRequest request) {
+        if (request == null) {
+            throw new SecurityException("admin access required");
+        }
+        String headerUserId = request.getHeader("X-User-Id");
+        if (headerUserId == null || !headerUserId.trim().matches("^[1-9]\\d*$")) {
+            throw new SecurityException("admin access required");
+        }
+        return Long.parseLong(headerUserId.trim());
     }
 
     private boolean hasActiveSession(long adminUserId, String sessionId) {
@@ -55,13 +55,13 @@ public class AdminAccessGuard {
         if (!normalizedSessionId.matches("^adm_[a-fA-F0-9]{32}$")) {
             return false;
         }
-        Integer count = jdbcTemplate.queryForObject("""
-                SELECT COUNT(1)
+        List<Long> userIds = jdbcTemplate.queryForList("""
+                SELECT s.user_id
                 FROM admin_session s
                 INNER JOIN user_account u ON u.id = s.user_id AND u.status = 'ACTIVE'
                 WHERE s.user_id = ? AND s.session_id = ? AND s.revoked = FALSE AND s.expires_at > CURRENT_TIMESTAMP
-                """, Integer.class, adminUserId, normalizedSessionId);
-        return count != null && count > 0;
+                """, Long.class, adminUserId, normalizedSessionId);
+        return !userIds.isEmpty();
     }
 
     private boolean hasPermission(long adminUserId, String permissionCode) {

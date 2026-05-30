@@ -8,6 +8,7 @@ public record HomeBannerResponse(
     String cta,
     String imageUrl,
     String action,
+    String placement,
     Integer sortOrder,
     Boolean enabled,
     String sizeHint,

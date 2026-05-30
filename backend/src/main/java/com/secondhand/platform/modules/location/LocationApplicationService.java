@@ -76,18 +76,18 @@ public class LocationApplicationService {
     }
 
     public ReverseGeocodeResponse reverse(ReverseGeocodeRequest request) {
-        LocationConfigResponse config = getConfig();
-        if (!config.enabled()) {
-            return fallback(config, null, null);
-        }
         BigDecimal latitude = request == null ? null : request.getLatitude();
         BigDecimal longitude = request == null ? null : request.getLongitude();
         validateCoordinate(latitude, longitude);
+        LocationConfigResponse config = getConfig();
+        if (!config.enabled()) {
+            throw new IllegalStateException("location reverse geocode disabled");
+        }
         String ak = currentBaiduAk();
         if (GeoProvider.BAIDU.name().equals(config.provider()) && !isBlank(ak)) {
             return baiduClient.reverse(ak, config.coordinateType(), latitude, longitude);
         }
-        return fallback(config, latitude, longitude);
+        throw new IllegalStateException("location reverse geocode not configured");
     }
 
     private void applyConfig(String providerValue, Boolean enabledValue, String defaultCityValue,
@@ -110,10 +110,6 @@ public class LocationApplicationService {
         if (!isBlank(baiduAkValue)) {
             upsert(KEY_BAIDU_AK, baiduAkValue.trim(), "secret", "百度地图 AK");
         }
-    }
-
-    private ReverseGeocodeResponse fallback(LocationConfigResponse config, BigDecimal latitude, BigDecimal longitude) {
-        return new ReverseGeocodeResponse(config.provider(), config.defaultProvince(), config.defaultCity(), "", "", latitude, longitude, true);
     }
 
     private void validateCoordinate(BigDecimal latitude, BigDecimal longitude) {

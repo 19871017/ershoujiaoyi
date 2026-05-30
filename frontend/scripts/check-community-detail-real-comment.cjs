@@ -3,7 +3,10 @@ const path = require('path')
 
 const root = path.resolve(__dirname, '..')
 const detailPath = path.join(root, 'src/pages/community/detail/index.vue')
-const source = fs.readFileSync(detailPath, 'utf8')
+const source = [
+  fs.readFileSync(path.join(root, 'src/pages/community/detail/community-detail-helpers.ts'), 'utf8'),
+  fs.readFileSync(detailPath, 'utf8')
+].join('\n')
 
 const failures = []
 

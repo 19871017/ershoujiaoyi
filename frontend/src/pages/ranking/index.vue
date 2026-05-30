@@ -98,26 +98,11 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { listUserRankings, type RankingGender, type RankingPeriod, type UserRankingResponse } from '../../api/modules/ranking'
+import { listUserRankings } from '../../api/modules/ranking'
 import { followPublicProfile, unfollowPublicProfile } from '../../api/modules/user'
 import rankingGoddessCard from '../../assets/ranking/ranking-goddess-card.png'
 import rankingGodCard from '../../assets/ranking/ranking-god-card.png'
-
-type Gender = RankingGender
-type Period = RankingPeriod
-
-interface RankingUser {
-  id: number
-  rank: number
-  gender: Gender
-  avatar: string
-  avatarUrl: string
-  name: string
-  bio: string
-  city: string
-  giftScore: number
-  viewerFollows: boolean
-}
+import { isRankingPeriod, isRankingTab, periodTabs, toRankingUser, type Gender, type Period, type RankingUser } from './ranking-data'
 
 const activeGender = ref<Gender>('goddess')
 const activePeriod = ref<Period>('week')
@@ -125,11 +110,6 @@ const loading = ref(false)
 const loadError = ref('')
 const rankings = ref<RankingUser[]>([])
 const followingIds = ref<Set<number>>(new Set())
-const periodTabs = [
-  { value: 'day' as const, label: '日榜' },
-  { value: 'week' as const, label: '周榜' },
-  { value: 'all' as const, label: '总榜' }
-]
 
 const isGoddess = computed(() => activeGender.value === 'goddess')
 const pageTitle = computed(() => isGoddess.value ? '女神榜' : '男神榜')
@@ -158,21 +138,6 @@ const podiumList = computed(() => {
 
 function scoreText(item: RankingUser) {
   return `${isGoddess.value ? '魅力值' : '实力值'} ${item.giftScore}`
-}
-
-function toRankingUser(item: UserRankingResponse): RankingUser {
-  return {
-    id: item.userId,
-    rank: item.rank,
-    gender: item.gender === 'god' ? 'god' : 'goddess',
-    avatar: (item.nickname || '圈').slice(0, 1),
-    avatarUrl: item.avatarUrl || '',
-    name: item.nickname || '平台用户',
-    bio: item.bio || '这个用户还没有填写个人介绍',
-    city: item.city || '全部',
-    giftScore: item.giftScore ?? item.popularityScore,
-    viewerFollows: item.followedByMe
-  }
 }
 
 function switchPeriod(period: Period) {
@@ -232,8 +197,8 @@ function readQuery() {
   const hashParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.hash.split('?')[1] || '') : undefined
   const tab = current?.options?.tab || hashParams?.get('tab') || ''
   const period = current?.options?.period || hashParams?.get('period') || ''
-  if (tab === 'god' || tab === 'goddess') activeGender.value = tab
-  if (period === 'day' || period === 'week' || period === 'all') activePeriod.value = period
+  if (isRankingTab(tab)) activeGender.value = tab
+  if (isRankingPeriod(period)) activePeriod.value = period
 }
 
 onMounted(() => {
@@ -242,64 +207,4 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-.ranking-page { background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 48%,#fff7ed 100%); }
-.hero { position:relative; overflow:hidden; padding:26rpx; border-color:#ffd9bd; background:linear-gradient(135deg,#fff,#fff3e7 62%,#fff4e7); }
-.hero-goddess { background:linear-gradient(135deg,#fff7fb 0%,#fff0f4 58%,#fff7ed 100%); }
-.hero-god { background:linear-gradient(135deg,#f7f9ff 0%,#eef4ff 58%,#f8f5ff 100%); }
-.hero-artwork { position:absolute; inset:0; background-repeat:no-repeat; background-size:cover; background-position:center top; transform:scale(1.02); opacity:.98; }
-.hero-overlay { position:absolute; inset:0; background:linear-gradient(90deg,rgba(255,252,249,.96) 0%,rgba(255,249,245,.8) 36%,rgba(255,244,236,.34) 62%,rgba(255,243,235,.08) 100%); }
-.hero-goddess .hero-overlay { background:linear-gradient(90deg,rgba(255,250,252,.97) 0%,rgba(255,245,248,.84) 38%,rgba(255,236,242,.34) 64%,rgba(255,241,236,.1) 100%); }
-.hero-god .hero-overlay { background:linear-gradient(90deg,rgba(248,250,255,.97) 0%,rgba(241,245,255,.84) 38%,rgba(232,240,255,.34) 64%,rgba(237,243,255,.1) 100%); }
-.hero-glow { position:absolute; right:-80rpx; top:-80rpx; width:230rpx; height:230rpx; border-radius:50%; background:rgba(255,122,69,.14); filter:blur(2rpx); }
-.hero-top { position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start; gap:20rpx; }
-.hero-title { color:#3a2a1f; font-size:40rpx; font-weight:950; text-shadow:0 4rpx 18rpx rgba(255,255,255,.3); }
-.hero-badge { min-width:118rpx; padding:14rpx 18rpx; border-radius:999rpx; display:flex; align-items:center; justify-content:center; border:1rpx solid rgba(255,255,255,.55); background:rgba(255,255,255,.5); backdrop-filter:blur(10rpx); box-shadow:0 16rpx 34rpx rgba(111,78,55,.12); }
-.hero-badge-goddess { background:linear-gradient(180deg,rgba(255,255,255,.68) 0%,rgba(255,240,246,.5) 100%); border-color:rgba(255,221,233,.95); }
-.hero-badge-god { background:linear-gradient(180deg,rgba(255,255,255,.7) 0%,rgba(236,243,255,.52) 100%); border-color:rgba(215,228,255,.96); }
-.hero-badge-text { color:#7b5542; font-size:18rpx; font-weight:900; letter-spacing:2rpx; line-height:1.1; }
-.hero-badge-god .hero-badge-text { color:#475f9d; }
-.hero-stats { position:relative; z-index:1; margin-top:22rpx; display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12rpx; }
-.stat-card { padding:16rpx 10rpx; border-radius:24rpx; background:rgba(255,255,255,.76); text-align:center; border:1rpx solid rgba(255,255,255,.72); backdrop-filter:blur(12rpx); box-shadow:0 10rpx 22rpx rgba(111,78,55,.08); }
-.stat-value { color:#3a2a1f; font-size:28rpx; font-weight:950; }
-.stat-label { margin-top:4rpx; color:#9b7560; font-size:18rpx; font-weight:800; }
-.period-tabs { margin-top:20rpx; padding:8rpx; display:grid; grid-template-columns:repeat(3,1fr); gap:10rpx; border-color:#ffd9bd; }
-.period-tab { min-height:70rpx; border-radius:24rpx; display:flex; align-items:center; justify-content:center; color:#9b7560; font-size:24rpx; font-weight:900; background:#fffaf6; }
-.period-tab.active { background:#ff7a45; color:#fff; box-shadow:0 10rpx 20rpx rgba(255,122,69,.22); }
-.podium,.filter-card { margin-top:20rpx; padding:22rpx; border-color:#ffd9bd; }
-.podium-title-row,.filter-head { display:flex; justify-content:space-between; gap:16rpx; align-items:flex-start; }
-.section-title { color:#3a2a1f; font-size:30rpx; font-weight:950; }
-.section-desc { margin-top:6rpx; color:#9b7560; font-size:21rpx; line-height:1.45; }
-.city-chip { flex:none; padding:10rpx 16rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:20rpx; font-weight:900; }
-.podium-row { margin-top:24rpx; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12rpx; align-items:end; }
-.podium-item { position:relative; min-height:190rpx; padding:18rpx 10rpx 16rpx; border-radius:34rpx; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; border:1rpx solid #ffd9bd; background:linear-gradient(180deg,#fff,#fffaf6); }
-.podium-item.rank-1 { min-height:226rpx; background:linear-gradient(180deg,#fff7d6,#fff3e7); }
-.podium-item.god { background:linear-gradient(180deg,#eef4ff,#f6f8ff); }
-.podium-item.goddess { background:linear-gradient(180deg,#fff3f7,#fffaf6); }
-.rank-label { position:absolute; top:12rpx; right:12rpx; padding:5rpx 9rpx; border-radius:999rpx; background:rgba(255,255,255,.72); color:#b9856a; font-size:16rpx; font-weight:950; }
-.podium-avatar { width:72rpx; height:72rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:30rpx; font-weight:950; box-shadow:0 10rpx 22rpx rgba(255,122,69,.18); overflow:hidden; }
-.podium-item.god .podium-avatar { background:linear-gradient(135deg,#8b7cf6,#60a5fa); }
-.podium-avatar.image,.podium-item.god .podium-avatar.image { background:#fff; }
-.podium-name { margin-top:12rpx; max-width:100%; color:#3a2a1f; font-size:21rpx; font-weight:950; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.podium-score { margin-top:5rpx; color:#9b7560; font-size:18rpx; font-weight:800; }
-.empty { margin-top:18rpx; padding:22rpx; border-color:#ffd9bd; text-align:center; }
-.rank-list { margin-top:16rpx; display:flex; flex-direction:column; gap:14rpx; }
-.user-card { padding:18rpx; display:flex; align-items:center; gap:14rpx; border-color:#ffd9bd; }
-.rank-no { width:42rpx; color:#b9856a; font-size:24rpx; font-weight:950; text-align:center; }
-.rank-no.top { color:#ff7a45; }
-.avatar-wrap { position:relative; flex:none; }
-.avatar { width:76rpx; height:76rpx; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:30rpx; font-weight:950; background:linear-gradient(135deg,#ff7a45,#ffb08a); overflow:hidden; }
-.avatar.god { background:linear-gradient(135deg,#8b7cf6,#60a5fa); }
-.avatar.image,.avatar.god.image { background:#fff; }
-.ranking-avatar-image { width:100%; height:100%; display:block; }
-.user-main { flex:1; min-width:0; }
-.name-row { display:flex; align-items:center; gap:8rpx; min-width:0; }
-.user-name { color:#3a2a1f; font-size:26rpx; font-weight:950; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.verify { flex:none; padding:4rpx 9rpx; border-radius:999rpx; background:#f0fdf4; color:#15803d; font-size:17rpx; font-weight:900; }
-.user-desc { margin-top:6rpx; color:#7b5542; font-size:21rpx; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.metric-row { margin-top:8rpx; display:flex; gap:12rpx; color:#b9856a; font-size:18rpx; font-weight:800; }
-.user-actions { flex:none; display:flex; flex-direction:column; gap:8rpx; }
-.follow-btn,.chat-btn { width:82rpx; height:42rpx; line-height:42rpx; border-radius:999rpx; font-size:19rpx; font-weight:900; }
-.follow-btn { background:#ff7a45; color:#fff; }
-.chat-btn { background:#fff; color:#7b5542; border:1rpx solid #ffd9bd; }
-</style>
+<style scoped lang="scss" src="./style.scss"></style>

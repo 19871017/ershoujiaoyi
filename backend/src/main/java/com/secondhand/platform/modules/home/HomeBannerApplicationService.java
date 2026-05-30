@@ -10,9 +10,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class HomeBannerApplicationService {
-    public static final String SIZE_HINT = "建议尺寸 750×300px（比例 5:2），JPG/PNG/WebP，单张不超过 500KB；重要文字和主体放在中间安全区，避免左右圆角裁切。";
-    private static final int MAX_BANNERS = 6;
+    public static final String HOME_SIZE_HINT = "首页轮播建议尺寸 750×300px（比例 5:2），JPG/PNG/WebP，单张不超过 500KB；重要文字和主体放在中间安全区，避免左右圆角裁切。";
+    public static final String MERCHANT_SHOWCASE_SIZE_HINT = "商家秀顶部轮播建议尺寸 750×520px，JPG/PNG/WebP，最多展示 3 张；人物主体放在中间安全区，避免上下圆角和手机状态栏裁切。";
+    private static final String HOME_PLACEMENT = "HOME";
+    private static final String MERCHANT_SHOWCASE_PLACEMENT = "MERCHANT_SHOWCASE";
+    private static final String HOME_UPLOAD_PREFIX = "/uploads/home/";
+    private static final int MAX_BANNERS = 12;
+    private static final int MAX_HOME_BANNERS = 100;
+    private static final int MAX_MERCHANT_SHOWCASE_BANNERS = 3;
     private static final List<String> ALLOWED_ACTIONS = List.of("closet", "ranking", "forum", "search", "none");
+    private static final List<String> ALLOWED_PLACEMENTS = List.of(HOME_PLACEMENT, MERCHANT_SHOWCASE_PLACEMENT);
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -22,19 +29,28 @@ public class HomeBannerApplicationService {
     }
 
     public synchronized List<HomeBannerResponse> listEnabled() {
+        return listEnabledByPlacement(HOME_PLACEMENT, MAX_HOME_BANNERS);
+    }
+
+    public synchronized List<HomeBannerResponse> listMerchantShowcaseEnabled() {
+        return listEnabledByPlacement(MERCHANT_SHOWCASE_PLACEMENT, MAX_MERCHANT_SHOWCASE_BANNERS);
+    }
+
+    private List<HomeBannerResponse> listEnabledByPlacement(String placement, int limit) {
         ensureDefaults();
         return jdbcTemplate.query("""
-                SELECT id, kicker, title, description, cta, image_url, action, sort_order, enabled, updated_at
+                SELECT id, kicker, title, description, cta, image_url, action, placement, sort_order, enabled, updated_at
                 FROM home_banner
-                WHERE enabled = TRUE
+                WHERE enabled = TRUE AND placement = ?
                 ORDER BY sort_order ASC, id ASC
-                """, this::mapRow);
+                LIMIT ?
+                """, this::mapRow, placement, limit);
     }
 
     public synchronized List<HomeBannerResponse> adminList() {
         ensureDefaults();
         return jdbcTemplate.query("""
-                SELECT id, kicker, title, description, cta, image_url, action, sort_order, enabled, updated_at
+                SELECT id, kicker, title, description, cta, image_url, action, placement, sort_order, enabled, updated_at
                 FROM home_banner
                 ORDER BY sort_order ASC, id ASC
                 """, this::mapRow);
@@ -64,9 +80,9 @@ public class HomeBannerApplicationService {
         BannerValues values = validate(request, bannerId);
         jdbcTemplate.update("""
                 UPDATE home_banner
-                SET kicker = ?, title = ?, description = ?, cta = ?, image_url = ?, action = ?, sort_order = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP
+                SET kicker = ?, title = ?, description = ?, cta = ?, image_url = ?, action = ?, placement = ?, sort_order = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
-                """, values.kicker(), values.title(), values.description(), values.cta(), values.imageUrl(), values.action(), values.sortOrder(), values.enabled(), bannerId);
+                """, values.kicker(), values.title(), values.description(), values.cta(), values.imageUrl(), values.action(), values.placement(), values.sortOrder(), values.enabled(), bannerId);
         return getById(bannerId);
     }
 
@@ -83,7 +99,7 @@ public class HomeBannerApplicationService {
         ensureDefaults();
         requireValidId(bannerId);
         return jdbcTemplate.query("""
-                SELECT id, kicker, title, description, cta, image_url, action, sort_order, enabled, updated_at
+                SELECT id, kicker, title, description, cta, image_url, action, placement, sort_order, enabled, updated_at
                 FROM home_banner
                 WHERE id = ?
                 """, this::mapRow, bannerId)
@@ -99,10 +115,11 @@ public class HomeBannerApplicationService {
         String cta = sanitizeText(request.getCta(), "cta", 16, true);
         String imageUrl = sanitizeImageUrl(request.getImageUrl());
         String action = sanitizeAction(request.getAction());
+        String placement = sanitizePlacement(request.getPlacement());
         int sortOrder = sanitizeSortOrder(request.getSortOrder());
         boolean enabled = request.getEnabled() != null && request.getEnabled();
         ensureUniqueSort(sortOrder, currentId);
-        return new BannerValues(kicker, title, description, cta, imageUrl, action, sortOrder, enabled);
+        return new BannerValues(kicker, title, description, cta, imageUrl, action, placement, sortOrder, enabled);
     }
 
     private String sanitizeText(String value, String field, int maxLength, boolean required) {
@@ -122,7 +139,7 @@ public class HomeBannerApplicationService {
 
     private String sanitizeImageUrl(String value) {
         String trimmed = sanitizeText(value, "imageUrl", 512, true);
-        if (!(trimmed.startsWith("/uploads/") || trimmed.startsWith("https://"))) {
+        if (!trimmed.startsWith(HOME_UPLOAD_PREFIX)) {
             throw new IllegalArgumentException("home banner imageUrl invalid");
         }
         return trimmed;
@@ -134,6 +151,14 @@ public class HomeBannerApplicationService {
             throw new IllegalArgumentException("home banner action invalid");
         }
         return action;
+    }
+
+    private String sanitizePlacement(String value) {
+        String placement = value == null || value.trim().isEmpty() ? HOME_PLACEMENT : value.trim().toUpperCase();
+        if (!ALLOWED_PLACEMENTS.contains(placement)) {
+            throw new IllegalArgumentException("home banner placement invalid");
+        }
+        return placement;
     }
 
     private int sanitizeSortOrder(Integer value) {
@@ -176,6 +201,8 @@ public class HomeBannerApplicationService {
     }
 
     private HomeBannerResponse mapRow(ResultSet rs, int rowNum) throws SQLException {
+        String rowPlacement = rs.getString("placement");
+        String placement = rowPlacement == null ? HOME_PLACEMENT : rowPlacement;
         return new HomeBannerResponse(
                 rs.getLong("id"),
                 rs.getString("kicker"),
@@ -184,56 +211,36 @@ public class HomeBannerApplicationService {
                 rs.getString("cta"),
                 rs.getString("image_url"),
                 rs.getString("action"),
+                placement,
                 rs.getInt("sort_order"),
                 rs.getBoolean("enabled"),
-                SIZE_HINT,
+                MERCHANT_SHOWCASE_PLACEMENT.equals(placement) ? MERCHANT_SHOWCASE_SIZE_HINT : HOME_SIZE_HINT,
                 rs.getTimestamp("updated_at") == null ? Instant.now().toString() : rs.getTimestamp("updated_at").toInstant().toString()
         );
     }
 
     private void ensureDefaults() {
-        try {
-            jdbcTemplate.queryForObject("SELECT COUNT(1) FROM home_banner", Integer.class);
-        } catch (RuntimeException missingTable) {
-            // Production deployments may already have schema.sql applied; local tests and older databases are initialized lazily.
-            jdbcTemplate.execute("""
-                    CREATE TABLE IF NOT EXISTS home_banner (
-                      id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                      kicker VARCHAR(64) NOT NULL,
-                      title VARCHAR(80) NOT NULL,
-                      description VARCHAR(160) NOT NULL,
-                      cta VARCHAR(32) NOT NULL,
-                      image_url VARCHAR(512) NOT NULL,
-                      action VARCHAR(32) NOT NULL DEFAULT 'none',
-                      sort_order INT NOT NULL,
-                      enabled BOOLEAN NOT NULL DEFAULT TRUE,
-                      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                      UNIQUE(sort_order)
-                    )
-                    """);
-        }
         Integer count = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM home_banner", Integer.class);
         if (count != null && count > 0) {
             return;
         }
-        insertDefault(1L, "小原圈 · 今日新鲜", "把心爱闲置交给懂它的人", "附近好物、日常分享、圈内互动，一屏逛完。", "去发现", "/uploads/home/banner-closet.svg", "closet", 10);
-        insertDefault(2L, "礼物积分上升", "男神女神礼物榜", "1 元礼物 = 1 分，按礼物积分看榜单。", "看榜单", "/uploads/home/banner-ranking.svg", "ranking", 20);
-        insertDefault(3L, "日常生活频道", "分享今天的小确幸", "校园、寝室、城市日常，都可以轻松聊。", "去社区", "/uploads/home/banner-community.svg", "forum", 30);
+        insertDefault(1L, "小原圈 · 今日新鲜", "把心爱闲置交给懂它的人", "附近好物、日常分享、圈内互动，一屏逛完。", "去发现", HOME_UPLOAD_PREFIX + "banner-closet.svg", "closet", HOME_PLACEMENT, 10);
+        insertDefault(2L, "礼物积分上升", "男神女神礼物榜", "1 元礼物 = 1 分，按礼物积分看榜单。", "看榜单", HOME_UPLOAD_PREFIX + "banner-ranking.svg", "ranking", HOME_PLACEMENT, 20);
+        insertDefault(3L, "日常生活频道", "分享今天的小确幸", "校园、寝室、城市日常，都可以轻松聊。", "去社区", HOME_UPLOAD_PREFIX + "banner-community.svg", "forum", HOME_PLACEMENT, 30);
     }
 
     private HomeBannerResponse insertAndLoad(Long id, BannerValues values) {
         jdbcTemplate.update("""
-                INSERT INTO home_banner (id, kicker, title, description, cta, image_url, action, sort_order, enabled, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """, id, values.kicker(), values.title(), values.description(), values.cta(), values.imageUrl(), values.action(), values.sortOrder(), values.enabled());
+                INSERT INTO home_banner (id, kicker, title, description, cta, image_url, action, placement, sort_order, enabled, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, id, values.kicker(), values.title(), values.description(), values.cta(), values.imageUrl(), values.action(), values.placement(), values.sortOrder(), values.enabled());
         return getById(id);
     }
 
-    private void insertDefault(Long id, String kicker, String title, String description, String cta, String imageUrl, String action, int sortOrder) {
-        insertAndLoad(id, new BannerValues(kicker, title, description, cta, imageUrl, action, sortOrder, true));
+    private void insertDefault(Long id, String kicker, String title, String description, String cta, String imageUrl, String action, String placement, int sortOrder) {
+        insertAndLoad(id, new BannerValues(kicker, title, description, cta, imageUrl, action, placement, sortOrder, true));
     }
 
-    private record BannerValues(String kicker, String title, String description, String cta, String imageUrl, String action, int sortOrder, boolean enabled) {
+    private record BannerValues(String kicker, String title, String description, String cta, String imageUrl, String action, String placement, int sortOrder, boolean enabled) {
     }
 }

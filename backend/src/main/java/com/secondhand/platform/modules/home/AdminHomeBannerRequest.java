@@ -7,6 +7,7 @@ public class AdminHomeBannerRequest {
     private String cta;
     private String imageUrl;
     private String action;
+    private String placement;
     private Integer sortOrder;
     private Boolean enabled;
 
@@ -56,6 +57,14 @@ public class AdminHomeBannerRequest {
 
     public void setAction(String action) {
         this.action = action;
+    }
+
+    public String getPlacement() {
+        return placement;
+    }
+
+    public void setPlacement(String placement) {
+        this.placement = placement;
     }
 
     public Integer getSortOrder() {

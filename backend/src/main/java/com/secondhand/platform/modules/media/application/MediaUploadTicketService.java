@@ -62,7 +62,7 @@ public class MediaUploadTicketService {
             case SCENE_PRODUCT_IMAGE -> "/uploads/product-image/";
             case SCENE_COMMUNITY_IMAGE -> "/uploads/community-image/";
             case SCENE_AFTER_SALES_EVIDENCE -> "/uploads/evidence/after-sales/";
-            case SCENE_REPORT_EVIDENCE -> "/uploads/evidence/report/";
+            case SCENE_REPORT_EVIDENCE -> "/uploads/report-evidence/";
             case SCENE_CHAT_IMAGE -> "/uploads/chat-image/";
             default -> "/uploads/video-identity/";
         };

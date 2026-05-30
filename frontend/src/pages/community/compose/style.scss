@@ -1,0 +1,222 @@
+.compose-page {
+  min-height: 100vh;
+  padding-top: 18rpx;
+  padding-bottom: 44rpx;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255, 202, 150, .28), transparent 28%),
+    radial-gradient(circle at 88% 16%, rgba(255, 226, 214, .44), transparent 24%),
+    linear-gradient(180deg, #fff8f0 0%, #fffdfa 55%, #fff5ee 100%);
+}
+
+.hero,
+.form-card,
+.safe-card {
+  margin-top: 18rpx;
+  padding: 22rpx;
+  border-color: rgba(255, 217, 189, .78);
+  box-shadow: 0 16rpx 32rpx rgba(132, 70, 36, .085);
+}
+
+.hero,
+.topic-row,
+.image-box,
+.image-plus,
+.remove {
+  display: flex;
+}
+
+.hero {
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .98), rgba(255, 244, 234, .96));
+}
+
+.kicker {
+  color: #df6735;
+  font-size: 22rpx;
+  font-weight: 950;
+  letter-spacing: .18rpx;
+}
+
+.hero-icon {
+  width: 82rpx;
+  height: 82rpx;
+  border-radius: 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ef6f3f, #ff8b76);
+  color: #fffaf4;
+  font-size: 38rpx;
+  font-weight: 950;
+  box-shadow: 0 12rpx 24rpx rgba(255, 122, 69, .17);
+  flex: 0 0 auto;
+}
+
+.form-card,
+.safe-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .98), rgba(255, 248, 242, .97));
+}
+
+.section-title {
+  color: #342116;
+  font-size: 29rpx;
+  font-weight: 950;
+  letter-spacing: .16rpx;
+}
+
+.gap {
+  margin-top: 24rpx;
+}
+
+.topic-row {
+  margin-top: 14rpx;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.topic-chip {
+  padding: 12rpx 18rpx;
+  border-radius: 999rpx;
+  background: #fffaf6;
+  color: #8f6b57;
+  border: 1rpx solid rgba(255, 217, 189, .78);
+  font-size: 22rpx;
+  font-weight: 900;
+  box-shadow: 0 8rpx 16rpx rgba(132, 70, 36, .05);
+}
+
+.topic-chip.active {
+  background: linear-gradient(135deg, #ef6f3f, #ff8b76);
+  color: #fffaf4;
+  border-color: rgba(239, 111, 63, .72);
+  box-shadow: 0 10rpx 20rpx rgba(255, 122, 69, .15);
+}
+
+.field,
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 14rpx;
+  padding: 18rpx;
+  border-radius: 24rpx;
+  background: linear-gradient(180deg, #fffdf9, #fff8f1);
+  border: 1rpx solid rgba(255, 217, 189, .78);
+  color: #342116;
+  font-size: 24rpx;
+  font-weight: 750;
+  box-shadow: inset 0 1rpx 0 rgba(255, 255, 255, .72);
+}
+
+.field {
+  height: 76rpx;
+}
+
+.textarea {
+  height: 218rpx;
+  line-height: 1.58;
+}
+
+.counter {
+  margin-top: 8rpx;
+  text-align: right;
+  color: #8f6b57;
+  font-size: 20rpx;
+  font-weight: 760;
+}
+
+.image-box {
+  margin-top: 15rpx;
+  padding: 18rpx;
+  border-radius: 26rpx;
+  background: linear-gradient(135deg, #fffaf6, #fff1e6);
+  align-items: center;
+  gap: 14rpx;
+  border: 1rpx dashed rgba(239, 111, 63, .36);
+}
+
+.image-plus {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 20rpx;
+  background: #fff;
+  color: #df6735;
+  align-items: center;
+  justify-content: center;
+  font-size: 38rpx;
+  box-shadow: inset 0 0 0 1rpx rgba(255, 217, 189, .58);
+  flex: 0 0 auto;
+}
+
+.image-title {
+  color: #342116;
+  font-size: 24rpx;
+  font-weight: 950;
+}
+
+.image-desc {
+  margin-top: 6rpx;
+  color: #8f6b57;
+  font-size: 21rpx;
+  font-weight: 700;
+}
+
+.preview-row {
+  margin-top: 14rpx;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12rpx;
+}
+
+.preview {
+  position: relative;
+  height: 152rpx;
+  border-radius: 24rpx;
+  overflow: hidden;
+  background: #fff3e7;
+  box-shadow: 0 10rpx 20rpx rgba(132, 70, 36, .08);
+}
+
+.preview image {
+  width: 100%;
+  height: 100%;
+}
+
+.remove {
+  position: absolute;
+  right: 8rpx;
+  top: 8rpx;
+  width: 34rpx;
+  height: 34rpx;
+  border-radius: 50%;
+  background: rgba(58, 33, 22, .78);
+  color: #fffaf4;
+  align-items: center;
+  justify-content: center;
+  font-weight: 950;
+}
+
+.safe-title {
+  color: #342116;
+  font-size: 25rpx;
+  font-weight: 950;
+}
+
+.safe-line {
+  margin-top: 8rpx;
+  color: #6f4d3d;
+  font-size: 22rpx;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.safe-line.strong {
+  color: #df6735;
+  font-weight: 900;
+}
+
+.submit {
+  margin-top: 24rpx;
+  width: 100%;
+}

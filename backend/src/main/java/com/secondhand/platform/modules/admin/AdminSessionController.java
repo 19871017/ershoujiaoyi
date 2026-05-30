@@ -9,10 +9,14 @@ import java.security.spec.InvalidKeySpecException;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
-import java.util.UUID;
 import java.util.Set;
+import java.util.UUID;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin/session")
 public class AdminSessionController {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AdminSessionController.class);
     private static final Set<String> ALLOWED_PERMISSIONS = Set.of(
             "audit:read",
             "audit:review",
@@ -38,6 +43,8 @@ public class AdminSessionController {
             "audit:log",
             "operator:grant"
     );
+    private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
+    private static final int LOGIN_LOCK_MINUTES = 15;
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -51,17 +58,27 @@ public class AdminSessionController {
                 || request.getPassword() == null || request.getPassword().isBlank()) {
             throw new SecurityException("admin access required");
         }
-        AdminLoginRow row = findActiveUser(request.getMobile().trim());
-        if (row == null || !verifyPassword(request.getPassword(), row.passwordHash())) {
-            throw new SecurityException("admin access required");
+        String mobile = request.getMobile().trim();
+        try {
+            rejectLockedAdminLogin(mobile);
+            AdminLoginRow row = findActiveUser(mobile);
+            if (row == null || !verifyPassword(request.getPassword(), row.passwordHash(), row.userId())) {
+                recordFailedAdminLogin(mobile);
+                throw new SecurityException("admin access required");
+            }
+            List<String> permissions = listPermissions(row.userId());
+            if (permissions.isEmpty()) {
+                recordFailedAdminLogin(mobile);
+                throw new SecurityException("admin access required");
+            }
+            clearAdminLoginAttempts(mobile);
+            LocalDateTime expiresAt = LocalDateTime.now().plusHours(8);
+            String sessionId = issueSession(row.userId(), expiresAt);
+            return Result.ok(new AdminSessionResponse(row.nickname(), String.valueOf(row.userId()), permissions, sessionId, expiresAt.toString()));
+        } catch (DataAccessException ex) {
+            LOGGER.error("Admin login persistence failed for mobile {}", maskMobile(mobile), ex);
+            throw ex;
         }
-        List<String> permissions = listPermissions(row.userId());
-        if (permissions.isEmpty()) {
-            throw new SecurityException("admin access required");
-        }
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(8);
-        String sessionId = issueSession(row.userId(), expiresAt);
-        return Result.ok(new AdminSessionResponse(row.nickname(), String.valueOf(row.userId()), permissions, sessionId, expiresAt.toString()));
     }
 
     @PostMapping("/logout")
@@ -139,6 +156,45 @@ public class AdminSessionController {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    private void rejectLockedAdminLogin(String mobile) {
+        List<LocalDateTime> lockedUntilRows = jdbcTemplate.query("""
+                SELECT locked_until
+                FROM admin_login_attempt
+                WHERE mobile = ? AND locked_until IS NOT NULL
+                """, (rs, rowNum) -> rs.getTimestamp("locked_until").toLocalDateTime(), mobile);
+        if (!lockedUntilRows.isEmpty() && lockedUntilRows.get(0).isAfter(LocalDateTime.now())) {
+            throw new SecurityException("admin access required");
+        }
+    }
+
+    private void recordFailedAdminLogin(String mobile) {
+        if (incrementFailedAdminLogin(mobile) > 0) {
+            return;
+        }
+        try {
+            jdbcTemplate.update("""
+                    INSERT INTO admin_login_attempt (mobile, failed_count, locked_until, updated_at)
+                    VALUES (?, 1, NULL, CURRENT_TIMESTAMP)
+                    """, mobile);
+        } catch (DuplicateKeyException ignored) {
+            incrementFailedAdminLogin(mobile);
+        }
+    }
+
+    private int incrementFailedAdminLogin(String mobile) {
+        return jdbcTemplate.update("""
+                UPDATE admin_login_attempt
+                SET failed_count = failed_count + 1,
+                    locked_until = CASE WHEN failed_count + 1 >= ? THEN ? ELSE locked_until END,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE mobile = ?
+                """, MAX_FAILED_LOGIN_ATTEMPTS, LocalDateTime.now().plusMinutes(LOGIN_LOCK_MINUTES), mobile);
+    }
+
+    private void clearAdminLoginAttempts(String mobile) {
+        jdbcTemplate.update("DELETE FROM admin_login_attempt WHERE mobile = ?", mobile);
+    }
+
     private AdminSessionRow findActiveSession(Long userId, String sessionId) {
         List<AdminSessionRow> rows = jdbcTemplate.query("""
                 SELECT u.nickname, s.expires_at
@@ -164,12 +220,14 @@ public class AdminSessionController {
                 .toList();
     }
 
-    private boolean verifyPassword(String password, String storedHash) {
+    private boolean verifyPassword(String password, String storedHash, Long userId) {
         if (storedHash == null || !storedHash.startsWith("pbkdf2$")) {
+            LOGGER.warn("Admin login rejected because stored password hash is missing or unsupported for userId={}", userId);
             return false;
         }
         String[] parts = storedHash.split("\\$", 4);
         if (parts.length != 4) {
+            LOGGER.warn("Admin login rejected because stored PBKDF2 hash format is invalid for userId={}", userId);
             return false;
         }
         try {
@@ -177,9 +235,20 @@ public class AdminSessionController {
             byte[] salt = Base64.getDecoder().decode(parts[2]);
             String candidate = pbkdf2(password.trim(), salt, iterations);
             return MessageDigest.isEqual(candidate.getBytes(StandardCharsets.UTF_8), parts[3].getBytes(StandardCharsets.UTF_8));
+        } catch (NumberFormatException ex) {
+            LOGGER.warn("Admin login rejected because stored PBKDF2 iteration count is invalid for userId={}", userId, ex);
+            return false;
         } catch (IllegalArgumentException ex) {
+            LOGGER.warn("Admin login rejected because stored PBKDF2 salt or parameters are invalid for userId={}", userId, ex);
             return false;
         }
+    }
+
+    private String maskMobile(String mobile) {
+        if (mobile == null || mobile.length() <= 4) {
+            return "****";
+        }
+        return "****" + mobile.substring(mobile.length() - 4);
     }
 
     private String pbkdf2(String password, byte[] salt, int iterations) {

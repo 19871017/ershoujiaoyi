@@ -1,7 +1,13 @@
 <template>
   <view class="page-shell order-page">
-    <view class="page-title">订单列表</view>
-    <view class="page-desc">买到和卖出的宝贝都在这里，重点跟踪付款、发货、收货和售后。</view>
+    <view class="hero ds-card">
+      <view>
+        <view class="kicker">♡ 我的订单</view>
+        <view class="page-title">订单列表</view>
+        <view class="page-desc">买到和卖出的宝贝都在这里，重点跟踪付款、发货、收货和售后。</view>
+      </view>
+      <view class="hero-icon">🧾</view>
+    </view>
 
     <view class="role-switch ds-card">
       <view v-for="item in roles" :key="item.value" class="role-item tapable" :class="{ active: role === item.value }" @click="switchRole(item.value)">
@@ -69,27 +75,24 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { confirmReceipt, listOrders, type OrderListItemResponse, type OrderListStatus, type OrderRole } from '../../../api/modules/order'
+import { confirmReceipt, listOrders, type OrderListItemResponse, type OrderRole } from '../../../api/modules/order'
 import { resolveOrderContactTarget, type OrderContactAction } from '../../../api/modules/order-contact'
+import {
+  actionsFor,
+  assertBackendOrderListItem,
+  coverIcon,
+  displayStatus,
+  flowSteps,
+  isValidBackendOrderNo,
+  isValidBackendProductId,
+  isValidOrderAmount,
+  roles,
+  statusLabel,
+  statusTabs,
+  stepIndex,
+  type StatusTab
+} from './order-list-helpers'
 
-type StatusTab = 'ALL' | OrderListStatus
-const roles: Array<{ label: string; value: OrderRole }> = [
-  { label: '我买到的', value: 'buyer' },
-  { label: '我卖出的', value: 'seller' }
-]
-const statusTabs: Array<{ label: string; value: StatusTab }> = [
-  { label: '全部', value: 'ALL' },
-  { label: '待付款', value: 'PENDING_PAY' },
-  { label: '待发货', value: 'PAID' },
-  { label: '待收货', value: 'SHIPPED' },
-  { label: '已完成', value: 'COMPLETED' },
-  { label: '售后', value: 'REFUNDING' }
-]
-const flowSteps: Array<{ label: string; value: OrderListStatus }> = [
-  { label: '付款', value: 'PAID' },
-  { label: '发货', value: 'SHIPPED' },
-  { label: '收货', value: 'COMPLETED' }
-]
 const orders = ref<OrderListItemResponse[]>([])
 const role = ref<OrderRole>('buyer')
 const status = ref<StatusTab>('ALL')
@@ -97,120 +100,179 @@ const loading = ref(false)
 const confirmingOrderNo = ref('')
 const errorText = ref('')
 const filteredOrders = computed(() => orders.value.filter((item) => status.value === 'ALL' || displayStatus(item) === status.value))
-function isValidBackendOrderNo(value: string) {
-  return /^[A-Z]{2,10}-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(value)
+const statusCounts = computed<Record<StatusTab, number>>(() => {
+  const counts = Object.fromEntries(statusTabs.map((item) => [item.value, 0])) as Record<StatusTab, number>
+  for (const item of orders.value) {
+    counts.ALL += 1
+    counts[displayStatus(item)] += 1
+  }
+  return counts
+})
+function navigateWithFailure(url: string, fail: (error: unknown) => void): void {
+  uni.navigateTo({ url, fail } as { url: string; fail(error: unknown): void })
 }
-function countByStatus(value: StatusTab) {
-  return orders.value.filter((item) => value === 'ALL' || displayStatus(item) === value).length
+function countByStatus(value: StatusTab): number {
+  return statusCounts.value[value]
 }
-function displayStatus(item: OrderListItemResponse): OrderListStatus {
-  return item.afterSalesNo ? 'REFUNDING' : item.status
+async function loadOrders(): Promise<void> {
+  loading.value = true
+  errorText.value = ''
+  try {
+    const list = await listOrders(role.value, 'ALL')
+    list.forEach(assertBackendOrderListItem)
+    orders.value = list
+  } catch (error) {
+    console.warn('order list load failed', { role: role.value, error })
+    orders.value = []
+    errorText.value = '订单列表读取失败，请稍后重试'
+  } finally {
+    loading.value = false
+  }
 }
-function statusLabel(value: OrderListStatus) {
-  const labels: Record<OrderListStatus, string> = { PENDING_PAY: '待付款', PAID: '待发货', SHIPPED: '待收货', COMPLETED: '已完成', REFUNDING: '售后中' }
-  return labels[value]
+function switchRole(value: OrderRole): void {
+  role.value = value
+  status.value = 'ALL'
+  void loadOrders()
 }
-function stepIndex(value: OrderListStatus) {
-  const map: Record<OrderListStatus, number> = { PENDING_PAY: 0, PAID: 1, SHIPPED: 2, COMPLETED: 3, REFUNDING: 1 }
-  return map[value]
-}
-function actionsFor(item: OrderListItemResponse) {
-  const current = displayStatus(item)
-  if (current === 'PENDING_PAY') return ['去付款', '取消订单']
-  if (current === 'PAID' && item.role === 'seller') return ['去发货', '联系买家']
-  if (current === 'PAID') return ['提醒发货', '联系卖家', '申请售后']
-  if (current === 'SHIPPED') return ['确认收货', '查看物流', '申请售后']
-  if (current === 'COMPLETED') return ['评价', '申请售后']
-  return ['查看售后', '联系客服']
-}
-async function loadOrders() {
-  loading.value = true; errorText.value = ''
-  try { orders.value = await listOrders(role.value, 'ALL') }
-  catch (error) { orders.value = []; errorText.value = error instanceof Error ? error.message : '订单列表读取失败' }
-  finally { loading.value = false }
-}
-function switchRole(value: OrderRole) { role.value = value; status.value = 'ALL'; void loadOrders() }
-function switchStatus(value: StatusTab) { status.value = value }
-function handleAction(item: OrderListItemResponse, action: string) {
+function switchStatus(value: StatusTab): void { status.value = value }
+function handleAction(item: OrderListItemResponse, action: string): void {
   if (!isValidBackendOrderNo(item.orderNo)) {
     uni.showToast({ title: '订单编号无效，已阻止敏感订单操作', icon: 'none' })
     return
   }
-  if (action === '去付款') uni.navigateTo({ url: `/pages/payment/checkout/index?orderNo=${encodeURIComponent(item.orderNo)}&amount=${item.amount}&productId=${item.productId}` })
-  else if (action === '去发货') uni.navigateTo({ url: `/pages/order/ship/index?orderNo=${encodeURIComponent(item.orderNo)}` })
-  else if (action === '查看物流') uni.navigateTo({ url: `/pages/order/logistics/index?orderNo=${encodeURIComponent(item.orderNo)}` })
-  else if (action === '申请售后') uni.navigateTo({ url: `/pages/after-sales/apply/index?orderNo=${encodeURIComponent(item.orderNo)}&amount=${item.amount}` })
+  const safeOrderNo = item.orderNo
+  const encodedOrderNo = encodeURIComponent(safeOrderNo)
+
+  if (action === '去付款') {
+    if (!isValidOrderAmount(item.amount)) return uni.showToast({ title: '订单金额异常，未进入收银台', icon: 'none' })
+    if (!isValidBackendProductId(item.productId)) return uni.showToast({ title: '商品编号异常，未进入收银台', icon: 'none' })
+    navigateWithFailure(
+      `/pages/payment/checkout/index?orderNo=${encodedOrderNo}&amount=${encodeURIComponent(String(item.amount))}&productId=${item.productId}`,
+      (error: unknown) => {
+        console.warn('order list checkout navigation failed', { orderNo: safeOrderNo, error })
+        uni.showToast({ title: '暂时无法进入收银台，请稍后重试', icon: 'none' })
+      }
+    )
+  }
+  else if (action === '去发货') {
+    navigateWithFailure(
+      `/pages/order/ship/index?orderNo=${encodedOrderNo}`,
+      (error: unknown) => {
+        console.warn('order list ship navigation failed', { orderNo: safeOrderNo, error })
+        uni.showToast({ title: '暂时无法进入发货页', icon: 'none' })
+      }
+    )
+  }
+  else if (action === '查看物流') {
+    navigateWithFailure(
+      `/pages/order/logistics/index?orderNo=${encodedOrderNo}`,
+      (error: unknown) => {
+        console.warn('order list logistics navigation failed', { orderNo: safeOrderNo, error })
+        uni.showToast({ title: '暂时无法打开物流详情', icon: 'none' })
+      }
+    )
+  }
+  else if (action === '申请售后') {
+    if (!isValidOrderAmount(item.amount)) return uni.showToast({ title: '订单金额异常，未进入售后申请', icon: 'none' })
+    navigateWithFailure(
+      `/pages/after-sales/apply/index?orderNo=${encodedOrderNo}&amount=${encodeURIComponent(String(item.amount))}`,
+      (error: unknown) => {
+        console.warn('order list after-sales apply navigation failed', { orderNo: safeOrderNo, error })
+        uni.showToast({ title: '暂时无法进入售后申请', icon: 'none' })
+      }
+    )
+  }
   else if (action === '确认收货') void confirmFromList(item)
   else if (action === '查看售后') {
     if (!item.afterSalesNo) return uni.showToast({ title: '暂无售后单号', icon: 'none' })
-    uni.navigateTo({ url: `/pages/after-sales/detail/index?afterSalesNo=${encodeURIComponent(item.afterSalesNo)}&orderNo=${encodeURIComponent(item.orderNo)}` })
+    navigateWithFailure(
+      `/pages/after-sales/detail/index?afterSalesNo=${encodeURIComponent(item.afterSalesNo)}&orderNo=${encodedOrderNo}`,
+      (error: unknown) => {
+        console.warn('order list after-sales detail navigation failed', { orderNo: safeOrderNo, afterSalesNo: item.afterSalesNo, error })
+        uni.showToast({ title: '暂时无法打开售后详情', icon: 'none' })
+      }
+    )
   }
-  else if (action === '评价') uni.navigateTo({ url: `/pages/review/submit/index?orderNo=${encodeURIComponent(item.orderNo)}` })
+  else if (action === '评价') {
+    navigateWithFailure(
+      `/pages/review/submit/index?orderNo=${encodedOrderNo}`,
+      (error: unknown) => {
+        console.warn('order list review navigation failed', { orderNo: safeOrderNo, error })
+        uni.showToast({ title: '暂时无法打开评价页', icon: 'none' })
+      }
+    )
+  }
   else if (action === '联系客服' || action.includes('联系')) openOrderContact(item, action as OrderContactAction)
   else showUnavailableAction(action)
 }
-function showUnavailableAction(action: string) {
+function showUnavailableAction(action: string): void {
   uni.showToast({ title: `${action}暂不可用，请稍后重试`, icon: 'none' })
 }
-function openOrderContact(item: OrderListItemResponse, action: OrderContactAction) {
+function openOrderContact(item: OrderListItemResponse, action: OrderContactAction): void {
   const target = resolveOrderContactTarget(item, action)
   if (!target.receiverId) return uni.showToast({ title: target.error || '无法发起聊天', icon: 'none' })
-  uni.navigateTo({ url: `/pages/chat/conversation/index?receiverId=${target.receiverId}` })
+  navigateWithFailure(
+    `/pages/chat/conversation/index?receiverId=${target.receiverId}`,
+    (error: unknown) => {
+      console.warn('order list contact navigation failed', { orderNo: item.orderNo, receiverId: target.receiverId, error })
+      uni.showToast({ title: '暂时无法打开聊天', icon: 'none' })
+    }
+  )
 }
-async function confirmFromList(item: OrderListItemResponse) {
+async function confirmFromList(item: OrderListItemResponse): Promise<void> {
   if (confirmingOrderNo.value) return
-  uni.showModal({
+  if (!isValidBackendOrderNo(item.orderNo)) return uni.showToast({ title: '订单编号无效，未确认收货', icon: 'none' })
+  const safeOrderNo = item.orderNo
+  const modalOptions = {
     title: '确认收货',
     content: '确认收到宝贝且无争议后，结算与售后状态以平台订单、支付和物流记录为准。',
-    success: async (res) => {
+    fail(error: unknown) {
+      console.warn('order list confirm receipt modal failed', { orderNo: safeOrderNo, error })
+      uni.showToast({ title: '暂时无法确认收货', icon: 'none' })
+    },
+    success: async (res: { confirm?: boolean }) => {
       if (!res.confirm) return
-      confirmingOrderNo.value = item.orderNo
+      confirmingOrderNo.value = safeOrderNo
       try {
-        await confirmReceipt(item.orderNo)
+        const detail = await confirmReceipt(safeOrderNo)
+        if (!isValidBackendOrderNo(detail.orderNo)) throw new Error('order list invalid confirmed orderNo')
+        if (detail.orderNo !== safeOrderNo) throw new Error('order list confirmed orderNo mismatch')
         uni.showToast({ title: '已确认收货', icon: 'success' })
         await loadOrders()
       } catch (error) {
-        uni.showModal({ title: '确认失败', content: error instanceof Error ? error.message : '确认收货失败，请稍后重试', showCancel: false })
-      } finally { confirmingOrderNo.value = '' }
+        console.warn('order list confirm receipt failed', { orderNo: safeOrderNo, error })
+        const failureModal = {
+          title: '确认失败',
+          content: '确认收货未完成，请刷新订单状态后重试。',
+          showCancel: false,
+          fail(modalError: unknown) {
+            console.warn('order list confirm receipt failure modal failed', { orderNo: safeOrderNo, error: modalError })
+            uni.showToast({ title: '确认收货未完成', icon: 'none' })
+          }
+        }
+        uni.showModal(failureModal)
+      } finally {
+        confirmingOrderNo.value = ''
+      }
     }
-  })
+  }
+  uni.showModal(modalOptions)
 }
-function coverIcon(title: string) { if (title.includes('鞋')) return '👠'; if (title.includes('袜')) return '🎀'; if (title.includes('包')) return '👜'; if (title.includes('衣') || title.includes('裙')) return '👗'; return '🛍️' }
-function openOrder(orderNo: string) { uni.navigateTo({ url: `/pages/order/detail/index?orderNo=${encodeURIComponent(orderNo)}` }) }
+function openOrder(orderNo: string): void {
+  if (!isValidBackendOrderNo(orderNo)) {
+    uni.showToast({ title: '订单编号无效，未打开订单详情', icon: 'none' })
+    return
+  }
+
+  navigateWithFailure(
+    `/pages/order/detail/index?orderNo=${encodeURIComponent(orderNo)}`,
+    (error: unknown) => {
+      console.warn('order list detail navigation failed', { orderNo, error })
+      uni.showToast({ title: '暂时无法打开订单详情', icon: 'none' })
+    }
+  )
+}
 onMounted(() => { void loadOrders() })
 </script>
 
-<style scoped>
-.order-page { background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 52%,#fff7ed 100%); }
-.role-switch { margin-top:14rpx; padding:6rpx; display:grid; grid-template-columns:repeat(2, 1fr); gap:8rpx; border-color:#ffd9bd; }
-.role-item { min-height:52rpx; border-radius:999rpx; display:flex; align-items:center; justify-content:center; color:#9b7560; font-size:21rpx; font-weight:950; }
-.role-item.active { color:#fff; background:#ff7a45; box-shadow:0 8rpx 18rpx rgba(255,122,69,.18); }
-.status-scroll { margin-top:12rpx; display:flex; gap:8rpx; overflow-x:auto; padding-bottom:4rpx; }
-.status-chip { flex:none; padding:10rpx 16rpx; border-radius:999rpx; background:#fff; border:1rpx solid #ffd9bd; color:#9b7560; font-size:22rpx; font-weight:900; }
-.status-chip.active { background:#3a2a1f; color:#fff; border-color:#3a2a1f; }
-.order-list { margin-top:12rpx; display:flex; flex-direction:column; gap:8rpx; }
-.order-card { padding:16rpx; border-color:#ffd9bd; }
-.order-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10rpx; }
-.order-no { color:#3a2a1f; font-size:22rpx; font-weight:950; }
-.order-time { margin-top:4rpx; color:#b9856a; font-size:21rpx; }
-.status-badge { padding:7rpx 12rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:21rpx; font-weight:950; }
-.status-badge.PAID,.status-badge.SHIPPED { background:#fff8e8; color:#b45309; }
-.status-badge.COMPLETED { background:#f0fdf4; color:#15803d; }
-.status-badge.REFUNDING { background:#fff1f2; color:#be123c; }
-.goods-row { margin-top:12rpx; display:flex; gap:10rpx; }
-.goods-cover { width:104rpx; height:104rpx; border-radius:20rpx; background:linear-gradient(135deg,#fff3e7,#ffe5ef); display:flex; align-items:center; justify-content:center; font-size:38rpx; }
-.goods-main { flex:1; min-width:0; }
-.goods-title { color:#3a2a1f; font-size:24rpx; font-weight:950; }
-.goods-desc { margin-top:5rpx; color:#9b7560; font-size:18rpx; line-height:1.32; }
-.goods-price { margin-top:6rpx; color:#ff3f8d; font-size:26rpx; font-weight:950; }
-.flow-row { margin-top:12rpx; padding:10rpx; border-radius:18rpx; background:#fffaf6; display:grid; grid-template-columns:repeat(3, 1fr); gap:8rpx; }
-.flow-step { display:flex; flex-direction:column; align-items:center; gap:4rpx; color:#c49aac; font-size:18rpx; font-weight:850; }
-.dot { width:14rpx; height:14rpx; border-radius:50%; background:#ffd9bd; }
-.flow-step.done { color:#ff7a45; }
-.flow-step.done .dot { background:#ff7a45; }
-.actions { margin-top:12rpx; display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8rpx; }
-.action-btn { margin:0; padding:0 16rpx; min-width:112rpx; height:48rpx; line-height:48rpx; border-radius:999rpx; background:#fff; border:1rpx solid #ffd9bd; color:#7b5542; font-size:22rpx; font-weight:900; }
-.action-btn.primary { background:#ff7a45; color:#fff; border-color:#ff7a45; }
-.empty-card { margin-top:14rpx; padding:28rpx 20rpx; text-align:center; border-color:#ffd9bd; }
-.empty-card.danger{border-color:#fecaca;background:#fff7f7}.empty-icon { font-size:44rpx; }.empty-title { margin-top:12rpx; color:#3a2a1f; font-size:26rpx; font-weight:950; }.empty-desc { margin-top:8rpx; color:#9b7560; font-size:21rpx; }
-</style>
+<style scoped lang="scss" src="./style.scss"></style>

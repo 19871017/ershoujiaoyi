@@ -18,7 +18,8 @@ class PersistenceContextSmokeTest {
                     "spring.datasource.password=",
                     "spring.sql.init.mode=always",
                     "spring.sql.init.schema-locations=classpath:db/schema.sql",
-                    "spring.sql.init.data-locations=classpath:db/data.sql"
+                    "spring.sql.init.data-locations=classpath:db/data.sql",
+                    "media.storage-root=${java.io.tmpdir}/xiaoyuanquan-persistence-smoke-media"
             );
 
     @Test

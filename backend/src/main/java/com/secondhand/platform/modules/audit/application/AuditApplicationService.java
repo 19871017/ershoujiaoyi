@@ -347,7 +347,7 @@ public class AuditApplicationService {
         return evidenceUrls.stream()
                 .map(url -> requireText(url, "report evidence url required"))
                 .peek(url -> rejectUnsafeEvidenceUrl(url))
-                .peek(url -> mediaUploadTicketService.requireIssuedStorageUrl(userId, "REPORT_EVIDENCE", url))
+                .peek(url -> mediaUploadTicketService.requireUploadedStorageUrl(userId, "REPORT_EVIDENCE", url))
                 .distinct()
                 .toList();
     }

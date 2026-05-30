@@ -11,7 +11,7 @@
 
     <view class="search-box ds-card">
       <text class="icon">🔎</text>
-      <input v-model.trim="keyword" placeholder="连衣裙、鞋子、袜子、包包" confirm-type="search" @confirm="applySearch" />
+      <input :value="keyword" placeholder="连衣裙、鞋子、袜子、包包" confirm-type="search" @input="updateKeyword" @confirm="applySearch" />
       <button class="mini-btn primary" @click="applySearch">搜索</button>
     </view>
 
@@ -62,14 +62,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
-
-type Sort = 'latest' | 'priceAsc' | 'priceDesc'
-
-const launchReadinessMarkers = [
-  '商品搜索暂时不可用，请稍后重试',
-  '商品接口暂时不可用，未展示本地搜索宝贝样例',
-  '仅展示后端返回的在售商品'
-]
+import { categories, compactPrice, filterProducts, iconFor, inputValue, sorts, statusLabel, type Sort } from './search-result-helpers'
 
 const keyword = ref('')
 const category = ref('全部')
@@ -77,21 +70,8 @@ const sort = ref<Sort>('latest')
 const loading = ref(false)
 const loadMessage = ref('')
 const products = ref<ProductListItemResponse[]>([])
-const categories = ['全部', '衣物', '鞋袜', '小用品']
-const sorts = [{ label: '最新', value: 'latest' as const }, { label: '低价', value: 'priceAsc' as const }, { label: '高价', value: 'priceDesc' as const }]
 
-const filtered = computed(() => {
-  const kw = keyword.value.trim().toLowerCase()
-  const categoryText = category.value === '全部' ? '' : category.value.toLowerCase()
-  let list = products.value.filter((item) => {
-    const text = `${item.title}${item.productNo}${item.status}${item.auditState}`.toLowerCase()
-    return (!kw || text.includes(kw)) && (!categoryText || text.includes(categoryText))
-  })
-  if (sort.value === 'priceAsc') list = [...list].sort((a, b) => Number(a.price) - Number(b.price))
-  if (sort.value === 'priceDesc') list = [...list].sort((a, b) => Number(b.price) - Number(a.price))
-  if (sort.value === 'latest') list = [...list].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-  return list
-})
+const filtered = computed(() => filterProducts(products.value, keyword.value, category.value, sort.value))
 
 function readQuery() {
   const pages = getCurrentPages()
@@ -100,13 +80,12 @@ function readQuery() {
   keyword.value = current?.options?.keyword || hash?.get('keyword') || ''
 }
 function applySearch() {
+  keyword.value = keyword.value.trim()
   loadProducts()
 }
 function openProduct(productId: number) { uni.navigateTo({ url: `/pages/product/detail/index?productId=${productId}` }) }
 function goPublish() { uni.switchTab({ url: '/pages/tabbar/publish/index' }) }
-function iconFor(title: string) { if (title.includes('裙')) return '👗'; if (title.includes('鞋')) return '👠'; if (title.includes('袜')) return '🧦'; return '👜' }
-function statusLabel(status: string) { return status === 'created' || status === 'ACTIVE' ? '在售' : status }
-function compactPrice(price: string) { return Number(price).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
+function updateKeyword(event: unknown) { keyword.value = inputValue(event) }
 async function loadProducts() {
   loading.value = true
   loadMessage.value = ''
@@ -122,6 +101,4 @@ async function loadProducts() {
 }
 onMounted(() => { readQuery(); loadProducts() })
 </script>
-<style scoped>
-.search-page{background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%)}.hero,.search-box,.empty,.product-card{margin-top:18rpx;padding:22rpx;border-color:#ffd9bd}.hero{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#fff,#fff3e7)}.kicker{color:#ff7a45;font-size:22rpx;font-weight:950}.hero-icon{width:82rpx;height:82rpx;border-radius:28rpx;background:#ff7a45;color:#fff;display:flex;align-items:center;justify-content:center;font-size:38rpx}.search-box{display:flex;align-items:center;gap:12rpx}.search-box input{flex:1;font-size:25rpx;color:#3a2a1f}.mini-btn{margin:0;padding:0 18rpx;height:54rpx;line-height:54rpx;border-radius:999rpx;font-size:21rpx}.mini-btn.primary{background:#ff7a45;color:#fff}.filter-row{margin-top:16rpx;display:flex;gap:12rpx;overflow-x:auto}.chip{flex:none;padding:13rpx 20rpx;border-radius:999rpx;background:#fff;border:1rpx solid #ffd9bd;color:#9b7560;font-size:22rpx;font-weight:900}.chip.active{background:#3a2a1f;color:#fff;border-color:#3a2a1f}.result-head{margin-top:20rpx;display:flex;align-items:flex-end;justify-content:space-between}.section-title{color:#3a2a1f;font-size:29rpx;font-weight:950}.section-desc{margin-top:6rpx;color:#9b7560;font-size:21rpx}.empty{text-align:center}.empty.danger{background:#fff3e7}.empty-icon{font-size:58rpx}.product-card{display:flex;gap:16rpx}.cover{width:126rpx;height:126rpx;border-radius:28rpx;background:#fff3e7;display:flex;align-items:center;justify-content:center;font-size:46rpx;overflow:hidden}.cover text{font-size:46rpx}.cover-img{width:100%;height:100%}.main{flex:1;min-width:0}.title{color:#3a2a1f;font-size:27rpx;font-weight:950;line-height:1.35}.meta{margin-top:8rpx;color:#9b7560;font-size:22rpx}.bottom{margin-top:12rpx;display:flex;justify-content:space-between}.price{color:#ff3f8d;font-size:31rpx;font-weight:950}.safe{padding:6rpx 12rpx;border-radius:999rpx;background:#fff3e7;color:#ff7a45;font-size:19rpx;font-weight:900}
-</style>
+<style scoped lang="scss" src="./style.scss"></style>

@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 public class ConversationListItemResponse {
     private Long conversationId;
     private Long peerUserId;
+    private String peerNickname;
+    private String peerAvatarUrl;
     private String lastMessageSummary;
     private Long lastServerSeq;
     private Long deliveredSeq;
@@ -26,6 +28,22 @@ public class ConversationListItemResponse {
 
     public void setPeerUserId(Long peerUserId) {
         this.peerUserId = peerUserId;
+    }
+
+    public String getPeerNickname() {
+        return peerNickname;
+    }
+
+    public void setPeerNickname(String peerNickname) {
+        this.peerNickname = peerNickname;
+    }
+
+    public String getPeerAvatarUrl() {
+        return peerAvatarUrl;
+    }
+
+    public void setPeerAvatarUrl(String peerAvatarUrl) {
+        this.peerAvatarUrl = peerAvatarUrl;
     }
 
     public String getLastMessageSummary() {

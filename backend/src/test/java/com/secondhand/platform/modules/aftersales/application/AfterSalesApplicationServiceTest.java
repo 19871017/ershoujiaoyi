@@ -48,13 +48,14 @@ class AfterSalesApplicationServiceTest {
     }
 
     @Test
-    void buyerCanCreatePaidOrderAfterSalesWithIssuedEvidence() {
+    void buyerCanCreatePaidOrderAfterSalesWithUploadedEvidence() {
         CreateOrderResponse order = paidOrder(7001L, "售后裙子", "89.00");
         CreateAfterSalesRequest request = afterSalesRequest(order.getOrderNo(), "89.00", List.of(evidence(7001L, "proof.jpg")));
 
         AfterSalesResponse response = afterSalesService.create(7001L, request);
 
         assertNotNull(response.getAfterSalesNo());
+        assertEquals(true, response.getAfterSalesNo().matches("AS-USER-\\d{8}-\\d{12}"));
         assertEquals(order.getOrderNo(), response.getOrderNo());
         assertEquals(7001L, response.getApplicantId());
         assertEquals("PENDING_REVIEW", response.getStatus());
@@ -62,10 +63,23 @@ class AfterSalesApplicationServiceTest {
 
         AfterSalesResponse detail = afterSalesService.detail(response.getAfterSalesNo(), 7001L);
         assertEquals(response.getAfterSalesNo(), detail.getAfterSalesNo());
+        AfterSalesResponse adminDetail = afterSalesService.getAdminDetail(response.getAfterSalesNo());
+        assertEquals(response.getAfterSalesNo(), adminDetail.getAfterSalesNo());
         assertEquals("REFUND_ONLY", detail.getAfterSalesType());
         assertEquals("成色不符", detail.getReason());
         assertEquals(1, detail.getEvidenceUrls().size());
         assertThrows(IllegalArgumentException.class, () -> afterSalesService.detail(response.getAfterSalesNo(), 7002L));
+    }
+
+    @Test
+    void buyerCanCreatePlatformArbitrationFromAfterSalesCoordinationCopy() {
+        CreateOrderResponse order = paidOrder(7301L, "售后协调外套", "129.00");
+        CreateAfterSalesRequest request = afterSalesRequest(order.getOrderNo(), "100.00", List.of(evidence(7301L, "coordination.jpg")));
+        request.setAfterSalesType("售后协调");
+
+        AfterSalesResponse response = afterSalesService.create(7301L, request);
+
+        assertEquals("PLATFORM_ARBITRATION", response.getAfterSalesType());
     }
 
     @Test
@@ -78,6 +92,10 @@ class AfterSalesApplicationServiceTest {
         CreateOrderResponse paid = paidOrder(7201L, "已付袜子", "39.00");
         CreateAfterSalesRequest unsafe = afterSalesRequest(paid.getOrderNo(), "20.00", List.of("https://img.example.com/fake.jpg"));
         assertThrows(IllegalArgumentException.class, () -> afterSalesService.create(7201L, unsafe));
+        CreateAfterSalesRequest malformed = afterSalesRequest(paid.getOrderNo(), "20.00", List.of("/uploads/evidence/after-sales/7201/%2e%2e/proof.jpg"));
+        assertThrows(IllegalArgumentException.class, () -> afterSalesService.create(7201L, malformed));
+        CreateAfterSalesRequest tooMuch = afterSalesRequest(paid.getOrderNo(), "40.00", List.of(evidence(7201L, "too-much.jpg")));
+        assertThrows(IllegalArgumentException.class, () -> afterSalesService.create(7201L, tooMuch));
 
         CreateAfterSalesRequest first = afterSalesRequest(paid.getOrderNo(), "20.00", List.of(evidence(7201L, "ok.jpg")));
         afterSalesService.create(7201L, first);
@@ -102,14 +120,28 @@ class AfterSalesApplicationServiceTest {
     }
 
     private CreateProductResponse approvedProduct(String title, String price) {
+        upsertSellerProfile(1L);
         CreateProductRequest request = new CreateProductRequest();
         request.setTitle(title);
         request.setDescription("售后测试商品");
         request.setPrice(new BigDecimal(price));
-        request.setImageUrls(List.of(mediaUploadTicketService.issue(1L, "PRODUCT_IMAGE", "image/jpeg", 300_000L, title + ".jpg").storageUrl()));
+        request.setImageUrls(List.of(uploadedMedia(1L, "PRODUCT_IMAGE", title + ".jpg")));
         CreateProductResponse response = productService.createProduct(1L, request);
         productService.approveForSale(response.getProductId());
         return response;
+    }
+
+    private void upsertSellerProfile(Long userId) {
+        Integer accountRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_account WHERE id = ?", Integer.class, userId);
+        if (accountRows == null || accountRows == 0) {
+            jdbcTemplate.update("INSERT INTO user_account (id, user_no, phone, password_hash, nickname, status) VALUES (?, ?, ?, ?, ?, ?)", userId, "U-AS-" + userId, "1380015" + String.format("%04d", userId), "hash", "售后卖家" + userId, "ACTIVE");
+        }
+        Integer profileRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_profile WHERE user_id = ?", Integer.class, userId);
+        if (profileRows == null || profileRows == 0) {
+            jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, main_role, video_identity_status, video_verified) VALUES (?, ?, ?, ?, ?)", userId, "VERIFIED", "SELLER", "APPROVED", true);
+            return;
+        }
+        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "SELLER", "APPROVED", true, userId);
     }
 
     private CreateAfterSalesRequest afterSalesRequest(String orderNo, String amount, List<String> evidenceUrls) {
@@ -124,7 +156,13 @@ class AfterSalesApplicationServiceTest {
     }
 
     private String evidence(Long userId, String filename) {
-        return mediaUploadTicketService.issue(userId, "AFTER_SALES_EVIDENCE", "image/jpeg", 300_000L, filename).storageUrl();
+        return uploadedMedia(userId, "AFTER_SALES_EVIDENCE", filename);
+    }
+
+    private String uploadedMedia(Long userId, String scene, String filename) {
+        String storageUrl = mediaUploadTicketService.issue(userId, scene, "image/jpeg", 300_000L, filename).storageUrl();
+        jdbcTemplate.update("UPDATE media_upload_ticket SET status = 'UPLOADED' WHERE owner_user_id = ? AND storage_url = ?", userId, storageUrl);
+        return storageUrl;
     }
 
     private void recharge(Long userId, String amount) {

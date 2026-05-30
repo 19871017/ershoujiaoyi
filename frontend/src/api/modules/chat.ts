@@ -31,6 +31,8 @@ export interface SendMessageResponse {
 export interface ChatConversationItem {
   conversationId: number
   peerUserId: number
+  peerNickname?: string | null
+  peerAvatarUrl?: string | null
   lastMessageSummary?: string
   lastServerSeq: number
   deliveredSeq: number

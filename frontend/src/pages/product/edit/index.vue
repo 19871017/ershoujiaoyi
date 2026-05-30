@@ -1,83 +1,280 @@
 <template>
   <view class="page-shell edit-page">
-    <view class="hero ds-card"><view><view class="kicker">♡ 编辑宝贝</view><view class="page-title">商品编辑</view><view class="page-desc">修改后会重新进入审核，已锁定或已售出的商品不能继续编辑。</view></view><view class="hero-icon">✏️</view></view>
-    <view class="form-card ds-card">
-      <view class="section-title">基础信息</view>
-      <input v-model.trim="form.title" class="field" placeholder="宝贝标题" />
-      <textarea v-model.trim="form.description" class="field area" placeholder="描述成色、尺码、瑕疵和购买建议" />
-      <input v-model="form.price" class="field" type="digit" placeholder="价格" />
-      <view class="chip-row"><view v-for="item in categories" :key="item" class="chip tapable" :class="{ active: form.category === item }" @click="form.category = item">{{ item }}</view></view>
-      <view class="chip-row"><view v-for="item in conditions" :key="item" class="chip tapable" :class="{ active: form.condition === item }" @click="form.condition = item">{{ item }}</view></view>
+    <view class="hero ds-card">
+      <view>
+        <view class="kicker">♡ 编辑宝贝</view>
+        <view class="page-title">商品编辑</view>
+        <view class="page-desc">修改后会重新进入审核，已锁定或已售出的商品不能继续编辑。</view>
+      </view>
+      <view class="hero-icon">✏️</view>
     </view>
-    <view class="form-card ds-card">
-      <view class="section-title">图片与交易</view>
-      <view class="image-row"><view v-for="img in images" :key="img" class="image-box"><text>图</text><view class="remove tapable" @click="removeImage(img)">×</view></view><view v-if="images.length < 9" class="image-box add tapable" @click="chooseImage">＋</view></view>
-      <input v-model.trim="form.city" class="field" placeholder="城市" />
-      <view class="rule"><switch :checked="form.serverTradeOnly" @change="toggleTradePreference('serverTradeOnly')" /> <text>交易方式以服务端订单与支付状态为准</text></view>
-      <view class="rule"><switch :checked="form.serverChatRecord" @change="toggleTradePreference('serverChatRecord')" /> <text>聊天记录以服务端会话为准</text></view>
-    </view>
+
     <view v-if="loadError" class="fail-card">{{ loadError }}</view>
-    <button class="primary-btn" :disabled="saving || !backendProductId" @click="save">{{ saving ? '提交中...' : '提交修改审核' }}</button>
+
+    <template v-if="loaded">
+      <view class="form-card ds-card">
+        <view class="section-title">基础信息</view>
+        <view class="section-desc">本页仅提交后端支持的标题、描述、价格和图片修改审核。</view>
+        <input :value="form.title" class="field" maxlength="40" placeholder="宝贝标题" confirm-type="next" @input="updateTextField('title', $event)" @blur="trimTextField('title')" />
+        <textarea :value="form.description" class="field area" maxlength="240" placeholder="描述成色、尺码、瑕疵和购买建议" @input="updateTextField('description', $event)" @blur="trimTextField('description')" />
+        <input :value="form.price" class="field" type="text" inputmode="decimal" placeholder="价格" confirm-type="done" @input="updateTextField('price', $event)" @blur="normalizePrice" />
+      </view>
+
+      <view class="form-card ds-card">
+        <view class="section-title">图片与交易</view>
+        <view class="section-desc">商品图片上传票据已生成，需提交修改审核后才会更新商品图片。</view>
+        <view class="image-row">
+          <view v-for="img in images" :key="img" class="image-box image">
+            <image class="product-image" :src="img" mode="aspectFill" />
+            <view class="remove tapable" @click="removeImage(img)">×</view>
+          </view>
+          <view v-if="images.length < 9" class="image-box add tapable" :class="{ busy: uploadingImages }" @click="chooseImage">{{ uploadingImages ? '…' : '＋' }}</view>
+        </view>
+        <view class="rule"><switch :checked="form.serverTradeOnly" @change="toggleTradePreference('serverTradeOnly')" /> <text>交易方式以服务端订单与支付状态为准</text></view>
+        <view class="rule"><switch :checked="form.serverChatRecord" @change="toggleTradePreference('serverChatRecord')" /> <text>聊天记录以服务端会话为准</text></view>
+      </view>
+
+      <button class="primary-btn" :disabled="saving || uploadingImages || !backendProductId" @click="save">{{ submitButtonText }}</button>
+    </template>
   </view>
 </template>
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { createMediaUploadTicket } from '../../../api/modules/media'
+import { createMediaUploadTicket, uploadMediaTicketFile } from '../../../api/modules/media'
 import { getProductDetail, updateProduct } from '../../../api/modules/product'
-
-const launchReadinessMarkers = [
-  '保存失败时不会展示本地成功状态',
-  'product edit media/trade controls are read-only until backend update contract supports them',
-  '交易方式以服务端订单与支付状态为准',
-  '聊天记录以服务端会话为准'
-]
-
+import {
+  assertProductDetail,
+  decodeRouteValue,
+  fileNameFromPath,
+  hasInvalidProductImageUrl,
+  hasInvalidTempImagePath,
+  imageContentType,
+  imageFallbackName,
+  imageFileSize,
+  inputValue,
+  isValidBackendProductId,
+  userSafeLoadErrors,
+  validatedProductImageUrl,
+  type ChooseImageFile,
+  type TextFieldKey
+} from './product-edit-helpers'
 const productId = ref('')
 const saving = ref(false)
+const uploadingImages = ref(false)
+const loaded = ref(false)
 const loadError = ref('')
-const categories = ['衣物','鞋袜','小用品']
-const conditions = ['全新未拆','几乎全新','轻微使用','明显使用痕迹']
 const images = ref<string[]>([])
-const form = reactive({ title:'', description:'', price:'', category:'', condition:'', city:'', serverTradeOnly:false, serverChatRecord:false })
+const form = reactive({ title: '', description: '', price: '', serverTradeOnly: false, serverChatRecord: false })
 const backendProductId = computed(() => isValidBackendProductId(productId.value) ? Number(productId.value) : 0)
-function isValidBackendProductId(value: string) { return /^\d+$/.test(value) && Number(value) > 0 }
-function readQuery(){const pages=getCurrentPages(); const current=pages.length?pages[pages.length-1] as unknown as {options?:Record<string,string>}:undefined; const hash=typeof window!=='undefined'?new URLSearchParams(window.location.hash.split('?')[1]||''):undefined; productId.value=current?.options?.productId||hash?.get('productId')||productId.value}
-async function loadDetail(){
+const submitButtonText = computed(function submitButtonTextValue() {
+  if (saving.value) return '提交中...'
+  if (uploadingImages.value) return '图片上传中...'
+  return '提交修改审核'
+})
+
+function readQuery(): void {
+  const pages = getCurrentPages()
+  const current = pages.length ? pages[pages.length - 1] as unknown as { options?: Record<string, string> } : undefined
+  const hash = typeof window !== 'undefined' ? new URLSearchParams(window.location.hash.split('?')[1] || '') : undefined
+  const routeProductId = decodeRouteValue('productId', current?.options?.productId || hash?.get('productId') || '')
+  productId.value = isValidBackendProductId(routeProductId) ? routeProductId : ''
+}
+
+async function loadDetail(): Promise<void> {
+  loaded.value = false
   loadError.value = ''
   if (!backendProductId.value) { loadError.value = '缺少有效商品编号，未加载本地样例商品'; return }
-  try { const detail = await getProductDetail(backendProductId.value); form.title = detail.title; form.description = detail.description || ''; form.price = String(detail.price); images.value = detail.imageUrls || [] }
-  catch { form.title=''; form.description=''; form.price=''; images.value=[]; loadError.value = '商品详情加载失败，未展示本地样例商品' }
+  try {
+    const detail = await getProductDetail(backendProductId.value)
+    assertProductDetail(detail)
+    if (detail.productId !== backendProductId.value) throw new Error('product edit productId mismatch')
+    form.title = detail.title
+    form.description = detail.description || ''
+    form.price = String(detail.price)
+    images.value = (detail.imageUrls || []).map(validatedProductImageUrl)
+    loaded.value = true
+  } catch (error) {
+    form.title = ''
+    form.description = ''
+    form.price = ''
+    images.value = []
+    const message = error instanceof Error ? error.message : ''
+    loadError.value = userSafeLoadErrors.has(message) ? message : '商品详情加载失败，未展示本地样例商品'
+    console.warn('product edit load failed', { productId: productId.value, loadError: loadError.value, error })
+  }
 }
-function chooseImage(){
-  const remain = Math.max(1, 9 - images.value.length)
-  uni.chooseImage({ count: remain, sizeType: ['compressed'], sourceType: ['album','camera'], async success(res){
-    try {
-      const issuedUrls: string[] = []
-      for (const path of res.tempFilePaths.slice(0, remain)) {
-        if (path.startsWith('local://') || path.includes('placeholder')) throw new Error('商品图片无效，请重新选择')
-        const ticket = await createMediaUploadTicket({ scene:'PRODUCT_IMAGE', contentType:imageContentType(path), fileSize:300_000, filename:fileNameFromPath(path) })
-        issuedUrls.push(ticket.storageUrl)
+
+function showToastSafely(title: string, context: string): void {
+  try {
+    uni.showToast({ title, icon: 'none' })
+  } catch (error) {
+    console.warn('product edit toast failed', { context, productId: backendProductId.value, error })
+  }
+}
+
+function chooseImage(): void {
+  if (uploadingImages.value) return
+  const remain = 9 - images.value.length
+  if (remain <= 0) { showToastSafely('商品图片最多上传 9 张，请先移除一张后再添加', 'image-limit'); return }
+  uploadingImages.value = true
+  try {
+    uni.chooseImage({
+      count: remain,
+      sizeType: ['compressed'],
+      sourceType: ['album', 'camera'],
+      async success(res) {
+        try {
+          const paths = (res.tempFilePaths || []).slice(0, remain)
+          const files = (res as { tempFiles?: ChooseImageFile[] }).tempFiles || []
+          if (!paths.length) throw new Error('未选择到有效商品图片，请重新选择')
+          const uploadedUrls: string[] = []
+          for (const [index, path] of paths.entries()) {
+            if (hasInvalidTempImagePath(path)) throw new Error('商品图片无效，请重新选择')
+            const file = files[index]
+            const contentType = imageContentType(path, file?.type)
+            const ticket = await createMediaUploadTicket({ scene: 'PRODUCT_IMAGE', contentType, fileSize: imageFileSize(file), filename: fileNameFromPath(file?.name || path, imageFallbackName(contentType)) })
+            const uploaded = await uploadMediaTicketFile(ticket, path)
+            uploadedUrls.push(validatedProductImageUrl(uploaded.storageUrl))
+          }
+          images.value = Array.from(new Set([...images.value, ...uploadedUrls])).slice(0, 9)
+          showToastSafely('商品图片上传票据已生成，需提交修改审核后才会更新商品图片', 'image-upload-success')
+        } catch (error) {
+          console.warn('product edit image upload failed', { count: res.tempFilePaths?.length || 0, error })
+          showToastSafely(error instanceof Error && error.message ? error.message : '商品图片上传失败，请重新选择后再试', 'image-upload-failed')
+        } finally {
+          uploadingImages.value = false
+        }
+      },
+      fail(error: unknown) {
+        uploadingImages.value = false
+        console.warn('product edit image picker failed', { error })
+        const message = String((error as { errMsg?: string })?.errMsg || '').toLowerCase()
+        showToastSafely(message.includes('cancel') ? '未选择图片' : '无法打开图片选择器，请检查相册或相机权限后重试', 'image-picker-failed')
       }
-      images.value = [...images.value, ...issuedUrls].slice(0, 9)
-      uni.showToast({title:'商品图片上传票据已生成，需提交修改审核后才会更新商品图片',icon:'none'})
-    } catch (error) { uni.showToast({ title: error instanceof Error ? error.message : '商品图片上传票据创建失败', icon:'none' }) }
-  }, fail(){ uni.showToast({ title:'未选择图片', icon:'none' }) } })
+    })
+  } catch (error) {
+    uploadingImages.value = false
+    console.warn('product edit image picker failed', { error })
+    showToastSafely('无法打开图片选择器，请检查相册或相机权限后重试', 'image-picker-thrown')
+  }
 }
-function removeImage(url:string){ images.value = images.value.filter(item => item !== url); uni.showToast({ title:'商品图片移除需提交修改审核后生效', icon:'none' }) }
-function toggleTradePreference(_field: 'serverTradeOnly' | 'serverChatRecord') { uni.showToast({ title:'交易展示项暂不可变更，请提交商品修改后以服务端审核结果为准', icon:'none' }) }
-function fileNameFromPath(path: string) { const clean = path.split('?')[0] || ''; const last = clean.split('/').pop() || 'product-image.jpg'; return last.includes('.') ? last : `${last}.jpg` }
-function imageContentType(path: string) { const lower = path.toLowerCase(); if (lower.endsWith('.png')) return 'image/png'; if (lower.endsWith('.webp')) return 'image/webp'; return 'image/jpeg' }
-function validate(){ if(!form.title || !form.price) return '请补全标题和价格'; if(Number(form.price)<=0) return '价格需大于0'; if(images.value.some(url => url.startsWith('local://') || url.includes('placeholder') || !url.startsWith('/uploads/product-image/'))) return '图片需先完成平台上传票据校验'; return '' }
-async function save(){
-  if (!backendProductId.value) return uni.showToast({ title:'缺少有效商品编号，未提交修改', icon:'none' })
-  const message = validate(); if(message) return uni.showToast({title:message,icon:'none'})
-  saving.value=true
-  try { await updateProduct(backendProductId.value, { title:form.title, description:form.description, price:form.price, imageUrls:images.value }); uni.showModal({title:'已提交审核',content:'商品修改已保存，重新进入平台审核，通过后再公开展示。',showCancel:false,success:()=>uni.navigateTo({url:`/pages/product/detail/index?productId=${backendProductId.value}`})}) }
-  catch{ uni.showToast({ title:'商品修改保存失败，保存失败时不会展示本地成功状态', icon:'none' }) }
-  finally { saving.value=false }
+
+function removeImage(url: string): void {
+  images.value = images.value.filter(item => item !== url)
+  showToastSafely('商品图片移除需提交修改审核后生效', 'image-remove')
 }
-onMounted(()=>{readQuery(); void loadDetail()})
+
+function toggleTradePreference(_field: 'serverTradeOnly' | 'serverChatRecord'): void {
+  showToastSafely('交易展示项暂不可变更，请提交商品修改后以服务端审核结果为准', 'trade-preference')
+}
+
+function updateTextField(field: TextFieldKey, event: unknown): void {
+  const value = inputValue(field, event)
+  if (value === undefined) {
+    showToastSafely('输入内容读取失败，请重新输入', 'input-invalid')
+    return
+  }
+  form[field] = value
+}
+
+function trimTextField(field: TextFieldKey): void {
+  form[field] = form[field].trim()
+}
+
+function normalizePrice(): void {
+  const value = form.price
+    .replace(/[^\d.]/g, '')
+    .replace(/(\.\d{2}).+$/, '$1')
+  const dotIndex = value.indexOf('.')
+  form.price = dotIndex === -1 ? value : `${value.slice(0, dotIndex + 1)}${value.slice(dotIndex + 1).replace(/\./g, '')}`
+}
+
+function validate(): string {
+  trimTextField('title')
+  trimTextField('description')
+  normalizePrice()
+  if (!form.title || !form.price) return '请补全标题和价格'
+  if (form.title.length < 4) return '标题至少 4 个字'
+  const priceValue = Number(form.price)
+  if (!/^\d+(\.\d{1,2})?$/.test(form.price) || !Number.isFinite(priceValue)) return '价格格式不正确'
+  if (priceValue <= 0) return '价格需大于0'
+  if (!images.value.length) return '请至少保留一张商品图片'
+  if (images.value.some(url => hasInvalidProductImageUrl(url))) return '图片需先完成平台上传票据校验'
+  return ''
+}
+
+function navigateToDetailAfterSave(): void {
+  const route = {
+    url: `/pages/product/detail/index?productId=${backendProductId.value}`,
+    fail(error: unknown) {
+      console.warn('product edit detail navigation failed', { productId: backendProductId.value, error })
+      showToastSafely('商品修改已提交，但暂时无法打开详情页', 'detail-navigation-failed')
+    }
+  }
+  try {
+    uni.navigateTo(route)
+  } catch (error) {
+    console.warn('product edit detail navigation failed', { productId: backendProductId.value, error })
+    showToastSafely('商品修改已提交，但暂时无法打开详情页', 'detail-navigation-thrown')
+  }
+}
+
+async function save(): Promise<void> {
+  if (saving.value) return
+  if (uploadingImages.value) { showToastSafely('图片上传中，请稍后提交', 'save-while-uploading'); return }
+  if (!backendProductId.value) { showToastSafely('缺少有效商品编号，未提交修改', 'save-invalid-product-id'); return }
+  const message = validate()
+  if (message) { showToastSafely(message, 'save-validation'); return }
+  saving.value = true
+  try {
+    let safeImageUrls: string[]
+    try {
+      safeImageUrls = images.value.map(validatedProductImageUrl)
+    } catch (error) {
+      console.warn('product edit save failed', { productId: backendProductId.value, imageCount: images.value.length, error })
+      showToastSafely(error instanceof Error && error.message ? error.message : '商品修改保存失败，保存失败时不会展示本地成功状态', 'save-invalid-images')
+      return
+    }
+    try {
+      await updateProduct(backendProductId.value, { title: form.title, description: form.description, price: Number(form.price).toFixed(2), imageUrls: safeImageUrls })
+    } catch (error) {
+      console.warn('product edit save failed', { productId: backendProductId.value, imageCount: images.value.length, error })
+      showToastSafely(error instanceof Error && error.message ? error.message : '商品修改保存失败，保存失败时不会展示本地成功状态', 'save-update-failed')
+      return
+    }
+    const modalOptions = {
+      title: '已提交审核',
+      content: '商品修改已保存，重新进入平台审核，通过后再公开展示。',
+      showCancel: false,
+      success: () => navigateToDetailAfterSave(),
+      fail: (error: unknown) => {
+        console.warn('product edit success modal failed', { productId: backendProductId.value, error })
+        showToastSafely('商品修改已提交，但确认弹窗无法显示', 'success-modal-failed')
+      }
+    }
+    try {
+      uni.showModal(modalOptions)
+    } catch (error) {
+      console.warn('product edit success modal failed', { productId: backendProductId.value, error })
+      showToastSafely('商品修改已提交，但确认弹窗无法显示', 'success-modal-thrown')
+    }
+  } finally {
+    saving.value = false
+  }
+}
+
+function initializePage(): void {
+  try {
+    readQuery()
+  } catch (error) {
+    productId.value = ''
+    loadError.value = '缺少有效商品编号，未加载本地样例商品'
+    console.warn('product edit route read failed', { error })
+    return
+  }
+  void loadDetail()
+}
+
+onMounted(initializePage)
 </script>
-<style scoped>
-.edit-page{background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%)}.hero,.form-card{margin-top:18rpx;padding:22rpx;border-color:#ffd9bd}.hero{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#fff,#fff3e7)}.kicker{color:#ff7a45;font-size:22rpx;font-weight:950}.hero-icon{width:82rpx;height:82rpx;border-radius:28rpx;background:#ff7a45;color:#fff;display:flex;align-items:center;justify-content:center;font-size:34rpx}.section-title{color:#3a2a1f;font-size:29rpx;font-weight:950}.field{margin-top:16rpx;min-height:78rpx;padding:0 18rpx;border-radius:22rpx;background:#fffaf6;border:1rpx solid #ffd9bd;font-size:24rpx}.area{height:150rpx;padding-top:18rpx}.chip-row{margin-top:14rpx;display:flex;gap:10rpx;flex-wrap:wrap}.chip{padding:12rpx 18rpx;border-radius:999rpx;background:#fff;border:1rpx solid #ffd9bd;color:#9b7560;font-size:22rpx;font-weight:900}.chip.active{background:#3a2a1f;color:#fff}.image-row{margin-top:16rpx;display:flex;gap:12rpx;flex-wrap:wrap}.image-box{position:relative;width:112rpx;height:112rpx;border-radius:24rpx;background:#fff3e7;display:flex;align-items:center;justify-content:center;font-size:24rpx;color:#ff7a45}.image-box.add{border:1rpx dashed #ff8fbd;color:#ff7a45;background:#fff;font-size:42rpx}.remove{position:absolute;right:4rpx;top:4rpx;width:30rpx;height:30rpx;border-radius:50%;background:#3a2a1f;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22rpx}.rule{margin-top:16rpx;display:flex;align-items:center;gap:12rpx;color:#7b5542;font-size:23rpx}.primary-btn{margin-top:22rpx}
-</style>
+<style scoped lang="scss" src="./style.scss"></style>

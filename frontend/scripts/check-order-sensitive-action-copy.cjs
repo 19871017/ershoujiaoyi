@@ -6,8 +6,23 @@ const files = [
   'src/pages/order/detail/index.vue',
   'src/pages/order/list/index.vue',
   'src/pages/order/confirm/index.vue',
-  'src/pages/order/logistics/index.vue'
+  'src/pages/order/logistics/index.vue',
+  'src/pages/order/ship/index.vue'
 ]
+const supportFilesByFile = {
+  'src/pages/order/detail/index.vue': [
+    'src/pages/order/detail/order-detail-helpers.ts'
+  ],
+  'src/pages/order/list/index.vue': [
+    'src/pages/order/list/order-list-helpers.ts'
+  ],
+  'src/pages/order/confirm/index.vue': [
+    'src/pages/order/confirm/order-confirm-helpers.ts'
+  ],
+  'src/pages/order/ship/index.vue': [
+    'src/pages/order/ship/order-ship-helpers.ts'
+  ]
+}
 
 const forbiddenSuccessCopies = [
   '已提醒卖家发货',
@@ -42,75 +57,210 @@ const requiredOrderDetailNeutralMarkers = [
   '确认收货将调用后端接口完成状态变更'
 ]
 
+const requiredOrderConfirmBackendMarkers = [
+  "const productImageStoragePrefix = '/uploads/product-image/'",
+  'const backendProductIdPattern = /^[1-9][0-9]{0,9}$/',
+  'const backendOrderNoPattern = /^OD-[0-9]{1,10}$/',
+  'function decodeRouteValue(fieldName: string, value: string): string',
+  "console.warn('order confirm route decode failed'",
+  "console.warn('order confirm invalid route productId'",
+  'function isValidBackendProductId(value: unknown): boolean',
+  'function isValidBackendOrderNo(value: string): boolean',
+  'function isValidOrderAmount(value: unknown): boolean',
+  'function validatedProductImageUrl(url: string): string',
+  "console.warn('order confirm rejected product image url'",
+  "throw new Error('order confirm productId mismatch')",
+  "console.warn('order confirm product load failed'",
+  "console.warn('order confirm address load failed'",
+  'addressLoadFailed',
+  '收货信息读取失败',
+  "console.warn('order confirm product navigation failed'",
+  "console.warn('order confirm address navigation failed'",
+  'function assertBackendOrderForCheckout(order: CreateOrderResponse, expectedProductId: number): void',
+  'assertBackendOrderForCheckout(order, safeProductId)',
+  'if (order.productId !== expectedProductId || order.goodsId !== expectedProductId)',
+  'if (!isValidOrderAmount(order.productPrice))',
+  'const amount = String(order.productPrice)',
+  "console.warn('order confirm checkout navigation failed'",
+  "console.warn('order confirm create order failed'",
+  "console.warn('order confirm create failure modal failed'",
+  '未返回有效订单号不会进入收银台'
+]
+
 const requiredOrderIdGuardMarkers = {
   'src/pages/order/detail/index.vue': [
+    'const backendOrderNoPattern = /^OD-[0-9]{1,10}$/',
+    'function decodeRouteValue(fieldName: string, value: string): string',
+    "console.warn('order detail route decode failed'",
+    "console.warn('order detail invalid route orderNo'",
     'function isValidBackendOrderNo(value: string)',
-    'if (!isValidBackendOrderNo(orderNo.value))'
+    'function isValidOrderAmount(value: unknown): boolean',
+    'function assertBackendOrderDetail(detail: OrderDetailResponse, expectedOrderNo: string): void',
+    "throw new Error('order detail invalid backend orderNo')",
+    "throw new Error('order detail orderNo mismatch')",
+    "throw new Error('order detail invalid order amount')",
+    'if (!isValidBackendOrderNo(orderNo.value))',
+    "console.warn('order detail load failed'",
+    "console.warn('order detail checkout navigation failed'",
+    "console.warn('order detail logistics navigation failed'",
+    "console.warn('order detail after-sales apply navigation failed'",
+    "console.warn('order detail confirm receipt failed'",
+    "console.warn('order detail product navigation failed'"
   ],
   'src/pages/order/list/index.vue': [
-    'function isValidBackendOrderNo(value: string)',
-    'if (!isValidBackendOrderNo(item.orderNo))'
+    'const backendOrderNoPattern = /^OD-[0-9]{1,10}$/',
+    'function isValidBackendOrderNo(value: string): boolean',
+    'function isValidOrderAmount(value: unknown): boolean',
+    'function isValidBackendProductId(value: unknown): boolean',
+    'function assertBackendOrderListItem(item: OrderListItemResponse): void',
+    "throw new Error('order list invalid backend orderNo')",
+    "throw new Error('order list invalid order amount')",
+    "throw new Error('order list invalid productId')",
+    'list.forEach(assertBackendOrderListItem)',
+    "console.warn('order list load failed'",
+    'if (!isValidBackendOrderNo(item.orderNo))',
+    "console.warn('order list checkout navigation failed'",
+    "console.warn('order list ship navigation failed'",
+    "console.warn('order list logistics navigation failed'",
+    "console.warn('order list after-sales apply navigation failed'",
+    "console.warn('order list confirm receipt failed'",
+    "console.warn('order list detail navigation failed'"
+  ],
+  'src/pages/order/ship/index.vue': [
+    'const backendOrderNoPattern = /^OD-[0-9]{1,10}$/',
+    'function decodeRouteValue(fieldName: string, value: string): string',
+    "console.warn('order ship route decode failed'",
+    "console.warn('order ship invalid route orderNo'",
+    'function isValidBackendOrderNo(value: string): boolean',
+    'function assertBackendShipResponse(response: ShipOrderResponse, expectedOrderNo: string): void',
+    "throw new Error('order ship invalid backend orderNo')",
+    "throw new Error('order ship orderNo mismatch')",
+    "throw new Error('order ship invalid backend status')",
+    "throw new Error('order ship missing shippedAt')",
+    'const safeOrderNo = orderNo.value',
+    'const safeCompany = company.value.trim()',
+    'const safeTrackingNo = trackingNo.value.trim()',
+    'const safeRemark = remark.value.trim()',
+    'assertBackendShipResponse(response, safeOrderNo)',
+    "console.warn('order ship submit failed'",
+    "console.warn('order ship success modal failed'",
+    "console.warn('order ship redirect failed'"
   ]
 }
 
 let failed = false
-for (const file of files) {
-  const absolute = path.join(root, file)
-  const content = fs.readFileSync(absolute, 'utf8')
-  for (const copy of forbiddenSuccessCopies) {
-    if (content.includes(copy)) {
-      console.error(`${file}: forbidden fake-success copy found: ${copy}`)
-      failed = true
+
+function reportIssue(message) {
+  console.error(message)
+  failed = true
+}
+
+function rejectIncludedMarkers(file, content, markers, description) {
+  for (const marker of markers) {
+    if (content.includes(marker)) {
+      reportIssue(`${file}: ${description}: ${marker}`)
     }
   }
-  if (file === 'src/pages/order/confirm/index.vue') {
-    for (const copy of forbiddenStaticTrustCopies) {
-      if (content.includes(copy)) {
-        console.error(`${file}: forbidden pre-order static escrow/trust copy found: ${copy}`)
-        failed = true
-      }
+}
+
+function requireIncludedMarkers(file, content, markers, description) {
+  for (const marker of markers) {
+    if (!content.includes(marker)) {
+      reportIssue(`${file}: ${description}: ${marker}`)
     }
-    for (const marker of ['平台订单创建后再进入支付确认', '支付、售后和聊天记录以服务端订单状态为准']) {
-      if (!content.includes(marker)) {
-        console.error(`${file}: missing neutral pre-order trust marker: ${marker}`)
-        failed = true
-      }
+  }
+}
+
+function requirePattern(file, content, pattern, message) {
+  if (!pattern.test(content)) {
+    reportIssue(`${file}: ${message}`)
+  }
+}
+
+for (const file of files) {
+  const absolute = path.join(root, file)
+  const supportContent = (supportFilesByFile[file] || [])
+    .map((supportFile) => fs.readFileSync(path.join(root, supportFile), 'utf8'))
+    .join('\n')
+  const content = [supportContent, fs.readFileSync(absolute, 'utf8')].filter(Boolean).join('\n')
+  rejectIncludedMarkers(file, content, forbiddenSuccessCopies, 'forbidden fake-success copy found')
+  if (file === 'src/pages/order/confirm/index.vue') {
+    rejectIncludedMarkers(file, content, forbiddenStaticTrustCopies, 'forbidden pre-order static escrow/trust copy found')
+    requireIncludedMarkers(file, content, ['平台订单创建后再进入支付确认', '支付、售后和聊天记录以服务端订单状态为准'], 'missing neutral pre-order trust marker')
+    requireIncludedMarkers(file, content, requiredOrderConfirmBackendMarkers, 'missing fail-closed backend order-confirm marker')
+    const requiredProductImageGuards = [
+      "url.startsWith('local://')",
+      "url.startsWith('blob:')",
+      '!url.startsWith(productImageStoragePrefix)'
+    ]
+    if (requiredProductImageGuards.some((marker) => !content.includes(marker))) {
+      reportIssue(`${file}: order confirm must reject local/blob/placeholder media and enforce backend product image prefixes before display`)
+    }
+    if (content.includes('const parsed = Number(raw)') || content.includes('productId.value = Number.isFinite(parsed)')) {
+      reportIssue(`${file}: route productId must be decoded fail-closed and validated before product/order requests`)
     }
   }
   if (file === 'src/pages/order/detail/index.vue') {
-    for (const copy of forbiddenOrderDetailTrustCopies) {
-      if (content.includes(copy)) {
-        console.error(`${file}: forbidden order-detail static escrow/trust copy found: ${copy}`)
-        failed = true
-      }
-    }
-    for (const marker of requiredOrderDetailNeutralMarkers) {
-      if (!content.includes(marker)) {
-        console.error(`${file}: missing neutral order-detail trust marker: ${marker}`)
-        failed = true
-      }
-    }
+    rejectIncludedMarkers(file, content, forbiddenOrderDetailTrustCopies, 'forbidden order-detail static escrow/trust copy found')
+    requireIncludedMarkers(file, content, requiredOrderDetailNeutralMarkers, 'missing neutral order-detail trust marker')
+    requirePattern(
+      file,
+      content,
+      /async function loadDetail\(\)(?:: Promise<void>)?\s*\{[\s\S]*if \(!isValidBackendOrderNo\(orderNo\.value\)\)\s*\{[\s\S]*errorText\.value = '缺少有效订单号，请从订单列表进入'[\s\S]*order\.value = null[\s\S]*return[\s\S]*\}[\s\S]*const safeOrderNo = orderNo\.value[\s\S]*const detail = await getOrderDetail\(safeOrderNo\)[\s\S]*assertBackendOrderDetail\(detail, safeOrderNo\)[\s\S]*order\.value = detail/s,
+      'order detail load must return before backend calls for invalid route orderNo and validate backend detail before display'
+    )
+    requirePattern(
+      file,
+      content,
+      /async function confirmOrderReceipt\(\)(?:: Promise<void>)?\s*\{[\s\S]*const safeOrderNo = validatedOrderNo\('订单编号无效，未确认收货'\)[\s\S]*const detail = await confirmReceipt\(safeOrderNo\)[\s\S]*assertBackendOrderDetail\(detail, safeOrderNo\)[\s\S]*order\.value = detail[\s\S]*console\.warn\('order detail confirm receipt failed'/s,
+      'confirm receipt must use validated backend orderNo, validate backend response, and log failures before user copy'
+    )
+  }
+  if (file === 'src/pages/order/list/index.vue') {
+    requirePattern(
+      file,
+      content,
+      /async function loadOrders\(\)(?:: Promise<void>)?\s*\{[\s\S]*const list = await listOrders\(role\.value, 'ALL'\)[\s\S]*list\.forEach\(assertBackendOrderListItem\)[\s\S]*orders\.value = list[\s\S]*console\.warn\('order list load failed'/s,
+      'order list must validate backend list items before display and log load failures'
+    )
+    requirePattern(
+      file,
+      content,
+      /function handleAction\(item: OrderListItemResponse, action: string\): void\s*\{[\s\S]*if \(!isValidBackendOrderNo\(item\.orderNo\)\)[\s\S]*const safeOrderNo = item\.orderNo[\s\S]*if \(action === '去付款'\)[\s\S]*isValidOrderAmount\(item\.amount\)[\s\S]*isValidBackendProductId\(item\.productId\)[\s\S]*console\.warn\('order list checkout navigation failed'[\s\S]*else if \(action === '申请售后'\)[\s\S]*isValidOrderAmount\(item\.amount\)/s,
+      'order list actions must use validated backend orderNo and amount/product guards before sensitive navigation'
+    )
+    requirePattern(
+      file,
+      content,
+      /async function confirmFromList\(item: OrderListItemResponse\)(?:: Promise<void>)?\s*\{[\s\S]*const safeOrderNo = item\.orderNo[\s\S]*const detail = await confirmReceipt\(safeOrderNo\)[\s\S]*if \(!isValidBackendOrderNo\(detail\.orderNo\)\) throw new Error\('order list invalid confirmed orderNo'\)[\s\S]*if \(detail\.orderNo !== safeOrderNo\) throw new Error\('order list confirmed orderNo mismatch'\)[\s\S]*console\.warn\('order list confirm receipt failed'/s,
+      'order list confirm receipt must validate backend response before showing success'
+    )
   }
   if (file === 'src/pages/order/logistics/index.vue') {
-    for (const copy of forbiddenOrderLogisticsTrustCopies) {
-      if (content.includes(copy)) {
-        console.error(`${file}: forbidden order-logistics static location/trust copy found: ${copy}`)
-        failed = true
-      }
-    }
-    for (const marker of ['配送/交付方式以服务端订单记录为准', '订单已创建，后续履约状态以服务端订单、支付和物流记录为准。']) {
-      if (!content.includes(marker)) {
-        console.error(`${file}: missing neutral logistics marker: ${marker}`)
-        failed = true
-      }
-    }
+    rejectIncludedMarkers(file, content, forbiddenOrderLogisticsTrustCopies, 'forbidden order-logistics static location/trust copy found')
+    requireIncludedMarkers(file, content, ['配送/交付方式以服务端订单记录为准', '订单已创建，后续履约状态以服务端订单、支付和物流记录为准。'], 'missing neutral logistics marker')
   }
-  for (const marker of requiredOrderIdGuardMarkers[file] || []) {
-    if (!content.includes(marker)) {
-      console.error(`${file}: missing positive backend order number guard marker: ${marker}`)
-      failed = true
-    }
+  if (file === 'src/pages/order/ship/index.vue') {
+    requirePattern(
+      file,
+      content,
+      /function readQuery\(\): void\s*\{[\s\S]*const routeOrderNo = decodeRouteValue\('orderNo'[\s\S]*if \(routeOrderNo && !isValidBackendOrderNo\(routeOrderNo\)\)[\s\S]*if \(!isValidBackendOrderNo\(routeOrderNo\)\)\s*\{[\s\S]*orderNo\.value = ''[\s\S]*errorText\.value = '缺少有效订单号，请从订单列表进入发货'[\s\S]*return[\s\S]*\}[\s\S]*orderNo\.value = routeOrderNo/s,
+      'order ship route orderNo must be decoded with diagnostics and fail closed before submit'
+    )
+    requirePattern(
+      file,
+      content,
+      /async function submitShip\(\)(?:: Promise<void>)?\s*\{[\s\S]*const safeOrderNo = orderNo\.value[\s\S]*const safeCompany = company\.value\.trim\(\)[\s\S]*const response = await shipOrder\(safeOrderNo[\s\S]*assertBackendShipResponse\(response, safeOrderNo\)[\s\S]*uni\.showModal\(modalOptions\)[\s\S]*console\.warn\('order ship submit failed'/s,
+      'order ship submit must use validated orderNo, trimmed user input, validate backend response, and log failures'
+    )
+    requirePattern(
+      file,
+      content,
+      /function redirectAfterShip\(orderNoSnapshot: string, showLogistics: boolean\): void\s*\{[\s\S]*const route = \{[\s\S]*console\.warn\('order ship redirect failed'[\s\S]*uni\.redirectTo\(route\)/s,
+      'order ship redirect must handle navigation failures after successful backend update'
+    )
   }
+  requireIncludedMarkers(file, content, requiredOrderIdGuardMarkers[file] || [], 'missing positive backend order number guard marker')
 }
 
 if (failed) {

@@ -27,17 +27,10 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getAnnouncementTicker } from '../api/modules/announcement'
 import { getRecentGiftFeed } from '../api/modules/gift'
-import { listNotifications, type NotificationItemResponse } from '../api/modules/notification'
+import { listNotifications } from '../api/modules/notification'
 import { useUserStore } from '../store/modules/user'
+import { buildAnnouncementItems, buildGiftText, buildNoticeText, normalizeTargetUrl, type TickerItem } from './global-ticker-helpers'
 
-type TickerItem = {
-  id: string
-  kind: 'announcement' | 'gift' | 'notice'
-  text: string
-  targetUrl?: string
-}
-
-const DEFAULT_ANNOUNCEMENT_TARGET_URL = '/pages/notification/index'
 const userStore = useUserStore()
 const items = ref<TickerItem[]>([])
 const currentIndex = ref(0)
@@ -89,33 +82,6 @@ function startRotation() {
       }, 450)
     }
   }, 3200)
-}
-
-function buildGiftText(item: { senderName: string; receiverName: string; giftName: string; quantity?: number }) {
-  const quantity = Math.max(1, Number(item.quantity || 1))
-  return `${item.senderName} 送给 ${item.receiverName} ${item.giftName}${quantity > 1 ? ` ×${quantity}` : ''}`
-}
-
-function buildNoticeText(item: NotificationItemResponse) {
-  return item.title?.trim() || item.description?.trim() || '你有一条新通知'
-}
-
-function normalizeTargetUrl(url?: string | null) {
-  if (!url) return ''
-  const value = url.trim()
-  return value.startsWith('/') ? value : ''
-}
-
-function buildAnnouncementItems(announcement: Awaited<ReturnType<typeof getAnnouncementTicker>> | null) {
-  if (!announcement?.enabled) return []
-  const text = announcement.text?.trim()
-  if (!text) return []
-  return [{
-    id: `announcement-${announcement.updatedAt || text}`,
-    kind: 'announcement' as const,
-    text,
-    targetUrl: normalizeTargetUrl(announcement.targetUrl) || DEFAULT_ANNOUNCEMENT_TARGET_URL
-  }]
 }
 
 async function loadTicker() {
@@ -193,161 +159,4 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped>
-.global-ticker-wrap {
-  position: fixed;
-  left: 18rpx;
-  right: 18rpx;
-  top: calc(8rpx + env(safe-area-inset-top));
-  z-index: 99999;
-  pointer-events: auto;
-}
-.global-ticker {
-  position: relative;
-  box-sizing: border-box;
-  min-height: 62rpx;
-  padding: 7rpx 16rpx 8rpx 12rpx;
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  border: 2rpx solid rgba(255, 190, 138, .78);
-  border-radius: 24rpx;
-  background: linear-gradient(180deg, rgba(255,253,250,.98) 0%, rgba(255,246,238,.97) 56%, rgba(255,238,224,.96) 100%);
-  backdrop-filter: blur(16rpx);
-  box-shadow: 0 16rpx 34rpx rgba(255, 122, 69, .14), inset 0 0 0 1rpx rgba(255,255,255,.82), inset 0 -7rpx 0 rgba(255, 219, 187, .34);
-  overflow: hidden;
-}
-.global-ticker::after {
-  content: "";
-  position: absolute;
-  left: 18rpx;
-  right: 18rpx;
-  bottom: 4rpx;
-  height: 3rpx;
-  border-radius: 999rpx;
-  background: linear-gradient(90deg, #ff8a5c 0%, #ffbf80 50%, #ffd9a3 100%);
-  opacity: .66;
-}
-.global-ticker.gift {
-  border-color: rgba(255, 142, 169, .70);
-  background: linear-gradient(180deg, rgba(255,253,251,.98) 0%, rgba(255,242,236,.97) 56%, rgba(255,232,228,.96) 100%);
-  box-shadow: 0 16rpx 34rpx rgba(255, 93, 133, .14), inset 0 0 0 1rpx rgba(255,255,255,.82), inset 0 -7rpx 0 rgba(255, 198, 178, .32);
-}
-.global-ticker.gift::after {
-  background: linear-gradient(90deg, #ff6f9a 0%, #ff9f5f 52%, #ffd76b 100%);
-}
-.ticker-speaker {
-  position: relative;
-  z-index: 1;
-  width: 46rpx;
-  height: 46rpx;
-  border-radius: 17rpx;
-  background: linear-gradient(145deg, #ff8a5c 0%, #ffc06f 100%);
-  box-shadow: 0 10rpx 18rpx rgba(255, 122, 69, .22), inset 0 2rpx 0 rgba(255,255,255,.62), inset 0 -3rpx 0 rgba(194,94,45,.16);
-  flex: 0 0 auto;
-}
-.ticker-speaker::before {
-  content: "";
-  position: absolute;
-  left: 8rpx;
-  top: 7rpx;
-  width: 8rpx;
-  height: 6rpx;
-  border-radius: 999rpx;
-  background: rgba(255,255,255,.76);
-}
-.ticker-speaker::after {
-  content: "";
-  position: absolute;
-  left: 16rpx;
-  bottom: 6rpx;
-  width: 14rpx;
-  height: 4rpx;
-  border-radius: 999rpx;
-  background: rgba(255,255,255,.92);
-  box-shadow: 0 0 0 2rpx rgba(170, 92, 35, .08);
-}
-.global-ticker.gift .ticker-speaker {
-  background: linear-gradient(145deg, #ff6f9a 0%, #ffb15d 100%);
-}
-.speaker-body {
-  position: absolute;
-  left: 9rpx;
-  top: 19rpx;
-  width: 10rpx;
-  height: 12rpx;
-  border-radius: 5rpx;
-  background: #fffdf6;
-}
-.speaker-mouth {
-  position: absolute;
-  left: 18rpx;
-  top: 14rpx;
-  width: 15rpx;
-  height: 22rpx;
-  clip-path: polygon(0 30%, 100% 0, 100% 100%, 0 70%);
-  background: #fffdf6;
-}
-.speaker-wave {
-  position: absolute;
-  border: 3rpx solid rgba(255,255,255,.94);
-  border-left: 0;
-  border-top-color: transparent;
-  border-bottom-color: transparent;
-  border-radius: 0 999rpx 999rpx 0;
-}
-.speaker-wave.one {
-  right: 7rpx;
-  top: 17rpx;
-  width: 7rpx;
-  height: 12rpx;
-}
-.speaker-wave.two {
-  right: 4rpx;
-  top: 14rpx;
-  width: 12rpx;
-  height: 19rpx;
-  opacity: .72;
-}
-.ticker-marquee {
-  position: relative;
-  z-index: 1;
-  flex: 1;
-  min-width: 0;
-  height: 32rpx;
-  overflow: hidden;
-}
-.ticker-track {
-  display: flex;
-  flex-direction: column;
-}
-.ticker-line {
-  height: 32rpx;
-  line-height: 32rpx;
-  color: #6b3d25;
-  font-size: 22rpx;
-  font-weight: 900;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.ticker-text {
-  display: inline-block;
-  min-width: 100%;
-  animation: ticker-scroll 14s linear infinite;
-}
-@keyframes ticker-scroll {
-  0%, 28% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-100%);
-  }
-}
-.ticker-arrow {
-  position: relative;
-  z-index: 1;
-  color: #d47a45;
-  font-size: 28rpx;
-  font-weight: 900;
-}
-</style>
+<style scoped lang="scss" src="./global-ticker.scss"></style>

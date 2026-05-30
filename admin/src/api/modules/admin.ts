@@ -175,7 +175,11 @@ export interface AdminAnnouncementTicker {
   updatedAt?: string
 }
 
-export type AdminHomeBannerAction = 'closet' | 'ranking' | 'forum' | 'search' | 'none'
+const adminHomeBannerActions = ['closet', 'ranking', 'forum', 'search', 'none'] as const
+const adminHomeBannerPlacements = ['HOME', 'MERCHANT_SHOWCASE'] as const
+
+export type AdminHomeBannerAction = typeof adminHomeBannerActions[number]
+export type AdminHomeBannerPlacement = typeof adminHomeBannerPlacements[number]
 
 export interface AdminHomeBanner {
   id: number
@@ -185,6 +189,7 @@ export interface AdminHomeBanner {
   cta: string
   imageUrl: string
   action: AdminHomeBannerAction
+  placement: AdminHomeBannerPlacement
   sortOrder: number
   enabled: boolean
   sizeHint: string
@@ -198,6 +203,7 @@ export interface AdminHomeBannerRequest {
   cta: string
   imageUrl: string
   action: AdminHomeBannerAction
+  placement: AdminHomeBannerPlacement
   sortOrder: number
   enabled: boolean
 }
@@ -536,7 +542,8 @@ function validateAdminHomeBannerRequest(data: AdminHomeBannerRequest) {
   if (!data.description || data.description.trim().length > 80) throw new Error('轮播图说明无效')
   if (!data.cta || data.cta.trim().length > 16) throw new Error('轮播图按钮文案无效')
   if (!data.imageUrl || data.imageUrl.trim().length > 512 || !(data.imageUrl.startsWith('/uploads/') || data.imageUrl.startsWith('https://'))) throw new Error('轮播图图片地址无效')
-  if (!['closet', 'ranking', 'forum', 'search', 'none'].includes(data.action)) throw new Error('轮播图跳转动作无效')
+  if (!adminHomeBannerActions.includes(data.action)) throw new Error('轮播图跳转动作无效')
+  if (!adminHomeBannerPlacements.includes(data.placement)) throw new Error('轮播图展示位置无效')
   if (!Number.isInteger(data.sortOrder) || data.sortOrder < 1 || data.sortOrder > 999) throw new Error('轮播图排序无效')
 }
 
