@@ -201,6 +201,16 @@ if (!/async function syncConversationMessages\(showStatus: boolean, refreshRecei
   failed = true
 }
 
+if (!/const receiptRefreshWindow = 200[\s\S]*function visibleReceiptRefreshAfterSeq\(\): number[\s\S]*Math\.max\(0, maxVisibleSeq - receiptRefreshWindow\)[\s\S]*async function refreshVisibleReceiptStates\(activeConversationId: number, activeCurrentUserId: number, activeReceiverId: number\): Promise<void>[\s\S]*syncMessages\(activeConversationId, receiptAfterSeq, receiptRefreshWindow\)[\s\S]*assertMessageSyncResponse\(response\)[\s\S]*for \(const message of response\.messages\) assertActiveConversationMessage\(message, activeConversationId, activeCurrentUserId, activeReceiverId\)[\s\S]*mergeServerMessages\(response\.messages\)/s.test(conversation)) {
+  console.error(`${conversationFile}: visible messages must refresh backend receipt state from a bounded recent window without local read/delivered fabrication`)
+  failed = true
+}
+
+if (!/if \(refreshReceipts\) await refreshVisibleReceiptStates\(activeConversationId, activeCurrentUserId, activeReceiverId\)/.test(conversation)) {
+  console.error(`${conversationFile}: background sync must refresh visible receipt state so sender sees receiver delivered/read updates without new messages`)
+  failed = true
+}
+
 if (!/catch \(error\)[\s\S]*error instanceof ChatDataIntegrityError[\s\S]*blockChat\('聊天数据校验失败，不能展示或发送聊天内容'\)[\s\S]*if \(showStatus\)[\s\S]*blockChat\('消息暂不可用，不能展示或发送聊天内容'\)/s.test(conversation)) {
   console.error(`${conversationFile}: data-integrity and visible/manual sync failures must clear messages, stop polling, and block chat instead of leaving stale state usable`)
   failed = true

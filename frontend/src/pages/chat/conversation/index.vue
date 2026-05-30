@@ -91,6 +91,7 @@ const hasMore = ref(false)
 let syncTimer: ReturnType<typeof setInterval> | null = null
 let discoveryFailureCount = 0
 let autoReadInFlight = false
+const receiptRefreshWindow = 200
 const peerName = ref('聊天用户')
 const peerAvatarUrl = ref('')
 const peerAvatar = computed(() => peerName.value.slice(0, 1))
@@ -284,6 +285,7 @@ async function syncConversationMessages(showStatus: boolean, refreshReceipts: bo
     mergeServerMessages(response.messages)
     nextAfterSeq.value = Math.max(response.nextAfterSeq || syncAfterSeq, syncAfterSeq)
     hasMore.value = response.hasMore
+    if (refreshReceipts) await refreshVisibleReceiptStates(activeConversationId, activeCurrentUserId, activeReceiverId)
     if (nextAfterSeq.value > 0) void autoMarkReadAfterSync(nextAfterSeq.value)
     if (showStatus) statusText.value = response.hasMore ? '已补拉部分消息，可继续补拉' : '消息已同步'
     return true
@@ -302,6 +304,20 @@ async function syncConversationMessages(showStatus: boolean, refreshReceipts: bo
   } finally {
     loadingMessages.value = false
   }
+}
+
+function visibleReceiptRefreshAfterSeq(): number {
+  const maxVisibleSeq = messages.value.reduce((maxSeq, message) => Math.max(maxSeq, message.serverSeq), 0)
+  return Math.max(0, maxVisibleSeq - receiptRefreshWindow)
+}
+
+async function refreshVisibleReceiptStates(activeConversationId: number, activeCurrentUserId: number, activeReceiverId: number): Promise<void> {
+  if (messages.value.length === 0) return
+  const receiptAfterSeq = visibleReceiptRefreshAfterSeq()
+  const response = await syncMessages(activeConversationId, receiptAfterSeq, receiptRefreshWindow)
+  assertMessageSyncResponse(response)
+  for (const message of response.messages) assertActiveConversationMessage(message, activeConversationId, activeCurrentUserId, activeReceiverId)
+  mergeServerMessages(response.messages)
 }
 
 async function autoMarkReadAfterSync(readSeq: number): Promise<void> {
