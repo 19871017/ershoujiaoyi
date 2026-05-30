@@ -33,6 +33,12 @@ export interface ChatConversationItem {
   peerUserId: number
   peerNickname?: string | null
   peerAvatarUrl?: string | null
+  peerGender?: string | null
+  peerCity?: string | null
+  peerMainRole?: string | null
+  peerVideoVerified?: boolean | null
+  peerSellerCharmScore?: number | null
+  peerBuyerPowerScore?: number | null
   lastMessageSummary?: string
   lastServerSeq: number
   deliveredSeq: number

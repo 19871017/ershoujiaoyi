@@ -111,9 +111,34 @@ public class ChatApplicationService {
         validateUserId(userId);
         return jdbcTemplate.query("""
                 SELECT c.id, c.owner_user_id, c.peer_user_id, c.last_seq, c.last_message_summary, c.updated_at,
-                       peer.nickname AS peer_nickname, peer.avatar_url AS peer_avatar_url
+                       peer.nickname AS peer_nickname, peer.avatar_url AS peer_avatar_url,
+                       profile.gender AS peer_gender,
+                       profile.city AS peer_city,
+                       COALESCE(profile.main_role, 'BUYER') AS peer_main_role,
+                       COALESCE(profile.video_verified, FALSE) AS peer_video_verified,
+                       COALESCE(received_gifts.seller_charm_score, 0) AS peer_seller_charm_score,
+                       FLOOR(COALESCE(sent_gifts.sent_gift_amount, 0) + COALESCE(paid_orders.paid_order_amount, 0)) AS peer_buyer_power_score
                 FROM im_conversation c
                 LEFT JOIN user_account peer ON peer.id = CASE WHEN c.owner_user_id = ? THEN c.peer_user_id ELSE c.owner_user_id END AND peer.status = 'ACTIVE'
+                LEFT JOIN user_profile profile ON profile.user_id = peer.id
+                LEFT JOIN (
+                    SELECT receiver_id, FLOOR(COALESCE(SUM(total_amount), 0)) AS seller_charm_score
+                    FROM gift_order
+                    WHERE status = 'SUCCESS'
+                    GROUP BY receiver_id
+                ) received_gifts ON received_gifts.receiver_id = peer.id
+                LEFT JOIN (
+                    SELECT sender_id, COALESCE(SUM(total_amount), 0) AS sent_gift_amount
+                    FROM gift_order
+                    WHERE status = 'SUCCESS'
+                    GROUP BY sender_id
+                ) sent_gifts ON sent_gifts.sender_id = peer.id
+                LEFT JOIN (
+                    SELECT buyer_id, COALESCE(SUM(amount), 0) AS paid_order_amount
+                    FROM trade_order
+                    WHERE order_status IN ('PAID', 'SHIPPED', 'COMPLETED')
+                    GROUP BY buyer_id
+                ) paid_orders ON paid_orders.buyer_id = peer.id
                 WHERE c.owner_user_id = ? OR c.peer_user_id = ?
                 ORDER BY c.updated_at DESC, c.id DESC
                 """, (rs, rowNum) -> toConversationItem(rs, userId), userId, userId, userId);
@@ -199,6 +224,12 @@ public class ChatApplicationService {
         item.setPeerUserId(Objects.equals(userId, rs.getLong("owner_user_id")) ? rs.getLong("peer_user_id") : rs.getLong("owner_user_id"));
         item.setPeerNickname(rs.getString("peer_nickname"));
         item.setPeerAvatarUrl(rs.getString("peer_avatar_url"));
+        item.setPeerGender(rs.getString("peer_gender"));
+        item.setPeerCity(rs.getString("peer_city"));
+        item.setPeerMainRole(rs.getString("peer_main_role"));
+        item.setPeerVideoVerified(rs.getBoolean("peer_video_verified"));
+        item.setPeerSellerCharmScore(rs.getInt("peer_seller_charm_score"));
+        item.setPeerBuyerPowerScore(rs.getInt("peer_buyer_power_score"));
         item.setLastMessageSummary(rs.getString("last_message_summary"));
         item.setLastServerSeq(lastServerSeq);
         item.setDeliveredSeq(deliveredSeq);

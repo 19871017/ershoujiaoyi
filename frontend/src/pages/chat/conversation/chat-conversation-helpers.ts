@@ -5,11 +5,11 @@ import type {
   MessageSyncResponse,
   SendMessageResponse
 } from '../../../api/modules/chat'
+import { assertChatPeerIdentityFields } from '../chat-peer'
 
 export const launchReadinessMarkers = [
   '聊天用户以平台会话为准',
   '聊天图片票据需使用有效选择文件',
-  '聊天记录以平台会话为准',
   '如涉及交易，请以平台订单、支付和售后状态为准'
 ]
 
@@ -68,6 +68,7 @@ export function assertConversationItem(value: unknown): asserts value is ChatCon
   if (typeof item.updatedAt !== 'string') throw new Error('chat conversation invalid updatedAt')
   if (item.peerNickname != null && typeof item.peerNickname !== 'string') throw new Error('chat conversation invalid peerNickname')
   if (item.peerAvatarUrl != null && typeof item.peerAvatarUrl !== 'string') throw new Error('chat conversation invalid peerAvatarUrl')
+  assertChatPeerIdentityFields(item)
 }
 
 export function assertMessageSyncResponse(value: unknown): asserts value is MessageSyncResponse {

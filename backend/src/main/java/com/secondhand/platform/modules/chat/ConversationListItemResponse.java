@@ -7,6 +7,12 @@ public class ConversationListItemResponse {
     private Long peerUserId;
     private String peerNickname;
     private String peerAvatarUrl;
+    private String peerGender;
+    private String peerCity;
+    private String peerMainRole;
+    private Boolean peerVideoVerified;
+    private Integer peerSellerCharmScore;
+    private Integer peerBuyerPowerScore;
     private String lastMessageSummary;
     private Long lastServerSeq;
     private Long deliveredSeq;
@@ -44,6 +50,54 @@ public class ConversationListItemResponse {
 
     public void setPeerAvatarUrl(String peerAvatarUrl) {
         this.peerAvatarUrl = peerAvatarUrl;
+    }
+
+    public String getPeerGender() {
+        return peerGender;
+    }
+
+    public void setPeerGender(String peerGender) {
+        this.peerGender = peerGender;
+    }
+
+    public String getPeerCity() {
+        return peerCity;
+    }
+
+    public void setPeerCity(String peerCity) {
+        this.peerCity = peerCity;
+    }
+
+    public String getPeerMainRole() {
+        return peerMainRole;
+    }
+
+    public void setPeerMainRole(String peerMainRole) {
+        this.peerMainRole = peerMainRole;
+    }
+
+    public Boolean getPeerVideoVerified() {
+        return peerVideoVerified;
+    }
+
+    public void setPeerVideoVerified(Boolean peerVideoVerified) {
+        this.peerVideoVerified = peerVideoVerified;
+    }
+
+    public Integer getPeerSellerCharmScore() {
+        return peerSellerCharmScore;
+    }
+
+    public void setPeerSellerCharmScore(Integer peerSellerCharmScore) {
+        this.peerSellerCharmScore = peerSellerCharmScore;
+    }
+
+    public Integer getPeerBuyerPowerScore() {
+        return peerBuyerPowerScore;
+    }
+
+    public void setPeerBuyerPowerScore(Integer peerBuyerPowerScore) {
+        this.peerBuyerPowerScore = peerBuyerPowerScore;
     }
 
     public String getLastMessageSummary() {

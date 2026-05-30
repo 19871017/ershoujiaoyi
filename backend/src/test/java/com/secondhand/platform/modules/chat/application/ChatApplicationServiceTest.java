@@ -73,6 +73,9 @@ class ChatApplicationServiceTest {
     void listConversationsShouldIncludePeerProfileFields() {
         Long conversationId = service.createConversation(conversation(1L, 2L));
         insertUserAccount(2L, "真实卖家", "/uploads/avatar/seller.png");
+        insertUserProfile(2L, "goddess", "杭州", "SELLER", true);
+        insertGiftOrder("GIFT-2", 1L, 2L, 88);
+        insertTradeOrder("TRADE-2", 2L, 1L, 36);
         service.sendMessage(text(conversationId, "profile-1", 1L, 2L, "hello"));
 
         ConversationListItemResponse item = service.listConversations(1L).get(0);
@@ -80,6 +83,12 @@ class ChatApplicationServiceTest {
         assertEquals(2L, item.getPeerUserId());
         assertEquals("真实卖家", item.getPeerNickname());
         assertEquals("/uploads/avatar/seller.png", item.getPeerAvatarUrl());
+        assertEquals("goddess", item.getPeerGender());
+        assertEquals("杭州", item.getPeerCity());
+        assertEquals("SELLER", item.getPeerMainRole());
+        assertTrue(item.getPeerVideoVerified());
+        assertEquals(88, item.getPeerSellerCharmScore());
+        assertEquals(36, item.getPeerBuyerPowerScore());
     }
 
     @Test
@@ -182,6 +191,30 @@ class ChatApplicationServiceTest {
     private void insertUserAccount(Long userId, String nickname, String avatarUrl) {
         jdbcTemplate.update("INSERT INTO user_account (id, user_no, phone, password_hash, nickname, avatar_url, status) VALUES (?, ?, ?, 'hash', ?, ?, 'ACTIVE')",
                 userId, "U" + userId, "1380000" + userId, nickname, avatarUrl);
+    }
+
+    private void insertUserProfile(Long userId, String gender, String city, String mainRole, boolean videoVerified) {
+        jdbcTemplate.update("INSERT INTO user_profile (user_id, gender, city, main_role, video_identity_status, video_verified) VALUES (?, ?, ?, ?, ?, ?)",
+                userId, gender, city, mainRole, videoVerified ? "APPROVED" : "UNVERIFIED", videoVerified);
+    }
+
+    private void insertGiftOrder(String giftOrderNo, Long senderId, Long receiverId, int totalAmount) {
+        jdbcTemplate.update("""
+                INSERT INTO gift_order (
+                  gift_order_no, idempotency_key, sender_id, receiver_id, gift_id, gift_code, quantity,
+                  total_amount, platform_share, receiver_amount, debit_ledger_no, receiver_credit_ledger_no, status
+                ) VALUES (?, ?, ?, ?, 1, 'ROSE', 1, ?, 0, ?, ?, ?, 'SUCCESS')
+                """, giftOrderNo, "IDEMP-" + giftOrderNo, senderId, receiverId, totalAmount, totalAmount,
+                "LEDGER-D-" + giftOrderNo, "LEDGER-C-" + giftOrderNo);
+    }
+
+    private void insertTradeOrder(String orderNo, Long buyerId, Long sellerId, int amount) {
+        jdbcTemplate.update("""
+                INSERT INTO trade_order (
+                  order_no, product_id, goods_id, product_no, product_title, trade_rule_snapshot,
+                  buyer_id, seller_id, amount, order_status, accepted_trade_rule
+                ) VALUES (?, 1, 1, ?, '测试商品', 'PLATFORM_ORDER', ?, ?, ?, 'PAID', TRUE)
+                """, orderNo, "P-" + orderNo, buyerId, sellerId, amount);
     }
 
     private CreateConversationCommand conversation(Long ownerUserId, Long peerUserId) {

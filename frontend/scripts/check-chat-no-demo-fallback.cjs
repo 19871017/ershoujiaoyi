@@ -8,7 +8,11 @@ const files = [
 ]
 const supportFilesByFile = {
   'src/pages/chat/conversation/index.vue': [
-    'src/pages/chat/conversation/chat-conversation-helpers.ts'
+    'src/pages/chat/conversation/chat-conversation-helpers.ts',
+    'src/pages/chat/chat-peer.ts'
+  ],
+  'src/pages/chat/session-list/index.vue': [
+    'src/pages/chat/chat-peer.ts'
   ]
 }
 
@@ -44,7 +48,8 @@ const forbiddenMarkers = [
   '(receiverId.value ?? 21)',
   "readPositiveRouteNumber(options, 'peerUserId')",
   'refreshReceipts ? 0 : nextAfterSeq.value',
-  'markConversationDelivered(conversationId.value)'
+  'markConversationDelivered(conversationId.value)',
+  '聊天留痕'
 ]
 
 let failed = false
@@ -70,6 +75,15 @@ const requiredConversationMarkers = [
   'currentUserId.value',
   'peerName.value =',
   "const peerName = ref('聊天用户')",
+  'const peerGender = ref<string | null>(null)',
+  'const peerCity = ref<string | null>(null)',
+  'const peerVideoVerified = ref(false)',
+  'const peerSellerCharmScore = ref(0)',
+  'const peerBuyerPowerScore = ref(0)',
+  'const peerLevel = computed(() => buildChatPeerLevel(peerIdentitySource.value))',
+  'const peerIdentityBadges = computed(() => chatPeerIdentityBadges(peerIdentitySource.value).filter((badge) => !badge.startsWith(\'LV.\')))',
+  'function applyPeerProfile(profile: UserProfileResponse): void',
+  'function applyPeerConversationItem(item: ChatConversationItem): void',
   "const chatImageStoragePrefix = '/uploads/chat-image/'",
   "const communityImageStoragePrefix = '/uploads/community-image/'",
   'function decodeRouteValue(fieldName: string, value: string): string',
@@ -151,7 +165,6 @@ for (const { pattern, message } of forbiddenConversationPatterns) {
 }
 
 const requiredNeutralConversationCopy = [
-  '聊天留痕',
   '消息暂不可用'
 ]
 for (const marker of requiredNeutralConversationCopy) {
@@ -291,6 +304,8 @@ for (const marker of [
   'function isValidBackendId(value: unknown): value is number',
   'function assertConversationListResponse(value: unknown): asserts value is ChatConversationListResponse',
   'function assertConversationItem(value: unknown): asserts value is ChatConversationItem',
+  'function assertChatPeerIdentityFields(item: ChatConversationItem): void',
+  'chatPeerIdentityBadges(item)',
   'assertConversationListResponse(response)',
   'function validatedCommunityImageUrl(url: unknown): string',
   'function updateKeyword(event: unknown): void',

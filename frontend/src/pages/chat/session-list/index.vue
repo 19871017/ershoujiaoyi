@@ -41,13 +41,11 @@
           <view class="session-summary">{{ item.lastMessageSummary || '还没有消息，打个招呼吧～' }}</view>
           <view class="session-meta">
             <text v-if="scenarioLabel(item.lastMessageSummary)" class="scenario-chip">{{ scenarioLabel(item.lastMessageSummary) }}</text>
-            <text>seq {{ item.lastServerSeq }}</text>
-            <text>已读 {{ item.readSeq }}</text>
+            <text v-for="badge in chatPeerIdentityBadges(item)" :key="badge" class="identity-chip">{{ badge }}</text>
           </view>
         </view>
         <view class="session-side">
           <view v-if="item.unreadCount > 0" class="badge">{{ item.unreadCount }}</view>
-          <button class="read-btn" :disabled="markingId === item.conversationId" @click.stop="handleMarkRead(item)">已读</button>
         </view>
       </view>
     </view>
@@ -58,6 +56,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { onShow, onUnload } from '@dcloudio/uni-app'
 import { getChatConversations, markConversationRead, type ChatConversationItem, type ChatConversationListResponse } from '../../../api/modules/chat'
+import { assertChatPeerIdentityFields, chatPeerIdentityBadges } from '../chat-peer'
 
 type Filter = 'ALL' | 'UNREAD' | 'ORDER' | 'GIFT'
 const filters: Array<{ label: string; value: Filter }> = [
@@ -88,7 +87,7 @@ function matchFilter(item: ChatConversationItem, value: Filter): boolean {
 function matchKeyword(item: ChatConversationItem): boolean {
   const text = keyword.value.toLowerCase()
   if (!text) return true
-  return `${peerName(item)} ${item.lastMessageSummary || ''}`.toLowerCase().includes(text)
+  return `${peerName(item)} ${item.lastMessageSummary || ''} ${chatPeerIdentityBadges(item).join(' ')}`.toLowerCase().includes(text)
 }
 
 function countByFilter(value: Filter): number {
@@ -113,6 +112,7 @@ function assertConversationItem(value: unknown): asserts value is ChatConversati
   if (typeof item.updatedAt !== 'string') throw new Error('chat session list invalid updatedAt')
   if (item.peerNickname != null && typeof item.peerNickname !== 'string') throw new Error('chat session list invalid peerNickname')
   if (item.peerAvatarUrl != null && typeof item.peerAvatarUrl !== 'string') throw new Error('chat session list invalid peerAvatarUrl')
+  assertChatPeerIdentityFields(item)
 }
 
 async function loadConversations(showLoading = true, preserveOnError = false): Promise<void> {
@@ -265,7 +265,7 @@ onUnload(stopConversationRefresh)
 .session-summary { margin-top:6rpx; overflow:hidden; color:#7b5542; font-size:21rpx; text-overflow:ellipsis; white-space:nowrap; }
 .session-meta { margin-top:6rpx; display:flex; gap:9rpx; color:#b9856a; font-size:18rpx; align-items:center; flex-wrap:wrap; }
 .scenario-chip { padding:5rpx 10rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-weight:900; }
+.identity-chip { padding:5rpx 10rpx; border-radius:999rpx; background:#fffaf6; color:#7b5542; border:1rpx solid #ffe4d1; font-weight:900; }
 .session-side { display:flex; flex-direction:column; align-items:flex-end; gap:8rpx; }
 .badge { min-width:32rpx; height:32rpx; padding:0 8rpx; border-radius:999rpx; background:#ff3f8d; color:#fff; font-size:19rpx; line-height:32rpx; text-align:center; }
-.read-btn { margin:0; width:76rpx; height:42rpx; line-height:42rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:19rpx; font-weight:950; }
 </style>

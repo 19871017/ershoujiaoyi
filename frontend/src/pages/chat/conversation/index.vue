@@ -6,28 +6,18 @@
         <text v-else>{{ peerAvatar }}</text>
       </view>
       <view class="peer-main">
-        <view class="peer-name">{{ peerName }}</view>
-        <view class="peer-status">聊天记录以平台会话为准</view>
+        <view class="peer-name-row">
+          <view class="peer-name">{{ peerName }}</view>
+          <view class="peer-level" :class="{ charm: peerLevel.track === 'CHARM', power: peerLevel.track === 'POWER' }">LV.{{ peerLevel.level }} {{ peerLevel.title }}</view>
+        </view>
+        <view class="peer-badges">
+          <text v-for="badge in peerIdentityBadges" :key="badge">{{ badge }}</text>
+        </view>
       </view>
       <view class="report tapable" @click="reportConversation">举报</view>
     </view>
 
-    <view class="goods-tip ds-card">
-      <view class="goods-icon">💬</view>
-      <view class="goods-main">
-        <view class="goods-title">聊天留痕</view>
-        <view class="goods-desc">仅同步真实会话消息；缺少会话或加载失败时不会展示聊天内容。如涉及交易，请以平台订单、支付和售后状态为准。</view>
-      </view>
-    </view>
-
     <scroll-view class="message-scroll" scroll-y>
-      <view class="toolbar">
-        <button class="secondary-btn" :disabled="chatBlocked || loadingMessages || !conversationId" @click="loadMoreMessages">
-          {{ syncButtonText }}
-        </button>
-        <button class="secondary-btn" :disabled="chatBlocked || !conversationId" @click="handleMarkRead">标记已读</button>
-      </view>
-
       <view v-if="messages.length === 0" class="empty-card">{{ emptyMessageText }}</view>
       <view v-for="message in messages" :key="message.serverMsgId" class="bubble-row" :class="{ mine: isMine(message) }">
         <view class="bubble">
@@ -54,7 +44,8 @@ import { computed, ref } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { getChatConversations, markConversationRead, sendMessage, syncMessages, type ChatConversationItem, type ChatMessageItem, type SendMessageRequest, type SendMessageResponse } from '../../../api/modules/chat'
 import { createMediaUploadTicket, uploadMediaTicketFile } from '../../../api/modules/media'
-import { getMyProfile, getPublicProfile } from '../../../api/modules/user'
+import { getMyProfile, getPublicProfile, type UserProfileResponse } from '../../../api/modules/user'
+import { buildChatPeerLevel, chatPeerIdentityBadges } from '../chat-peer'
 import {
   ChatDataIntegrityError,
   assertChatMessage,
@@ -94,12 +85,21 @@ let autoReadInFlight = false
 const receiptRefreshWindow = 200
 const peerName = ref('聊天用户')
 const peerAvatarUrl = ref('')
+const peerGender = ref<string | null>(null)
+const peerCity = ref<string | null>(null)
+const peerVideoVerified = ref(false)
+const peerSellerCharmScore = ref(0)
+const peerBuyerPowerScore = ref(0)
 const peerAvatar = computed(() => peerName.value.slice(0, 1))
-const syncButtonText = computed(function currentSyncButtonText(): string {
-  if (loadingMessages.value) return '补拉中...'
-  if (hasMore.value) return '继续补拉'
-  return '同步消息'
-})
+const peerIdentitySource = computed(() => ({
+  peerGender: peerGender.value,
+  peerCity: peerCity.value,
+  peerVideoVerified: peerVideoVerified.value,
+  peerSellerCharmScore: peerSellerCharmScore.value,
+  peerBuyerPowerScore: peerBuyerPowerScore.value
+}))
+const peerLevel = computed(() => buildChatPeerLevel(peerIdentitySource.value))
+const peerIdentityBadges = computed(() => chatPeerIdentityBadges(peerIdentitySource.value).filter((badge) => !badge.startsWith('LV.')))
 const emptyMessageText = computed(function emptyChatMessageText(): string {
   if (conversationId.value) return '消息暂不可用，请等待服务端会话同步。'
   if (receiverId.value) return '等待平台会话创建；对方发来第一条消息后会自动同步。'
@@ -143,13 +143,32 @@ async function loadPeerProfile(peerUserId: number): Promise<void> {
   try {
     const profile = await getPublicProfile(peerUserId)
     if (String(profile.userId) !== String(peerUserId)) throw new Error('chat peer userId mismatch')
-    peerName.value = profile.nickname || `用户 ${peerUserId}`
-    peerAvatarUrl.value = validatedCommunityImageUrl(profile.avatarUrl || '')
+    applyPeerProfile(profile)
   } catch (error) {
     peerAvatarUrl.value = ''
     statusText.value = '聊天用户资料暂不可用，消息仍以平台会话为准'
     console.warn('chat peer profile load failed', { peerUserId, error })
   }
+}
+
+function applyPeerProfile(profile: UserProfileResponse): void {
+  peerName.value = profile.nickname || `用户 ${profile.userId}`
+  peerAvatarUrl.value = validatedCommunityImageUrl(profile.avatarUrl || '')
+  peerGender.value = typeof profile.gender === 'string' ? profile.gender : null
+  peerCity.value = typeof profile.city === 'string' ? profile.city : null
+  peerVideoVerified.value = profile.videoVerified === true
+  peerSellerCharmScore.value = Math.max(0, Math.floor(Number(profile.sellerCharmScore || 0)))
+  peerBuyerPowerScore.value = Math.max(0, Math.floor(Number(profile.buyerPowerScore || 0)))
+}
+
+function applyPeerConversationItem(item: ChatConversationItem): void {
+  peerName.value = item.peerNickname || `用户 ${item.peerUserId}`
+  peerAvatarUrl.value = validatedCommunityImageUrl(item.peerAvatarUrl || '')
+  peerGender.value = item.peerGender || null
+  peerCity.value = item.peerCity || null
+  peerVideoVerified.value = item.peerVideoVerified === true
+  peerSellerCharmScore.value = Math.max(0, Math.floor(Number(item.peerSellerCharmScore || 0)))
+  peerBuyerPowerScore.value = Math.max(0, Math.floor(Number(item.peerBuyerPowerScore || 0)))
 }
 
 onLoad((options) => {
@@ -169,6 +188,7 @@ async function initializeChatPage(options: Record<string, string | undefined> | 
   if (routeConversationId && receiverId.value) {
     try {
       const matched = await verifyRouteConversation(routeConversationId, receiverId.value)
+      applyPeerConversationItem(matched)
       chatBlocked.value = false
       conversationId.value = matched.conversationId
       await loadMoreMessages()
@@ -229,6 +249,7 @@ async function discoverConversationWithPeer(showStatus: boolean): Promise<boolea
     discoveryFailureCount = 0
     chatBlocked.value = false
     conversationId.value = matched.conversationId
+    applyPeerConversationItem(matched)
     statusText.value = '已接入平台会话，正在同步消息'
     await syncConversationMessages(true, true)
     return true
