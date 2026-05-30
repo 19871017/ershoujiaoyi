@@ -115,18 +115,21 @@ function assertConversationItem(value: unknown): asserts value is ChatConversati
   if (item.peerAvatarUrl != null && typeof item.peerAvatarUrl !== 'string') throw new Error('chat session list invalid peerAvatarUrl')
 }
 
-async function loadConversations(showLoading = true): Promise<void> {
+async function loadConversations(showLoading = true, preserveOnError = false): Promise<void> {
   if (loading.value) return
   if (showLoading) loading.value = true
-  errorText.value = ''
+  if (!preserveOnError) errorText.value = ''
   try {
     const response = await getChatConversations()
     assertConversationListResponse(response)
     conversations.value = response.conversations
+    errorText.value = ''
   } catch (error) {
-    conversations.value = []
+    if (!preserveOnError) conversations.value = []
     console.warn('chat session list load failed', { error })
-    errorText.value = '会话暂时不可用，请稍后重试'
+    if (!preserveOnError || conversations.value.length === 0) {
+      errorText.value = '会话暂时不可用，请稍后重试'
+    }
   } finally {
     loading.value = false
   }
@@ -138,7 +141,7 @@ function handleManualRefresh(): void {
 
 function startConversationRefresh(): void {
   if (refreshTimer) return
-  refreshTimer = setInterval(() => { void loadConversations(false) }, 10000)
+  refreshTimer = setInterval(() => { void loadConversations(false, true) }, 5000)
 }
 function stopConversationRefresh(): void {
   if (!refreshTimer) return
@@ -173,7 +176,7 @@ function openConversation(item: ChatConversationItem): void {
     return
   }
   const route = {
-    url: `/pages/chat/conversation/index?conversationId=${encodeURIComponent(String(item.conversationId))}&peerUserId=${encodeURIComponent(String(item.peerUserId))}`,
+    url: `/pages/chat/conversation/index?conversationId=${encodeURIComponent(String(item.conversationId))}&receiverId=${encodeURIComponent(String(item.peerUserId))}`,
     fail: (error: unknown) => {
       console.warn('chat session conversation navigation failed', { conversationId: item.conversationId, peerUserId: item.peerUserId, error })
       uni.showToast({ title: '暂时无法打开聊天，请稍后重试', icon: 'none' })
@@ -231,7 +234,7 @@ onMounted(() => {
   void loadConversations()
   startConversationRefresh()
 })
-onShow(() => { void loadConversations(false) })
+onShow(() => { void loadConversations(false, true) })
 onUnload(stopConversationRefresh)
 </script>
 

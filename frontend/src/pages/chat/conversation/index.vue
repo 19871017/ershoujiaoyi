@@ -90,6 +90,7 @@ const nextAfterSeq = ref(0)
 const hasMore = ref(false)
 let syncTimer: ReturnType<typeof setInterval> | null = null
 let discoveryFailureCount = 0
+let autoReadInFlight = false
 const peerName = ref('聊天用户')
 const peerAvatarUrl = ref('')
 const peerAvatar = computed(() => peerName.value.slice(0, 1))
@@ -283,6 +284,7 @@ async function syncConversationMessages(showStatus: boolean, refreshReceipts: bo
     mergeServerMessages(response.messages)
     nextAfterSeq.value = Math.max(response.nextAfterSeq || syncAfterSeq, syncAfterSeq)
     hasMore.value = response.hasMore
+    if (nextAfterSeq.value > 0) void autoMarkReadAfterSync(nextAfterSeq.value)
     if (showStatus) statusText.value = response.hasMore ? '已补拉部分消息，可继续补拉' : '消息已同步'
     return true
   } catch (error) {
@@ -299,6 +301,22 @@ async function syncConversationMessages(showStatus: boolean, refreshReceipts: bo
     return false
   } finally {
     loadingMessages.value = false
+  }
+}
+
+async function autoMarkReadAfterSync(readSeq: number): Promise<void> {
+  if (chatBlocked.value || autoReadInFlight || !conversationId.value || readSeq <= 0) return
+  const activeConversationId = conversationId.value
+  autoReadInFlight = true
+  try {
+    const response = await markConversationRead(activeConversationId, { readSeq })
+    if (response.conversationId !== activeConversationId || response.readSeq > readSeq || !Number.isSafeInteger(response.unreadCount) || response.unreadCount < 0) {
+      throw new Error('chat auto read response invalid')
+    }
+  } catch (error) {
+    console.warn('chat conversation auto read receipt failed', { conversationId: activeConversationId, readSeq, error })
+  } finally {
+    autoReadInFlight = false
   }
 }
 

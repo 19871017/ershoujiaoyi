@@ -297,6 +297,26 @@ if (!/function openConversation\(item: ChatConversationItem\): void[\s\S]*!isVal
   failed = true
 }
 
+if (sessionList.includes('peerUserId=${encodeURIComponent(String(item.peerUserId))}')) {
+  console.error(`${sessionFile}: conversation navigation must pass receiverId because the conversation page only binds a verified receiverId route param`)
+  failed = true
+}
+
+if (!/url:\s*`\/pages\/chat\/conversation\/index\?conversationId=\$\{encodeURIComponent\(String\(item\.conversationId\)\)\}&receiverId=\$\{encodeURIComponent\(String\(item\.peerUserId\)\)\}`/s.test(sessionList)) {
+  console.error(`${sessionFile}: conversation navigation must pass conversationId and receiverId together for backend ownership verification`)
+  failed = true
+}
+
+if (!/async function loadConversations\(showLoading = true, preserveOnError = false\): Promise<void>[\s\S]*if \(!preserveOnError\) errorText\.value = ''[\s\S]*if \(!preserveOnError\) conversations\.value = \[\][\s\S]*if \(!preserveOnError \|\| conversations\.value\.length === 0\)/s.test(sessionList)) {
+  console.error(`${sessionFile}: background session refresh must preserve the last valid real conversation list on transient failures`)
+  failed = true
+}
+
+if (!/function startConversationRefresh\(\): void[\s\S]*setInterval\(\(\) => \{ void loadConversations\(false, true\) \}, 5000\)/s.test(sessionList)) {
+  console.error(`${sessionFile}: session list must run a guarded 5s backend refresh for visible incoming-message prompts`)
+  failed = true
+}
+
 if (!/function handleMarkRead\(item: ChatConversationItem\): Promise<void>[\s\S]*const requestedReadSeq = item\.lastServerSeq[\s\S]*markConversationRead\(item\.conversationId, \{ readSeq: requestedReadSeq \}\)[\s\S]*response\.conversationId !== item\.conversationId \|\| response\.readSeq !== requestedReadSeq \|\| response\.readSeq > item\.lastServerSeq[\s\S]*item\.readSeq = response\.readSeq[\s\S]*item\.unreadCount = response\.unreadCount/s.test(sessionList)) {
   console.error(`${sessionFile}: session list read mutation must only update local read state after matching backend acknowledgement`)
   failed = true
