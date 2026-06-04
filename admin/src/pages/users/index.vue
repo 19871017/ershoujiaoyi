@@ -47,6 +47,9 @@
         <div><dt>视频核验</dt><dd>{{ detail.videoIdentityStatus }} / {{ detail.videoVerified ? '已公开展示' : '未公开展示' }}</dd></div>
         <div><dt>创建时间</dt><dd>{{ detail.createdAt || '暂无' }}</dd></div>
       </dl>
+      <div class="toolbar">
+        <button class="secondary-btn" @click="openUserAfterSalesTrace">追溯该用户售后</button>
+      </div>
       <p class="safe-note">{{ detail.bio || '暂无补充简介' }}</p>
       <p class="safe-note">用户资料以平台记录为准；本页仅展示脱敏联系方式与平台返回资料。</p>
     </article>
@@ -55,10 +58,12 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { getAdminUserDetail, isValidAdminUserId, searchAdminUsers, type AdminUserDetailResponse } from '../../api/modules/admin'
+import { afterSalesTraceListLocation } from '../after-sales/after-sales-trace-links'
 
 const route = useRoute()
+const router = useRouter()
 const userId = ref('')
 const keyword = ref('')
 const users = ref<AdminUserDetailResponse[]>([])
@@ -106,6 +111,15 @@ async function loadUsers() {
 function selectUser(item: AdminUserDetailResponse) {
   userId.value = String(item.userId)
   detail.value = item
+}
+
+function openUserAfterSalesTrace() {
+  const location = afterSalesTraceListLocation(detail.value?.userId || userId.value)
+  if (!location) {
+    error.value = '用户编号无效，未打开售后追溯。'
+    return
+  }
+  router.push(location)
 }
 
 onMounted(() => {

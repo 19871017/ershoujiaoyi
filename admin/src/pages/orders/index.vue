@@ -65,6 +65,10 @@
         <div><dt>付款时间</dt><dd>{{ detail.paidAt || '暂无' }}</dd></div>
         <div><dt>完成时间</dt><dd>{{ detail.completedAt || '暂无' }}</dd></div>
       </dl>
+      <div class="toolbar">
+        <button v-if="detail.afterSalesNo" class="secondary-btn" @click="openAfterSalesDetail">查看售后详情</button>
+        <button class="secondary-btn" @click="openAfterSalesByOrder">按订单追溯售后</button>
+      </div>
       <p class="safe-note">订单、支付、发货和售后状态以平台记录为准；本页当前仅查询详情，不提供改价、发货或结算操作。</p>
     </article>
   </section>
@@ -72,10 +76,12 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { getAdminOrderDetail, getAdminOrderList, isValidAdminOrderNo, type AdminOrderDetail } from '../../api'
+import { afterSalesTraceDetailLocation, afterSalesTraceListLocation } from '../after-sales/after-sales-trace-links'
 
 const route = useRoute()
+const router = useRouter()
 const orderNo = ref('')
 const statusFilter = ref<'ALL' | 'PENDING_PAY' | 'PAID' | 'SHIPPED' | 'COMPLETED' | 'REFUNDING'>('ALL')
 const loading = ref(false)
@@ -119,6 +125,24 @@ async function loadDetail() {
   } finally {
     loading.value = false
   }
+}
+
+function openAfterSalesDetail() {
+  const location = afterSalesTraceDetailLocation(detail.value?.afterSalesNo)
+  if (!location) {
+    error.value = '售后编号无效，未打开售后详情。'
+    return
+  }
+  router.push(location)
+}
+
+function openAfterSalesByOrder() {
+  const location = afterSalesTraceListLocation(detail.value?.orderNo || orderNo.value)
+  if (!location) {
+    error.value = '订单编号无效，未打开售后追溯。'
+    return
+  }
+  router.push(location)
 }
 
 onMounted(() => {

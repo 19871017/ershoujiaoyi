@@ -27,6 +27,7 @@
       </div>
       <div class="audit-side">
         <span class="status-pill">{{ item.result }}</span>
+        <button v-if="afterSalesTraceFor(item)" class="link-btn" @click="openAfterSalesTrace(item)">售后追溯</button>
         <small>操作人：{{ item.operatorId }}</small>
         <small>{{ item.createdAt || '暂无时间' }}</small>
       </div>
@@ -36,8 +37,11 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { getAdminAuditLogs, isValidAdminAuditLogId, type AdminAuditLogEntry } from '../../api'
+import { afterSalesAuditTraceLocation } from '../after-sales/after-sales-trace-links'
 
+const router = useRouter()
 const logs = ref<AdminAuditLogEntry[]>([])
 const loading = ref(false)
 const error = ref('')
@@ -61,6 +65,19 @@ async function loadLogs() {
   } finally {
     loading.value = false
   }
+}
+
+function afterSalesTraceFor(item: AdminAuditLogEntry) {
+  return afterSalesAuditTraceLocation(item)
+}
+
+function openAfterSalesTrace(item: AdminAuditLogEntry) {
+  const location = afterSalesTraceFor(item)
+  if (!location) {
+    error.value = '审计目标无法追溯到售后记录。'
+    return
+  }
+  router.push(location)
 }
 
 onMounted(loadLogs)
