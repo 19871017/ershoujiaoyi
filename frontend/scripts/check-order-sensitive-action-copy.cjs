@@ -112,6 +112,7 @@ const requiredOrderIdGuardMarkers = {
     'function isValidBackendOrderNo(value: string): boolean',
     'function isValidOrderAmount(value: unknown): boolean',
     'function isValidBackendProductId(value: unknown): boolean',
+    'function isValidAfterSalesNo(value: string): boolean',
     'function decodeRouteValue(fieldName: string, value: string): string',
     "console.warn('order list route decode failed'",
     'function isOrderRole(value: string): value is OrderRole',
@@ -123,7 +124,14 @@ const requiredOrderIdGuardMarkers = {
     "throw new Error('order list invalid backend orderNo')",
     "throw new Error('order list invalid order amount')",
     "throw new Error('order list invalid productId')",
+    "throw new Error('order list invalid afterSalesNo')",
     'list.forEach(assertBackendOrderListItem)',
+    '<view v-if="showAfterSalesTrace" class="after-sales-trace ds-card">',
+    'const afterSalesTraceOrders = computed(() => filteredOrders.value.filter((item) => displayStatus(item) === \'REFUNDING\' && !!item.afterSalesNo))',
+    'const showAfterSalesTrace = computed(() => !loading.value && !errorText.value && status.value === \'REFUNDING\' && afterSalesTraceOrders.value.length > 0)',
+    'function openFirstAfterSalesTrace(): void',
+    'function openAfterSalesDetail(item: OrderListItemResponse): void',
+    "console.warn('order list invalid after-sales trace target'",
     "console.warn('order list load failed'",
     'if (!isValidBackendOrderNo(item.orderNo))',
     "console.warn('order list checkout navigation failed'",
@@ -229,6 +237,18 @@ for (const file of files) {
       content,
       /function readRouteFilters\(\): void\s*\{[\s\S]*const routeRole = decodeRouteValue\('role'[\s\S]*const routeStatus = decodeRouteValue\('status'[\s\S]*if \(routeRole && !isOrderRole\(routeRole\)\)[\s\S]*console\.warn\('order list invalid route role'[\s\S]*else if \(isOrderRole\(routeRole\)\)[\s\S]*role\.value = routeRole[\s\S]*if \(routeStatus && !isStatusTab\(routeStatus\)\)[\s\S]*console\.warn\('order list invalid route status'[\s\S]*else if \(isStatusTab\(routeStatus\)\)[\s\S]*status\.value = routeStatus/s,
       'order list must decode route role/status fail-closed before applying filters'
+    )
+    requirePattern(
+      file,
+      content,
+      /function openAfterSalesDetail\(item: OrderListItemResponse\): void\s*\{[\s\S]*if \(!isValidBackendOrderNo\(item\.orderNo\)\)[\s\S]*if \(!item\.afterSalesNo\)[\s\S]*if \(!isValidAfterSalesNo\(item\.afterSalesNo\)\)[\s\S]*console\.warn\('order list invalid after-sales trace target'[\s\S]*const safeOrderNo = item\.orderNo[\s\S]*const safeAfterSalesNo = item\.afterSalesNo[\s\S]*\/pages\/after-sales\/detail\/index\?afterSalesNo=\$\{encodeURIComponent\(safeAfterSalesNo\)\}&orderNo=\$\{encodeURIComponent\(safeOrderNo\)\}[\s\S]*console\.warn\('order list after-sales detail navigation failed'/s,
+      'order list after-sales trace/detail navigation must validate backend orderNo and canonical afterSalesNo before navigation'
+    )
+    requirePattern(
+      file,
+      content,
+      /function openFirstAfterSalesTrace\(\): void\s*\{[\s\S]*const target = afterSalesTraceOrders\.value\[0\][\s\S]*if \(!target\) return uni\.showToast\(\{ title: '暂无可追踪售后'[\s\S]*openAfterSalesDetail\(target\)/s,
+      'order list after-sales trace header must fail closed when no valid target exists'
     )
     requirePattern(
       file,

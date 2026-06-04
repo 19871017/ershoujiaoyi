@@ -37,6 +37,10 @@ export function isValidBackendProductId(value: unknown): boolean {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 }
 
+export function isValidAfterSalesNo(value: string): boolean {
+  return /^AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(value)
+}
+
 export function decodeRouteValue(fieldName: string, value: string): string {
   try {
     return decodeURIComponent(value || '').trim()
@@ -58,6 +62,7 @@ export function assertBackendOrderListItem(item: OrderListItemResponse): void {
   if (!isValidBackendOrderNo(item.orderNo)) throw new Error('order list invalid backend orderNo')
   if (!isValidOrderAmount(item.amount)) throw new Error('order list invalid order amount')
   if (!isValidBackendProductId(item.productId)) throw new Error('order list invalid productId')
+  if (item.afterSalesNo && !isValidAfterSalesNo(item.afterSalesNo)) throw new Error('order list invalid afterSalesNo')
 }
 
 export function displayStatus(item: OrderListItemResponse): OrderListStatus {

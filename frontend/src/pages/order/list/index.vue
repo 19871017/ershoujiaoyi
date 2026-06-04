@@ -21,6 +21,14 @@
       </view>
     </view>
 
+    <view v-if="showAfterSalesTrace" class="after-sales-trace ds-card">
+      <view class="trace-main">
+        <view class="trace-title">售后追踪</view>
+        <view class="trace-desc">当前筛选下有 {{ afterSalesTraceOrders.length }} 个售后单，进度以平台售后详情为准。</view>
+      </view>
+      <view class="trace-action tapable" @click="openFirstAfterSalesTrace">查看最近</view>
+    </view>
+
     <view v-if="loading" class="empty-card ds-card">
       <view class="empty-icon">⌛</view>
       <view class="empty-title">正在读取订单</view>
@@ -84,6 +92,7 @@ import {
   decodeRouteValue,
   displayStatus,
   flowSteps,
+  isValidAfterSalesNo,
   isValidBackendOrderNo,
   isValidBackendProductId,
   isValidOrderAmount,
@@ -103,6 +112,8 @@ const loading = ref(false)
 const confirmingOrderNo = ref('')
 const errorText = ref('')
 const filteredOrders = computed(() => orders.value.filter((item) => status.value === 'ALL' || displayStatus(item) === status.value))
+const afterSalesTraceOrders = computed(() => filteredOrders.value.filter((item) => displayStatus(item) === 'REFUNDING' && !!item.afterSalesNo))
+const showAfterSalesTrace = computed(() => !loading.value && !errorText.value && status.value === 'REFUNDING' && afterSalesTraceOrders.value.length > 0)
 const statusCounts = computed<Record<StatusTab, number>>(() => {
   const counts = Object.fromEntries(statusTabs.map((item) => [item.value, 0])) as Record<StatusTab, number>
   for (const item of orders.value) {
@@ -205,14 +216,7 @@ function handleAction(item: OrderListItemResponse, action: string): void {
   }
   else if (action === '确认收货') void confirmFromList(item)
   else if (action === '查看售后') {
-    if (!item.afterSalesNo) return uni.showToast({ title: '暂无售后单号', icon: 'none' })
-    navigateWithFailure(
-      `/pages/after-sales/detail/index?afterSalesNo=${encodeURIComponent(item.afterSalesNo)}&orderNo=${encodedOrderNo}`,
-      (error: unknown) => {
-        console.warn('order list after-sales detail navigation failed', { orderNo: safeOrderNo, afterSalesNo: item.afterSalesNo, error })
-        uni.showToast({ title: '暂时无法打开售后详情', icon: 'none' })
-      }
-    )
+    openAfterSalesDetail(item)
   }
   else if (action === '评价') {
     navigateWithFailure(
@@ -228,6 +232,28 @@ function handleAction(item: OrderListItemResponse, action: string): void {
 }
 function showUnavailableAction(action: string): void {
   uni.showToast({ title: `${action}暂不可用，请稍后重试`, icon: 'none' })
+}
+function openFirstAfterSalesTrace(): void {
+  const target = afterSalesTraceOrders.value[0]
+  if (!target) return uni.showToast({ title: '暂无可追踪售后', icon: 'none' })
+  openAfterSalesDetail(target)
+}
+function openAfterSalesDetail(item: OrderListItemResponse): void {
+  if (!isValidBackendOrderNo(item.orderNo)) return uni.showToast({ title: '订单编号无效，未打开售后详情', icon: 'none' })
+  if (!item.afterSalesNo) return uni.showToast({ title: '暂无售后单号', icon: 'none' })
+  if (!isValidAfterSalesNo(item.afterSalesNo)) {
+    console.warn('order list invalid after-sales trace target', { orderNo: item.orderNo, afterSalesNo: item.afterSalesNo })
+    return uni.showToast({ title: '售后单号异常，已阻止跳转', icon: 'none' })
+  }
+  const safeOrderNo = item.orderNo
+  const safeAfterSalesNo = item.afterSalesNo
+  navigateWithFailure(
+    `/pages/after-sales/detail/index?afterSalesNo=${encodeURIComponent(safeAfterSalesNo)}&orderNo=${encodeURIComponent(safeOrderNo)}`,
+    (error: unknown) => {
+      console.warn('order list after-sales detail navigation failed', { orderNo: safeOrderNo, afterSalesNo: safeAfterSalesNo, error })
+      uni.showToast({ title: '暂时无法打开售后详情', icon: 'none' })
+    }
+  )
 }
 function openOrderContact(item: OrderListItemResponse, action: OrderContactAction): void {
   const target = resolveOrderContactTarget(item, action)
