@@ -14,7 +14,11 @@
         <strong>{{ item.auditNo }}</strong>
         <span>{{ item.auditType }} / {{ item.targetType || '未标注目标' }}</span>
         <p>{{ item.reason || item.description || '无补充说明' }}</p>
-        <RouterLink class="detail-link" :to="`/audit/${encodeURIComponent(item.auditNo)}`">查看详情</RouterLink>
+        <div class="audit-trace-actions">
+          <RouterLink class="detail-link" :to="`/audit/${encodeURIComponent(item.auditNo)}`">查看详情</RouterLink>
+          <button v-if="orderTraceFor(item)" class="link-btn" @click="openOrderTrace(item)">订单追溯</button>
+          <button v-if="afterSalesTraceFor(item)" class="link-btn" @click="openAfterSalesTrace(item)">售后追溯</button>
+        </div>
       </div>
       <div class="audit-side">
         <b :class="['status', item.status.toLowerCase()]">{{ item.status }}</b>
@@ -30,12 +34,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { approveAdminAudit, approveAdminProduct, getAdminAuditList, rejectAdminAudit, type AuditRecordResponse } from '../../api'
 import { canReviewAuditRecord, useAuthStore } from '../../store/modules/auth'
+import { afterSalesAuditTraceLocation } from '../after-sales/after-sales-trace-links'
+import { orderAuditTraceLocation } from '../orders/order-trace-links'
 
 const audits = ref<AuditRecordResponse[]>([])
 const auth = useAuthStore()
+const router = useRouter()
 const loading = ref(false)
 const error = ref('')
 const reviewingAuditNo = ref('')
@@ -75,6 +82,36 @@ async function review(item: AuditRecordResponse, action: 'approve' | 'reject') {
   } finally {
     reviewingAuditNo.value = ''
   }
+}
+
+function afterSalesTraceFor(item: AuditRecordResponse) {
+  return afterSalesAuditTraceLocation(item)
+}
+
+function orderTraceFor(item: AuditRecordResponse) {
+  return orderAuditTraceLocation(item)
+}
+
+function openAfterSalesTrace(item: AuditRecordResponse) {
+  const location = afterSalesTraceFor(item)
+  if (!location) {
+    error.value = '审核目标无法追溯到售后记录。'
+    return
+  }
+  router.push(location).catch(() => {
+    error.value = '售后追溯页面打开失败，请稍后重试。'
+  })
+}
+
+function openOrderTrace(item: AuditRecordResponse) {
+  const location = orderTraceFor(item)
+  if (!location) {
+    error.value = '审核目标无法追溯到订单记录。'
+    return
+  }
+  router.push(location).catch(() => {
+    error.value = '订单追溯页面打开失败，请稍后重试。'
+  })
 }
 
 onMounted(load)
