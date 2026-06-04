@@ -283,7 +283,12 @@ public class OrderApplicationService {
     }
 
     public List<OrderListItemResponse> adminListOrders(String status, Integer limit) {
+        return adminListOrders(status, null, limit);
+    }
+
+    public List<OrderListItemResponse> adminListOrders(String status, String keyword, Integer limit) {
         String safeStatus = normalizeStatusFilter(status);
+        String safeKeyword = normalizeAdminKeyword(keyword);
         int safeLimit = limit == null ? 20 : limit;
         if (safeLimit < 1 || safeLimit > 100) {
             throw new IllegalArgumentException("order limit invalid");
@@ -301,6 +306,30 @@ public class OrderApplicationService {
             } else {
                 sql.append(" and o.order_status = ?");
                 args.add(safeStatus);
+            }
+        }
+        if (safeKeyword != null) {
+            if (safeKeyword.matches("\\d+")) {
+                Long numericKeyword = parseNumericKeyword(safeKeyword);
+                sql.append(" and (o.buyer_id = ? or o.seller_id = ? or o.product_id = ? or o.goods_id = ?)");
+                args.add(numericKeyword);
+                args.add(numericKeyword);
+                args.add(numericKeyword);
+                args.add(numericKeyword);
+            } else {
+                sql.append("""
+                         and (lower(o.order_no) like ? escape '\\'
+                         or lower(o.product_no) like ? escape '\\'
+                         or lower(o.product_title) like ? escape '\\'
+                         or lower(o.tracking_no) like ? escape '\\'
+                         or lower(a.after_sales_no) like ? escape '\\')
+                        """);
+                String likeKeyword = "%" + escapeLike(safeKeyword.toLowerCase(Locale.ROOT)) + "%";
+                args.add(likeKeyword);
+                args.add(likeKeyword);
+                args.add(likeKeyword);
+                args.add(likeKeyword);
+                args.add(likeKeyword);
             }
         }
         sql.append(" order by o.created_at desc limit ?");
@@ -559,6 +588,30 @@ public class OrderApplicationService {
             case "PENDING_PAY", "PAID", "SHIPPED", "COMPLETED", "REFUNDING" -> value;
             default -> throw new IllegalArgumentException("order status invalid");
         };
+    }
+
+    private String normalizeAdminKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) return null;
+        String normalized = keyword.trim();
+        if (normalized.length() > 64) throw new IllegalArgumentException("order keyword invalid");
+        String lower = normalized.toLowerCase(Locale.ROOT);
+        if (lower.contains("preview") || lower.contains("demo") || lower.contains("mock") || lower.contains("sample") || lower.contains("placeholder")) {
+            throw new IllegalArgumentException("order keyword invalid");
+        }
+        if (normalized.matches("\\d+") && normalized.length() > 18) throw new IllegalArgumentException("order keyword invalid");
+        return normalized;
+    }
+
+    private Long parseNumericKeyword(String keyword) {
+        try {
+            return Long.valueOf(keyword);
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("order keyword invalid");
+        }
+    }
+
+    private String escapeLike(String value) {
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     private String generateNo(String prefix, Object a, Object b, Object c) {

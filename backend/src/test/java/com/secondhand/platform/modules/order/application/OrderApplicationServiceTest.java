@@ -289,6 +289,11 @@ class OrderApplicationServiceTest {
 
         List<OrderListItemResponse> paidOrders = orderService.adminListOrders("PAID", 10);
         List<OrderListItemResponse> allOrders = orderService.adminListOrders("ALL", 10);
+        List<OrderListItemResponse> byOrderNo = orderService.adminListOrders("ALL", firstOrder.getOrderNo(), 10);
+        List<OrderListItemResponse> byTitle = orderService.adminListOrders("ALL", "列表裙子", 10);
+        List<OrderListItemResponse> byBuyer = orderService.adminListOrders("ALL", "6101", 10);
+        List<OrderListItemResponse> bySeller = orderService.adminListOrders("ALL", "7102", 10);
+        List<OrderListItemResponse> byAfterSales = orderService.adminListOrders("ALL", "AS-ADMINLIST-6101", 10);
 
         assertEquals(1, paidOrders.size());
         assertEquals(firstOrder.getOrderNo(), paidOrders.get(0).getOrderNo());
@@ -296,7 +301,14 @@ class OrderApplicationServiceTest {
         assertEquals(7101L, paidOrders.get(0).getSellerId());
         assertEquals("AS-ADMINLIST-6101", paidOrders.get(0).getAfterSalesNo());
         assertTrue(allOrders.stream().anyMatch(item -> secondOrder.getOrderNo().equals(item.getOrderNo())));
+        assertEquals(firstOrder.getOrderNo(), byOrderNo.get(0).getOrderNo());
+        assertEquals(firstOrder.getOrderNo(), byTitle.get(0).getOrderNo());
+        assertEquals(firstOrder.getOrderNo(), byBuyer.get(0).getOrderNo());
+        assertEquals(secondOrder.getOrderNo(), bySeller.get(0).getOrderNo());
+        assertEquals(firstOrder.getOrderNo(), byAfterSales.get(0).getOrderNo());
         assertThrows(IllegalArgumentException.class, () -> orderService.adminListOrders("preview-status", 10));
+        assertThrows(IllegalArgumentException.class, () -> orderService.adminListOrders("ALL", "preview-order", 10));
+        assertThrows(IllegalArgumentException.class, () -> orderService.adminListOrders("ALL", "x".repeat(65), 10));
         assertThrows(IllegalArgumentException.class, () -> orderService.adminListOrders("ALL", 101));
     }
 

@@ -99,10 +99,11 @@ public class AdminController {
 
     @GetMapping("/orders")
     public Result<List<OrderListItemResponse>> orderList(@RequestParam(required = false) String status,
+                                                         @RequestParam(required = false) String keyword,
                                                          @RequestParam(defaultValue = "20") Integer limit,
                                                          HttpServletRequest request) {
         adminAccessGuard.requireAdmin(request, "order:read");
-        return Result.ok(orderApplicationService.adminListOrders(status, limit));
+        return Result.ok(orderApplicationService.adminListOrders(status, keyword, limit));
     }
 
     @GetMapping("/orders/{orderNo}")

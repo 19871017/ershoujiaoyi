@@ -438,6 +438,7 @@ class AdminControllerRbacTest {
                         .header("X-User-Id", "71")
                         .header("X-Admin-Session", issueAdminSession(71L))
                         .param("status", "ALL")
+                        .param("keyword", order.getOrderNo())
                         .param("limit", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].orderNo").value(order.getOrderNo()))

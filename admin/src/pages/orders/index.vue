@@ -20,6 +20,8 @@
         <option value="COMPLETED">已完成</option>
         <option value="REFUNDING">售后中</option>
       </select>
+      <input v-model.trim="keyword" maxlength="64" placeholder="订单号/商品/用户ID/售后号" @keyup.enter="loadList" />
+      <input v-model.number="listLimit" type="number" min="1" max="100" step="1" @keyup.enter="loadList" />
       <button class="secondary-btn" :disabled="listLoading" @click="loadList">{{ listLoading ? '加载中...' : '加载订单列表' }}</button>
     </div>
 
@@ -77,25 +79,33 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getAdminOrderDetail, getAdminOrderList, isValidAdminOrderNo, type AdminOrderDetail } from '../../api'
+import { getAdminOrderDetail, getAdminOrderList, isValidAdminOrderKeyword, isValidAdminOrderNo, type AdminOrderDetail, type AdminOrderListQuery } from '../../api'
 import { afterSalesTraceDetailLocation, afterSalesTraceListLocation } from '../after-sales/after-sales-trace-links'
 
 const route = useRoute()
 const router = useRouter()
 const orderNo = ref('')
 const statusFilter = ref<'ALL' | 'PENDING_PAY' | 'PAID' | 'SHIPPED' | 'COMPLETED' | 'REFUNDING'>('ALL')
+const keyword = ref('')
+const listLimit = ref(20)
 const loading = ref(false)
 const listLoading = ref(false)
 const error = ref('')
 const detail = ref<AdminOrderDetail | null>(null)
 const list = ref<AdminOrderDetail[]>([])
+const statusValues: NonNullable<AdminOrderListQuery['status']>[] = ['ALL', 'PENDING_PAY', 'PAID', 'SHIPPED', 'COMPLETED', 'REFUNDING']
 
 async function loadList() {
   listLoading.value = true
   error.value = ''
   list.value = []
   try {
-    list.value = await getAdminOrderList({ status: statusFilter.value, limit: 20 })
+    const safeKeyword = keyword.value.trim()
+    if (safeKeyword && !isValidAdminOrderKeyword(safeKeyword)) {
+      error.value = '订单关键词无效：最多 64 字，不能包含测试占位语义。'
+      return
+    }
+    list.value = await getAdminOrderList({ status: statusFilter.value, keyword: safeKeyword || undefined, limit: Number(listLimit.value) })
   } catch {
     error.value = '订单列表加载失败，请确认管理员权限与服务状态。'
   } finally {
@@ -146,6 +156,12 @@ function openAfterSalesByOrder() {
 }
 
 onMounted(() => {
+  const routeStatus = String(route.query.status || '').trim().toUpperCase() as NonNullable<AdminOrderListQuery['status']>
+  const routeKeyword = String(route.query.keyword || '').trim()
+  const routeLimit = Number(route.query.limit)
+  if (statusValues.includes(routeStatus)) statusFilter.value = routeStatus
+  if (routeKeyword) keyword.value = routeKeyword
+  if (Number.isInteger(routeLimit) && routeLimit >= 1 && routeLimit <= 100) listLimit.value = routeLimit
   loadList()
   const routeOrderNo = String(route.params.orderNo || '').trim()
   if (routeOrderNo) {

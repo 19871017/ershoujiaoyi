@@ -73,6 +73,7 @@ export interface AdminOrderDetail {
 export interface AdminOrderListQuery {
   status?: 'ALL' | 'PENDING_PAY' | 'PAID' | 'SHIPPED' | 'COMPLETED' | 'REFUNDING'
   limit?: number
+  keyword?: string
 }
 
 export interface AdminProductAuditResponse {
@@ -257,6 +258,14 @@ export function isValidAdminOrderNo(orderNo: string) {
   return /^OD-[A-Z0-9]{4,}$/.test(orderNo)
 }
 
+export function isValidAdminOrderKeyword(keyword: string) {
+  const normalized = keyword.trim()
+  if (!normalized || normalized.length > 64) return false
+  if (/(preview|demo|mock|sample|placeholder)/i.test(normalized)) return false
+  if (/^\d+$/.test(normalized) && normalized.length > 18) return false
+  return true
+}
+
 export function isValidAdminProductId(productId: string | number) {
   return /^[1-9]\d*$/.test(String(productId))
 }
@@ -397,6 +406,13 @@ export async function getAdminOrderList(query: AdminOrderListQuery = {}) {
     throw new Error('订单状态筛选无效')
   }
   if (status !== 'ALL') params.set('status', status)
+  const keyword = query.keyword?.trim() ?? ''
+  if (keyword) {
+    if (!isValidAdminOrderKeyword(keyword)) {
+      throw new Error('订单关键词无效')
+    }
+    params.set('keyword', keyword)
+  }
   const limit = query.limit ?? 20
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
     throw new Error('订单列表条数无效')

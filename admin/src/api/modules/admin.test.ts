@@ -20,6 +20,7 @@ import {
   isValidAdminAfterSalesNo,
   isValidAdminAuditLogId,
   isValidAdminAuditNo,
+  isValidAdminOrderKeyword,
   isValidAdminOrderNo,
   isValidAdminProductId,
   isValidAdminUserId,
@@ -455,7 +456,7 @@ describe('admin finance api', () => {
     await expect(getAdminOrderDetail('preview-order')).rejects.toThrow('订单编号无效')
   })
 
-  it('loads admin order list through backend endpoint with status and bounded limit', async () => {
+  it('loads admin order list through backend endpoint with status keyword and bounded limit', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -479,13 +480,20 @@ describe('admin finance api', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const rows = await getAdminOrderList({ status: 'PAID', limit: 20 })
+    const rows = await getAdminOrderList({ status: 'PAID', keyword: 'OD-ABC123', limit: 20 })
 
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/orders?status=PAID&limit=20'), expect.any(Object))
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/orders?status=PAID&keyword=OD-ABC123&limit=20'), expect.any(Object))
     expect(rows[0].orderNo).toBe('OD-ABC123')
     expect(rows[0].afterSalesNo).toBe('AS-ADMINLIST-6101')
+    expect(isValidAdminOrderKeyword('OD-ABC123')).toBe(true)
+    expect(isValidAdminOrderKeyword('6101')).toBe(true)
+    expect(isValidAdminOrderKeyword('preview-order')).toBe(false)
+    vi.clearAllMocks()
     await expect(getAdminOrderList({ status: 'preview' as never, limit: 20 })).rejects.toThrow('订单状态筛选无效')
+    await expect(getAdminOrderList({ status: 'ALL', keyword: 'preview-order', limit: 20 })).rejects.toThrow('订单关键词无效')
+    await expect(getAdminOrderList({ status: 'ALL', keyword: 'x'.repeat(65), limit: 20 })).rejects.toThrow('订单关键词无效')
     await expect(getAdminOrderList({ status: 'ALL', limit: 101 })).rejects.toThrow('订单列表条数无效')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('searches admin users through backend endpoint with positive query and bounded limit', async () => {
