@@ -61,13 +61,16 @@ class AfterSalesApplicationServiceTest {
         assertEquals(true, response.getAfterSalesNo().matches("AS-USER-\\d{8}-\\d{12}"));
         assertEquals(order.getOrderNo(), response.getOrderNo());
         assertEquals(7001L, response.getApplicantId());
+        assertEquals(1L, response.getSellerId());
         assertEquals("PENDING_REVIEW", response.getStatus());
         assertEquals(1, jdbcTemplate.queryForObject("select count(*) from after_sales_record where after_sales_no = ?", Integer.class, response.getAfterSalesNo()));
 
         AfterSalesResponse detail = afterSalesService.detail(response.getAfterSalesNo(), 7001L);
         assertEquals(response.getAfterSalesNo(), detail.getAfterSalesNo());
+        assertEquals(1L, detail.getSellerId());
         AfterSalesResponse adminDetail = afterSalesService.getAdminDetail(response.getAfterSalesNo());
         assertEquals(response.getAfterSalesNo(), adminDetail.getAfterSalesNo());
+        assertEquals(1L, adminDetail.getSellerId());
         assertEquals("REFUND_ONLY", detail.getAfterSalesType());
         assertEquals("成色不符", detail.getReason());
         assertEquals(1, detail.getEvidenceUrls().size());
@@ -87,6 +90,7 @@ class AfterSalesApplicationServiceTest {
         AfterSalesResponse reviewed = afterSalesService.adminReview(response.getAfterSalesNo(), "APPROVED", 9901L, "同意处理");
 
         assertEquals("APPROVED", reviewed.getStatus());
+        assertEquals(1L, reviewed.getSellerId());
         assertEquals(1, notificationService.listNotifications(7401L, "ORDER", 20).stream()
                 .filter(item -> item.title().equals("售后审核已通过"))
                 .filter(item -> item.targetUrl().equals("/pages/after-sales/detail/index?afterSalesNo=" + response.getAfterSalesNo() + "&orderNo=" + response.getOrderNo()))

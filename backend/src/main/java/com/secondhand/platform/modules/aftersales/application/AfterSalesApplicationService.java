@@ -99,11 +99,13 @@ public class AfterSalesApplicationService {
         String where = safeStatus == null ? "" : " where after_sales_status = ?";
         Object[] args = safeStatus == null ? new Object[]{safeLimit} : new Object[]{safeStatus, safeLimit};
         return jdbcTemplate.query("""
-                select * from after_sales_record
-                """ + where + " order by created_at desc limit ?", (rs, rowNum) -> new AfterSalesResponse(
+                select a.*, o.seller_id
+                from after_sales_record a
+                left join trade_order o on o.order_no = a.order_no
+                """ + where + " order by a.created_at desc limit ?", (rs, rowNum) -> new AfterSalesResponse(
                 rs.getString("after_sales_no"), rs.getString("order_no"), rs.getLong("applicant_id"), rs.getString("after_sales_type"),
                 rs.getBigDecimal("refund_amount"), rs.getString("reason"), rs.getString("description"), decode(rs.getString("evidence_urls")),
-                rs.getString("after_sales_status"), timeText(rs.getTimestamp("created_at"))
+                rs.getString("after_sales_status"), timeText(rs.getTimestamp("created_at")), rs.getLong("seller_id") == 0 ? null : rs.getLong("seller_id")
         ), args);
     }
 
@@ -219,10 +221,15 @@ public class AfterSalesApplicationService {
 
     private AfterSalesResponse findByAfterSalesNo(String afterSalesNo) {
         try {
-            return jdbcTemplate.queryForObject("select * from after_sales_record where after_sales_no = ?", (rs, rowNum) -> new AfterSalesResponse(
+            return jdbcTemplate.queryForObject("""
+                    select a.*, o.seller_id
+                    from after_sales_record a
+                    left join trade_order o on o.order_no = a.order_no
+                    where a.after_sales_no = ?
+                    """, (rs, rowNum) -> new AfterSalesResponse(
                     rs.getString("after_sales_no"), rs.getString("order_no"), rs.getLong("applicant_id"), rs.getString("after_sales_type"),
                     rs.getBigDecimal("refund_amount"), rs.getString("reason"), rs.getString("description"), decode(rs.getString("evidence_urls")),
-                    rs.getString("after_sales_status"), timeText(rs.getTimestamp("created_at"))
+                    rs.getString("after_sales_status"), timeText(rs.getTimestamp("created_at")), rs.getLong("seller_id") == 0 ? null : rs.getLong("seller_id")
             ), afterSalesNo);
         } catch (EmptyResultDataAccessException e) {
             throw new IllegalArgumentException("after-sales-not-found");

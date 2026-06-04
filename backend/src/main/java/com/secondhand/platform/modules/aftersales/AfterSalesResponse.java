@@ -14,10 +14,11 @@ public class AfterSalesResponse {
     private List<String> evidenceUrls;
     private String status;
     private String createdAt;
+    private Long sellerId;
 
     public AfterSalesResponse(String afterSalesNo, String orderNo, Long applicantId, String afterSalesType,
                               BigDecimal refundAmount, String reason, String description, List<String> evidenceUrls,
-                              String status, String createdAt) {
+                              String status, String createdAt, Long sellerId) {
         this.afterSalesNo = afterSalesNo;
         this.orderNo = orderNo;
         this.applicantId = applicantId;
@@ -28,6 +29,7 @@ public class AfterSalesResponse {
         this.evidenceUrls = evidenceUrls;
         this.status = status;
         this.createdAt = createdAt;
+        this.sellerId = sellerId;
     }
 
     public String getAfterSalesNo() { return afterSalesNo; }
@@ -40,4 +42,5 @@ public class AfterSalesResponse {
     public List<String> getEvidenceUrls() { return evidenceUrls; }
     public String getStatus() { return status; }
     public String getCreatedAt() { return createdAt; }
+    public Long getSellerId() { return sellerId; }
 }

@@ -113,12 +113,15 @@ const requiredAfterSalesNoMarkers = [
   "throw new Error('after-sales detail orderNo mismatch')",
   "throw new Error('after-sales detail invalid refund amount')",
   "throw new Error('after-sales detail invalid backend status')",
+  "throw new Error('after-sales detail invalid sellerId')",
   "throw new Error('after-sales detail invalid evidence url')",
   "console.warn('after-sales detail invalid route afterSalesNo'",
   "console.warn('after-sales detail invalid route orderNo'",
   '缺少有效订单号，不能补充票据',
+  '暂时无法打开关联订单，请稍后重试',
   '暂时无法打开聊天，请稍后重试',
   '暂时无法打开票据上传页，请稍后重试',
+  "console.warn('after-sales order navigation failed'",
   "console.warn('after-sales chat navigation failed'",
   "console.warn('after-sales evidence navigation failed'",
   "console.warn('after-sales detail initialize failed'",
@@ -167,6 +170,9 @@ if (!/function assertAfterSalesDetailResponse\(response: AfterSalesResponse, exp
 }
 if (!/function contactSeller\(\): void\s*\{[\s\S]*if \(!isValidAfterSalesNo\(currentDetail\.afterSalesNo\)\)[\s\S]*if \(!isValidBackendOrderNo\(currentDetail\.orderNo\)\)[\s\S]*try\s*\{[\s\S]*const target = resolveSellerContactTarget\(currentDetail[\s\S]*uni\.navigateTo\(route\)[\s\S]*catch \(error\)\s*\{[\s\S]*console\.warn\('after-sales chat navigation failed'/s.test(detail)) {
   failures.push(`${detailFile}: after-sales chat navigation must validate IDs and handle prep/async/synchronous failures`)
+}
+if (!/function openOrderDetail\(\): void\s*\{[\s\S]*if \(!isValidAfterSalesNo\(currentDetail\.afterSalesNo\)\)[\s\S]*if \(!isValidBackendOrderNo\(currentDetail\.orderNo\)\)[\s\S]*\/pages\/order\/detail\/index\?orderNo=\$\{encodeURIComponent\(currentDetail\.orderNo\)\}[\s\S]*try\s*\{\s*uni\.navigateTo\(route\)[\s\S]*catch \(error\)\s*\{[\s\S]*console\.warn\('after-sales order navigation failed'/s.test(detail)) {
+  failures.push(`${detailFile}: after-sales detail must let users return to the associated order with validated IDs and navigation failure handling`)
 }
 if (!/function addEvidence\(\): void\s*\{[\s\S]*if \(!currentDetail \|\| !isValidAfterSalesNo\(currentDetail\.afterSalesNo\)\)[\s\S]*if \(!isValidBackendOrderNo\(currentDetail\.orderNo\)\)[\s\S]*scene=AFTER_SALES_EVIDENCE[\s\S]*try\s*\{\s*uni\.navigateTo\(route\)[\s\S]*catch \(error\)\s*\{[\s\S]*console\.warn\('after-sales evidence navigation failed'/s.test(detail)) {
   failures.push(`${detailFile}: after-sales evidence navigation must use validated backend detail IDs and handle async/synchronous failures`)

@@ -57,6 +57,7 @@
 
       <view class="action-card ds-card">
         <view class="section-title">继续处理</view>
+        <button class="secondary-btn" @click="openOrderDetail">查看关联订单</button>
         <button class="secondary-btn" @click="contactSeller">联系卖家协商</button>
         <button class="primary-btn" @click="addEvidence">补充上传票据</button>
       </view>
@@ -90,6 +91,9 @@ function isValidBackendOrderNo(value: string): boolean {
 function isValidRefundAmount(value: unknown): boolean {
   const numeric = Number(value)
   return Number.isFinite(numeric) && numeric > 0
+}
+function isValidUserId(value: unknown): boolean {
+  return Number.isSafeInteger(value) && Number(value) > 0
 }
 function isValidAfterSalesStatus(value: string): value is AfterSalesStatus {
   return value === 'PENDING_REVIEW' || value === 'APPROVED' || value === 'REJECTED' || value === 'CANCELLED'
@@ -144,6 +148,9 @@ function assertAfterSalesDetailResponse(response: AfterSalesResponse, expectedAf
   }
   if (!isValidAfterSalesStatus(response.status)) {
     throw new Error('after-sales detail invalid backend status')
+  }
+  if (!isValidUserId(response.sellerId)) {
+    throw new Error('after-sales detail invalid sellerId')
   }
   if (!Array.isArray(response.evidenceUrls) || response.evidenceUrls.length === 0 || response.evidenceUrls.some(hasInvalidEvidenceUrl)) {
     throw new Error('after-sales detail invalid evidence url')
@@ -205,6 +212,25 @@ function contactSeller(): void {
   } catch (error) {
     console.warn('after-sales chat navigation failed', { afterSalesNo: currentDetail.afterSalesNo, orderNo: currentDetail.orderNo, error })
     uni.showToast({ title: '暂时无法打开聊天，请稍后重试', icon: 'none' })
+  }
+}
+function openOrderDetail(): void {
+  const currentDetail = detail.value
+  if (!currentDetail) return
+  if (!isValidAfterSalesNo(currentDetail.afterSalesNo)) return uni.showToast({ title: '售后单号异常，未打开订单', icon: 'none' })
+  if (!isValidBackendOrderNo(currentDetail.orderNo)) return uni.showToast({ title: '订单编号异常，未打开订单', icon: 'none' })
+  const route = {
+    url: `/pages/order/detail/index?orderNo=${encodeURIComponent(currentDetail.orderNo)}`,
+    fail: (error: unknown) => {
+      console.warn('after-sales order navigation failed', { afterSalesNo: currentDetail.afterSalesNo, orderNo: currentDetail.orderNo, error })
+      uni.showToast({ title: '暂时无法打开关联订单，请稍后重试', icon: 'none' })
+    }
+  }
+  try {
+    uni.navigateTo(route)
+  } catch (error) {
+    console.warn('after-sales order navigation failed', { afterSalesNo: currentDetail.afterSalesNo, orderNo: currentDetail.orderNo, error })
+    uni.showToast({ title: '暂时无法打开关联订单，请稍后重试', icon: 'none' })
   }
 }
 function addEvidence(): void {
