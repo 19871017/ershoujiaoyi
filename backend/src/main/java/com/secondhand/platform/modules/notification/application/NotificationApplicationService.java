@@ -1,9 +1,12 @@
 package com.secondhand.platform.modules.notification.application;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,7 +60,7 @@ public class NotificationApplicationService {
         String safeTitle = requireText(title, "title", 2, 80);
         String safeDescription = requireText(description, "description", 2, 300);
         String safeTargetUrl = validateTargetUrl(targetUrl);
-        String notificationNo = "NTF-" + userId + "-" + System.currentTimeMillis();
+        String notificationNo = "NTF-" + userId + "-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
         jdbcTemplate.update("INSERT INTO notification_record(notification_no, user_id, notification_type, title, description, target_url, read_flag, created_at) VALUES(?,?,?,?,?,?,FALSE,CURRENT_TIMESTAMP)",
                 notificationNo, userId, normalizedType, safeTitle, safeDescription, safeTargetUrl);
         return findByNo(notificationNo);
@@ -141,7 +144,33 @@ public class NotificationApplicationService {
         if (trimmed.length() > 256 || !trimmed.matches("/pages/[A-Za-z0-9/_-]+/index(\\?[A-Za-z0-9%=&_.:-]+)?")) {
             throw new IllegalArgumentException("notification targetUrl invalid");
         }
+        if (trimmed.startsWith("/pages/after-sales/detail/index?")) {
+            validateAfterSalesDetailTargetUrl(trimmed);
+        }
         return trimmed;
+    }
+
+    private static void validateAfterSalesDetailTargetUrl(String targetUrl) {
+        String query = targetUrl.substring("/pages/after-sales/detail/index?".length());
+        String afterSalesNo = "";
+        String orderNo = "";
+        for (String pair : query.split("&")) {
+            String[] parts = pair.split("=", 2);
+            if (parts.length != 2) {
+                throw new IllegalArgumentException("notification targetUrl invalid");
+            }
+            String key = decode(parts[0]);
+            String value = decode(parts[1]);
+            if ("afterSalesNo".equals(key)) afterSalesNo = value;
+            else if ("orderNo".equals(key)) orderNo = value;
+        }
+        if (!afterSalesNo.matches("AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}") || !orderNo.matches("OD-[0-9]{1,10}")) {
+            throw new IllegalArgumentException("notification targetUrl invalid");
+        }
+    }
+
+    private static String decode(String value) {
+        return URLDecoder.decode(value, StandardCharsets.UTF_8);
     }
 
     private static NotificationItemResponse mapRow(String notificationNo, Long userId, String type, String title, String description,

@@ -58,7 +58,21 @@ export function formatTime(value: string) {
 
 export function isSafeNotificationTargetUrl(value?: string | null) {
   if (!value) return false
-  return /^\/pages\/[A-Za-z0-9/_-]+\/index(?:\?[A-Za-z0-9%=&_.:-]+)?$/.test(value)
+  if (!/^\/pages\/[A-Za-z0-9/_-]+\/index(?:\?[A-Za-z0-9%=&_.:-]+)?$/.test(value)) return false
+  if (value.startsWith('/pages/after-sales/detail/index?')) return isSafeAfterSalesDetailTargetUrl(value)
+  return true
+}
+
+export function isSafeAfterSalesDetailTargetUrl(value: string): boolean {
+  try {
+    const query = value.split('?')[1] || ''
+    const params = new URLSearchParams(query)
+    const afterSalesNo = params.get('afterSalesNo') || ''
+    const orderNo = params.get('orderNo') || ''
+    return /^AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(afterSalesNo) && /^OD-[0-9]{1,10}$/.test(orderNo)
+  } catch {
+    return false
+  }
 }
 
 export function isTabBarNotificationTargetUrl(value?: string | null) {

@@ -2,6 +2,7 @@ package com.secondhand.platform.modules.aftersales.application;
 
 import com.secondhand.platform.modules.aftersales.AfterSalesResponse;
 import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
+import com.secondhand.platform.modules.notification.application.NotificationApplicationService;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -25,15 +26,21 @@ public class AfterSalesApplicationService {
     private static final String STATUS_PENDING_REVIEW = "PENDING_REVIEW";
     private final JdbcTemplate jdbcTemplate;
     private final MediaUploadTicketService mediaUploadTicketService;
+    private final NotificationApplicationService notificationApplicationService;
 
     public AfterSalesApplicationService(JdbcTemplate jdbcTemplate) {
-        this(jdbcTemplate, new MediaUploadTicketService(jdbcTemplate));
+        this(jdbcTemplate, new MediaUploadTicketService(jdbcTemplate), new NotificationApplicationService(jdbcTemplate));
     }
 
     @Autowired
     public AfterSalesApplicationService(JdbcTemplate jdbcTemplate, MediaUploadTicketService mediaUploadTicketService) {
+        this(jdbcTemplate, mediaUploadTicketService, new NotificationApplicationService(jdbcTemplate));
+    }
+
+    public AfterSalesApplicationService(JdbcTemplate jdbcTemplate, MediaUploadTicketService mediaUploadTicketService, NotificationApplicationService notificationApplicationService) {
         this.jdbcTemplate = jdbcTemplate;
         this.mediaUploadTicketService = mediaUploadTicketService;
+        this.notificationApplicationService = notificationApplicationService;
     }
 
     @Transactional
@@ -60,7 +67,9 @@ public class AfterSalesApplicationService {
                         insert into after_sales_record (after_sales_no, order_no, applicant_id, after_sales_type, refund_amount, reason, description, evidence_urls, after_sales_status, created_at, updated_at)
                         values (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
                         """, afterSalesNo, orderNo, applicantId, type, refundAmount, reason, description, encode(evidenceUrls), STATUS_PENDING_REVIEW);
-                return findByAfterSalesNo(afterSalesNo);
+                AfterSalesResponse created = findByAfterSalesNo(afterSalesNo);
+                notifyAfterSalesCreated(created);
+                return created;
             } catch (DuplicateKeyException e) {
                 if (hasExistingAfterSales(orderNo, applicantId)) {
                     throw new IllegalArgumentException("after-sales already exists");
@@ -115,7 +124,47 @@ public class AfterSalesApplicationService {
                 insert into admin_audit_log (action,operator_id,target_type,target_id,result,summary,created_at)
                 values (?,?,?,?,?,?,CURRENT_TIMESTAMP)
                 """, "AFTER_SALES_REVIEW", safeOperatorId, "AFTER_SALES", safeAfterSalesNo, safeStatus, sanitizeReviewSummary(remark, safeStatus));
-        return findByAfterSalesNo(safeAfterSalesNo);
+        AfterSalesResponse reviewed = findByAfterSalesNo(safeAfterSalesNo);
+        notifyAfterSalesReviewed(reviewed, safeStatus);
+        return reviewed;
+    }
+
+    private void notifyAfterSalesCreated(AfterSalesResponse response) {
+        if (!hasNotificationTarget(response)) {
+            return;
+        }
+        notificationApplicationService.createNotification(
+                response.getApplicantId(),
+                "ORDER",
+                "售后申请已提交",
+                "售后单 " + response.getAfterSalesNo() + " 已创建，进度以平台售后详情为准。",
+                afterSalesDetailTargetUrl(response)
+        );
+    }
+
+    private void notifyAfterSalesReviewed(AfterSalesResponse response, String status) {
+        if (!hasNotificationTarget(response)) {
+            return;
+        }
+        String title = "APPROVED".equals(status) ? "售后审核已通过" : "售后审核未通过";
+        notificationApplicationService.createNotification(
+                response.getApplicantId(),
+                "ORDER",
+                title,
+                "售后单 " + response.getAfterSalesNo() + " 状态已更新为 " + status + "，请查看售后详情。",
+                afterSalesDetailTargetUrl(response)
+        );
+    }
+
+    private String afterSalesDetailTargetUrl(AfterSalesResponse response) {
+        return "/pages/after-sales/detail/index?afterSalesNo=" + response.getAfterSalesNo() + "&orderNo=" + response.getOrderNo();
+    }
+
+    private boolean hasNotificationTarget(AfterSalesResponse response) {
+        return response.getAfterSalesNo() != null
+                && response.getAfterSalesNo().matches("AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}")
+                && response.getOrderNo() != null
+                && response.getOrderNo().matches("OD-[0-9]{1,10}");
     }
 
     private List<String> sanitizeEvidence(Long applicantId, List<String> evidenceUrls) {

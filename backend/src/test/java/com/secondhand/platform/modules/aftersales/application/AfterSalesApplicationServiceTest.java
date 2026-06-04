@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.secondhand.platform.modules.aftersales.AfterSalesResponse;
 import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
+import com.secondhand.platform.modules.notification.application.NotificationApplicationService;
 import com.secondhand.platform.modules.order.CreateOrderResponse;
 import com.secondhand.platform.modules.order.PayOrderResponse;
 import com.secondhand.platform.modules.order.application.CreateOrderRequest;
@@ -31,6 +32,7 @@ class AfterSalesApplicationServiceTest {
     private WalletLedgerService walletService;
     private OrderApplicationService orderService;
     private AfterSalesApplicationService afterSalesService;
+    private NotificationApplicationService notificationService;
 
     @BeforeEach
     void setUp() {
@@ -44,7 +46,8 @@ class AfterSalesApplicationServiceTest {
         productService = new ProductApplicationService(jdbcTemplate, mediaUploadTicketService);
         walletService = new WalletLedgerService(jdbcTemplate);
         orderService = new OrderApplicationService(productService, walletService, jdbcTemplate);
-        afterSalesService = new AfterSalesApplicationService(jdbcTemplate, mediaUploadTicketService);
+        notificationService = new NotificationApplicationService(jdbcTemplate);
+        afterSalesService = new AfterSalesApplicationService(jdbcTemplate, mediaUploadTicketService, notificationService);
     }
 
     @Test
@@ -68,7 +71,26 @@ class AfterSalesApplicationServiceTest {
         assertEquals("REFUND_ONLY", detail.getAfterSalesType());
         assertEquals("成色不符", detail.getReason());
         assertEquals(1, detail.getEvidenceUrls().size());
+        assertEquals(1, notificationService.listNotifications(7001L, "ORDER", 20).stream()
+                .filter(item -> item.title().equals("售后申请已提交"))
+                .filter(item -> item.targetUrl().equals("/pages/after-sales/detail/index?afterSalesNo=" + response.getAfterSalesNo() + "&orderNo=" + response.getOrderNo()))
+                .count());
         assertThrows(IllegalArgumentException.class, () -> afterSalesService.detail(response.getAfterSalesNo(), 7002L));
+    }
+
+    @Test
+    void adminReviewShouldNotifyApplicantWithAfterSalesDetailTarget() {
+        CreateOrderResponse order = paidOrder(7401L, "售后通知外套", "119.00");
+        CreateAfterSalesRequest request = afterSalesRequest(order.getOrderNo(), "80.00", List.of(evidence(7401L, "review.jpg")));
+        AfterSalesResponse response = afterSalesService.create(7401L, request);
+
+        AfterSalesResponse reviewed = afterSalesService.adminReview(response.getAfterSalesNo(), "APPROVED", 9901L, "同意处理");
+
+        assertEquals("APPROVED", reviewed.getStatus());
+        assertEquals(1, notificationService.listNotifications(7401L, "ORDER", 20).stream()
+                .filter(item -> item.title().equals("售后审核已通过"))
+                .filter(item -> item.targetUrl().equals("/pages/after-sales/detail/index?afterSalesNo=" + response.getAfterSalesNo() + "&orderNo=" + response.getOrderNo()))
+                .count());
     }
 
     @Test

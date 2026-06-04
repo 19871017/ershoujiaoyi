@@ -71,7 +71,17 @@ class NotificationApplicationServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.createNotification(41L, "SYSTEM", "外链通知", "跳转地址必须是站内白名单页面", "https://evil.example/phish"));
         assertThrows(IllegalArgumentException.class, () -> service.createNotification(41L, "SYSTEM", "脚本通知", "跳转地址必须是站内白名单页面", "javascript:alert(1)"));
         assertThrows(IllegalArgumentException.class, () -> service.createNotification(41L, "SYSTEM", "越权通知", "跳转地址必须是站内白名单页面", "/pages/admin/risk/detail/index?riskNo=../secret"));
+        assertThrows(IllegalArgumentException.class, () -> service.createNotification(41L, "ORDER", "售后通知", "售后目标编号必须来自后端", "/pages/after-sales/detail/index?afterSalesNo=preview-after-sales&orderNo=OD-1"));
+        assertThrows(IllegalArgumentException.class, () -> service.createNotification(41L, "ORDER", "售后通知", "售后目标编号必须来自后端", "/pages/after-sales/detail/index?afterSalesNo=AS-USER-20260520-000001&orderNo=preview-order"));
 
         assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM notification_record WHERE user_id = ?", Integer.class, 41L));
+    }
+
+    @Test
+    void createNotificationShouldAllowCanonicalAfterSalesDetailTarget() {
+        NotificationItemResponse notice = service.createNotification(51L, "ORDER", "售后申请已提交", "售后详情以服务端记录为准",
+                "/pages/after-sales/detail/index?afterSalesNo=AS-USER-20260520-000001&orderNo=OD-12345");
+
+        assertEquals("/pages/after-sales/detail/index?afterSalesNo=AS-USER-20260520-000001&orderNo=OD-12345", notice.targetUrl());
     }
 }

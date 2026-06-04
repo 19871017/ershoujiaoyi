@@ -43,6 +43,7 @@ const required = [
   "console.warn('notification batch read mutation failed'",
   '批量已读暂时无法更新，请稍后重试',
   'isSafeNotificationTargetUrl',
+  'isSafeAfterSalesDetailTargetUrl',
   'isTabBarNotificationTargetUrl',
   'isValidNotificationNo',
   'function assertNotificationItem(value: unknown): asserts value is NotificationItemResponse',
@@ -54,6 +55,10 @@ const required = [
   "console.warn('notification read mutation failed'",
   "console.warn('notification target navigation failed'",
   "item.targetUrl && isSafeNotificationTargetUrl(item.targetUrl)",
+  "value.startsWith('/pages/after-sales/detail/index?')",
+  "const afterSalesNo = params.get('afterSalesNo') || ''",
+  "const orderNo = params.get('orderNo') || ''",
+  "/^AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(afterSalesNo) && /^OD-[0-9]{1,10}$/.test(orderNo)",
   'if (isTabBarNotificationTargetUrl(item.targetUrl)) uni.switchTab(route)',
   '通知跳转地址无效，未打开页面',
   '通知编号无效，未更新已读状态',
@@ -71,6 +76,11 @@ for (const marker of required) {
 
 if (!/function assertNotificationItem\(value: unknown\): asserts value is NotificationItemResponse[\s\S]*item\.targetUrl != null && \(typeof item\.targetUrl !== 'string' \|\| !isSafeNotificationTargetUrl\(item\.targetUrl\)\)[\s\S]*throw new Error\('notification invalid targetUrl'\)/s.test(content)) {
   console.error(`${file}: invalid backend notification targetUrl must fail closed during response validation`)
+  failed = true
+}
+
+if (!/export function isSafeAfterSalesDetailTargetUrl\(value: string\): boolean[\s\S]*const params = new URLSearchParams\(query\)[\s\S]*const afterSalesNo = params\.get\('afterSalesNo'\) \|\| ''[\s\S]*const orderNo = params\.get\('orderNo'\) \|\| ''[\s\S]*\^AS-\[A-Za-z0-9\]\[A-Za-z0-9_-\]\{5,63\}\$[\s\S]*\^OD-\[0-9\]\{1,10\}\$/s.test(content)) {
+  console.error(`${file}: after-sales notification target must require canonical afterSalesNo and orderNo before navigation`)
   failed = true
 }
 
