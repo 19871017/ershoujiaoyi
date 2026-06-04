@@ -253,7 +253,7 @@ public class OrderApplicationService {
                     """, (rs, rowNum) -> new OrderDetailResponse(
                     rs.getString("order_no"), rs.getLong("buyer_id"), rs.getLong("seller_id"), rs.getLong("product_id"), rs.getLong("goods_id"),
                     rs.getString("product_no"), rs.getString("product_title"), rs.getBigDecimal("amount"), rs.getString("trade_rule_snapshot"),
-                    rs.getString("order_status"), Objects.equals(rs.getLong("buyer_id"), userId) ? "卖家" : "买家", rs.getString("after_sales_no"), rs.getString("after_sales_status"),
+                    rs.getString("order_status"), Objects.equals(rs.getLong("buyer_id"), userId) ? "buyer" : "seller", Objects.equals(rs.getLong("buyer_id"), userId) ? "卖家" : "买家", rs.getString("after_sales_no"), rs.getString("after_sales_status"),
                     rs.getString("shipping_type"), rs.getString("shipping_company"), rs.getString("tracking_no"), rs.getString("shipping_remark"),
                     timeText(rs.getTimestamp("created_at")), timeText(rs.getTimestamp("paid_at")), timeText(rs.getTimestamp("shipped_at")), timeText(rs.getTimestamp("completed_at"))
             ), safeOrderNo, userId, userId);
@@ -273,7 +273,7 @@ public class OrderApplicationService {
                     """, (rs, rowNum) -> new OrderDetailResponse(
                     rs.getString("order_no"), rs.getLong("buyer_id"), rs.getLong("seller_id"), rs.getLong("product_id"), rs.getLong("goods_id"),
                     rs.getString("product_no"), rs.getString("product_title"), rs.getBigDecimal("amount"), rs.getString("trade_rule_snapshot"),
-                    rs.getString("order_status"), "后台", rs.getString("after_sales_no"), rs.getString("after_sales_status"),
+                    rs.getString("order_status"), "admin", "后台", rs.getString("after_sales_no"), rs.getString("after_sales_status"),
                     rs.getString("shipping_type"), rs.getString("shipping_company"), rs.getString("tracking_no"), rs.getString("shipping_remark"),
                     timeText(rs.getTimestamp("created_at")), timeText(rs.getTimestamp("paid_at")), timeText(rs.getTimestamp("shipped_at")), timeText(rs.getTimestamp("completed_at"))
             ), safeOrderNo);

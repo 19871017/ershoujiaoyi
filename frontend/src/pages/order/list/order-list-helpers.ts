@@ -81,11 +81,11 @@ export function stepIndex(value: OrderListStatus): number {
 
 export function actionsFor(item: OrderListItemResponse): string[] {
   const current = displayStatus(item)
-  if (current === 'PENDING_PAY') return ['去付款', '取消订单']
+  if (current === 'PENDING_PAY') return item.role === 'buyer' ? ['去付款'] : ['联系买家']
   if (current === 'PAID' && item.role === 'seller') return ['去发货', '联系买家']
   if (current === 'PAID') return ['提醒发货', '联系卖家', '申请售后']
-  if (current === 'SHIPPED') return ['确认收货', '查看物流', '申请售后']
-  if (current === 'COMPLETED') return ['评价', '申请售后']
+  if (current === 'SHIPPED') return item.role === 'buyer' ? ['确认收货', '查看物流', '申请售后'] : ['查看物流', '联系买家']
+  if (current === 'COMPLETED') return item.role === 'buyer' ? ['评价', '申请售后', '联系卖家'] : ['联系买家']
   return ['查看售后', '联系客服']
 }
 

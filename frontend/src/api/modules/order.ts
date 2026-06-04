@@ -72,6 +72,7 @@ export interface OrderDetailResponse {
   amount: MoneyAmount
   tradeRuleSnapshot: string
   status: Exclude<OrderListStatus, 'REFUNDING'>
+  role: OrderRole
   counterpartyName: string
   afterSalesNo?: string | null
   afterSalesStatus?: string | null

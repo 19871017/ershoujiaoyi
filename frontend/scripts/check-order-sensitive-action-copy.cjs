@@ -96,12 +96,16 @@ const requiredOrderIdGuardMarkers = {
     'function isValidBackendOrderNo(value: string)',
     'function isValidOrderAmount(value: unknown): boolean',
     'function assertBackendOrderDetail(detail: OrderDetailResponse, expectedOrderNo: string): void',
+    'function isOrderRole(value: unknown): value is OrderRole',
+    'function actionsForOrderDetail(order: OrderDetailResponse, displayStatus: OrderListStatus): string[]',
     "throw new Error('order detail invalid backend orderNo')",
     "throw new Error('order detail orderNo mismatch')",
     "throw new Error('order detail invalid order amount')",
+    "throw new Error('order detail invalid role')",
     'if (!isValidBackendOrderNo(orderNo.value))',
     "console.warn('order detail load failed'",
     "console.warn('order detail checkout navigation failed'",
+    "console.warn('order detail ship navigation failed'",
     "console.warn('order detail logistics navigation failed'",
     "console.warn('order detail after-sales apply navigation failed'",
     "console.warn('order detail confirm receipt failed'",
@@ -230,6 +234,18 @@ for (const file of files) {
       /async function confirmOrderReceipt\(\)(?:: Promise<void>)?\s*\{[\s\S]*const safeOrderNo = validatedOrderNo\('订单编号无效，未确认收货'\)[\s\S]*const detail = await confirmReceipt\(safeOrderNo\)[\s\S]*assertBackendOrderDetail\(detail, safeOrderNo\)[\s\S]*order\.value = detail[\s\S]*console\.warn\('order detail confirm receipt failed'/s,
       'confirm receipt must use validated backend orderNo, validate backend response, and log failures before user copy'
     )
+    requirePattern(
+      file,
+      content,
+      /function actionsForOrderDetail\(order: OrderDetailResponse, displayStatus: OrderListStatus\): string\[\]\s*\{[\s\S]*displayStatus === 'PAID'[\s\S]*order\.role === 'seller' \? \['去发货', '联系买家'\] : \['提醒发货', '联系卖家', '申请售后'\][\s\S]*displayStatus === 'SHIPPED'[\s\S]*order\.role === 'buyer' \? \['确认收货', '查看物流', '申请售后'\] : \['查看物流', '联系买家'\][\s\S]*displayStatus === 'COMPLETED'[\s\S]*order\.role === 'buyer' \? \['评价', '申请售后', '联系卖家'\] : \['联系买家'\]/s,
+      'order detail actions must be role-aware so seller notification leads to shipping and only buyer can confirm receipt/apply after-sales'
+    )
+    requirePattern(
+      file,
+      content,
+      /else if \(action === '去发货'\)\s*\{[\s\S]*\/pages\/order\/ship\/index\?orderNo=\$\{encodedOrderNo\}[\s\S]*console\.warn\('order detail ship navigation failed'/s,
+      'order detail seller paid action must navigate to the real shipping page with a validated orderNo'
+    )
   }
   if (file === 'src/pages/order/list/index.vue') {
     requirePattern(
@@ -261,6 +277,12 @@ for (const file of files) {
       content,
       /function handleAction\(item: OrderListItemResponse, action: string\): void\s*\{[\s\S]*if \(!isValidBackendOrderNo\(item\.orderNo\)\)[\s\S]*const safeOrderNo = item\.orderNo[\s\S]*if \(action === '去付款'\)[\s\S]*isValidOrderAmount\(item\.amount\)[\s\S]*isValidBackendProductId\(item\.productId\)[\s\S]*console\.warn\('order list checkout navigation failed'[\s\S]*else if \(action === '申请售后'\)[\s\S]*isValidOrderAmount\(item\.amount\)/s,
       'order list actions must use validated backend orderNo and amount/product guards before sensitive navigation'
+    )
+    requirePattern(
+      file,
+      content,
+      /function actionsFor\(item: OrderListItemResponse\): string\[\]\s*\{[\s\S]*current === 'PENDING_PAY'[\s\S]*item\.role === 'buyer' \? \['去付款'\] : \['联系买家'\][\s\S]*current === 'PAID' && item\.role === 'seller'[\s\S]*\['去发货', '联系买家'\][\s\S]*current === 'SHIPPED'[\s\S]*item\.role === 'buyer' \? \['确认收货', '查看物流', '申请售后'\] : \['查看物流', '联系买家'\][\s\S]*current === 'COMPLETED'[\s\S]*item\.role === 'buyer' \? \['评价', '申请售后', '联系卖家'\] : \['联系买家'\]/s,
+      'order list actions must be role-aware so sellers do not see buyer-only confirm receipt or after-sales actions'
     )
     requirePattern(
       file,

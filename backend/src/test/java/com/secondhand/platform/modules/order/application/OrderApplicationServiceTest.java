@@ -245,6 +245,10 @@ class OrderApplicationServiceTest {
 
         assertEquals(order.getOrderNo(), buyerDetail.getOrderNo());
         assertEquals("PAID", buyerDetail.getStatus());
+        assertEquals("buyer", buyerDetail.getRole());
+        assertEquals("seller", sellerDetail.getRole());
+        assertEquals("卖家", buyerDetail.getCounterpartyName());
+        assertEquals("买家", sellerDetail.getCounterpartyName());
         assertEquals("AS-DETAIL-5201", buyerDetail.getAfterSalesNo());
         assertEquals(product.getTitle(), buyerDetail.getProductTitle());
         assertEquals("AS-DETAIL-5201", sellerDetail.getAfterSalesNo());

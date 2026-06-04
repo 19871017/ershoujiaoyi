@@ -13,6 +13,7 @@ public class OrderDetailResponse {
     private BigDecimal amount;
     private String tradeRuleSnapshot;
     private String status;
+    private String role;
     private String counterpartyName;
     private String afterSalesNo;
     private String afterSalesStatus;
@@ -27,7 +28,7 @@ public class OrderDetailResponse {
 
     public OrderDetailResponse(String orderNo, Long buyerId, Long sellerId, Long productId, Long goodsId, String productNo,
                                String productTitle, BigDecimal amount, String tradeRuleSnapshot, String status,
-                               String counterpartyName, String afterSalesNo, String afterSalesStatus, String shippingType,
+                               String role, String counterpartyName, String afterSalesNo, String afterSalesStatus, String shippingType,
                                String shippingCompany, String trackingNo, String shippingRemark, String createdAt,
                                String paidAt, String shippedAt, String completedAt) {
         this.orderNo = orderNo;
@@ -40,6 +41,7 @@ public class OrderDetailResponse {
         this.amount = amount;
         this.tradeRuleSnapshot = tradeRuleSnapshot;
         this.status = status;
+        this.role = role;
         this.counterpartyName = counterpartyName;
         this.afterSalesNo = afterSalesNo;
         this.afterSalesStatus = afterSalesStatus;
@@ -63,6 +65,7 @@ public class OrderDetailResponse {
     public BigDecimal getAmount() { return amount; }
     public String getTradeRuleSnapshot() { return tradeRuleSnapshot; }
     public String getStatus() { return status; }
+    public String getRole() { return role; }
     public String getCounterpartyName() { return counterpartyName; }
     public String getAfterSalesNo() { return afterSalesNo; }
     public String getAfterSalesStatus() { return afterSalesStatus; }

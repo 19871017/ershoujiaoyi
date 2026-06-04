@@ -1,4 +1,4 @@
-import type { OrderDetailResponse, OrderListStatus } from '../../../api/modules/order'
+import type { OrderDetailResponse, OrderListStatus, OrderRole } from '../../../api/modules/order'
 
 export const launchReadinessMarkers = [
   '订单、支付、售后和聊天记录以服务端状态为准',
@@ -37,10 +37,24 @@ export function isValidBackendProductId(value: unknown): boolean {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 }
 
+export function isOrderRole(value: unknown): value is OrderRole {
+  return value === 'buyer' || value === 'seller'
+}
+
 export function assertBackendOrderDetail(detail: OrderDetailResponse, expectedOrderNo: string): void {
   if (!isValidBackendOrderNo(detail.orderNo)) throw new Error('order detail invalid backend orderNo')
   if (detail.orderNo !== expectedOrderNo) throw new Error('order detail orderNo mismatch')
   if (!isValidOrderAmount(detail.amount)) throw new Error('order detail invalid order amount')
+  if (!isOrderRole(detail.role)) throw new Error('order detail invalid role')
+}
+
+export function actionsForOrderDetail(order: OrderDetailResponse, displayStatus: OrderListStatus): string[] {
+  if (displayStatus === 'REFUNDING') return ['查看售后', '联系客服']
+  if (displayStatus === 'PENDING_PAY') return order.role === 'buyer' ? ['去付款', '联系卖家'] : ['联系买家']
+  if (displayStatus === 'PAID') return order.role === 'seller' ? ['去发货', '联系买家'] : ['提醒发货', '联系卖家', '申请售后']
+  if (displayStatus === 'SHIPPED') return order.role === 'buyer' ? ['确认收货', '查看物流', '申请售后'] : ['查看物流', '联系买家']
+  if (displayStatus === 'COMPLETED') return order.role === 'buyer' ? ['评价', '申请售后', '联系卖家'] : ['联系买家']
+  return ['联系客服']
 }
 
 export function coverIcon(title: string): string {

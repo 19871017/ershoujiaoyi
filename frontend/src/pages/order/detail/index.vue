@@ -43,7 +43,7 @@
       </view>
 
       <view class="bottom-actions">
-        <button v-for="action in actions" :key="action" class="action-btn" :class="{ primary: action === '去付款' || action === '确认收货' }" :disabled="action === '确认收货' && confirming" @click="handleAction(action)">{{ action === '确认收货' && confirming ? '确认中...' : action }}</button>
+        <button v-for="action in actions" :key="action" class="action-btn" :class="{ primary: action === '去付款' || action === '去发货' || action === '确认收货' }" :disabled="action === '确认收货' && confirming" @click="handleAction(action)">{{ action === '确认收货' && confirming ? '确认中...' : action }}</button>
       </view>
     </template>
   </view>
@@ -55,6 +55,7 @@ import { confirmReceipt, getOrderDetail, type OrderDetailResponse, type OrderLis
 import { resolveOrderContactTarget, type OrderContactAction } from '../../../api/modules/order-contact'
 import {
   assertBackendOrderDetail,
+  actionsForOrderDetail,
   coverIcon,
   decodeRouteValue,
   isValidBackendOrderNo,
@@ -88,11 +89,7 @@ const infoRows = computed(() => order.value ? [
 ] : [])
 const actions = computed(() => {
   if (!order.value) return []
-  if (displayStatus.value === 'PENDING_PAY') return ['去付款', '取消订单', '联系卖家']
-  if (displayStatus.value === 'PAID') return ['提醒发货', '联系卖家', '申请退款']
-  if (displayStatus.value === 'SHIPPED') return ['确认收货', '查看物流', '申请售后']
-  if (displayStatus.value === 'COMPLETED') return ['评价', '再次购买', '联系卖家']
-  return ['查看售后', '联系客服']
+  return actionsForOrderDetail(order.value, displayStatus.value)
 })
 function readQuery(): void {
   const pages = getCurrentPages()
@@ -162,6 +159,15 @@ function handleAction(action: string): void {
       (error: unknown) => {
         console.warn('order detail logistics navigation failed', { orderNo: safeOrderNo, error })
         uni.showToast({ title: '暂时无法打开物流详情', icon: 'none' })
+      }
+    )
+  }
+  else if (action === '去发货') {
+    navigateWithFailure(
+      `/pages/order/ship/index?orderNo=${encodedOrderNo}`,
+      (error: unknown) => {
+        console.warn('order detail ship navigation failed', { orderNo: safeOrderNo, error })
+        uni.showToast({ title: '暂时无法进入发货页', icon: 'none' })
       }
     )
   }
