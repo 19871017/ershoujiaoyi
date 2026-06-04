@@ -21,11 +21,13 @@ export const emptyBalance: WalletBalanceResponse = {
 
 export const publishRoles = ['SELLER', 'BOTH']
 
-export const orderStatusItems = [
-  { icon: '💳', label: '待付款', count: 0 },
-  { icon: '📦', label: '待发货', count: 0 },
-  { icon: '🧾', label: '待收货', count: 0 },
-  { icon: '🌸', label: '售后', count: 0 }
+export type OrderStatusKey = 'pendingPay' | 'pendingShip' | 'pendingReceive' | 'afterSales'
+
+export const orderStatusItems: Array<{ key: OrderStatusKey; icon: string; label: string }> = [
+  { key: 'pendingPay', icon: '💳', label: '待付款' },
+  { key: 'pendingShip', icon: '📦', label: '待发货' },
+  { key: 'pendingReceive', icon: '🧾', label: '待收货' },
+  { key: 'afterSales', icon: '🌸', label: '售后' }
 ]
 
 export const menus = [

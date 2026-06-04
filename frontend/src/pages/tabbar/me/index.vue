@@ -2,6 +2,7 @@
   <view class="page-shell me-page">
     <view class="notice-entry ds-card tapable" @click="openNotification">
       <text>🔔 通知中心</text>
+      <text v-if="notificationUnread > 0" class="entry-badge">{{ displayCount(notificationUnread) }}</text>
       <text>›</text>
     </view>
 
@@ -28,6 +29,30 @@
       <view class="secondary-btn">查看</view>
     </view>
 
+    <view class="ops-card ds-card">
+      <view class="section-head">
+        <view>
+          <view class="section-title">运营待办</view>
+          <view class="section-desc">{{ opsError || opsSummary }}</view>
+        </view>
+        <view class="section-more tapable" @click="refreshOperationalSummary">{{ opsLoading ? '同步中' : '刷新' }}</view>
+      </view>
+      <view class="ops-grid">
+        <view class="ops-item tapable" @click="openNotification">
+          <view class="ops-value">{{ displayCount(notificationUnread) }}</view>
+          <view class="ops-label">通知未读</view>
+        </view>
+        <view class="ops-item tapable" @click="goSessions">
+          <view class="ops-value">{{ displayCount(chatUnread) }}</view>
+          <view class="ops-label">私信未读</view>
+        </view>
+        <view class="ops-item tapable" @click="goOrders">
+          <view class="ops-value">{{ displayCount(orderTodoTotal) }}</view>
+          <view class="ops-label">订单待处理</view>
+        </view>
+      </view>
+    </view>
+
     <view v-if="canPublish" class="seller-entry-card ds-card tapable" @click="goPublishForm">
       <view class="seller-entry-main">
         <view class="seller-entry-title">我要上新</view>
@@ -41,10 +66,10 @@
         <view class="section-more tapable" @click="goOrders">全部订单 ›</view>
       </view>
       <view class="order-row">
-        <view v-for="item in orderStatus" :key="item.label" class="order-item tapable" @click="goOrders">
+        <view v-for="item in orderStatus" :key="item.label" class="order-item tapable" @click="openOrderStatus(item.key)">
           <view class="order-icon">{{ item.icon }}</view>
           <view class="order-label">{{ item.label }}</view>
-          <view v-if="item.count" class="badge">{{ item.count }}</view>
+          <view v-if="item.count" class="badge">{{ displayCount(item.count) }}</view>
         </view>
       </view>
     </view>
@@ -71,13 +96,22 @@
 
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
+import { getChatConversations, type ChatConversationItem, type ChatConversationListResponse } from '../../../api/modules/chat'
+import { listNotifications, type NotificationItemResponse } from '../../../api/modules/notification'
+import { listOrders, type OrderListItemResponse } from '../../../api/modules/order'
 import { getMyProfile, type UserProfileResponse } from '../../../api/modules/user'
 import { getWalletBalance, type WalletBalanceResponse } from '../../../api/modules/wallet'
-import { emptyBalance, emptyProfile, menus, orderStatusItems, publishRoles } from './me-data'
+import { emptyBalance, emptyProfile, menus, orderStatusItems, publishRoles, type OrderStatusKey } from './me-data'
 
 const profile = reactive<UserProfileResponse>({ ...emptyProfile })
 const balance = reactive<WalletBalanceResponse>({ ...emptyBalance })
+const chatConversations = ref<ChatConversationItem[]>([])
+const notifications = ref<NotificationItemResponse[]>([])
+const buyerOrders = ref<OrderListItemResponse[]>([])
+const sellerOrders = ref<OrderListItemResponse[]>([])
+const opsLoading = ref(false)
+const opsError = ref('')
 
 const canPublish = computed(() => profile.videoVerified && publishRoles.includes(String(profile.mainRole || '').toUpperCase()))
 const genderSymbol = computed(() => String(profile.gender || '').toLowerCase() === 'god' ? '♂' : '♀')
@@ -90,8 +124,19 @@ const sellerEntryStatusText = computed(() => {
   return '去申请'
 })
 const orderStatus = computed(() => [
-  ...orderStatusItems
+  ...orderStatusItems.map((item) => ({ ...item, count: orderCountByKey(item.key) }))
 ])
+const notificationUnread = computed(() => notifications.value.filter((item) => !item.read).length)
+const chatUnread = computed(() => chatConversations.value.reduce((sum, item) => sum + Math.max(0, item.unreadCount), 0))
+const pendingPayCount = computed(() => buyerOrders.value.filter((item) => item.status === 'PENDING_PAY').length)
+const pendingShipCount = computed(() => sellerOrders.value.filter((item) => item.status === 'PAID').length)
+const pendingReceiveCount = computed(() => buyerOrders.value.filter((item) => item.status === 'SHIPPED').length)
+const afterSalesCount = computed(() => [...buyerOrders.value, ...sellerOrders.value].filter((item) => hasActiveAfterSales(item)).length)
+const orderTodoTotal = computed(() => pendingPayCount.value + pendingShipCount.value + pendingReceiveCount.value + afterSalesCount.value)
+const opsSummary = computed(() => {
+  const total = notificationUnread.value + chatUnread.value + orderTodoTotal.value
+  return total > 0 ? `你有 ${displayCount(total)} 项需要关注` : '暂无待处理事项'
+})
 const avatarText = computed(() => (profile.nickname || '原').slice(0, 1))
 const totalAvailable = computed(() => {
   const recharge = Number(balance.rechargeBalance)
@@ -114,8 +159,39 @@ async function loadWalletBalance() {
     Object.assign(balance, emptyBalance)
   }
 }
+async function refreshOperationalSummary() {
+  if (opsLoading.value) return
+  opsLoading.value = true
+  opsError.value = ''
+  try {
+    const [noticeRows, chatRows, buyerRows, sellerRows] = await Promise.all([
+      listNotifications('ALL', 50),
+      getChatConversations(),
+      listOrders('buyer', 'ALL'),
+      listOrders('seller', 'ALL')
+    ])
+    assertNotificationList(noticeRows)
+    assertConversationListResponse(chatRows)
+    assertOrderList(buyerRows)
+    assertOrderList(sellerRows)
+    notifications.value = noticeRows
+    chatConversations.value = chatRows.conversations
+    buyerOrders.value = buyerRows
+    sellerOrders.value = sellerRows
+  } catch (error) {
+    notifications.value = []
+    chatConversations.value = []
+    buyerOrders.value = []
+    sellerOrders.value = []
+    opsError.value = '运营待办暂时不可用，请稍后刷新'
+    console.warn('me operational summary load failed', { error })
+  } finally {
+    opsLoading.value = false
+  }
+}
 function showToast(title: string) { uni.showToast({ title, icon: 'none' }) }
 function openNotification() { uni.navigateTo({ url: '/pages/notification/index' }) }
+function goSessions() { uni.navigateTo({ url: '/pages/chat/session-list/index' }) }
 function goWallet() { uni.navigateTo({ url: '/pages/wallet/index' }) }
 function goOrders() { uni.navigateTo({ url: '/pages/order/list/index' }) }
 function goProfile() { uni.navigateTo({ url: '/pages/user/profile/index' }) }
@@ -129,13 +205,58 @@ function goPublishForm() {
   uni.navigateTo({ url: '/pages/product/publish/index' })
 }
 function openMenu(item: { label: string; url?: string }) { item.url ? uni.navigateTo({ url: item.url }) : showToast(`${item.label}已打开`) }
-
-onMounted(() => {
-  void loadWalletBalance()
-})
+function openOrderStatus(key: OrderStatusKey) {
+  if (key === 'afterSales') return goOrders()
+  goOrders()
+}
+function orderCountByKey(key: OrderStatusKey): number {
+  if (key === 'pendingPay') return pendingPayCount.value
+  if (key === 'pendingShip') return pendingShipCount.value
+  if (key === 'pendingReceive') return pendingReceiveCount.value
+  if (key === 'afterSales') return afterSalesCount.value
+  return 0
+}
+function displayCount(value: number): string {
+  const safe = Math.max(0, Math.floor(Number(value) || 0))
+  return safe > 99 ? '99+' : String(safe)
+}
+function hasActiveAfterSales(item: OrderListItemResponse): boolean {
+  const status = String(item.afterSalesStatus || '').toUpperCase()
+  return !!item.afterSalesNo && status !== 'APPROVED' && status !== 'REJECTED' && status !== 'CANCELLED'
+}
+function isValidBackendId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
+}
+function assertConversationListResponse(value: unknown): asserts value is ChatConversationListResponse {
+  if (!value || typeof value !== 'object') throw new Error('me invalid chat conversations response')
+  const response = value as ChatConversationListResponse
+  if (!Array.isArray(response.conversations)) throw new Error('me invalid chat conversations')
+  for (const item of response.conversations) {
+    if (!isValidBackendId(item.conversationId) || !isValidBackendId(item.peerUserId)) throw new Error('me invalid chat ids')
+    if (!Number.isSafeInteger(item.unreadCount) || item.unreadCount < 0) throw new Error('me invalid chat unread')
+  }
+}
+function assertNotificationList(value: unknown): asserts value is NotificationItemResponse[] {
+  if (!Array.isArray(value)) throw new Error('me invalid notification list')
+  for (const item of value) {
+    if (!item || typeof item !== 'object') throw new Error('me invalid notification item')
+    if (typeof item.notificationNo !== 'string' || !item.notificationNo.trim()) throw new Error('me invalid notificationNo')
+    if (typeof item.read !== 'boolean') throw new Error('me invalid notification read')
+  }
+}
+function assertOrderList(value: unknown): asserts value is OrderListItemResponse[] {
+  if (!Array.isArray(value)) throw new Error('me invalid order list')
+  for (const item of value) {
+    if (!item || typeof item !== 'object') throw new Error('me invalid order item')
+    if (typeof item.orderNo !== 'string' || !item.orderNo.trim()) throw new Error('me invalid orderNo')
+    if (item.status !== 'PENDING_PAY' && item.status !== 'PAID' && item.status !== 'SHIPPED' && item.status !== 'COMPLETED') throw new Error('me invalid order status')
+  }
+}
 
 onShow(() => {
   void loadProfile()
+  void loadWalletBalance()
+  void refreshOperationalSummary()
 })
 </script>
 
