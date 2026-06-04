@@ -284,6 +284,7 @@ class AdminControllerRbacTest {
                         .header("X-User-Id", "51")
                         .header("X-Admin-Session", issueAdminSession(51L))
                         .param("status", "PENDING_REVIEW")
+                        .param("keyword", "AS-ADMIN-20260510-0001")
                         .param("limit", "20"))
                 .andExpect(status().isForbidden());
 
@@ -293,6 +294,7 @@ class AdminControllerRbacTest {
                         .header("X-User-Id", "51")
                         .header("X-Admin-Session", issueAdminSession(51L))
                         .param("status", "PENDING_REVIEW")
+                        .param("keyword", "AS-ADMIN-20260510-0001")
                         .param("limit", "20"))
                 .andExpect(status().isOk());
     }

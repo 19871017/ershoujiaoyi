@@ -63,6 +63,43 @@ class AdminAfterSalesApplicationServiceTest {
     }
 
     @Test
+    void adminListShouldFilterByAfterSalesNoOrderNoAndTextKeyword() {
+        insertAfterSalesWithOrder("AS-ADMIN-20260510-0011", "ORDER-ADMIN-20260510-0011", 8811L, 9911L,
+                "袖口脱线，需要售后协调", "/uploads/evidence/after-sales/8811/proof.jpg");
+        insertAfterSalesWithOrder("AS-ADMIN-20260510-0012", "ORDER-ADMIN-20260510-0012", 8812L, 9912L,
+                "正常售后描述", "/uploads/evidence/after-sales/8812/proof.jpg");
+
+        List<AfterSalesResponse> byAfterSalesNo = afterSalesService.listAdminAfterSales("ALL", "AS-ADMIN-20260510-0011", 20);
+        List<AfterSalesResponse> byOrderNo = afterSalesService.listAdminAfterSales("ALL", "ORDER-ADMIN-20260510-0012", 20);
+        List<AfterSalesResponse> byDescription = afterSalesService.listAdminAfterSales("ALL", "袖口脱线", 20);
+
+        assertEquals(1, byAfterSalesNo.size());
+        assertEquals("AS-ADMIN-20260510-0011", byAfterSalesNo.get(0).getAfterSalesNo());
+        assertEquals(1, byOrderNo.size());
+        assertEquals("ORDER-ADMIN-20260510-0012", byOrderNo.get(0).getOrderNo());
+        assertEquals(1, byDescription.size());
+        assertEquals("AS-ADMIN-20260510-0011", byDescription.get(0).getAfterSalesNo());
+    }
+
+    @Test
+    void adminListShouldFilterByApplicantOrSellerIdKeywordAndRejectUnsafeKeyword() {
+        insertAfterSalesWithOrder("AS-ADMIN-20260510-0021", "ORDER-ADMIN-20260510-0021", 8821L, 9921L,
+                "申请人编号检索", "/uploads/evidence/after-sales/8821/proof.jpg");
+        insertAfterSalesWithOrder("AS-ADMIN-20260510-0022", "ORDER-ADMIN-20260510-0022", 8822L, 9922L,
+                "卖家编号检索", "/uploads/evidence/after-sales/8822/proof.jpg");
+
+        List<AfterSalesResponse> byApplicant = afterSalesService.listAdminAfterSales("ALL", "8821", 20);
+        List<AfterSalesResponse> bySeller = afterSalesService.listAdminAfterSales("ALL", "9922", 20);
+
+        assertEquals(1, byApplicant.size());
+        assertEquals(8821L, byApplicant.get(0).getApplicantId());
+        assertEquals(1, bySeller.size());
+        assertEquals("AS-ADMIN-20260510-0022", bySeller.get(0).getAfterSalesNo());
+        assertThrows(IllegalArgumentException.class, () -> afterSalesService.listAdminAfterSales("ALL", "preview-after-sales", 20));
+        assertThrows(IllegalArgumentException.class, () -> afterSalesService.listAdminAfterSales("ALL", "x".repeat(65), 20));
+    }
+
+    @Test
     void adminDetailShouldRejectPreviewAndMalformedAfterSalesNumbers() {
         insertAfterSales("AS-ADMIN-20260510-0002", "ORDER-ADMIN-20260510-0002", 8802L,
                 "正常售后描述", "/uploads/evidence/after-sales/8802/proof.jpg");
@@ -111,6 +148,14 @@ class AdminAfterSalesApplicationServiceTest {
 
     private void insertAfterSales(String afterSalesNo, String orderNo, Long applicantId, String description, String evidenceUrls) {
         insertAfterSalesWithStatus(afterSalesNo, orderNo, applicantId, description, evidenceUrls, "PENDING_REVIEW");
+    }
+
+    private void insertAfterSalesWithOrder(String afterSalesNo, String orderNo, Long applicantId, Long sellerId, String description, String evidenceUrls) {
+        jdbcTemplate.update("""
+                insert into trade_order (order_no, product_id, goods_id, product_no, product_title, trade_rule_snapshot, buyer_id, seller_id, amount, order_status, accepted_trade_rule, created_at, updated_at)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, orderNo, 1L, 1L, "PD-ADMIN-" + applicantId, "售后关联商品", "按平台订单流程交易", applicantId, sellerId, new BigDecimal("99.00"), "PAID", true);
+        insertAfterSales(afterSalesNo, orderNo, applicantId, description, evidenceUrls);
     }
 
     private void insertAfterSalesWithStatus(String afterSalesNo, String orderNo, Long applicantId, String description, String evidenceUrls, String status) {

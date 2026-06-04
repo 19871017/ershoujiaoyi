@@ -90,14 +90,45 @@ public class AfterSalesApplicationService {
     }
 
     public List<AfterSalesResponse> listAdminAfterSales(String status, Integer limit) {
+        return listAdminAfterSales(status, null, limit);
+    }
+
+    public List<AfterSalesResponse> listAdminAfterSales(String status, String keyword, Integer limit) {
         String safeStatus = status == null || status.isBlank() || "ALL".equalsIgnoreCase(status) ? null : status.trim().toUpperCase(Locale.ROOT);
         if (safeStatus != null && !STATUS_PENDING_REVIEW.equals(safeStatus) && !"APPROVED".equals(safeStatus) && !"REJECTED".equals(safeStatus)) {
             throw new IllegalArgumentException("after-sales status invalid");
         }
+        String safeKeyword = normalizeAdminKeyword(keyword);
         int safeLimit = limit == null ? 20 : limit;
         if (safeLimit < 1 || safeLimit > 100) throw new IllegalArgumentException("after-sales limit invalid");
-        String where = safeStatus == null ? "" : " where after_sales_status = ?";
-        Object[] args = safeStatus == null ? new Object[]{safeLimit} : new Object[]{safeStatus, safeLimit};
+        List<String> conditions = new ArrayList<>();
+        List<Object> args = new ArrayList<>();
+        if (safeStatus != null) {
+            conditions.add("a.after_sales_status = ?");
+            args.add(safeStatus);
+        }
+        if (safeKeyword != null) {
+            if (safeKeyword.matches("\\d+")) {
+                conditions.add("(a.applicant_id = ? or o.seller_id = ?)");
+                Long numericKeyword = Long.valueOf(safeKeyword);
+                args.add(numericKeyword);
+                args.add(numericKeyword);
+            } else {
+                conditions.add("""
+                        (lower(a.after_sales_no) like ? escape '\\'
+                        or lower(a.order_no) like ? escape '\\'
+                        or lower(a.reason) like ? escape '\\'
+                        or lower(a.description) like ? escape '\\')
+                        """);
+                String likeKeyword = "%" + escapeLike(safeKeyword.toLowerCase(Locale.ROOT)) + "%";
+                args.add(likeKeyword);
+                args.add(likeKeyword);
+                args.add(likeKeyword);
+                args.add(likeKeyword);
+            }
+        }
+        String where = conditions.isEmpty() ? "" : " where " + String.join(" and ", conditions);
+        args.add(safeLimit);
         return jdbcTemplate.query("""
                 select a.*, o.seller_id
                 from after_sales_record a
@@ -106,7 +137,7 @@ public class AfterSalesApplicationService {
                 rs.getString("after_sales_no"), rs.getString("order_no"), rs.getLong("applicant_id"), rs.getString("after_sales_type"),
                 rs.getBigDecimal("refund_amount"), rs.getString("reason"), rs.getString("description"), decode(rs.getString("evidence_urls")),
                 rs.getString("after_sales_status"), timeText(rs.getTimestamp("created_at")), rs.getLong("seller_id") == 0 ? null : rs.getLong("seller_id")
-        ), args);
+        ), args.toArray());
     }
 
     @Transactional
@@ -260,6 +291,21 @@ public class AfterSalesApplicationService {
             throw new IllegalArgumentException("after-sales status invalid");
         }
         return safeStatus;
+    }
+
+    private String normalizeAdminKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) return null;
+        String normalized = keyword.trim();
+        if (normalized.length() > 64) throw new IllegalArgumentException("after-sales keyword invalid");
+        String lower = normalized.toLowerCase(Locale.ROOT);
+        if (lower.contains("preview") || lower.contains("demo") || lower.contains("mock") || lower.contains("sample") || lower.contains("placeholder")) {
+            throw new IllegalArgumentException("after-sales keyword invalid");
+        }
+        return normalized;
+    }
+
+    private String escapeLike(String value) {
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     private long validateOperatorId(Long operatorId) {

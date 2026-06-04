@@ -13,6 +13,14 @@
           <option value="ALL">全部</option>
         </select>
       </label>
+      <label>
+        <span>关键词</span>
+        <input v-model.trim="keyword" :disabled="loadingList || afterSalesReviewing" maxlength="64" placeholder="售后号/订单号/原因/用户ID/卖家ID" @keyup.enter="loadList" />
+      </label>
+      <label>
+        <span>条数</span>
+        <input v-model.number="listLimit" type="number" min="1" max="100" step="1" :disabled="loadingList || afterSalesReviewing" @keyup.enter="loadList" />
+      </label>
       <button class="primary-btn" :disabled="loadingList || afterSalesReviewing" @click="loadList">{{ loadingList ? '刷新中...' : '刷新列表' }}</button>
     </div>
 
@@ -106,6 +114,7 @@ import {
   getAdminAfterSalesDetail,
   getAdminAfterSalesList,
   isValidAdminAfterSalesNo,
+  isValidAdminAfterSalesKeyword,
   reviewAdminAfterSales,
   type AdminAfterSalesDetail,
   type AdminAfterSalesListQuery
@@ -116,6 +125,8 @@ const auth = useAuthStore()
 const route = useRoute()
 const afterSalesNo = ref('')
 const statusFilter = ref<NonNullable<AdminAfterSalesListQuery['status']>>('PENDING_REVIEW')
+const keyword = ref('')
+const listLimit = ref(20)
 const loadingList = ref(false)
 const loadingDetail = ref(false)
 const listError = ref('')
@@ -127,6 +138,7 @@ const rows = ref<AdminAfterSalesDetail[]>([])
 const detail = ref<AdminAfterSalesDetail | null>(null)
 const canReviewDetail = computed(() => canReviewAfterSales(auth.session) && detail.value?.status === 'PENDING_REVIEW')
 const expectedAfterSalesConfirmText = computed(() => `售后审核${detail.value?.afterSalesNo || ''}`)
+const statusValues: NonNullable<AdminAfterSalesListQuery['status']>[] = ['ALL', 'PENDING_REVIEW', 'APPROVED', 'REJECTED']
 
 async function loadList() {
   if (afterSalesReviewing.value) return
@@ -134,7 +146,12 @@ async function loadList() {
   listError.value = ''
   rows.value = []
   try {
-    rows.value = await getAdminAfterSalesList({ status: statusFilter.value, limit: 20 })
+    const safeKeyword = keyword.value.trim()
+    if (safeKeyword && !isValidAdminAfterSalesKeyword(safeKeyword)) {
+      listError.value = '售后关键词无效：最多 64 字，不能包含测试占位语义。'
+      return
+    }
+    rows.value = await getAdminAfterSalesList({ status: statusFilter.value, keyword: safeKeyword || undefined, limit: Number(listLimit.value) })
   } catch {
     listError.value = '售后列表加载失败，请确认管理员权限与服务状态。'
   } finally {
@@ -208,6 +225,12 @@ async function submitReview(action: 'approve' | 'reject') {
 
 onMounted(() => {
   const routeAfterSalesNo = String(route.params.afterSalesNo || '').trim()
+  const routeStatus = String(route.query.status || '').trim().toUpperCase() as NonNullable<AdminAfterSalesListQuery['status']>
+  const routeKeyword = String(route.query.keyword || '').trim()
+  const routeLimit = Number(route.query.limit)
+  if (statusValues.includes(routeStatus)) statusFilter.value = routeStatus
+  if (routeKeyword) keyword.value = routeKeyword
+  if (Number.isInteger(routeLimit) && routeLimit >= 1 && routeLimit <= 100) listLimit.value = routeLimit
   loadList()
   if (routeAfterSalesNo) {
     afterSalesNo.value = routeAfterSalesNo

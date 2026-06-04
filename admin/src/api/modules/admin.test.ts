@@ -16,6 +16,7 @@ import {
   getAdminWithdrawalDetail,
   getAdminWithdrawalList,
   searchAdminUsers,
+  isValidAdminAfterSalesKeyword,
   isValidAdminAfterSalesNo,
   isValidAdminAuditLogId,
   isValidAdminAuditNo,
@@ -350,7 +351,7 @@ describe('admin finance api', () => {
     await expect(getAdminAfterSalesDetail('preview-after-sales')).rejects.toThrow('售后编号无效')
   })
 
-  it('loads admin after-sales list through backend endpoint with status and bounded limit', async () => {
+  it('loads admin after-sales list through backend endpoint with status keyword and bounded limit', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -372,12 +373,18 @@ describe('admin finance api', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const rows = await getAdminAfterSalesList({ status: 'PENDING_REVIEW', limit: 20 })
+    const rows = await getAdminAfterSalesList({ status: 'PENDING_REVIEW', keyword: 'AS-ADMIN-20260510-0001', limit: 20 })
 
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/after-sales?status=PENDING_REVIEW&limit=20'), expect.any(Object))
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/after-sales?status=PENDING_REVIEW&keyword=AS-ADMIN-20260510-0001&limit=20'), expect.any(Object))
     expect(rows[0].afterSalesNo).toBe('AS-ADMIN-20260510-0001')
+    expect(isValidAdminAfterSalesKeyword('AS-ADMIN-20260510-0001')).toBe(true)
+    expect(isValidAdminAfterSalesKeyword('preview-after-sales')).toBe(false)
+    vi.clearAllMocks()
     await expect(getAdminAfterSalesList({ status: 'preview' as never, limit: 20 })).rejects.toThrow('售后状态筛选无效')
+    await expect(getAdminAfterSalesList({ status: 'ALL', keyword: 'preview-after-sales', limit: 20 })).rejects.toThrow('售后关键词无效')
+    await expect(getAdminAfterSalesList({ status: 'ALL', keyword: 'x'.repeat(65), limit: 20 })).rejects.toThrow('售后关键词无效')
     await expect(getAdminAfterSalesList({ status: 'ALL', limit: 101 })).rejects.toThrow('售后列表条数无效')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('reviews after-sales through backend endpoint and fails closed for malformed ids/actions', async () => {

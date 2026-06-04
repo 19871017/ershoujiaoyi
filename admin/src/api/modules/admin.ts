@@ -39,6 +39,7 @@ export interface AdminAfterSalesDetail {
 export interface AdminAfterSalesListQuery {
   status?: 'ALL' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
   limit?: number
+  keyword?: string
 }
 
 export interface AdminAfterSalesReviewRequest {
@@ -246,6 +247,12 @@ export function isValidAdminAfterSalesNo(afterSalesNo: string) {
   return /^AS-[A-Z]+-\d{8}-\d{4,}$/.test(afterSalesNo)
 }
 
+export function isValidAdminAfterSalesKeyword(keyword: string) {
+  const normalized = keyword.trim()
+  if (!normalized || normalized.length > 64) return false
+  return !/(preview|demo|mock|sample|placeholder)/i.test(normalized)
+}
+
 export function isValidAdminOrderNo(orderNo: string) {
   return /^OD-[A-Z0-9]{4,}$/.test(orderNo)
 }
@@ -347,6 +354,13 @@ export async function getAdminAfterSalesList(query: AdminAfterSalesListQuery = {
     throw new Error('售后状态筛选无效')
   }
   if (status !== 'ALL') params.set('status', status)
+  const keyword = query.keyword?.trim() ?? ''
+  if (keyword) {
+    if (!isValidAdminAfterSalesKeyword(keyword)) {
+      throw new Error('售后关键词无效')
+    }
+    params.set('keyword', keyword)
+  }
   const limit = query.limit ?? 20
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
     throw new Error('售后列表条数无效')
@@ -554,4 +568,3 @@ export function updateAdminLocationConfig(data: AdminUpdateLocationConfigRequest
     data
   })
 }
-

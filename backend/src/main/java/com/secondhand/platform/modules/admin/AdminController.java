@@ -293,10 +293,11 @@ public class AdminController {
 
     @GetMapping("/after-sales")
     public Result<List<AfterSalesResponse>> afterSalesList(@RequestParam(required = false) String status,
+                                                           @RequestParam(required = false) String keyword,
                                                            @RequestParam(defaultValue = "20") Integer limit,
                                                            HttpServletRequest request) {
         adminAccessGuard.requireAdmin(request, "after-sales:read");
-        return Result.ok(afterSalesApplicationService.listAdminAfterSales(status, limit));
+        return Result.ok(afterSalesApplicationService.listAdminAfterSales(status, keyword, limit));
     }
 
     @GetMapping("/after-sales/{afterSalesNo}")
