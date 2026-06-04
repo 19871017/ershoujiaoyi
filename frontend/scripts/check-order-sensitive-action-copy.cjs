@@ -118,7 +118,8 @@ const requiredOrderIdGuardMarkers = {
     "console.warn('order detail logistics navigation failed'",
     "console.warn('order detail after-sales apply navigation failed'",
     "console.warn('order detail confirm receipt failed'",
-    "console.warn('order detail product navigation failed'"
+    "console.warn('order detail product navigation failed'",
+    "console.warn('order detail report navigation failed'"
   ],
   'src/pages/order/list/index.vue': [
     'const backendOrderNoPattern = /^OD-[0-9]{1,10}$/',
@@ -260,6 +261,12 @@ for (const file of files) {
       content,
       /function openAfterSalesDetail\(\): void\s*\{[\s\S]*if \(!isValidBackendOrderNo\(currentOrder\.orderNo\)\)[\s\S]*if \(!currentOrder\.afterSalesNo\)[\s\S]*if \(!isValidAfterSalesNo\(currentOrder\.afterSalesNo\)\)[\s\S]*console\.warn\('order detail invalid after-sales trace target'[\s\S]*const safeOrderNo = currentOrder\.orderNo[\s\S]*const safeAfterSalesNo = currentOrder\.afterSalesNo[\s\S]*\/pages\/after-sales\/detail\/index\?afterSalesNo=\$\{encodeURIComponent\(safeAfterSalesNo\)\}&orderNo=\$\{encodeURIComponent\(safeOrderNo\)\}[\s\S]*console\.warn\('order detail after-sales detail navigation failed'/s,
       'order detail after-sales summary/detail navigation must validate backend orderNo and canonical afterSalesNo before navigation'
+    )
+    requirePattern(
+      file,
+      content,
+      /function reportOrder\(\): void\s*\{[\s\S]*if \(!currentOrder \|\| !isValidBackendOrderNo\(currentOrder\.orderNo\)\)[\s\S]*const safeOrderNo = currentOrder\.orderNo[\s\S]*\/pages\/report\/submit\/index\?targetType=ORDER&targetId=\$\{encodeURIComponent\(safeOrderNo\)\}[\s\S]*console\.warn\('order detail report navigation failed'/s,
+      'order detail report entry must use validated backend orderNo and handle navigation failures'
     )
     requirePattern(
       file,

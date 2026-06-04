@@ -4,8 +4,10 @@ const path = require('path')
 const root = path.resolve(__dirname, '..')
 const reportFile = 'src/pages/report/submit/index.vue'
 const productDetailFile = 'src/pages/product/detail/index.vue'
+const orderDetailFile = 'src/pages/order/detail/index.vue'
 const reportContent = fs.readFileSync(path.join(root, reportFile), 'utf8')
 const productDetailContent = fs.readFileSync(path.join(root, productDetailFile), 'utf8')
+const orderDetailContent = fs.readFileSync(path.join(root, orderDetailFile), 'utf8')
 const failures = []
 
 if (!reportContent.includes('function isValidReportTargetId')) {
@@ -39,8 +41,8 @@ if (/targetId\.value\s*===\s*['"]UNKNOWN['"]/.test(reportContent) || /targetId\.
   failures.push('report target guard must not rely on narrow UNKNOWN/preview equality checks')
 }
 
-if (!reportContent.includes('/^[1-9]\\d{0,18}$/') || !reportContent.includes('GOODS: /^(GOODS|PRODUCT)-') || !reportContent.includes('ORDER: /^ORDER-')) {
-  failures.push('report target guard must allow only positive numeric IDs or canonical typed backend IDs')
+if (!reportContent.includes('/^[1-9]\\d{0,18}$/') || !reportContent.includes('GOODS: /^(GOODS|PRODUCT)-') || !reportContent.includes('ORDER: /^(ORDER-') || !reportContent.includes('OD-[1-9][0-9]{0,9}')) {
+  failures.push('report target guard must allow only positive numeric IDs, canonical typed backend IDs, or backend OD order numbers')
 }
 
 if (/\|\|\s*\/\^\(GOODS\|ORDER\|CHAT\|USER\|REPORT\)-/.test(reportContent)) {
@@ -133,6 +135,10 @@ if (!/if \(!isValidProductReportTargetId\(reportTargetId\)\)/.test(productDetail
 
 if (!/targetId=\$\{encodeURIComponent\(String\(reportTargetId\)\)\}/.test(productDetailContent)) {
   failures.push('product detail report navigation must use the validated reportTargetId, not raw route/detail fallback ids')
+}
+
+if (!/function reportOrder\(\): void\s*\{[\s\S]*if \(!currentOrder \|\| !isValidBackendOrderNo\(currentOrder\.orderNo\)\)[\s\S]*targetType=ORDER&targetId=\$\{encodeURIComponent\(safeOrderNo\)\}[\s\S]*console\.warn\('order detail report navigation failed'/s.test(orderDetailContent)) {
+  failures.push('order detail report entry must use validated OD backend orderNo and handle navigation failures before opening report page')
 }
 
 if (failures.length) {

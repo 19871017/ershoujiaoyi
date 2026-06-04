@@ -135,7 +135,7 @@ function isValidReportTargetId(value: string, type = targetType.value) {
   const patterns: Record<string, RegExp> = {
     GOODS: /^(GOODS|PRODUCT)-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
     PRODUCT: /^(GOODS|PRODUCT)-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
-    ORDER: /^ORDER-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
+    ORDER: /^(ORDER-[A-Za-z0-9][A-Za-z0-9_-]{5,63}|OD-[1-9][0-9]{0,9})$/,
     CHAT: /^CHAT-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
     USER: /^USER-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
     REPORT: /^REPORT-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/

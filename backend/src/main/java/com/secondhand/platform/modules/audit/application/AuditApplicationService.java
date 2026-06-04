@@ -364,7 +364,7 @@ public class AuditApplicationService {
         boolean validNumericId = targetId.matches("[1-9]\\d{0,18}");
         boolean validTypedId = switch (targetType) {
             case "PRODUCT", "GOODS" -> targetId.matches("(PRODUCT|GOODS)-[A-Za-z0-9][A-Za-z0-9_-]{5,63}");
-            case "ORDER" -> targetId.matches("ORDER-[A-Za-z0-9][A-Za-z0-9_-]{5,63}");
+            case "ORDER" -> targetId.matches("ORDER-[A-Za-z0-9][A-Za-z0-9_-]{5,63}") || targetId.matches("OD-[1-9][0-9]{0,9}");
             case "CHAT" -> targetId.matches("CHAT-[A-Za-z0-9][A-Za-z0-9_-]{5,63}");
             case "USER" -> targetId.matches("USER-[A-Za-z0-9][A-Za-z0-9_-]{5,63}");
             case "REPORT" -> targetId.matches("REPORT-[A-Za-z0-9][A-Za-z0-9_-]{5,63}");

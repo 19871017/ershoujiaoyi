@@ -64,6 +64,33 @@ class AuditControllerTest {
     }
 
     @Test
+    void reportEndpointAcceptsBackendOrderNumberTarget() throws Exception {
+        EmbeddedDatabase database = database();
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        AuditController controller = new AuditController(
+                new AuditApplicationService(jdbcTemplate),
+                devCurrentUserResolver(jdbcTemplate)
+        );
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(controller).build();
+        createActiveUser(jdbcTemplate, 1L);
+        ReportRequest request = new ReportRequest();
+        request.setTargetType("ORDER");
+        request.setTargetId("OD-100001");
+        request.setReason("ORDER_RISK");
+        request.setDescription("订单存在纠纷");
+
+        mvc.perform(post("/api/audit/reports")
+                        .header("X-User-Id", "1")
+                        .header("X-Dev-Mode", "enabled")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.auditType").value(AuditApplicationService.AUDIT_TYPE_REPORT))
+                .andExpect(jsonPath("$.data.targetType").value("ORDER"))
+                .andExpect(jsonPath("$.data.targetId").value("OD-100001"));
+    }
+
+    @Test
     void videoIdentityEndpointMustRejectClientSuppliedIdentityFields() throws Exception {
         EmbeddedDatabase database = database();
         JdbcTemplate jdbcTemplate = new JdbcTemplate(database);

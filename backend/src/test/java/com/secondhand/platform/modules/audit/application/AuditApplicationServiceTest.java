@@ -208,6 +208,15 @@ class AuditApplicationServiceTest {
     }
 
     @Test
+    void reportShouldAcceptBackendOrderNumberAsOrderTarget() {
+        AuditRecordResponse created = service.submitReport(1L, "order", "OD-100001", "ORDER_RISK", "订单纠纷");
+
+        assertEquals("ORDER", created.targetType());
+        assertEquals("OD-100001", created.targetId());
+        assertEquals(AuditApplicationService.STATUS_PENDING, created.status());
+    }
+
+    @Test
     void shouldRejectInvalidReportAndWithdrawalAuditCreation() {
         assertThrows(IllegalArgumentException.class, () -> service.submitReport(0L, "product", "P-1", "SPAM", null));
         assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, " ", "P-1", "SPAM", null));
@@ -220,6 +229,8 @@ class AuditApplicationServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "P-1", "SPAM", null));
         assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "user", "USER-abc", "SPAM", null));
         assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "order", "ORDER-12", "SPAM", null));
+        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "order", "OD-0", "SPAM", null));
+        assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "order", "OD-100000000000", "SPAM", null));
         assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "chat", "CHAT-12", "SPAM", null));
         assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "report", "REPORT-12", "SPAM", null));
         assertThrows(IllegalArgumentException.class, () -> service.submitReport(1L, "product", "P-1", " ", null));

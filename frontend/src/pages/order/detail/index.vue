@@ -55,6 +55,7 @@
         <view class="section-title">订单安全提示</view>
         <view class="safe-line">订单、支付、售后和聊天记录以服务端状态为准。</view>
         <view class="safe-line">如遇私下转账、绕平台交易、诱导外部联系，请立即举报。</view>
+        <view class="safe-action tapable" @click="reportOrder">举报此订单</view>
       </view>
 
       <view class="bottom-actions">
@@ -234,6 +235,27 @@ function handleAction(action: string): void {
 }
 function showUnavailableAction(action: string): void {
   uni.showToast({ title: `${action}暂不可用，请稍后重试`, icon: 'none' })
+}
+function reportOrder(): void {
+  const currentOrder = order.value
+  if (!currentOrder || !isValidBackendOrderNo(currentOrder.orderNo)) {
+    uni.showToast({ title: '缺少有效订单号，不能提交举报', icon: 'none' })
+    return
+  }
+  const safeOrderNo = currentOrder.orderNo
+  const route = {
+    url: `/pages/report/submit/index?targetType=ORDER&targetId=${encodeURIComponent(safeOrderNo)}`,
+    fail(error: unknown) {
+      console.warn('order detail report navigation failed', { orderNo: safeOrderNo, error })
+      uni.showToast({ title: '暂时无法打开举报页，请稍后重试', icon: 'none' })
+    }
+  }
+  try {
+    uni.navigateTo(route)
+  } catch (error) {
+    console.warn('order detail report navigation failed', { orderNo: safeOrderNo, error })
+    uni.showToast({ title: '暂时无法打开举报页，请稍后重试', icon: 'none' })
+  }
 }
 function openAfterSalesDetail(): void {
   const currentOrder = order.value
