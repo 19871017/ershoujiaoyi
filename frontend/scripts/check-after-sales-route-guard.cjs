@@ -124,6 +124,7 @@ const requiredAfterSalesNoMarkers = [
   "console.warn('after-sales order navigation failed'",
   "console.warn('after-sales chat navigation failed'",
   "console.warn('after-sales evidence navigation failed'",
+  "console.warn('after-sales report navigation failed'",
   "console.warn('after-sales detail initialize failed'",
   "return map[status] || '未知状态'",
   "return map[type] || '未知类型'",
@@ -176,6 +177,9 @@ if (!/function openOrderDetail\(\): void\s*\{[\s\S]*if \(!isValidAfterSalesNo\(c
 }
 if (!/function addEvidence\(\): void\s*\{[\s\S]*if \(!currentDetail \|\| !isValidAfterSalesNo\(currentDetail\.afterSalesNo\)\)[\s\S]*if \(!isValidBackendOrderNo\(currentDetail\.orderNo\)\)[\s\S]*scene=AFTER_SALES_EVIDENCE[\s\S]*try\s*\{\s*uni\.navigateTo\(route\)[\s\S]*catch \(error\)\s*\{[\s\S]*console\.warn\('after-sales evidence navigation failed'/s.test(detail)) {
   failures.push(`${detailFile}: after-sales evidence navigation must use validated backend detail IDs and handle async/synchronous failures`)
+}
+if (!/function reportAfterSales\(\): void\s*\{[\s\S]*if \(!currentDetail \|\| !isValidAfterSalesNo\(currentDetail\.afterSalesNo\)\)[\s\S]*if \(!isValidBackendOrderNo\(currentDetail\.orderNo\)\)[\s\S]*targetType=AFTER_SALES&targetId=\$\{encodeURIComponent\(safeAfterSalesNo\)\}[\s\S]*try\s*\{\s*uni\.navigateTo\(route\)[\s\S]*catch \(error\)\s*\{[\s\S]*console\.warn\('after-sales report navigation failed'/s.test(detail)) {
+  failures.push(`${detailFile}: after-sales report navigation must use validated backend afterSalesNo/orderNo and handle async/synchronous failures`)
 }
 if (!/async function initializeDetail\(\): Promise<void>\s*\{[\s\S]*try\s*\{[\s\S]*readQuery\(\)[\s\S]*await loadDetail\(\)[\s\S]*catch \(error\)\s*\{[\s\S]*detail\.value = null[\s\S]*loading\.value = false[\s\S]*console\.warn\('after-sales detail initialize failed'[\s\S]*errorText\.value = '售后详情读取失败，请从售后申请记录重新进入'/s.test(detail)) {
   failures.push(`${detailFile}: after-sales detail initialization must fail closed if route parsing throws synchronously`)

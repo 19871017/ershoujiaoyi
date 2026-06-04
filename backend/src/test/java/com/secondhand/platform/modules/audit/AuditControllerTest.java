@@ -91,6 +91,33 @@ class AuditControllerTest {
     }
 
     @Test
+    void reportEndpointAcceptsAfterSalesNumberTarget() throws Exception {
+        EmbeddedDatabase database = database();
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        AuditController controller = new AuditController(
+                new AuditApplicationService(jdbcTemplate),
+                devCurrentUserResolver(jdbcTemplate)
+        );
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(controller).build();
+        createActiveUser(jdbcTemplate, 1L);
+        ReportRequest request = new ReportRequest();
+        request.setTargetType("AFTER_SALES");
+        request.setTargetId("AS-100001");
+        request.setReason("AFTER_SALES_RISK");
+        request.setDescription("售后处理存在争议");
+
+        mvc.perform(post("/api/audit/reports")
+                        .header("X-User-Id", "1")
+                        .header("X-Dev-Mode", "enabled")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.auditType").value(AuditApplicationService.AUDIT_TYPE_REPORT))
+                .andExpect(jsonPath("$.data.targetType").value("AFTER_SALES"))
+                .andExpect(jsonPath("$.data.targetId").value("AS-100001"));
+    }
+
+    @Test
     void videoIdentityEndpointMustRejectClientSuppliedIdentityFields() throws Exception {
         EmbeddedDatabase database = database();
         JdbcTemplate jdbcTemplate = new JdbcTemplate(database);

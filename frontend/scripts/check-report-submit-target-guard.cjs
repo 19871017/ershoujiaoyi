@@ -5,9 +5,11 @@ const root = path.resolve(__dirname, '..')
 const reportFile = 'src/pages/report/submit/index.vue'
 const productDetailFile = 'src/pages/product/detail/index.vue'
 const orderDetailFile = 'src/pages/order/detail/index.vue'
+const afterSalesDetailFile = 'src/pages/after-sales/detail/index.vue'
 const reportContent = fs.readFileSync(path.join(root, reportFile), 'utf8')
 const productDetailContent = fs.readFileSync(path.join(root, productDetailFile), 'utf8')
 const orderDetailContent = fs.readFileSync(path.join(root, orderDetailFile), 'utf8')
+const afterSalesDetailContent = fs.readFileSync(path.join(root, afterSalesDetailFile), 'utf8')
 const failures = []
 
 if (!reportContent.includes('function isValidReportTargetId')) {
@@ -19,7 +21,7 @@ for (const marker of [
   'function isValidReportTargetType(value: string): value is ReportTargetType',
   "console.warn('report submit route decode failed'",
   "console.warn('report submit invalid route target'",
-  '缺少有效举报对象，请从商品、聊天、订单或用户页面发起举报',
+  '缺少有效举报对象，请从商品、聊天、订单、售后或用户页面发起举报',
   "const reportEvidenceStoragePrefix = '/uploads/report-evidence/'",
   'function hasInvalidReportEvidenceUrl(url: unknown): boolean',
   'function hasInvalidTempReportEvidencePath(path: string): boolean',
@@ -41,8 +43,8 @@ if (/targetId\.value\s*===\s*['"]UNKNOWN['"]/.test(reportContent) || /targetId\.
   failures.push('report target guard must not rely on narrow UNKNOWN/preview equality checks')
 }
 
-if (!reportContent.includes('/^[1-9]\\d{0,18}$/') || !reportContent.includes('GOODS: /^(GOODS|PRODUCT)-') || !reportContent.includes('ORDER: /^(ORDER-') || !reportContent.includes('OD-[1-9][0-9]{0,9}')) {
-  failures.push('report target guard must allow only positive numeric IDs, canonical typed backend IDs, or backend OD order numbers')
+if (!reportContent.includes('/^[1-9]\\d{0,18}$/') || !reportContent.includes('GOODS: /^(GOODS|PRODUCT)-') || !reportContent.includes('ORDER: /^(ORDER-') || !reportContent.includes('OD-[1-9][0-9]{0,9}') || !reportContent.includes('AFTER_SALES: /^AS-')) {
+  failures.push('report target guard must allow only positive numeric IDs, canonical typed backend IDs, backend OD order numbers, or AS after-sales numbers')
 }
 
 if (/\|\|\s*\/\^\(GOODS\|ORDER\|CHAT\|USER\|REPORT\)-/.test(reportContent)) {
@@ -60,7 +62,7 @@ if (!/if \(!isValidReportTargetId\(targetId\.value\)\)/.test(reportContent)) {
   failures.push('submit() must fail closed unless targetId passes isValidReportTargetId(targetId.value)')
 }
 
-if (!/function readQuery\(\)[\s\S]*decodeRouteValue\('targetType'[\s\S]*decodeRouteValue\('targetId'[\s\S]*!isValidReportTargetType\(routeTargetType\) \|\| !isValidReportTargetId\(routeTargetId, routeTargetType\)[\s\S]*routeError\.value = '缺少有效举报对象，请从商品、聊天、订单或用户页面发起举报'/s.test(reportContent)) {
+if (!/function readQuery\(\)[\s\S]*decodeRouteValue\('targetType'[\s\S]*decodeRouteValue\('targetId'[\s\S]*!isValidReportTargetType\(routeTargetType\) \|\| !isValidReportTargetId\(routeTargetId, routeTargetType\)[\s\S]*routeError\.value = '缺少有效举报对象，请从商品、聊天、订单、售后或用户页面发起举报'/s.test(reportContent)) {
   failures.push('report route params must decode and validate targetType/targetId fail-closed before submission')
 }
 
@@ -139,6 +141,10 @@ if (!/targetId=\$\{encodeURIComponent\(String\(reportTargetId\)\)\}/.test(produc
 
 if (!/function reportOrder\(\): void\s*\{[\s\S]*if \(!currentOrder \|\| !isValidBackendOrderNo\(currentOrder\.orderNo\)\)[\s\S]*targetType=ORDER&targetId=\$\{encodeURIComponent\(safeOrderNo\)\}[\s\S]*console\.warn\('order detail report navigation failed'/s.test(orderDetailContent)) {
   failures.push('order detail report entry must use validated OD backend orderNo and handle navigation failures before opening report page')
+}
+
+if (!/function reportAfterSales\(\): void\s*\{[\s\S]*if \(!currentDetail \|\| !isValidAfterSalesNo\(currentDetail\.afterSalesNo\)\)[\s\S]*targetType=AFTER_SALES&targetId=\$\{encodeURIComponent\(safeAfterSalesNo\)\}[\s\S]*console\.warn\('after-sales report navigation failed'/s.test(afterSalesDetailContent)) {
+  failures.push('after-sales detail report entry must use validated AS backend afterSalesNo and handle navigation failures before opening report page')
 }
 
 if (failures.length) {

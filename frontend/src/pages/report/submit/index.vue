@@ -4,7 +4,7 @@
       <view class="icon">🛡️</view>
       <view>
         <view class="page-title">提交举报</view>
-        <view class="page-desc">用于提交商品、聊天、订单或用户相关问题；举报处理以服务端审核记录为准。</view>
+        <view class="page-desc">用于提交商品、聊天、订单、售后或用户相关问题；举报处理以服务端审核记录为准。</view>
       </view>
     </view>
 
@@ -52,7 +52,7 @@ import { submitReport, type AuditRecordResponse, type AuditStatus } from '../../
 import { createMediaUploadTicket, uploadMediaTicketFile } from '../../../api/modules/media'
 
 type ImageContentType = 'image/png' | 'image/webp' | 'image/jpeg'
-type ReportTargetType = 'GOODS' | 'PRODUCT' | 'CHAT' | 'ORDER' | 'USER' | 'REPORT'
+type ReportTargetType = 'GOODS' | 'PRODUCT' | 'CHAT' | 'ORDER' | 'AFTER_SALES' | 'USER' | 'REPORT'
 type ChooseImageFile = { name?: string; type?: string; size?: number }
 type ChooseImageResult = { tempFilePaths?: string[]; tempFiles?: ChooseImageFile[] }
 
@@ -74,7 +74,7 @@ const uploadingEvidence = ref(false)
 const submitting = ref(false)
 const reasons = ['私下交易引导', '商品描述不符', '疑似假货', '骚扰/辱骂', '虚假定位', '其他风险']
 const targetTypeLabel = computed(() => {
-  const map: Record<ReportTargetType, string> = { GOODS: '商品', PRODUCT: '商品', CHAT: '聊天', ORDER: '订单', USER: '用户', REPORT: '举报' }
+  const map: Record<ReportTargetType, string> = { GOODS: '商品', PRODUCT: '商品', CHAT: '聊天', ORDER: '订单', AFTER_SALES: '售后', USER: '用户', REPORT: '举报' }
   return map[targetType.value] || targetType.value
 })
 function decodeRouteValue(fieldName: string, value: string): string {
@@ -86,7 +86,7 @@ function decodeRouteValue(fieldName: string, value: string): string {
   }
 }
 function isValidReportTargetType(value: string): value is ReportTargetType {
-  return value === 'GOODS' || value === 'PRODUCT' || value === 'CHAT' || value === 'ORDER' || value === 'USER' || value === 'REPORT'
+  return value === 'GOODS' || value === 'PRODUCT' || value === 'CHAT' || value === 'ORDER' || value === 'AFTER_SALES' || value === 'USER' || value === 'REPORT'
 }
 function readQuery() {
   const pages = getCurrentPages()
@@ -98,7 +98,7 @@ function readQuery() {
   const routeTargetId = decodeRouteValue('targetId', rawTargetId)
   if (!isValidReportTargetType(routeTargetType) || !isValidReportTargetId(routeTargetId, routeTargetType)) {
     console.warn('report submit invalid route target', { targetType: routeTargetType, targetIdLength: routeTargetId.length, targetIdPreview: routeTargetId.slice(0, 24) })
-    routeError.value = '缺少有效举报对象，请从商品、聊天、订单或用户页面发起举报'
+    routeError.value = '缺少有效举报对象，请从商品、聊天、订单、售后或用户页面发起举报'
     targetId.value = ''
     return
   }
@@ -130,12 +130,13 @@ function imageFallbackName(contentType: ImageContentType, index: number) {
   return `report-evidence-${index}.jpg`
 }
 function isValidReportTargetId(value: string, type = targetType.value) {
-  if (/^[1-9]\d{0,18}$/.test(value)) return true
   const normalizedType = (type || '').toUpperCase()
+  if (normalizedType !== 'AFTER_SALES' && /^[1-9]\d{0,18}$/.test(value)) return true
   const patterns: Record<string, RegExp> = {
     GOODS: /^(GOODS|PRODUCT)-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
     PRODUCT: /^(GOODS|PRODUCT)-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
     ORDER: /^(ORDER-[A-Za-z0-9][A-Za-z0-9_-]{5,63}|OD-[1-9][0-9]{0,9})$/,
+    AFTER_SALES: /^AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
     CHAT: /^CHAT-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
     USER: /^USER-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
     REPORT: /^REPORT-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/

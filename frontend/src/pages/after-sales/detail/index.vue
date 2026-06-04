@@ -73,6 +73,7 @@
         <view class="section-title">可用操作</view>
         <button class="secondary-btn" @click="openOrderDetail">查看关联订单</button>
         <button class="secondary-btn" @click="contactSeller">联系卖家协商</button>
+        <button class="secondary-btn danger-btn" @click="reportAfterSales">举报售后单</button>
         <button class="primary-btn" @click="addEvidence">补充上传票据</button>
       </view>
     </template>
@@ -317,6 +318,25 @@ function addEvidence(): void {
     uni.showToast({ title: '暂时无法打开票据上传页，请稍后重试', icon: 'none' })
   }
 }
+function reportAfterSales(): void {
+  const currentDetail = detail.value
+  if (!currentDetail || !isValidAfterSalesNo(currentDetail.afterSalesNo)) return uni.showToast({ title: '缺少有效售后单号，不能提交举报', icon: 'none' })
+  if (!isValidBackendOrderNo(currentDetail.orderNo)) return uni.showToast({ title: '订单编号异常，不能提交售后举报', icon: 'none' })
+  const safeAfterSalesNo = currentDetail.afterSalesNo
+  const route = {
+    url: `/pages/report/submit/index?targetType=AFTER_SALES&targetId=${encodeURIComponent(safeAfterSalesNo)}`,
+    fail: (error: unknown) => {
+      console.warn('after-sales report navigation failed', { afterSalesNo: safeAfterSalesNo, orderNo: currentDetail.orderNo, error })
+      uni.showToast({ title: '暂时无法打开举报页，请稍后重试', icon: 'none' })
+    }
+  }
+  try {
+    uni.navigateTo(route)
+  } catch (error) {
+    console.warn('after-sales report navigation failed', { afterSalesNo: safeAfterSalesNo, orderNo: currentDetail.orderNo, error })
+    uni.showToast({ title: '暂时无法打开举报页，请稍后重试', icon: 'none' })
+  }
+}
 async function initializeDetail(): Promise<void> {
   try {
     readQuery()
@@ -361,4 +381,5 @@ onMounted(() => { void initializeDetail() })
 .step-time { margin-top:7rpx; color:#b77955; font-size:19rpx; font-weight:850; }
 .action-card .secondary-btn,.action-card .primary-btn { margin-top:14rpx; }
 .action-card .primary-btn { background:linear-gradient(135deg,#ef6f3f,#ff8b76); color:#fffaf4; box-shadow:0 12rpx 24rpx rgba(255,122,69,.16); }
+.action-card .danger-btn { color:#be123c; border-color:rgba(190,18,60,.20); background:#fff7f7; }
 </style>
