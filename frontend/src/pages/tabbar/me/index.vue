@@ -51,6 +51,14 @@
           <view class="ops-label">订单待处理</view>
         </view>
       </view>
+      <view v-if="recentActionNotice" class="ops-action tapable" @click="openRecentActionNotice">
+        <view class="ops-action-main">
+          <view class="ops-action-kicker">最近待处理</view>
+          <view class="ops-action-title">{{ recentActionNotice.title }}</view>
+          <view class="ops-action-desc">{{ recentActionNotice.description }}</view>
+        </view>
+        <view class="ops-action-btn">{{ recentActionNotice.read ? '查看' : '处理' }}</view>
+      </view>
     </view>
 
     <view v-if="canPublish" class="seller-entry-card ds-card tapable" @click="goPublishForm">
@@ -98,10 +106,11 @@
 import { onShow } from '@dcloudio/uni-app'
 import { computed, reactive, ref } from 'vue'
 import { getChatConversations, type ChatConversationItem, type ChatConversationListResponse } from '../../../api/modules/chat'
-import { listNotifications, type NotificationItemResponse } from '../../../api/modules/notification'
+import { listNotifications, markNotificationRead, type NotificationItemResponse } from '../../../api/modules/notification'
 import { listOrders, type OrderListItemResponse } from '../../../api/modules/order'
 import { getMyProfile, type UserProfileResponse } from '../../../api/modules/user'
 import { getWalletBalance, type WalletBalanceResponse } from '../../../api/modules/wallet'
+import { assertNotificationItem, isSafeNotificationTargetUrl, isTabBarNotificationTargetUrl, isValidNotificationNo } from '../../notification/notification-helpers'
 import { emptyBalance, emptyProfile, menus, orderStatusItems, publishRoles, type OrderStatusKey } from './me-data'
 
 const profile = reactive<UserProfileResponse>({ ...emptyProfile })
@@ -127,6 +136,10 @@ const orderStatus = computed(() => [
   ...orderStatusItems.map((item) => ({ ...item, count: orderCountByKey(item.key) }))
 ])
 const notificationUnread = computed(() => notifications.value.filter((item) => !item.read).length)
+const recentActionNotice = computed(() => {
+  const safeRows = notifications.value.filter((item) => item.targetUrl && isSafeNotificationTargetUrl(item.targetUrl))
+  return safeRows.find((item) => !item.read) || safeRows[0] || null
+})
 const chatUnread = computed(() => chatConversations.value.reduce((sum, item) => sum + Math.max(0, item.unreadCount), 0))
 const pendingPayCount = computed(() => buyerOrders.value.filter((item) => item.status === 'PENDING_PAY').length)
 const pendingShipCount = computed(() => sellerOrders.value.filter((item) => item.status === 'PAID').length)
@@ -193,6 +206,40 @@ async function refreshOperationalSummary() {
 }
 function showToast(title: string) { uni.showToast({ title, icon: 'none' }) }
 function openNotification() { uni.navigateTo({ url: '/pages/notification/index' }) }
+async function openRecentActionNotice() {
+  const item = recentActionNotice.value
+  if (!item) return openNotification()
+  if (!isValidNotificationNo(item.notificationNo)) return uni.showToast({ title: '通知编号无效，未打开待办', icon: 'none' })
+  if (!item.targetUrl || !isSafeNotificationTargetUrl(item.targetUrl)) return uni.showToast({ title: '通知跳转地址无效，未打开页面', icon: 'none' })
+  try {
+    const read = await markNotificationRead(item.notificationNo)
+    assertNotificationItem(read)
+    if (read.notificationNo !== item.notificationNo) throw new Error('me notification read response mismatch')
+    notifications.value = notifications.value.map((notice) => notice.notificationNo === read.notificationNo ? read : notice)
+  } catch (error) {
+    console.warn('me notification read mutation failed', { notificationNo: item.notificationNo, error })
+    uni.showToast({ title: '已读状态暂时无法更新，请稍后重试', icon: 'none' })
+    return
+  }
+  navigateToNoticeTarget(item)
+}
+function navigateToNoticeTarget(item: NotificationItemResponse): void {
+  if (!item.targetUrl || !isSafeNotificationTargetUrl(item.targetUrl)) return uni.showToast({ title: '通知跳转地址无效，未打开页面', icon: 'none' })
+  const route = {
+    url: item.targetUrl,
+    fail(error: unknown) {
+      console.warn('me notification target navigation failed', { notificationNo: item.notificationNo, targetUrl: item.targetUrl, error })
+      uni.showToast({ title: '通知页面暂时无法打开，请稍后重试', icon: 'none' })
+    }
+  }
+  try {
+    if (isTabBarNotificationTargetUrl(item.targetUrl)) uni.switchTab(route)
+    else uni.navigateTo(route)
+  } catch (error) {
+    console.warn('me notification target navigation failed', { notificationNo: item.notificationNo, targetUrl: item.targetUrl, error })
+    uni.showToast({ title: '通知页面暂时无法打开，请稍后重试', icon: 'none' })
+  }
+}
 function goSessions() { uni.navigateTo({ url: '/pages/chat/session-list/index' }) }
 function goWallet() { uni.navigateTo({ url: '/pages/wallet/index' }) }
 function goOrders() { uni.navigateTo({ url: '/pages/order/list/index' }) }
@@ -250,9 +297,7 @@ function assertConversationListResponse(value: unknown): asserts value is ChatCo
 function assertNotificationList(value: unknown): asserts value is NotificationItemResponse[] {
   if (!Array.isArray(value)) throw new Error('me invalid notification list')
   for (const item of value) {
-    if (!item || typeof item !== 'object') throw new Error('me invalid notification item')
-    if (typeof item.notificationNo !== 'string' || !item.notificationNo.trim()) throw new Error('me invalid notificationNo')
-    if (typeof item.read !== 'boolean') throw new Error('me invalid notification read')
+    assertNotificationItem(item)
   }
 }
 function assertOrderList(value: unknown): asserts value is OrderListItemResponse[] {

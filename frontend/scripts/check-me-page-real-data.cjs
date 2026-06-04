@@ -35,7 +35,12 @@ const requiredMarkers = [
   'getWalletBalance',
   'getChatConversations',
   'listNotifications',
+  'markNotificationRead',
   'listOrders',
+  'isSafeNotificationTargetUrl',
+  'isTabBarNotificationTargetUrl',
+  'isValidNotificationNo',
+  'assertNotificationItem',
   "const publishRoles = ['SELLER', 'BOTH']",
   "const canPublish = computed(() => profile.videoVerified && publishRoles.includes(String(profile.mainRole || '').toUpperCase()))",
   "const sellerEntryTitleText = computed(() => canPublish.value ? '卖家认证' : '申请卖家认证')",
@@ -44,6 +49,10 @@ const requiredMarkers = [
   'Object.assign(balance, emptyBalance)',
   '<view class="ops-card ds-card">',
   "const notificationUnread = computed(() => notifications.value.filter((item) => !item.read).length)",
+  'const recentActionNotice = computed(() => {',
+  'notifications.value.filter((item) => item.targetUrl && isSafeNotificationTargetUrl(item.targetUrl))',
+  "return safeRows.find((item) => !item.read) || safeRows[0] || null",
+  '<view v-if="recentActionNotice" class="ops-action tapable" @click="openRecentActionNotice">',
   "const chatUnread = computed(() => chatConversations.value.reduce((sum, item) => sum + Math.max(0, item.unreadCount), 0))",
   "const pendingPayCount = computed(() => buyerOrders.value.filter((item) => item.status === 'PENDING_PAY').length)",
   "const pendingShipCount = computed(() => sellerOrders.value.filter((item) => item.status === 'PAID').length)",
@@ -58,6 +67,15 @@ const requiredMarkers = [
   'assertConversationListResponse(chatRows)',
   'assertOrderList(buyerRows)',
   'assertOrderList(sellerRows)',
+  'async function openRecentActionNotice()',
+  'const read = await markNotificationRead(item.notificationNo)',
+  'assertNotificationItem(read)',
+  "throw new Error('me notification read response mismatch')",
+  "console.warn('me notification read mutation failed'",
+  'function navigateToNoticeTarget(item: NotificationItemResponse): void',
+  "console.warn('me notification target navigation failed'",
+  'if (isTabBarNotificationTargetUrl(item.targetUrl)) uni.switchTab(route)',
+  'else uni.navigateTo(route)',
   "opsError.value = '运营待办暂时不可用，请稍后刷新'",
   "console.warn('me operational summary load failed', { error })",
   "return safe > 99 ? '99+' : String(safe)",
@@ -74,6 +92,14 @@ const requiredMarkers = [
 
 for (const marker of requiredMarkers) {
   if (!source.includes(marker)) failures.push(`${file}: missing backend-derived/fail-closed marker: ${marker}`)
+}
+
+if (!/async function openRecentActionNotice\(\)[\s\S]*if \(!isValidNotificationNo\(item\.notificationNo\)\)[\s\S]*if \(!item\.targetUrl \|\| !isSafeNotificationTargetUrl\(item\.targetUrl\)\)[\s\S]*const read = await markNotificationRead\(item\.notificationNo\)[\s\S]*assertNotificationItem\(read\)[\s\S]*read\.notificationNo !== item\.notificationNo[\s\S]*notifications\.value = notifications\.value\.map[\s\S]*console\.warn\('me notification read mutation failed'[\s\S]*navigateToNoticeTarget\(item\)/s.test(source)) {
+  failures.push(`${file}: recent actionable notice must validate id/target and wait for backend read ack before navigation`)
+}
+
+if (!/function navigateToNoticeTarget\(item: NotificationItemResponse\): void\s*\{[\s\S]*if \(!item\.targetUrl \|\| !isSafeNotificationTargetUrl\(item\.targetUrl\)\)[\s\S]*fail\(error: unknown\)[\s\S]*console\.warn\('me notification target navigation failed'[\s\S]*if \(isTabBarNotificationTargetUrl\(item\.targetUrl\)\) uni\.switchTab\(route\)[\s\S]*else uni\.navigateTo\(route\)[\s\S]*catch \(error\)/s.test(source)) {
+  failures.push(`${file}: recent actionable notice navigation must use safe target checks and handle navigation failures`)
 }
 
 if (failures.length) {
