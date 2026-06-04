@@ -35,6 +35,15 @@
         <video class="audit-video" :src="videoEvidenceUrl" controls playsinline></video>
         <a class="detail-link" :href="videoEvidenceUrl" target="_blank" rel="noopener noreferrer">新窗口打开视频</a>
       </div>
+      <div v-if="reportEvidenceUrls.length" class="media-panel">
+        <strong>举报凭证</strong>
+        <div class="evidence-grid">
+          <a v-for="(url, index) in reportEvidenceUrls" :key="url" class="evidence-link" :href="url" target="_blank" rel="noopener noreferrer">
+            <span>凭证 {{ index + 1 }}</span>
+            <small>{{ url }}</small>
+          </a>
+        </div>
+      </div>
       <p class="detail-desc">{{ detailSummary }}</p>
     </article>
   </section>
@@ -46,6 +55,7 @@ import { useRoute, RouterLink, useRouter } from 'vue-router'
 import { getAdminAuditDetail, isValidAdminAuditNo, type AuditRecordResponse } from '../../api'
 import { afterSalesAuditTraceLocation } from '../after-sales/after-sales-trace-links'
 import { orderAuditTraceLocation } from '../orders/order-trace-links'
+import { extractReportEvidenceUrls } from './report-evidence'
 
 const route = useRoute()
 const router = useRouter()
@@ -68,6 +78,7 @@ const detailSummary = computed(() => {
   if (current.auditType === 'VIDEO_IDENTITY') return current.description || '视频认证资料以平台上传票据为准。'
   return current.reason || current.description || '无补充说明'
 })
+const reportEvidenceUrls = computed(() => detail.value?.auditType === 'REPORT' ? extractReportEvidenceUrls(detail.value.description) : [])
 const afterSalesTraceLocation = computed(() => detail.value ? afterSalesAuditTraceLocation(detail.value) : null)
 const orderTraceLocation = computed(() => detail.value ? orderAuditTraceLocation(detail.value) : null)
 

@@ -51,6 +51,8 @@ const requiredPatterns = [
   { file: 'src/pages/audit/index.vue', pattern: /orderAuditTraceLocation/, message: 'audit workbench must expose order trace actions for traceable targets' },
   { file: 'src/pages/audit/detail.vue', pattern: /afterSalesAuditTraceLocation/, message: 'audit detail must expose after-sales trace actions for traceable targets' },
   { file: 'src/pages/audit/detail.vue', pattern: /orderAuditTraceLocation/, message: 'audit detail must expose order trace actions for traceable targets' },
+  { file: 'src/pages/audit/detail.vue', pattern: /extractReportEvidenceUrls/, message: 'audit detail must expose backend report evidence uploads for operator review' },
+  { file: 'src/pages/audit/report-evidence.ts', pattern: /\/uploads\/report-evidence\//, message: 'report evidence helper must accept only backend report evidence uploads' },
   { file: 'src/pages/finance/withdrawals/index.vue', pattern: /getAdminWithdrawalList/, message: 'withdrawal page must load backend admin withdrawal list' },
   { file: 'src/pages/finance/withdrawals/index.vue', pattern: /reviewAdminWithdrawal/, message: 'withdrawal page must submit reviews through backend audit API helper' },
   { file: 'src/pages/finance/withdrawals/index.vue', pattern: /canReviewFinance/, message: 'withdrawal review actions must require explicit finance:review permission' },
