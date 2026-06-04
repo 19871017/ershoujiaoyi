@@ -55,8 +55,22 @@
         </view>
       </view>
 
+      <view v-if="nextAction" class="next-step-card ds-card">
+        <view class="section-head">
+          <view>
+            <view class="section-title">下一步</view>
+            <view class="section-desc">{{ nextAction.desc }}</view>
+          </view>
+          <view class="status-chip">{{ nextAction.title }}</view>
+        </view>
+        <view class="next-chip-row">
+          <view v-for="chip in nextAction.chips" :key="chip" class="next-chip">{{ chip }}</view>
+        </view>
+        <button class="primary-btn next-primary" @click="runNextAction">{{ nextAction.primaryLabel }}</button>
+      </view>
+
       <view class="action-card ds-card">
-        <view class="section-title">继续处理</view>
+        <view class="section-title">可用操作</view>
         <button class="secondary-btn" @click="openOrderDetail">查看关联订单</button>
         <button class="secondary-btn" @click="contactSeller">联系卖家协商</button>
         <button class="primary-btn" @click="addEvidence">补充上传票据</button>
@@ -75,12 +89,58 @@ const afterSalesNo = ref('')
 const loading = ref(false)
 const errorText = ref('')
 const detail = ref<AfterSalesResponse | null>(null)
+type NextActionType = 'order' | 'chat' | 'evidence'
+interface NextAction {
+  title: string
+  desc: string
+  chips: string[]
+  primaryLabel: string
+  primaryAction: NextActionType
+}
 const steps = computed(() => {
   if (!detail.value) return []
   return [
     { title: '售后申请已提交', desc: '系统已记录退款原因、金额和已提交票据；售后处理以平台订单、支付、物流、聊天记录和票据记录为准。', time: detail.value.createdAt || '已提交' },
     { title: statusText(detail.value.status), desc: statusDesc(detail.value.status), time: detail.value.status === 'PENDING_REVIEW' ? '等待处理' : '已更新' }
   ]
+})
+const nextAction = computed<NextAction | null>(() => {
+  if (!detail.value) return null
+  const commonEvidence = '保留照片、聊天记录和物流材料'
+  if (detail.value.status === 'PENDING_REVIEW') {
+    return {
+      title: '等待处理',
+      desc: '售后单已进入处理队列，可先补充票据或联系卖家协商；最终进度以服务端订单、支付、物流、聊天记录和售后记录为准。',
+      chips: ['补充票据', '联系卖家', commonEvidence],
+      primaryLabel: '补充票据',
+      primaryAction: 'evidence'
+    }
+  }
+  if (detail.value.status === 'APPROVED') {
+    return {
+      title: '查看结果',
+      desc: '售后申请已通过，请查看关联订单和售后处理记录；后续结果以服务端订单、支付、物流和售后记录为准。',
+      chips: ['查看关联订单', '确认处理记录', commonEvidence],
+      primaryLabel: '查看关联订单',
+      primaryAction: 'order'
+    }
+  }
+  if (detail.value.status === 'REJECTED') {
+    return {
+      title: '补充协商',
+      desc: '售后申请已驳回，如仍需处理，可补充票据并联系卖家继续协商；不要在聊天外完成交易或退款约定。',
+      chips: ['补充票据', '联系卖家', '保留协商记录'],
+      primaryLabel: '联系卖家协商',
+      primaryAction: 'chat'
+    }
+  }
+  return {
+    title: '已取消',
+    desc: '该售后单已取消，可查看关联订单确认当前订单状态，必要时再联系卖家沟通后续处理。',
+    chips: ['查看关联订单', '确认订单状态', '保留沟通记录'],
+    primaryLabel: '查看关联订单',
+    primaryAction: 'order'
+  }
 })
 function isValidAfterSalesNo(value: string): boolean {
   return /^AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(value)
@@ -193,6 +253,12 @@ function typeText(type: string): string {
   const map: Record<string, string> = { REFUND_ONLY: '仅退款', RETURN_REFUND: '退货退款', PLATFORM_ARBITRATION: '售后协调' }
   return map[type] || '未知类型'
 }
+function runNextAction(): void {
+  const action = nextAction.value?.primaryAction
+  if (action === 'order') return openOrderDetail()
+  if (action === 'chat') return contactSeller()
+  if (action === 'evidence') return addEvidence()
+}
 function contactSeller(): void {
   const currentDetail = detail.value
   if (!currentDetail) return
@@ -266,10 +332,10 @@ onMounted(() => { void initializeDetail() })
 </script>
 <style scoped>
 .after-detail-page { min-height:100vh; padding-top:18rpx; padding-bottom:44rpx; background:radial-gradient(circle at 12% 0%,rgba(255,202,150,.26),transparent 28%),radial-gradient(circle at 88% 16%,rgba(255,226,214,.42),transparent 24%),linear-gradient(180deg,#fff8f0 0%,#fffdfa 55%,#fff5ee 100%); }
-.hero,.status-card,.timeline-card,.action-card,.info-card { margin-top:14rpx; padding:20rpx; border-color:rgba(255,217,189,.78); box-shadow:0 14rpx 30rpx rgba(132,70,36,.08); }
+.hero,.status-card,.timeline-card,.action-card,.info-card,.next-step-card { margin-top:14rpx; padding:20rpx; border-color:rgba(255,217,189,.78); box-shadow:0 14rpx 30rpx rgba(132,70,36,.08); }
 .hero,.status-card { display:flex; gap:14rpx; align-items:center; background:linear-gradient(135deg,rgba(255,255,255,.98),rgba(255,244,234,.96)); }
 .hero { margin-top:0; justify-content:space-between; }
-.timeline-card,.action-card,.info-card { background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(255,248,242,.97)); }
+.timeline-card,.action-card,.info-card,.next-step-card { background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(255,248,242,.97)); }
 .kicker { color:#df6735; font-size:20rpx; font-weight:950; letter-spacing:.16rpx; }
 .hero-icon,.status-icon { width:70rpx; height:70rpx; border-radius:24rpx; background:linear-gradient(135deg,#ef6f3f,#ff8b76); color:#fffaf4; display:flex; align-items:center; justify-content:center; font-size:32rpx; box-shadow:0 12rpx 24rpx rgba(255,122,69,.16); flex:0 0 auto; }
 .danger { border-color:#fecaca; background:#fff7f7; }
@@ -285,6 +351,9 @@ onMounted(() => { void initializeDetail() })
 .desc { margin-top:14rpx; padding:16rpx; border-radius:24rpx; background:linear-gradient(180deg,#fffdf9,#fff8f1); border:1rpx solid rgba(255,217,189,.64); color:#342116; font-size:21rpx; line-height:1.55; font-weight:650; }
 .evidence-row { margin-top:12rpx; display:flex; gap:10rpx; flex-wrap:wrap; }
 .image-chip { padding:10rpx 14rpx; border-radius:999rpx; background:#fff3e7; border:1rpx solid rgba(239,111,63,.24); color:#df6735; font-size:20rpx; font-weight:900; box-shadow:0 8rpx 16rpx rgba(255,122,69,.08); }
+.next-chip-row { display:flex; gap:10rpx; flex-wrap:wrap; margin-top:14rpx; }
+.next-chip { padding:10rpx 14rpx; border-radius:999rpx; background:#fffaf4; border:1rpx solid rgba(255,217,189,.82); color:#7b5542; font-size:20rpx; font-weight:900; }
+.next-primary { margin-top:16rpx; }
 .step { margin-top:16rpx; display:flex; gap:14rpx; }
 .step-main { flex:1; min-width:0; padding-bottom:2rpx; }
 .dot { width:18rpx; height:18rpx; margin-top:7rpx; border-radius:50%; background:#ef6f3f; box-shadow:0 0 0 7rpx rgba(239,111,63,.10); flex:0 0 auto; }

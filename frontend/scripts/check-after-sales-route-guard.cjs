@@ -181,6 +181,22 @@ if (!/async function initializeDetail\(\): Promise<void>\s*\{[\s\S]*try\s*\{[\s\
   failures.push(`${detailFile}: after-sales detail initialization must fail closed if route parsing throws synchronously`)
 }
 
+const requiredDetailNextStepMarkers = [
+  'const nextAction = computed<NextAction | null>',
+  '售后单已进入处理队列，可先补充票据或联系卖家协商；最终进度以服务端订单、支付、物流、聊天记录和售后记录为准。',
+  '售后申请已通过，请查看关联订单和售后处理记录；后续结果以服务端订单、支付、物流和售后记录为准。',
+  '售后申请已驳回，如仍需处理，可补充票据并联系卖家继续协商；不要在聊天外完成交易或退款约定。',
+  '该售后单已取消，可查看关联订单确认当前订单状态，必要时再联系卖家沟通后续处理。',
+  'function runNextAction(): void',
+  "if (action === 'order') return openOrderDetail()",
+  "if (action === 'chat') return contactSeller()",
+  "if (action === 'evidence') return addEvidence()",
+  '可用操作',
+]
+for (const marker of requiredDetailNextStepMarkers) {
+  if (!detail.includes(marker)) failures.push(`${detailFile}: missing status-specific after-sales next-step marker: ${marker}`)
+}
+
 const forbiddenDetailMarkers = [
   'if (!afterSalesNo.value) { errorText.value',
   '平台凭证',
@@ -188,6 +204,11 @@ const forbiddenDetailMarkers = [
   '平台已通过',
   '平台已驳回',
   '平台处理中',
+  '退款已到账',
+  '退款已处理',
+  '原路退回',
+  '支付通道已完成',
+  '系统自动退款',
 ]
 for (const marker of forbiddenDetailMarkers) {
   if (detail.includes(marker)) failures.push(`${detailFile}: after-sales detail must fail closed on canonical IDs and avoid static risk-control copy: ${marker}`)
