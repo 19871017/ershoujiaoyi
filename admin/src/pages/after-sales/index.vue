@@ -80,6 +80,11 @@
         <div><dt>原因</dt><dd>{{ detail.reason }}</dd></div>
         <div><dt>上传票据数量</dt><dd>{{ detail.evidenceUrls?.length || 0 }}</dd></div>
       </dl>
+      <div class="toolbar">
+        <button class="secondary-btn" @click="openRelatedOrder">查看关联订单</button>
+        <button class="secondary-btn" @click="openApplicantOrders">追溯申请人订单</button>
+        <button class="secondary-btn" @click="openAfterSalesOrders">按售后追溯订单</button>
+      </div>
       <p class="safe-note">{{ detail.description || '暂无补充说明' }}</p>
       <p class="safe-note">售后处理以平台订单、支付、物流、聊天记录和已提交票据为准；审核成功只以平台响应为准。</p>
       <div class="review-panel">
@@ -109,7 +114,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   getAdminAfterSalesDetail,
   getAdminAfterSalesList,
@@ -120,9 +125,11 @@ import {
   type AdminAfterSalesListQuery
 } from '../../api'
 import { canReviewAfterSales, useAuthStore } from '../../store/modules/auth'
+import { orderTraceDetailLocation, orderTraceListLocation } from '../orders/order-trace-links'
 
 const auth = useAuthStore()
 const route = useRoute()
+const router = useRouter()
 const afterSalesNo = ref('')
 const statusFilter = ref<NonNullable<AdminAfterSalesListQuery['status']>>('PENDING_REVIEW')
 const keyword = ref('')
@@ -221,6 +228,33 @@ async function submitReview(action: 'approve' | 'reject') {
   } finally {
     afterSalesReviewing.value = false
   }
+}
+
+function openRelatedOrder() {
+  const location = orderTraceDetailLocation(detail.value?.orderNo)
+  if (!location) {
+    detailError.value = '关联订单编号无效，未打开订单详情。'
+    return
+  }
+  router.push(location)
+}
+
+function openApplicantOrders() {
+  const location = orderTraceListLocation(detail.value?.applicantId || '')
+  if (!location) {
+    detailError.value = '申请人编号无效，未打开订单追溯。'
+    return
+  }
+  router.push(location)
+}
+
+function openAfterSalesOrders() {
+  const location = orderTraceListLocation(detail.value?.afterSalesNo || '')
+  if (!location) {
+    detailError.value = '售后编号无效，未打开订单追溯。'
+    return
+  }
+  router.push(location)
 }
 
 onMounted(() => {

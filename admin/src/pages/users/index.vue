@@ -48,6 +48,7 @@
         <div><dt>创建时间</dt><dd>{{ detail.createdAt || '暂无' }}</dd></div>
       </dl>
       <div class="toolbar">
+        <button class="secondary-btn" @click="openUserOrderTrace">追溯该用户订单</button>
         <button class="secondary-btn" @click="openUserAfterSalesTrace">追溯该用户售后</button>
       </div>
       <p class="safe-note">{{ detail.bio || '暂无补充简介' }}</p>
@@ -61,6 +62,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getAdminUserDetail, isValidAdminUserId, searchAdminUsers, type AdminUserDetailResponse } from '../../api/modules/admin'
 import { afterSalesTraceListLocation } from '../after-sales/after-sales-trace-links'
+import { orderTraceListLocation } from '../orders/order-trace-links'
 
 const route = useRoute()
 const router = useRouter()
@@ -117,6 +119,15 @@ function openUserAfterSalesTrace() {
   const location = afterSalesTraceListLocation(detail.value?.userId || userId.value)
   if (!location) {
     error.value = '用户编号无效，未打开售后追溯。'
+    return
+  }
+  router.push(location)
+}
+
+function openUserOrderTrace() {
+  const location = orderTraceListLocation(detail.value?.userId || userId.value)
+  if (!location) {
+    error.value = '用户编号无效，未打开订单追溯。'
     return
   }
   router.push(location)

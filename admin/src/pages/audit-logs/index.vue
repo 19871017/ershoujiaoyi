@@ -27,6 +27,7 @@
       </div>
       <div class="audit-side">
         <span class="status-pill">{{ item.result }}</span>
+        <button v-if="orderTraceFor(item)" class="link-btn" @click="openOrderTrace(item)">订单追溯</button>
         <button v-if="afterSalesTraceFor(item)" class="link-btn" @click="openAfterSalesTrace(item)">售后追溯</button>
         <small>操作人：{{ item.operatorId }}</small>
         <small>{{ item.createdAt || '暂无时间' }}</small>
@@ -40,6 +41,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAdminAuditLogs, isValidAdminAuditLogId, type AdminAuditLogEntry } from '../../api'
 import { afterSalesAuditTraceLocation } from '../after-sales/after-sales-trace-links'
+import { orderAuditTraceLocation } from '../orders/order-trace-links'
 
 const router = useRouter()
 const logs = ref<AdminAuditLogEntry[]>([])
@@ -69,6 +71,19 @@ async function loadLogs() {
 
 function afterSalesTraceFor(item: AdminAuditLogEntry) {
   return afterSalesAuditTraceLocation(item)
+}
+
+function orderTraceFor(item: AdminAuditLogEntry) {
+  return orderAuditTraceLocation(item)
+}
+
+function openOrderTrace(item: AdminAuditLogEntry) {
+  const location = orderTraceFor(item)
+  if (!location) {
+    error.value = '审计目标无法追溯到订单记录。'
+    return
+  }
+  router.push(location)
 }
 
 function openAfterSalesTrace(item: AdminAuditLogEntry) {
