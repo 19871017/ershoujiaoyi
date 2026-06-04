@@ -83,6 +83,13 @@ button { cursor: pointer; border: 0; }
 .evidence-link { display: grid; gap: 6px; padding: 12px; border: 1px solid #dbeafe; border-radius: 12px; background: #eff6ff; color: #1d4ed8; }
 .evidence-link span { font-weight: 800; }
 .evidence-link small { color: #475569; word-break: break-all; }
+.ops-guide { margin-top: 16px; display: grid; gap: 12px; border: 1px solid #fed7aa; border-radius: 14px; background: #fff7ed; padding: 14px; }
+.ops-guide-head { display: grid; gap: 6px; }
+.ops-guide-head strong { color: #9a3412; }
+.ops-guide-head span, .ops-guide li { color: #7c2d12; }
+.ops-guide ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.remark-templates { display: flex; gap: 8px; flex-wrap: wrap; }
+.remark-templates span { background: #ffedd5; color: #9a3412; border-radius: 999px; padding: 7px 10px; font-size: 12px; font-weight: 700; }
 .safe-note { margin: 18px 0 0; color: #6b7280; }
 .config-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 18px; margin-bottom: 16px; }
 .panel-head { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 16px; }

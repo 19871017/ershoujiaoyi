@@ -44,6 +44,18 @@
           </a>
         </div>
       </div>
+      <div v-if="reportGuide" class="ops-guide">
+        <div class="ops-guide-head">
+          <strong>{{ reportGuide.targetLabel }}</strong>
+          <span>{{ reportGuide.traceHint }}</span>
+        </div>
+        <ol>
+          <li v-for="step in reportGuide.steps" :key="step">{{ step }}</li>
+        </ol>
+        <div class="remark-templates">
+          <span v-for="template in reportGuide.remarkTemplates" :key="template">{{ template }}</span>
+        </div>
+      </div>
       <p class="detail-desc">{{ detailSummary }}</p>
     </article>
   </section>
@@ -56,6 +68,7 @@ import { getAdminAuditDetail, isValidAdminAuditNo, type AuditRecordResponse } fr
 import { afterSalesAuditTraceLocation } from '../after-sales/after-sales-trace-links'
 import { orderAuditTraceLocation } from '../orders/order-trace-links'
 import { extractReportEvidenceUrls } from './report-evidence'
+import { reportHandlingGuide } from './report-handling'
 
 const route = useRoute()
 const router = useRouter()
@@ -79,6 +92,7 @@ const detailSummary = computed(() => {
   return current.reason || current.description || '无补充说明'
 })
 const reportEvidenceUrls = computed(() => detail.value?.auditType === 'REPORT' ? extractReportEvidenceUrls(detail.value.description) : [])
+const reportGuide = computed(() => detail.value ? reportHandlingGuide(detail.value) : null)
 const afterSalesTraceLocation = computed(() => detail.value ? afterSalesAuditTraceLocation(detail.value) : null)
 const orderTraceLocation = computed(() => detail.value ? orderAuditTraceLocation(detail.value) : null)
 
