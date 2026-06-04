@@ -37,6 +37,23 @@ export function isValidBackendProductId(value: unknown): boolean {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 }
 
+export function decodeRouteValue(fieldName: string, value: string): string {
+  try {
+    return decodeURIComponent(value || '').trim()
+  } catch (error) {
+    console.warn('order list route decode failed', { fieldName, rawLength: value.length, error })
+    return ''
+  }
+}
+
+export function isOrderRole(value: string): value is OrderRole {
+  return value === 'buyer' || value === 'seller'
+}
+
+export function isStatusTab(value: string): value is StatusTab {
+  return statusTabs.some((item) => item.value === value)
+}
+
 export function assertBackendOrderListItem(item: OrderListItemResponse): void {
   if (!isValidBackendOrderNo(item.orderNo)) throw new Error('order list invalid backend orderNo')
   if (!isValidOrderAmount(item.amount)) throw new Error('order list invalid order amount')

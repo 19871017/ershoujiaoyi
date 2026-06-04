@@ -81,11 +81,14 @@ import {
   actionsFor,
   assertBackendOrderListItem,
   coverIcon,
+  decodeRouteValue,
   displayStatus,
   flowSteps,
   isValidBackendOrderNo,
   isValidBackendProductId,
   isValidOrderAmount,
+  isOrderRole,
+  isStatusTab,
   roles,
   statusLabel,
   statusTabs,
@@ -114,6 +117,25 @@ function navigateWithFailure(url: string, fail: (error: unknown) => void): void 
 function countByStatus(value: StatusTab): number {
   return statusCounts.value[value]
 }
+function readRouteFilters(): void {
+  const pages = getCurrentPages()
+  const current = pages[pages.length - 1] as { options?: Record<string, string> } | undefined
+  const hashParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.hash.split('?')[1] || '') : undefined
+  const routeRole = decodeRouteValue('role', current?.options?.role || hashParams?.get('role') || '')
+  const routeStatus = decodeRouteValue('status', current?.options?.status || hashParams?.get('status') || '').toUpperCase()
+
+  if (routeRole && !isOrderRole(routeRole)) {
+    console.warn('order list invalid route role', { role: routeRole })
+  } else if (isOrderRole(routeRole)) {
+    role.value = routeRole
+  }
+
+  if (routeStatus && !isStatusTab(routeStatus)) {
+    console.warn('order list invalid route status', { status: routeStatus })
+  } else if (isStatusTab(routeStatus)) {
+    status.value = routeStatus
+  }
+}
 async function loadOrders(): Promise<void> {
   loading.value = true
   errorText.value = ''
@@ -131,7 +153,6 @@ async function loadOrders(): Promise<void> {
 }
 function switchRole(value: OrderRole): void {
   role.value = value
-  status.value = 'ALL'
   void loadOrders()
 }
 function switchStatus(value: StatusTab): void { status.value = value }
@@ -272,7 +293,10 @@ function openOrder(orderNo: string): void {
     }
   )
 }
-onMounted(() => { void loadOrders() })
+onMounted(() => {
+  readRouteFilters()
+  void loadOrders()
+})
 </script>
 
 <style scoped lang="scss" src="./style.scss"></style>

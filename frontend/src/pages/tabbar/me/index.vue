@@ -131,7 +131,9 @@ const chatUnread = computed(() => chatConversations.value.reduce((sum, item) => 
 const pendingPayCount = computed(() => buyerOrders.value.filter((item) => item.status === 'PENDING_PAY').length)
 const pendingShipCount = computed(() => sellerOrders.value.filter((item) => item.status === 'PAID').length)
 const pendingReceiveCount = computed(() => buyerOrders.value.filter((item) => item.status === 'SHIPPED').length)
-const afterSalesCount = computed(() => [...buyerOrders.value, ...sellerOrders.value].filter((item) => hasActiveAfterSales(item)).length)
+const buyerAfterSalesCount = computed(() => buyerOrders.value.filter((item) => hasActiveAfterSales(item)).length)
+const sellerAfterSalesCount = computed(() => sellerOrders.value.filter((item) => hasActiveAfterSales(item)).length)
+const afterSalesCount = computed(() => buyerAfterSalesCount.value + sellerAfterSalesCount.value)
 const orderTodoTotal = computed(() => pendingPayCount.value + pendingShipCount.value + pendingReceiveCount.value + afterSalesCount.value)
 const opsSummary = computed(() => {
   const total = notificationUnread.value + chatUnread.value + orderTodoTotal.value
@@ -206,8 +208,17 @@ function goPublishForm() {
 }
 function openMenu(item: { label: string; url?: string }) { item.url ? uni.navigateTo({ url: item.url }) : showToast(`${item.label}已打开`) }
 function openOrderStatus(key: OrderStatusKey) {
-  if (key === 'afterSales') return goOrders()
-  goOrders()
+  const filters: Record<OrderStatusKey, { role: 'buyer' | 'seller'; status: 'PENDING_PAY' | 'PAID' | 'SHIPPED' | 'REFUNDING' }> = {
+    pendingPay: { role: 'buyer', status: 'PENDING_PAY' },
+    pendingShip: { role: 'seller', status: 'PAID' },
+    pendingReceive: { role: 'buyer', status: 'SHIPPED' },
+    afterSales: {
+      role: sellerAfterSalesCount.value > 0 && buyerAfterSalesCount.value === 0 ? 'seller' : 'buyer',
+      status: 'REFUNDING'
+    }
+  }
+  const target = filters[key]
+  uni.navigateTo({ url: `/pages/order/list/index?role=${target.role}&status=${target.status}` })
 }
 function orderCountByKey(key: OrderStatusKey): number {
   if (key === 'pendingPay') return pendingPayCount.value

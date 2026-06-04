@@ -112,6 +112,13 @@ const requiredOrderIdGuardMarkers = {
     'function isValidBackendOrderNo(value: string): boolean',
     'function isValidOrderAmount(value: unknown): boolean',
     'function isValidBackendProductId(value: unknown): boolean',
+    'function decodeRouteValue(fieldName: string, value: string): string',
+    "console.warn('order list route decode failed'",
+    'function isOrderRole(value: string): value is OrderRole',
+    'function isStatusTab(value: string): value is StatusTab',
+    'function readRouteFilters(): void',
+    "console.warn('order list invalid route role'",
+    "console.warn('order list invalid route status'",
     'function assertBackendOrderListItem(item: OrderListItemResponse): void',
     "throw new Error('order list invalid backend orderNo')",
     "throw new Error('order list invalid order amount')",
@@ -217,6 +224,12 @@ for (const file of files) {
     )
   }
   if (file === 'src/pages/order/list/index.vue') {
+    requirePattern(
+      file,
+      content,
+      /function readRouteFilters\(\): void\s*\{[\s\S]*const routeRole = decodeRouteValue\('role'[\s\S]*const routeStatus = decodeRouteValue\('status'[\s\S]*if \(routeRole && !isOrderRole\(routeRole\)\)[\s\S]*console\.warn\('order list invalid route role'[\s\S]*else if \(isOrderRole\(routeRole\)\)[\s\S]*role\.value = routeRole[\s\S]*if \(routeStatus && !isStatusTab\(routeStatus\)\)[\s\S]*console\.warn\('order list invalid route status'[\s\S]*else if \(isStatusTab\(routeStatus\)\)[\s\S]*status\.value = routeStatus/s,
+      'order list must decode route role/status fail-closed before applying filters'
+    )
     requirePattern(
       file,
       content,
