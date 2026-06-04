@@ -33,9 +33,17 @@ for (const marker of forbidden) {
 const required = [
   "import { listNotifications, markNotificationRead",
   'const notices = ref<NotificationItemResponse[]>([])',
-  'await listNotifications(active.value)',
+  "await listNotifications('ALL', 50)",
+  'const totalUnread = computed(() => notices.value.filter((item) => !item.read).length)',
+  'const activeUnreadCount = computed(() => filtered.value.filter((item) => !item.read).length)',
+  'function unreadCountByType(type: NoticeType): number',
+  'function markVisibleRead()',
   'await markNotificationRead(item.notificationNo)',
+  'notification batch read response mismatch',
+  "console.warn('notification batch read mutation failed'",
+  '批量已读暂时无法更新，请稍后重试',
   'isSafeNotificationTargetUrl',
+  'isTabBarNotificationTargetUrl',
   'isValidNotificationNo',
   'function assertNotificationItem(value: unknown): asserts value is NotificationItemResponse',
   'function assertNotificationList(value: unknown): asserts value is NotificationItemResponse[]',
@@ -46,6 +54,7 @@ const required = [
   "console.warn('notification read mutation failed'",
   "console.warn('notification target navigation failed'",
   "item.targetUrl && isSafeNotificationTargetUrl(item.targetUrl)",
+  'if (isTabBarNotificationTargetUrl(item.targetUrl)) uni.switchTab(route)',
   '通知跳转地址无效，未打开页面',
   '通知编号无效，未更新已读状态',
   '已读状态暂时无法更新，请稍后重试',
@@ -70,8 +79,18 @@ if (!/async function openNotice\(item: NotificationItemResponse\)[\s\S]*const re
   failed = true
 }
 
-if (!/function navigateToNotificationTarget\(item: NotificationItemResponse\): void[\s\S]*fail\(error: unknown\)[\s\S]*console\.warn\('notification target navigation failed'[\s\S]*try\s*\{\s*uni\.navigateTo\(route\)[\s\S]*catch \(error\)/s.test(content)) {
+if (!/async function markVisibleRead\(\)[\s\S]*filtered\.value\.filter\(\(item\) => !item\.read && isValidNotificationNo\(item\.notificationNo\)\)[\s\S]*const read = await markNotificationRead\(item\.notificationNo\)[\s\S]*assertNotificationItem\(read\)[\s\S]*read\.notificationNo !== item\.notificationNo \|\| read\.read !== true[\s\S]*notices\.value = notices\.value\.map/s.test(content)) {
+  console.error(`${file}: batch read must only update each notification after a matching backend read acknowledgement`)
+  failed = true
+}
+
+if (!/function navigateToNotificationTarget\(item: NotificationItemResponse\): void[\s\S]*fail\(error: unknown\)[\s\S]*console\.warn\('notification target navigation failed'[\s\S]*try\s*\{[\s\S]*catch \(error\)/s.test(content)) {
   console.error(`${file}: notification target navigation must handle async and synchronous navigation failures`)
+  failed = true
+}
+
+if (!/function navigateToNotificationTarget\(item: NotificationItemResponse\): void[\s\S]*isTabBarNotificationTargetUrl\(item\.targetUrl\)[\s\S]*uni\.switchTab\(route\)[\s\S]*else uni\.navigateTo\(route\)/s.test(content)) {
+  console.error(`${file}: notification navigation must switchTab for tabbar targets and navigateTo for stack pages`)
   failed = true
 }
 

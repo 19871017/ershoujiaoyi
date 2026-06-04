@@ -6,10 +6,28 @@
         <view class="page-title">通知中心</view>
         <view class="page-desc">订单、私信、审核和举报处理结果会集中显示。</view>
       </view>
-      <view class="hero-icon">🔔</view>
+      <view class="hero-side">
+        <view class="hero-icon">🔔</view>
+        <view v-if="totalUnread > 0" class="hero-count">{{ displayUnread }} 未读</view>
+      </view>
+    </view>
+    <view class="notice-toolbar ds-card">
+      <view>
+        <view class="toolbar-title">{{ activeLabel }}</view>
+        <view class="toolbar-desc">{{ activeUnreadCount > 0 ? `当前分类 ${activeUnreadCount} 条未读` : '当前分类暂无未读' }}</view>
+      </view>
+      <view class="toolbar-actions">
+        <button class="toolbar-btn ghost" :disabled="loading || markingAll" @click="loadNotifications">{{ loading ? '刷新中' : '刷新' }}</button>
+        <button class="toolbar-btn" :disabled="loading || markingAll || activeUnreadCount === 0" @click="markVisibleRead">
+          {{ markingAll ? '处理中' : '全部已读' }}
+        </button>
+      </view>
     </view>
     <view class="tab-row">
-      <view v-for="item in tabs" :key="item.value" class="chip tapable" :class="{ active: active === item.value }" @click="switchTab(item.value)">{{ item.label }}</view>
+      <view v-for="item in tabs" :key="item.value" class="chip tapable" :class="{ active: active === item.value }" @click="switchTab(item.value)">
+        <text>{{ item.label }}</text>
+        <text v-if="unreadCountByType(item.value) > 0" class="chip-count">{{ unreadCountByType(item.value) }}</text>
+      </view>
     </view>
     <view v-if="loading" class="empty-card ds-card">通知加载中...</view>
     <view v-else-if="loadError" class="empty-card ds-card">
@@ -26,7 +44,10 @@
             <text v-if="!item.read" class="dot">未读</text>
           </view>
           <view class="desc">{{ item.description }}</view>
-          <view class="time">{{ formatTime(item.createdAt) }}</view>
+          <view class="notice-bottom">
+            <text class="time">{{ formatTime(item.createdAt) }}</text>
+            <text v-if="item.targetUrl" class="target-hint">查看</text>
+          </view>
         </view>
       </view>
     </view>
@@ -42,6 +63,7 @@ import {
   formatTime,
   iconFor,
   isSafeNotificationTargetUrl,
+  isTabBarNotificationTargetUrl,
   isValidNotificationNo,
   tabs,
   type NoticeType
@@ -50,14 +72,19 @@ import {
 const active = ref<NoticeType>('ALL')
 const notices = ref<NotificationItemResponse[]>([])
 const loading = ref(false)
+const markingAll = ref(false)
 const loadError = ref('')
 const filtered = computed(() => filterNotifications(notices.value, active.value))
+const totalUnread = computed(() => notices.value.filter((item) => !item.read).length)
+const activeUnreadCount = computed(() => filtered.value.filter((item) => !item.read).length)
+const activeLabel = computed(() => tabs.find((item) => item.value === active.value)?.label || '全部')
+const displayUnread = computed(() => totalUnread.value > 99 ? '99+' : String(totalUnread.value))
 
 async function loadNotifications() {
   loading.value = true
   loadError.value = ''
   try {
-    const response = await listNotifications(active.value)
+    const response = await listNotifications('ALL', 50)
     assertNotificationList(response)
     notices.value = response
   } catch (error) {
@@ -68,7 +95,10 @@ async function loadNotifications() {
 }
 function switchTab(type: NoticeType) {
   active.value = type
-  void loadNotifications()
+}
+
+function unreadCountByType(type: NoticeType): number {
+  return filterNotifications(notices.value, type).filter((item) => !item.read).length
 }
 
 async function openNotice(item: NotificationItemResponse) {
@@ -92,6 +122,31 @@ async function openNotice(item: NotificationItemResponse) {
     uni.showToast({ title: '通知跳转地址无效，未打开页面', icon: 'none' })
   }
 }
+async function markVisibleRead() {
+  if (markingAll.value || activeUnreadCount.value === 0) return
+  const unread = filtered.value.filter((item) => !item.read && isValidNotificationNo(item.notificationNo))
+  if (!unread.length) {
+    uni.showToast({ title: '当前分类没有可处理的未读通知', icon: 'none' })
+    return
+  }
+  markingAll.value = true
+  let changed = 0
+  try {
+    for (const item of unread) {
+      const read = await markNotificationRead(item.notificationNo)
+      assertNotificationItem(read)
+      if (read.notificationNo !== item.notificationNo || read.read !== true) throw new Error('notification batch read response mismatch')
+      notices.value = notices.value.map((notice) => notice.notificationNo === read.notificationNo ? read : notice)
+      changed += 1
+    }
+    uni.showToast({ title: `已更新 ${changed} 条通知`, icon: 'none' })
+  } catch (error) {
+    console.warn('notification batch read mutation failed', { active: active.value, changed, error })
+    uni.showToast({ title: changed > 0 ? `已更新 ${changed} 条，剩余请稍后重试` : '批量已读暂时无法更新，请稍后重试', icon: 'none' })
+  } finally {
+    markingAll.value = false
+  }
+}
 function navigateToNotificationTarget(item: NotificationItemResponse): void {
   const route = {
     url: item.targetUrl || '',
@@ -101,7 +156,8 @@ function navigateToNotificationTarget(item: NotificationItemResponse): void {
     }
   }
   try {
-    uni.navigateTo(route)
+    if (isTabBarNotificationTargetUrl(item.targetUrl)) uni.switchTab(route)
+    else uni.navigateTo(route)
   } catch (error) {
     console.warn('notification target navigation failed', { notificationNo: item.notificationNo, targetUrl: item.targetUrl, error })
     uni.showToast({ title: '通知页面暂时无法打开，请稍后重试', icon: 'none' })

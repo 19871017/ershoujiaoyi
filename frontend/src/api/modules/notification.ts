@@ -14,8 +14,8 @@ export interface NotificationItemResponse {
   readAt?: string | null
 }
 
-export function listNotifications(type: 'ALL' | NotificationType = 'ALL') {
-  return get<NotificationItemResponse[]>('/api/notifications', { type })
+export function listNotifications(type: 'ALL' | NotificationType = 'ALL', limit = 50) {
+  return get<NotificationItemResponse[]>('/api/notifications', { type, limit })
 }
 
 export function markNotificationRead(notificationNo: string) {

@@ -4,6 +4,7 @@ export type NoticeType = 'ALL' | NotificationType
 
 export const launchReadinessMarkers = [
   '已读状态暂时无法更新，请稍后重试',
+  '批量已读暂时无法更新，请稍后重试',
   '通知暂时不可用，请稍后刷新'
 ]
 void launchReadinessMarkers
@@ -58,4 +59,12 @@ export function formatTime(value: string) {
 export function isSafeNotificationTargetUrl(value?: string | null) {
   if (!value) return false
   return /^\/pages\/[A-Za-z0-9/_-]+\/index(?:\?[A-Za-z0-9%=&_.:-]+)?$/.test(value)
+}
+
+export function isTabBarNotificationTargetUrl(value?: string | null) {
+  return value === '/pages/tabbar/home/index' ||
+    value === '/pages/tabbar/category/index' ||
+    value === '/pages/tabbar/publish/index' ||
+    value === '/pages/tabbar/message/index' ||
+    value === '/pages/tabbar/me/index'
 }

@@ -10,6 +10,7 @@
 
 .hero,
 .notice-card,
+.notice-toolbar,
 .empty-card {
   margin-top: 14rpx;
   padding: 20rpx;
@@ -22,7 +23,10 @@
 .notice-icon,
 .tab-row,
 .notice-card,
-.title-row {
+.title-row,
+.notice-toolbar,
+.toolbar-actions,
+.notice-bottom {
   display: flex;
 }
 
@@ -48,6 +52,14 @@
   justify-content: center;
 }
 
+.hero-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8rpx;
+  flex: 0 0 auto;
+}
+
 .hero-icon,
 .notice-icon {
   flex: 0 0 auto;
@@ -67,6 +79,64 @@
   box-shadow: 0 12rpx 24rpx rgba(255, 122, 69, .17);
 }
 
+.hero-count {
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+  background: #3a261a;
+  color: #fffaf4;
+  font-size: 18rpx;
+  font-weight: 950;
+  line-height: 1.1;
+}
+
+.notice-toolbar {
+  justify-content: space-between;
+  align-items: center;
+  gap: 14rpx;
+  background: rgba(255, 255, 255, .94);
+}
+
+.toolbar-title {
+  color: #342116;
+  font-size: 24rpx;
+  font-weight: 950;
+}
+
+.toolbar-desc {
+  margin-top: 5rpx;
+  color: #8f6b57;
+  font-size: 19rpx;
+  font-weight: 750;
+}
+
+.toolbar-actions {
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.toolbar-btn {
+  margin: 0;
+  min-width: 112rpx;
+  height: 54rpx;
+  line-height: 54rpx;
+  padding: 0 16rpx;
+  border-radius: 999rpx;
+  background: #ef6f3f;
+  color: #fffaf4;
+  font-size: 20rpx;
+  font-weight: 950;
+}
+
+.toolbar-btn.ghost {
+  background: #fff4ec;
+  color: #df6735;
+}
+
+.toolbar-btn[disabled] {
+  opacity: .48;
+}
+
 .tab-row {
   margin-top: 14rpx;
   gap: 10rpx;
@@ -84,6 +154,9 @@
   font-size: 21rpx;
   font-weight: 900;
   box-shadow: 0 9rpx 18rpx rgba(132, 70, 36, .055);
+  display: inline-flex;
+  align-items: center;
+  gap: 7rpx;
 }
 
 .chip.active {
@@ -91,6 +164,24 @@
   color: #fffaf4;
   border-color: rgba(58, 38, 26, .82);
   box-shadow: 0 12rpx 24rpx rgba(58, 38, 26, .14);
+}
+
+.chip-count {
+  min-width: 27rpx;
+  height: 27rpx;
+  padding: 0 7rpx;
+  border-radius: 999rpx;
+  background: #ff3f8d;
+  color: #fff;
+  font-size: 17rpx;
+  line-height: 27rpx;
+  text-align: center;
+  font-weight: 950;
+}
+
+.chip.active .chip-count {
+  background: #fffaf4;
+  color: #3a261a;
 }
 
 .notice-list {
@@ -168,9 +259,25 @@
   font-weight: 650;
 }
 
-.time {
+.notice-bottom {
   margin-top: 7rpx;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.time {
   color: #8f6b57;
   font-size: 19rpx;
   font-weight: 750;
+}
+
+.target-hint {
+  flex: 0 0 auto;
+  padding: 4rpx 10rpx;
+  border-radius: 999rpx;
+  background: #fff4ec;
+  color: #df6735;
+  font-size: 18rpx;
+  font-weight: 900;
 }
