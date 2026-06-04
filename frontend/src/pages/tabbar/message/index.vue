@@ -6,10 +6,21 @@
       <view class="community-top-content">
         <view class="community-top-head">
           <view class="community-title-chip">社区</view>
-          <view class="community-notice tapable" @click="openNotification">
-            <text class="community-notice-icon">🔔</text>
-            <text>通知</text>
+          <view class="community-actions">
+            <view class="community-private tapable" @click="goSessions">
+              <text class="community-notice-icon">✉</text>
+              <text>私信</text>
+              <text v-if="totalUnread > 0" class="unread-dot">{{ displayUnread }}</text>
+            </view>
+            <view class="community-notice tapable" @click="openNotification">
+              <text class="community-notice-icon">🔔</text>
+              <text>通知</text>
+            </view>
           </view>
+        </view>
+        <view v-if="privateSummaryText" class="private-summary tapable" @click="goSessions">
+          <text class="private-summary-icon">私信</text>
+          <text>{{ privateSummaryText }}</text>
         </view>
         <view class="topic-grid">
           <view v-for="item in topics" :key="item.title" class="topic-card tapable" :class="{ active: activeTopic === item.title }" @click="selectTopic(item.title)">
@@ -36,7 +47,7 @@
       <view class="feed-actions">
         <view class="tapable" @click="toggleLikeFeed(item)">{{ item.likedByMe ? '♥' : '♡' }} {{ item.likeCount }}</view>
         <view class="tapable" @click="openPost(item)">💬 {{ item.commentCount }}</view>
-        <view class="tapable" @click="goSessions">私信</view>
+        <view class="tapable" @click="chatPostAuthor(item)">私信</view>
       </view>
     </view>
 
@@ -48,6 +59,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { onHide, onShow, onUnload } from '@dcloudio/uni-app'
+import { getChatConversations, type ChatConversationItem, type ChatConversationListResponse } from '../../../api/modules/chat'
 import { likeCommunityPost, listCommunityPosts, unlikeCommunityPost, type CommunityPostResponse } from '../../../api/modules/community'
 import communityHeroBanner from '../../../assets/community/community-hero-banner.png'
 
@@ -59,9 +72,21 @@ const topics = [
   { icon: '🎯', title: '求购心愿' }
 ]
 const feeds = ref<CommunityPostResponse[]>([])
+const conversations = ref<ChatConversationItem[]>([])
 const loading = ref(false)
 const loadError = ref('')
+let privateRefreshTimer: ReturnType<typeof setInterval> | null = null
 const filteredFeeds = computed(() => feeds.value.filter((item) => item.topic === activeTopic.value))
+const totalUnread = computed(() => conversations.value.reduce((sum, item) => sum + Math.max(0, item.unreadCount), 0))
+const displayUnread = computed(() => totalUnread.value > 99 ? '99+' : String(totalUnread.value))
+const latestUnreadConversation = computed(() => conversations.value.find((item) => item.unreadCount > 0))
+const privateSummaryText = computed(() => {
+  const unread = totalUnread.value
+  if (unread <= 0) return ''
+  const latest = latestUnreadConversation.value
+  const peer = latest ? peerName(latest) : '私信'
+  return `${peer} 有新消息 · ${unread} 未读`
+})
 
 async function loadFeeds() {
   loading.value = true
@@ -77,6 +102,28 @@ async function loadFeeds() {
 }
 
 function goSessions() { uni.navigateTo({ url: '/pages/chat/session-list/index' }) }
+async function loadPrivateSummary(preserveOnError = true) {
+  try {
+    const response = await getChatConversations()
+    assertConversationListResponse(response)
+    conversations.value = response.conversations
+  } catch (error) {
+    console.warn('community private summary load failed', { error })
+    if (!preserveOnError) conversations.value = []
+  }
+}
+
+function startPrivateSummaryRefresh() {
+  if (privateRefreshTimer) return
+  privateRefreshTimer = setInterval(() => { void loadPrivateSummary(true) }, 5000)
+}
+
+function stopPrivateSummaryRefresh() {
+  if (!privateRefreshTimer) return
+  clearInterval(privateRefreshTimer)
+  privateRefreshTimer = null
+}
+
 function openNotification() { uni.navigateTo({ url: '/pages/notification/index' }) }
 function showToast(title: string) { uni.showToast({ title, icon: 'none' }) }
 function openComposer() { uni.navigateTo({ url: '/pages/community/compose/index' }) }
@@ -91,6 +138,13 @@ function openPost(item: CommunityPostResponse) {
     return
   }
   uni.navigateTo({ url: `/pages/community/detail/index?postId=${item.postId}&topic=${encodeURIComponent(item.topic)}` })
+}
+function chatPostAuthor(item: CommunityPostResponse) {
+  if (!isValidBackendUserId(item.authorId)) {
+    showToast('缺少真实作者ID，未进入私信')
+    return
+  }
+  uni.navigateTo({ url: `/pages/chat/conversation/index?receiverId=${encodeURIComponent(String(item.authorId))}` })
 }
 function toggleFollow() { showToast('关注接口暂未接通后端，未执行任何关注变更') }
 async function toggleLikeFeed(item: CommunityPostResponse) {
@@ -109,8 +163,37 @@ async function toggleLikeFeed(item: CommunityPostResponse) {
 }
 function avatarOf(item: CommunityPostResponse) { return (item.title || item.topic || '原').slice(0, 1) }
 function formatTime(value: string) { return value ? value.slice(0, 16).replace('T', ' ') : '刚刚' }
+function peerName(item: ChatConversationItem) { return item.peerNickname || `用户 ${item.peerUserId}` }
+function isValidBackendUserId(value: number | string | null | undefined) { return /^[1-9]\d{0,18}$/.test(String(value || '')) }
+function assertConversationListResponse(value: unknown): asserts value is ChatConversationListResponse {
+  if (!value || typeof value !== 'object') throw new Error('community private summary invalid response')
+  const response = value as ChatConversationListResponse
+  if (!Array.isArray(response.conversations)) throw new Error('community private summary invalid conversations')
+  for (const item of response.conversations) assertConversationItem(item)
+}
+function assertConversationItem(value: unknown): asserts value is ChatConversationItem {
+  if (!value || typeof value !== 'object') throw new Error('community private summary invalid item')
+  const item = value as ChatConversationItem
+  if (!isValidBackendUserId(item.conversationId) || !isValidBackendUserId(item.peerUserId)) throw new Error('community private summary invalid ids')
+  for (const field of ['lastServerSeq', 'deliveredSeq', 'readSeq', 'unreadCount'] as const) {
+    if (!Number.isSafeInteger(item[field]) || item[field] < 0) throw new Error(`community private summary invalid ${field}`)
+  }
+  if (typeof item.updatedAt !== 'string') throw new Error('community private summary invalid updatedAt')
+  if (item.peerNickname != null && typeof item.peerNickname !== 'string') throw new Error('community private summary invalid peerNickname')
+  if (item.peerAvatarUrl != null && typeof item.peerAvatarUrl !== 'string') throw new Error('community private summary invalid peerAvatarUrl')
+}
 
-onMounted(loadFeeds)
+onMounted(() => {
+  void loadFeeds()
+  void loadPrivateSummary(false)
+  startPrivateSummaryRefresh()
+})
+onShow(() => {
+  void loadPrivateSummary(true)
+  startPrivateSummaryRefresh()
+})
+onHide(stopPrivateSummaryRefresh)
+onUnload(stopPrivateSummaryRefresh)
 </script>
 
 <style scoped>
@@ -167,6 +250,7 @@ onMounted(loadFeeds)
 .community-top-head,
 .feed-head,
 .community-notice,
+.community-private,
 .topic-card,
 .avatar,
 .compose-fab {
@@ -177,6 +261,13 @@ onMounted(loadFeeds)
 .community-top-head {
   justify-content: space-between;
   gap: 16rpx;
+}
+
+.community-actions {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  flex: 0 0 auto;
 }
 
 .community-title-chip {
@@ -202,8 +293,58 @@ onMounted(loadFeeds)
   box-shadow: 0 12rpx 24rpx rgba(255, 122, 69, .20);
 }
 
+.community-private {
+  position: relative;
+  gap: 8rpx;
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, .9);
+  color: #4b2d20;
+  font-size: 20rpx;
+  font-weight: 920;
+  border: 1rpx solid rgba(255, 217, 189, .62);
+  box-shadow: 0 10rpx 22rpx rgba(132, 70, 36, .09);
+}
+
+.unread-dot {
+  min-width: 28rpx;
+  height: 28rpx;
+  padding: 0 7rpx;
+  border-radius: 999rpx;
+  background: #ff3f8d;
+  color: #fff;
+  font-size: 17rpx;
+  line-height: 28rpx;
+  text-align: center;
+  font-weight: 950;
+}
+
 .community-notice-icon {
   font-size: 22rpx;
+}
+
+.private-summary {
+  margin: 12rpx 0 14rpx;
+  padding: 12rpx 14rpx;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  border-radius: 22rpx;
+  background: rgba(255, 255, 255, .82);
+  color: #4b2d20;
+  font-size: 20rpx;
+  font-weight: 900;
+  border: 1rpx solid rgba(255, 217, 189, .58);
+  box-shadow: 0 10rpx 22rpx rgba(132, 70, 36, .075);
+}
+
+.private-summary-icon {
+  padding: 5rpx 10rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #ef6f3f, #ff8b76);
+  color: #fffaf4;
+  font-size: 17rpx;
+  font-weight: 950;
 }
 
 .time {
