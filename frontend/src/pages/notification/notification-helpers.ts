@@ -60,6 +60,7 @@ export function isSafeNotificationTargetUrl(value?: string | null) {
   if (!value) return false
   if (!/^\/pages\/[A-Za-z0-9/_-]+\/index(?:\?[A-Za-z0-9%=&_.:-]+)?$/.test(value)) return false
   if (value.startsWith('/pages/after-sales/detail/index?')) return isSafeAfterSalesDetailTargetUrl(value)
+  if (value.startsWith('/pages/order/detail/index?')) return isSafeOrderDetailTargetUrl(value)
   return true
 }
 
@@ -70,6 +71,19 @@ export function isSafeAfterSalesDetailTargetUrl(value: string): boolean {
     const afterSalesNo = params.get('afterSalesNo') || ''
     const orderNo = params.get('orderNo') || ''
     return /^AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(afterSalesNo) && /^OD-[0-9]{1,10}$/.test(orderNo)
+  } catch {
+    return false
+  }
+}
+
+export function isSafeOrderDetailTargetUrl(value: string): boolean {
+  try {
+    const query = value.split('?')[1] || ''
+    const params = new URLSearchParams(query)
+    const keys: string[] = []
+    params.forEach((_value, key) => { keys.push(key) })
+    const orderNo = params.get('orderNo') || ''
+    return keys.length === 1 && keys[0] === 'orderNo' && /^OD-[0-9]{1,10}$/.test(orderNo)
   } catch {
     return false
   }
