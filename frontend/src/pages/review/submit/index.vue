@@ -34,7 +34,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { submitOrderReview } from '../../../api/modules/order'
+import { submitOrderReview, type OrderReviewResponse } from '../../../api/modules/order'
 
 const scores = reactive([{ key: 'desc', label: '描述相符', value: 5 }, { key: 'service', label: '沟通服务', value: 5 }, { key: 'ship', label: '发货速度', value: 5 }])
 const content = ref('')
@@ -42,6 +42,7 @@ const orderNo = ref('')
 const errorText = ref('')
 const submitting = ref(false)
 const backendOrderNoPattern = /^OD-[0-9]{1,10}$/
+const backendReviewNoPattern = /^RV-[0-9]{1,10}$/
 
 function decodeRouteValue(value: string): string {
   try {
@@ -53,6 +54,25 @@ function decodeRouteValue(value: string): string {
 
 function isValidOrderNo(value: string): boolean {
   return backendOrderNoPattern.test(value)
+}
+
+function isValidReviewNo(value: string): boolean {
+  return backendReviewNoPattern.test(value)
+}
+
+function isValidScore(value: unknown): boolean {
+  return Number.isSafeInteger(value) && Number(value) >= 1 && Number(value) <= 5
+}
+
+function assertBackendReviewResponse(response: OrderReviewResponse, expectedOrderNo: string): void {
+  if (!isValidReviewNo(response.reviewNo)) throw new Error('review submit invalid backend reviewNo')
+  if (!isValidOrderNo(response.orderNo)) throw new Error('review submit invalid backend orderNo')
+  if (response.orderNo !== expectedOrderNo) throw new Error('review submit orderNo mismatch')
+  if (!Number.isSafeInteger(response.reviewerId) || response.reviewerId <= 0) throw new Error('review submit invalid reviewerId')
+  if (!Number.isSafeInteger(response.revieweeId) || response.revieweeId <= 0) throw new Error('review submit invalid revieweeId')
+  if (!isValidScore(response.descriptionScore) || !isValidScore(response.serviceScore) || !isValidScore(response.shippingScore)) {
+    throw new Error('review submit invalid backend score')
+  }
 }
 
 onLoad((query) => {
@@ -73,18 +93,51 @@ async function submitReview(): Promise<void> {
   if (submitting.value) return
   submitting.value = true
   try {
-    await submitOrderReview(safeOrderNo, {
+    const response = await submitOrderReview(safeOrderNo, {
       descriptionScore: scores[0].value,
       serviceScore: scores[1].value,
       shippingScore: scores[2].value,
       content: content.value
     })
-    uni.showModal({ title: '评价已提交', content: '评价已写入平台订单评价记录。', showCancel: false, success: () => uni.navigateTo({ url: '/pages/order/list/index' }) })
+    assertBackendReviewResponse(response, safeOrderNo)
+    showReviewSuccessModal(response)
   } catch (error) {
+    console.warn('review submit failed', { orderNo: safeOrderNo, error })
     uni.showToast({ title: error instanceof Error ? error.message : '评价提交失败，请确认订单已完成且未重复评价', icon: 'none' })
   } finally {
     submitting.value = false
   }
+}
+
+function showReviewSuccessModal(response: OrderReviewResponse): void {
+  const safeOrderNo = response.orderNo
+  const modalOptions = {
+    title: '评价已提交',
+    content: `评价 ${response.reviewNo} 已写入平台订单评价记录，可回订单详情确认。`,
+    showCancel: true,
+    confirmText: '查看订单',
+    cancelText: '订单列表',
+    fail(error: unknown) {
+      console.warn('review submit success modal failed', { orderNo: safeOrderNo, reviewNo: response.reviewNo, error })
+      redirectAfterReview(safeOrderNo, true)
+    },
+    success(modal: { confirm?: boolean }) {
+      redirectAfterReview(safeOrderNo, modal.confirm === true)
+    }
+  }
+  uni.showModal(modalOptions)
+}
+
+function redirectAfterReview(orderNoSnapshot: string, showDetail: boolean): void {
+  const target = showDetail ? `/pages/order/detail/index?orderNo=${encodeURIComponent(orderNoSnapshot)}` : '/pages/order/list/index?role=buyer&status=COMPLETED'
+  const route = {
+    url: target,
+    fail(error: unknown) {
+      console.warn('review submit redirect failed', { orderNo: orderNoSnapshot, target, error })
+      uni.showToast({ title: '评价已提交，但暂时无法打开订单页', icon: 'none' })
+    }
+  }
+  uni.redirectTo(route)
 }
 </script>
 <style scoped>
