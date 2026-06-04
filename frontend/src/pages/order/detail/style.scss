@@ -11,6 +11,7 @@
 .status-card,
 .goods-card,
 .flow-card,
+.after-sales-card,
 .info-card,
 .safe-card {
   border-color: rgba(255, 217, 189, .78);
@@ -76,11 +77,77 @@
 
 .goods-card,
 .flow-card,
+.after-sales-card,
 .info-card,
 .safe-card {
   margin-top: 12rpx;
   padding: 17rpx;
   background: linear-gradient(180deg, rgba(255, 255, 255, .98), rgba(255, 248, 242, .97));
+}
+
+.after-sales-card {
+  border-color: rgba(255, 190, 136, .82);
+  background: linear-gradient(135deg, rgba(255, 251, 247, .98), rgba(255, 240, 224, .96));
+}
+
+.after-sales-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14rpx;
+}
+
+.after-sales-desc {
+  margin-top: 7rpx;
+  color: #8f6b57;
+  font-size: 21rpx;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.after-sales-status {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  padding: 8rpx 14rpx;
+  border: 1rpx solid rgba(239, 111, 63, .22);
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, .82);
+  color: #df6735;
+  font-size: 20rpx;
+  font-weight: 950;
+}
+
+.after-sales-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 14rpx;
+  padding: 12rpx 0;
+  border-top: 1rpx solid rgba(255, 217, 189, .58);
+  color: #8f6b57;
+  font-size: 21rpx;
+  font-weight: 750;
+}
+
+.after-sales-row text:last-child {
+  color: #342116;
+  font-weight: 950;
+  text-align: right;
+  word-break: break-all;
+}
+
+.after-sales-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50rpx;
+  margin-top: 4rpx;
+  padding: 0 22rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #ef6f3f, #ff8b76);
+  color: #fffaf4;
+  font-size: 21rpx;
+  font-weight: 950;
+  box-shadow: 0 9rpx 18rpx rgba(255, 122, 69, .15);
 }
 
 .goods-card {

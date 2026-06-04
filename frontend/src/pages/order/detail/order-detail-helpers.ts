@@ -28,6 +28,14 @@ export function isValidBackendOrderNo(value: string): boolean {
   return backendOrderNoPattern.test(value)
 }
 
+export function isValidAfterSalesNo(value: string): boolean {
+  return /^AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(value)
+}
+
+export function isKnownAfterSalesStatus(value: unknown): boolean {
+  return value === 'PENDING_REVIEW' || value === 'APPROVED' || value === 'REJECTED' || value === 'CANCELLED'
+}
+
 export function isValidOrderAmount(value: unknown): boolean {
   const numeric = Number(value)
   return Number.isFinite(numeric) && numeric > 0
@@ -46,6 +54,8 @@ export function assertBackendOrderDetail(detail: OrderDetailResponse, expectedOr
   if (detail.orderNo !== expectedOrderNo) throw new Error('order detail orderNo mismatch')
   if (!isValidOrderAmount(detail.amount)) throw new Error('order detail invalid order amount')
   if (!isOrderRole(detail.role)) throw new Error('order detail invalid role')
+  if (detail.afterSalesNo && !isValidAfterSalesNo(detail.afterSalesNo)) throw new Error('order detail invalid afterSalesNo')
+  if (detail.afterSalesStatus && !isKnownAfterSalesStatus(detail.afterSalesStatus)) throw new Error('order detail invalid afterSalesStatus')
 }
 
 export function actionsForOrderDetail(order: OrderDetailResponse, displayStatus: OrderListStatus): string[] {

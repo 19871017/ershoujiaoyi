@@ -31,6 +31,21 @@
         </view>
       </view>
 
+      <view v-if="showAfterSalesSummary" class="after-sales-card ds-card">
+        <view class="after-sales-head">
+          <view>
+            <view class="section-title">售后复盘</view>
+            <view class="after-sales-desc">{{ afterSalesNextStep }}</view>
+          </view>
+          <view class="after-sales-status">{{ afterSalesStatusLabel }}</view>
+        </view>
+        <view class="after-sales-row">
+          <text>售后单号</text>
+          <text>{{ order.afterSalesNo }}</text>
+        </view>
+        <view class="after-sales-action tapable" @click="openAfterSalesDetail">查看售后详情</view>
+      </view>
+
       <view class="info-card ds-card">
         <view class="section-title">交易信息</view>
         <view v-for="item in infoRows" :key="item.label" class="info-row"><text>{{ item.label }}</text><text>{{ item.value }}</text></view>
@@ -60,6 +75,7 @@ import {
   decodeRouteValue,
   isValidBackendOrderNo,
   isValidBackendProductId,
+  isValidAfterSalesNo,
   isValidOrderAmount,
   states
 } from './order-detail-helpers'
@@ -71,6 +87,24 @@ const confirming = ref(false)
 const errorText = ref('')
 const displayStatus = computed<OrderListStatus>(() => order.value?.afterSalesNo ? 'REFUNDING' : (order.value?.status || 'PENDING_PAY'))
 const current = computed(() => states[displayStatus.value])
+const showAfterSalesSummary = computed(() => !!order.value?.afterSalesNo)
+const afterSalesStatusLabel = computed(() => {
+  const status = String(order.value?.afterSalesStatus || 'PENDING_REVIEW').toUpperCase()
+  const labels: Record<string, string> = {
+    PENDING_REVIEW: '处理中',
+    APPROVED: '已通过',
+    REJECTED: '已驳回',
+    CANCELLED: '已取消'
+  }
+  return labels[status] || '处理中'
+})
+const afterSalesNextStep = computed(() => {
+  const status = String(order.value?.afterSalesStatus || 'PENDING_REVIEW').toUpperCase()
+  if (status === 'APPROVED') return '售后已通过，请继续查看售后详情和关联订单记录，资金结果以后端记录为准。'
+  if (status === 'REJECTED') return '售后已驳回，如仍有争议，请补充票据并通过平台私信继续沟通。'
+  if (status === 'CANCELLED') return '售后已取消，可回到订单确认当前交易状态。'
+  return '售后处理中，请保留聊天、物流和票据材料，进度以平台售后详情为准。'
+})
 const flow = computed(() => {
   const item = order.value
   return [
@@ -182,14 +216,7 @@ function handleAction(action: string): void {
     )
   }
   else if (action === '查看售后') {
-    if (!currentOrder.afterSalesNo) return uni.showToast({ title: '暂无售后单号', icon: 'none' })
-    navigateWithFailure(
-      `/pages/after-sales/detail/index?afterSalesNo=${encodeURIComponent(currentOrder.afterSalesNo)}&orderNo=${encodedOrderNo}`,
-      (error: unknown) => {
-        console.warn('order detail after-sales detail navigation failed', { orderNo: safeOrderNo, afterSalesNo: currentOrder.afterSalesNo, error })
-        uni.showToast({ title: '暂时无法打开售后详情', icon: 'none' })
-      }
-    )
+    openAfterSalesDetail()
   }
   else if (action === '确认收货') void confirmOrderReceipt()
   else if (action === '提醒发货') showUnavailableAction(action)
@@ -207,6 +234,25 @@ function handleAction(action: string): void {
 }
 function showUnavailableAction(action: string): void {
   uni.showToast({ title: `${action}暂不可用，请稍后重试`, icon: 'none' })
+}
+function openAfterSalesDetail(): void {
+  const currentOrder = order.value
+  if (!currentOrder) return
+  if (!isValidBackendOrderNo(currentOrder.orderNo)) return uni.showToast({ title: '订单编号无效，未打开售后详情', icon: 'none' })
+  if (!currentOrder.afterSalesNo) return uni.showToast({ title: '暂无售后单号', icon: 'none' })
+  if (!isValidAfterSalesNo(currentOrder.afterSalesNo)) {
+    console.warn('order detail invalid after-sales trace target', { orderNo: currentOrder.orderNo, afterSalesNo: currentOrder.afterSalesNo })
+    return uni.showToast({ title: '售后单号异常，已阻止跳转', icon: 'none' })
+  }
+  const safeOrderNo = currentOrder.orderNo
+  const safeAfterSalesNo = currentOrder.afterSalesNo
+  navigateWithFailure(
+    `/pages/after-sales/detail/index?afterSalesNo=${encodeURIComponent(safeAfterSalesNo)}&orderNo=${encodeURIComponent(safeOrderNo)}`,
+    (error: unknown) => {
+      console.warn('order detail after-sales detail navigation failed', { orderNo: safeOrderNo, afterSalesNo: safeAfterSalesNo, error })
+      uni.showToast({ title: '暂时无法打开售后详情', icon: 'none' })
+    }
+  )
 }
 function openOrderContact(action: OrderContactAction): void {
   const currentOrder = order.value

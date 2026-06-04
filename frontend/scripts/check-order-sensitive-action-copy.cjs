@@ -94,6 +94,8 @@ const requiredOrderIdGuardMarkers = {
     "console.warn('order detail route decode failed'",
     "console.warn('order detail invalid route orderNo'",
     'function isValidBackendOrderNo(value: string)',
+    'function isValidAfterSalesNo(value: string): boolean',
+    'function isKnownAfterSalesStatus(value: unknown): boolean',
     'function isValidOrderAmount(value: unknown): boolean',
     'function assertBackendOrderDetail(detail: OrderDetailResponse, expectedOrderNo: string): void',
     'function isOrderRole(value: unknown): value is OrderRole',
@@ -102,6 +104,13 @@ const requiredOrderIdGuardMarkers = {
     "throw new Error('order detail orderNo mismatch')",
     "throw new Error('order detail invalid order amount')",
     "throw new Error('order detail invalid role')",
+    "throw new Error('order detail invalid afterSalesNo')",
+    "throw new Error('order detail invalid afterSalesStatus')",
+    '<view v-if="showAfterSalesSummary" class="after-sales-card ds-card">',
+    'const showAfterSalesSummary = computed(() => !!order.value?.afterSalesNo)',
+    'const afterSalesNextStep = computed(() => {',
+    'function openAfterSalesDetail(): void',
+    "console.warn('order detail invalid after-sales trace target'",
     'if (!isValidBackendOrderNo(orderNo.value))',
     "console.warn('order detail load failed'",
     "console.warn('order detail checkout navigation failed'",
@@ -245,6 +254,18 @@ for (const file of files) {
       content,
       /else if \(action === '去发货'\)\s*\{[\s\S]*\/pages\/order\/ship\/index\?orderNo=\$\{encodedOrderNo\}[\s\S]*console\.warn\('order detail ship navigation failed'/s,
       'order detail seller paid action must navigate to the real shipping page with a validated orderNo'
+    )
+    requirePattern(
+      file,
+      content,
+      /function openAfterSalesDetail\(\): void\s*\{[\s\S]*if \(!isValidBackendOrderNo\(currentOrder\.orderNo\)\)[\s\S]*if \(!currentOrder\.afterSalesNo\)[\s\S]*if \(!isValidAfterSalesNo\(currentOrder\.afterSalesNo\)\)[\s\S]*console\.warn\('order detail invalid after-sales trace target'[\s\S]*const safeOrderNo = currentOrder\.orderNo[\s\S]*const safeAfterSalesNo = currentOrder\.afterSalesNo[\s\S]*\/pages\/after-sales\/detail\/index\?afterSalesNo=\$\{encodeURIComponent\(safeAfterSalesNo\)\}&orderNo=\$\{encodeURIComponent\(safeOrderNo\)\}[\s\S]*console\.warn\('order detail after-sales detail navigation failed'/s,
+      'order detail after-sales summary/detail navigation must validate backend orderNo and canonical afterSalesNo before navigation'
+    )
+    requirePattern(
+      file,
+      content,
+      /const afterSalesNextStep = computed\(\(\) => \{[\s\S]*APPROVED[\s\S]*REJECTED[\s\S]*CANCELLED[\s\S]*售后处理中，请保留聊天、物流和票据材料，进度以平台售后详情为准。/s,
+      'order detail after-sales summary must show status-specific next steps without implying real refund-channel handling'
     )
   }
   if (file === 'src/pages/order/list/index.vue') {
