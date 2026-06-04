@@ -3,6 +3,7 @@ package com.secondhand.platform.modules.audit.application;
 import com.secondhand.platform.shared.contracts.user.IdentityType;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -129,8 +130,58 @@ public class AuditApplicationService {
     }
 
     public List<AuditRecordResponse> listAll() {
+        return listAdminAudits(null, null, null, null);
+    }
+
+    public List<AuditRecordResponse> listAdminAudits(String auditType, String status, String keyword, Integer limit) {
+        String safeAuditType = normalizeAdminAuditType(auditType);
+        String safeStatus = normalizeAuditStatus(status);
+        String safeKeyword = normalizeAdminAuditKeyword(keyword);
+        int safeLimit = limit == null ? 50 : limit;
+        if (safeLimit < 1 || safeLimit > 100) {
+            throw new IllegalArgumentException("audit list limit invalid");
+        }
+
+        StringBuilder sql = new StringBuilder("""
+                select audit_no,audit_type,user_id,target_type,target_id,reason,description,status,review_remark,created_at,reviewed_at
+                from audit_record
+                where 1 = 1
+                """);
+        List<Object> args = new ArrayList<>();
+        if (safeAuditType != null) {
+            sql.append(" and audit_type = ?");
+            args.add(safeAuditType);
+        }
+        if (safeStatus != null) {
+            sql.append(" and status = ?");
+            args.add(safeStatus);
+        }
+        if (safeKeyword != null) {
+            sql.append("""
+                     and (
+                        lower(audit_no) like ?
+                        or lower(target_type) like ?
+                        or lower(target_id) like ?
+                        or lower(reason) like ?
+                        or lower(description) like ?
+                """);
+            String like = "%" + safeKeyword.toLowerCase(Locale.ROOT) + "%";
+            args.add(like);
+            args.add(like);
+            args.add(like);
+            args.add(like);
+            args.add(like);
+            if (safeKeyword.matches("[1-9]\\d{0,18}")) {
+                sql.append(" or user_id = ?");
+                args.add(Long.parseLong(safeKeyword));
+            }
+            sql.append(")");
+        }
+        sql.append(" order by created_at desc, id desc limit ?");
+        args.add(safeLimit);
+
         return jdbcTemplate.query(
-                "select audit_no,audit_type,user_id,target_type,target_id,reason,description,status,review_remark,created_at,reviewed_at from audit_record order by created_at desc, id desc",
+                sql.toString(),
                 (rs, rowNum) -> new AuditRecordResponse(
                         rs.getString("audit_no"),
                         rs.getString("audit_type"),
@@ -143,7 +194,8 @@ public class AuditApplicationService {
                         rs.getString("review_remark"),
                         toLocalDateTime(rs.getTimestamp("created_at")),
                         toLocalDateTime(rs.getTimestamp("reviewed_at"))
-                )
+                ),
+                args.toArray()
         );
     }
 
@@ -350,6 +402,50 @@ public class AuditApplicationService {
                 .peek(url -> mediaUploadTicketService.requireUploadedStorageUrl(userId, "REPORT_EVIDENCE", url))
                 .distinct()
                 .toList();
+    }
+
+    private String normalizeAdminAuditType(String auditType) {
+        String safeType = safeText(auditType);
+        if (safeType == null || "ALL".equalsIgnoreCase(safeType)) {
+            return null;
+        }
+        String upper = safeType.toUpperCase(Locale.ROOT);
+        if (!List.of(AUDIT_TYPE_REPORT, AUDIT_TYPE_WITHDRAWAL, AUDIT_TYPE_VIDEO_IDENTITY, "PRODUCT").contains(upper)) {
+            throw new IllegalArgumentException("audit type invalid");
+        }
+        return upper;
+    }
+
+    private String normalizeAuditStatus(String status) {
+        String safeStatus = safeText(status);
+        if (safeStatus == null || "ALL".equalsIgnoreCase(safeStatus)) {
+            return null;
+        }
+        String upper = safeStatus.toUpperCase(Locale.ROOT);
+        if (!List.of(STATUS_PENDING, STATUS_APPROVED, STATUS_REJECTED).contains(upper)) {
+            throw new IllegalArgumentException("audit status invalid");
+        }
+        return upper;
+    }
+
+    private String normalizeAdminAuditKeyword(String keyword) {
+        String safeKeyword = safeText(keyword);
+        if (safeKeyword == null) {
+            return null;
+        }
+        String lower = safeKeyword.toLowerCase(Locale.ROOT);
+        if (safeKeyword.length() > 64
+                || lower.contains("preview")
+                || lower.contains("demo")
+                || lower.contains("mock")
+                || lower.contains("sample")
+                || lower.contains("placeholder")) {
+            throw new IllegalArgumentException("audit keyword invalid");
+        }
+        if (safeKeyword.matches("\\d+") && !safeKeyword.matches("[1-9]\\d{0,18}")) {
+            throw new IllegalArgumentException("audit keyword invalid");
+        }
+        return safeKeyword;
     }
 
     private void rejectUnsafeEvidenceUrl(String evidenceUrl) {

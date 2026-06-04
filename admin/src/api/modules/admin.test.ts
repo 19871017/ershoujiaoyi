@@ -4,6 +4,7 @@ import {
   getAdminAfterSalesDetail,
   getAdminAfterSalesList,
   getAdminAuditDetail,
+  getAdminAuditList,
   getAdminAuditLogs,
   getAdminDashboard,
   getAdminLocationConfig,
@@ -18,6 +19,7 @@ import {
   searchAdminUsers,
   isValidAdminAfterSalesKeyword,
   isValidAdminAfterSalesNo,
+  isValidAdminAuditKeyword,
   isValidAdminAuditLogId,
   isValidAdminAuditNo,
   isValidAdminOrderKeyword,
@@ -320,6 +322,38 @@ describe('admin finance api', () => {
     expect(isValidAdminAuditNo('preview-audit')).toBe(false)
     expect(isValidAdminAuditNo('AUDIT-GOODS-1')).toBe(false)
     await expect(getAdminAuditDetail('preview-audit')).rejects.toThrow('审核编号无效')
+  })
+
+  it('loads audit list with report filters and rejects invalid filters before fetch', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            auditNo: 'AU-REP-1770000000000-12345',
+            auditType: 'REPORT',
+            targetType: 'PRODUCT',
+            targetId: 'PRODUCT-100001',
+            status: 'PENDING',
+            reason: 'SPAM',
+            description: '已脱敏举报内容'
+          }
+        ]
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const rows = await getAdminAuditList({ auditType: 'REPORT', status: 'PENDING', keyword: 'PRODUCT-100001', limit: 20 })
+
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/audit?auditType=REPORT&status=PENDING&keyword=PRODUCT-100001&limit=20'), expect.any(Object))
+    expect(rows[0].auditType).toBe('REPORT')
+    expect(isValidAdminAuditKeyword('PRODUCT-100001')).toBe(true)
+    expect(isValidAdminAuditKeyword('preview-report')).toBe(false)
+
+    await expect(getAdminAuditList({ auditType: 'ROOT' as never, status: 'PENDING', limit: 20 })).rejects.toThrow('审核类型筛选无效')
+    await expect(getAdminAuditList({ auditType: 'REPORT', status: 'PROCESSING' as never, limit: 20 })).rejects.toThrow('审核状态筛选无效')
+    await expect(getAdminAuditList({ auditType: 'REPORT', status: 'PENDING', keyword: 'preview-report', limit: 20 })).rejects.toThrow('审核关键词无效')
+    await expect(getAdminAuditList({ auditType: 'REPORT', status: 'PENDING', limit: 101 })).rejects.toThrow('审核列表条数无效')
   })
 
   it('loads after-sales detail only for positive backend numbers without fake success', async () => {

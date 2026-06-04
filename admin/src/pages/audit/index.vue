@@ -2,10 +2,26 @@
   <section class="page-shell">
     <div class="page-title">审核工作台</div>
     <div class="page-desc">统一处理举报、提现、视频认证、商品审核等后台记录。</div>
-    <div class="toolbar">
-      <button class="primary-btn" @click="load">刷新</button>
-      <span>待审 {{ pendingCount }} 条</span>
-    </div>
+    <form class="toolbar audit-filter-bar" @submit.prevent="load">
+      <select v-model="auditTypeFilter">
+        <option value="ALL">全部类型</option>
+        <option value="REPORT">举报处理</option>
+        <option value="WITHDRAWAL">提现审核</option>
+        <option value="VIDEO_IDENTITY">视频认证</option>
+        <option value="PRODUCT">商品审核</option>
+      </select>
+      <select v-model="statusFilter">
+        <option value="PENDING">待处理</option>
+        <option value="APPROVED">已通过</option>
+        <option value="REJECTED">已拒绝</option>
+        <option value="ALL">全部状态</option>
+      </select>
+      <input v-model.trim="keyword" maxlength="64" placeholder="审核号/目标编号/用户ID/原因" @keyup.enter="load" />
+      <input v-model.number="limit" type="number" min="1" max="100" step="1" @keyup.enter="load" />
+      <button class="primary-btn" :disabled="loading">{{ loading ? '加载中...' : '刷新队列' }}</button>
+      <button class="secondary-btn" type="button" :disabled="loading" @click="showReportsOnly">只看举报</button>
+      <span>当前待审 {{ pendingCount }} 条</span>
+    </form>
     <div v-if="error" class="alert">{{ error }}</div>
     <div v-if="loading" class="empty">审核记录加载中...</div>
     <div v-else-if="audits.length === 0" class="empty">暂无审核记录。</div>
@@ -34,28 +50,40 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
-import { approveAdminAudit, approveAdminProduct, getAdminAuditList, rejectAdminAudit, type AuditRecordResponse } from '../../api'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { approveAdminAudit, approveAdminProduct, getAdminAuditList, rejectAdminAudit, type AdminAuditListQuery, type AuditRecordResponse } from '../../api'
 import { canReviewAuditRecord, useAuthStore } from '../../store/modules/auth'
 import { afterSalesAuditTraceLocation } from '../after-sales/after-sales-trace-links'
 import { orderAuditTraceLocation } from '../orders/order-trace-links'
 
 const audits = ref<AuditRecordResponse[]>([])
 const auth = useAuthStore()
+const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')
 const reviewingAuditNo = ref('')
+const auditTypeFilter = ref<NonNullable<AdminAuditListQuery['auditType']>>('ALL')
+const statusFilter = ref<NonNullable<AdminAuditListQuery['status']>>('PENDING')
+const keyword = ref('')
+const limit = ref(50)
 const pendingCount = computed(() => audits.value.filter((item) => item.status === 'PENDING').length)
 
 async function load() {
   loading.value = true
   error.value = ''
   try {
-    audits.value = await getAdminAuditList()
-  } catch {
+    const safeKeyword = keyword.value.trim()
+    audits.value = await getAdminAuditList({
+      auditType: auditTypeFilter.value,
+      status: statusFilter.value,
+      keyword: safeKeyword || undefined,
+      limit: Number(limit.value)
+    })
+    syncQuery()
+  } catch (err) {
     audits.value = []
-    error.value = '审核列表加载失败，请确认管理员权限与服务状态。'
+    error.value = err instanceof Error && err.message ? err.message : '审核列表加载失败，请确认管理员权限与服务状态。'
   } finally {
     loading.value = false
   }
@@ -114,5 +142,43 @@ function openOrderTrace(item: AuditRecordResponse) {
   })
 }
 
-onMounted(load)
+function showReportsOnly() {
+  auditTypeFilter.value = 'REPORT'
+  statusFilter.value = 'PENDING'
+  load()
+}
+
+function syncQuery() {
+  router.replace({
+    path: '/audit',
+    query: {
+      auditType: auditTypeFilter.value,
+      status: statusFilter.value,
+      keyword: keyword.value.trim() || undefined,
+      limit: String(limit.value)
+    }
+  }).catch(() => {})
+}
+
+function initFiltersFromRoute() {
+  const routeAuditType = String(route.query.auditType || '').toUpperCase()
+  if (['ALL', 'REPORT', 'WITHDRAWAL', 'VIDEO_IDENTITY', 'PRODUCT'].includes(routeAuditType)) {
+    auditTypeFilter.value = routeAuditType as NonNullable<AdminAuditListQuery['auditType']>
+  }
+  const routeStatus = String(route.query.status || '').toUpperCase()
+  if (['ALL', 'PENDING', 'APPROVED', 'REJECTED'].includes(routeStatus)) {
+    statusFilter.value = routeStatus as NonNullable<AdminAuditListQuery['status']>
+  }
+  const routeKeyword = String(route.query.keyword || '').trim()
+  if (routeKeyword) keyword.value = routeKeyword
+  const routeLimit = Number(route.query.limit || '')
+  if (Number.isInteger(routeLimit) && routeLimit >= 1 && routeLimit <= 100) {
+    limit.value = routeLimit
+  }
+}
+
+onMounted(() => {
+  initFiltersFromRoute()
+  load()
+})
 </script>

@@ -266,6 +266,30 @@ class AuditApplicationServiceTest {
     }
 
     @Test
+    void adminAuditListShouldFilterReportsByStatusKeywordAndApplicantId() {
+        AuditRecordResponse report = service.submitReport(777L, "product", "PRODUCT-100900", "SPAM", "商品举报内容");
+        service.submitWithdrawal(888L, "WD-100900", "WITHDRAW", "提现复核");
+
+        List<AuditRecordResponse> reportRows = service.listAdminAudits("REPORT", "PENDING", "PRODUCT-100900", 20);
+        List<AuditRecordResponse> applicantRows = service.listAdminAudits("ALL", "ALL", "777", 20);
+
+        assertEquals(1, reportRows.size());
+        assertEquals(report.auditNo(), reportRows.get(0).auditNo());
+        assertEquals(1, applicantRows.size());
+        assertEquals(report.auditNo(), applicantRows.get(0).auditNo());
+    }
+
+    @Test
+    void adminAuditListShouldRejectInvalidFiltersFailClosed() {
+        assertThrows(IllegalArgumentException.class, () -> service.listAdminAudits("ROOT", "PENDING", null, 20));
+        assertThrows(IllegalArgumentException.class, () -> service.listAdminAudits("REPORT", "PROCESSING", null, 20));
+        assertThrows(IllegalArgumentException.class, () -> service.listAdminAudits("REPORT", "PENDING", "preview-report", 20));
+        assertThrows(IllegalArgumentException.class, () -> service.listAdminAudits("REPORT", "PENDING", "A".repeat(65), 20));
+        assertThrows(IllegalArgumentException.class, () -> service.listAdminAudits("REPORT", "PENDING", "0", 20));
+        assertThrows(IllegalArgumentException.class, () -> service.listAdminAudits("REPORT", "PENDING", null, 101));
+    }
+
+    @Test
     void adminAuditLogsShouldReturnPersistedSafeSummariesWithPositiveCursor() {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
         jdbcTemplate.update("insert into admin_audit_log (action,operator_id,target_type,target_id,result,summary,created_at) values (?,?,?,?,?,?,CURRENT_TIMESTAMP)",

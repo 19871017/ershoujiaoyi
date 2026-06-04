@@ -115,6 +115,13 @@ export interface AdminAuditLogQuery {
   limit?: number
 }
 
+export interface AdminAuditListQuery {
+  auditType?: 'ALL' | 'REPORT' | 'WITHDRAWAL' | 'VIDEO_IDENTITY' | 'PRODUCT'
+  status?: 'ALL' | AuditStatus
+  keyword?: string
+  limit?: number
+}
+
 export interface AdminUserSearchQuery {
   keyword: string
   limit?: number
@@ -230,14 +237,18 @@ export function getAdminDashboard(): Promise<AdminDashboardSummary> {
   return request<AdminDashboardSummary>({ url: '/api/admin/dashboard' })
 }
 
-export function getAdminAuditList() {
-  return request<AuditRecordResponse[]>({ url: '/api/admin/audit' })
-}
-
 const ADMIN_AUDIT_NO_PATTERN = /^AU-(?:\d{8}-\d{4,}|[A-Z]{3}-[1-9]\d{9,16}-\d{1,6})$/
 
 export function isValidAdminAuditNo(auditNo: string): boolean {
   return ADMIN_AUDIT_NO_PATTERN.test(auditNo)
+}
+
+export function isValidAdminAuditKeyword(keyword: string) {
+  const normalized = keyword.trim()
+  if (!normalized || normalized.length > 64) return false
+  if (/(preview|demo|mock|sample|placeholder)/i.test(normalized)) return false
+  if (/^\d+$/.test(normalized) && !/^[1-9]\d{0,18}$/.test(normalized)) return false
+  return true
 }
 
 export function isValidAdminWithdrawalNo(withdrawalNo: string) {
@@ -286,6 +297,33 @@ export function isValidAdminUserSearchKeyword(keyword: string) {
 
 export function isValidAdminAuditLogId(logId: string | number) {
   return /^[1-9]\d*$/.test(String(logId))
+}
+
+export async function getAdminAuditList(query: AdminAuditListQuery = {}) {
+  const params = new URLSearchParams()
+  const auditType = query.auditType ?? 'ALL'
+  if (!['ALL', 'REPORT', 'WITHDRAWAL', 'VIDEO_IDENTITY', 'PRODUCT'].includes(auditType)) {
+    throw new Error('审核类型筛选无效')
+  }
+  if (auditType !== 'ALL') params.set('auditType', auditType)
+  const status = query.status ?? 'PENDING'
+  if (!['ALL', 'PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
+    throw new Error('审核状态筛选无效')
+  }
+  if (status !== 'ALL') params.set('status', status)
+  const keyword = query.keyword?.trim() ?? ''
+  if (keyword) {
+    if (!isValidAdminAuditKeyword(keyword)) {
+      throw new Error('审核关键词无效')
+    }
+    params.set('keyword', keyword)
+  }
+  const limit = query.limit ?? 50
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new Error('审核列表条数无效')
+  }
+  params.set('limit', String(limit))
+  return request<AuditRecordResponse[]>({ url: `/api/admin/audit?${params.toString()}` })
 }
 
 export async function getAdminAuditDetail(auditNo: string) {

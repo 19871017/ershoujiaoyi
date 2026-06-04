@@ -357,6 +357,41 @@ class AdminControllerRbacTest {
     }
 
     @Test
+    void adminAuditListFiltersReportsOnlyWithAuditReadPermission() throws Exception {
+        createActiveUser(73L);
+        jdbcTemplate.update("""
+                insert into audit_record (audit_no,audit_type,user_id,target_type,target_id,reason,description,status,created_at)
+                values (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+                """, "AU-REP-1770000000000-7301", AuditApplicationService.AUDIT_TYPE_REPORT, 73L, "PRODUCT", "PRODUCT-730001", "SPAM", "举报商品", AuditApplicationService.STATUS_PENDING);
+        jdbcTemplate.update("""
+                insert into audit_record (audit_no,audit_type,user_id,target_type,target_id,reason,description,status,created_at)
+                values (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+                """, "AU-WIT-1770000000000-7302", AuditApplicationService.AUDIT_TYPE_WITHDRAWAL, 73L, "WITHDRAWAL", "WD-730001", "提现审核", "提现复核", AuditApplicationService.STATUS_PENDING);
+
+        mvc.perform(get("/api/admin/audit")
+                        .header("X-User-Id", "73")
+                        .header("X-Admin-Session", issueAdminSession(73L))
+                        .param("auditType", "REPORT")
+                        .param("status", "PENDING")
+                        .param("keyword", "PRODUCT-730001")
+                        .param("limit", "20"))
+                .andExpect(status().isForbidden());
+
+        grantPermission(73L, "audit:read");
+
+        mvc.perform(get("/api/admin/audit")
+                        .header("X-User-Id", "73")
+                        .header("X-Admin-Session", issueAdminSession(73L))
+                        .param("auditType", "REPORT")
+                        .param("status", "PENDING")
+                        .param("keyword", "PRODUCT-730001")
+                        .param("limit", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].targetId").value("PRODUCT-730001"));
+    }
+
+    @Test
     void adminOperatorPermissionGrantRequiresOperatorGrantPermissionAndWritesAuditLog() throws Exception {
         createActiveUser(91L);
         createActiveUser(92L);

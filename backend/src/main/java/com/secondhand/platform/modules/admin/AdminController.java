@@ -160,9 +160,13 @@ public class AdminController {
     }
 
     @GetMapping("/audit")
-    public Result<List<AuditRecordResponse>> auditList(HttpServletRequest request) {
+    public Result<List<AuditRecordResponse>> auditList(@RequestParam(required = false) String auditType,
+                                                       @RequestParam(required = false) String status,
+                                                       @RequestParam(required = false) String keyword,
+                                                       @RequestParam(required = false) Integer limit,
+                                                       HttpServletRequest request) {
         adminAccessGuard.requireAdmin(request, "audit:read");
-        return Result.ok(auditApplicationService.listAll());
+        return Result.ok(auditApplicationService.listAdminAudits(auditType, status, keyword, limit));
     }
 
     @GetMapping("/audit-logs")
