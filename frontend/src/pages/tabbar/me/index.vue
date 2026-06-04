@@ -111,7 +111,7 @@ import { listOrders, type OrderListItemResponse } from '../../../api/modules/ord
 import { getMyProfile, type UserProfileResponse } from '../../../api/modules/user'
 import { getWalletBalance, type WalletBalanceResponse } from '../../../api/modules/wallet'
 import { assertNotificationItem, isSafeNotificationTargetUrl, isTabBarNotificationTargetUrl, isValidNotificationNo } from '../../notification/notification-helpers'
-import { emptyBalance, emptyProfile, menus, orderStatusItems, publishRoles, type OrderStatusKey } from './me-data'
+import { emptyBalance, emptyProfile, menus, orderStatusItems, publishRoles, type MeMenuItem, type OrderStatusKey } from './me-data'
 
 const profile = reactive<UserProfileResponse>({ ...emptyProfile })
 const balance = reactive<WalletBalanceResponse>({ ...emptyBalance })
@@ -253,7 +253,13 @@ function goPublishForm() {
   }
   uni.navigateTo({ url: '/pages/product/publish/index' })
 }
-function openMenu(item: { label: string; url?: string }) { item.url ? uni.navigateTo({ url: item.url }) : showToast(`${item.label}已打开`) }
+function openMenu(item: MeMenuItem) {
+  if (item.key === 'afterSales') {
+    openOrderStatus('afterSales')
+    return
+  }
+  item.url ? uni.navigateTo({ url: item.url }) : showToast(`${item.label}已打开`)
+}
 function openOrderStatus(key: OrderStatusKey) {
   const filters: Record<OrderStatusKey, { role: 'buyer' | 'seller'; status: 'PENDING_PAY' | 'PAID' | 'SHIPPED' | 'REFUNDING' }> = {
     pendingPay: { role: 'buyer', status: 'PENDING_PAY' },

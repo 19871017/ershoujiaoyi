@@ -22,6 +22,13 @@ export const emptyBalance: WalletBalanceResponse = {
 export const publishRoles = ['SELLER', 'BOTH']
 
 export type OrderStatusKey = 'pendingPay' | 'pendingShip' | 'pendingReceive' | 'afterSales'
+export type MenuActionKey = 'afterSales'
+export type MeMenuItem = {
+  icon: string
+  label: string
+  url?: string
+  key?: MenuActionKey
+}
 
 export const orderStatusItems: Array<{ key: OrderStatusKey; icon: string; label: string }> = [
   { key: 'pendingPay', icon: '💳', label: '待付款' },
@@ -30,9 +37,10 @@ export const orderStatusItems: Array<{ key: OrderStatusKey; icon: string; label:
   { key: 'afterSales', icon: '🌸', label: '售后' }
 ]
 
-export const menus = [
+export const menus: MeMenuItem[] = [
   { icon: '👤', label: '编辑资料', url: '/pages/user/profile/index' },
   { icon: '📦', label: '我的订单', url: '/pages/order/list/index' },
+  { icon: '🌸', label: '我的售后', key: 'afterSales' },
   { icon: '💰', label: '钱包账本', url: '/pages/wallet/index' },
   { icon: '🏦', label: '提现审核', url: '/pages/wallet/index?tab=withdraw' },
   { icon: '💳', label: '收款账户', url: '/pages/wallet/accounts/index' },
