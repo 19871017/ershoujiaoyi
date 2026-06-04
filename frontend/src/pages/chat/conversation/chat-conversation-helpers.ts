@@ -14,12 +14,17 @@ export const launchReadinessMarkers = [
 ]
 
 export const chatImageStoragePrefix = '/uploads/chat-image/'
+export const chatVoiceStoragePrefix = '/uploads/chat-voice/'
 export const communityImageStoragePrefix = '/uploads/community-image/'
 
 export type ImageContentType = 'image/png' | 'image/webp' | 'image/jpeg'
 export type ChooseImageFile = { name?: string; type?: string; size?: number }
 
 export class ChatDataIntegrityError extends Error {}
+
+export function isKnownChatMessageType(value: unknown): value is 'TEXT' | 'IMAGE' | 'VOICE' {
+  return value === 'TEXT' || value === 'IMAGE' || value === 'VOICE'
+}
 
 export function isValidBackendId(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
@@ -80,9 +85,11 @@ export function assertMessageSyncResponse(value: unknown): asserts value is Mess
   for (const message of response.messages) assertChatMessage(message)
 }
 
-export function parseMessageContentForValidation(message: ChatMessageItem): { text?: unknown; url?: unknown } {
+export function parseMessageContentForValidation(message: ChatMessageItem): Record<string, unknown> {
   try {
-    return JSON.parse(message.contentJson) as { text?: unknown; url?: unknown }
+    const parsed = JSON.parse(message.contentJson) as unknown
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not-object')
+    return parsed as Record<string, unknown>
   } catch {
     throw new ChatDataIntegrityError('chat message contentJson malformed')
   }
@@ -95,12 +102,14 @@ export function assertChatMessage(value: unknown): asserts value is ChatMessageI
   if (!Number.isSafeInteger(message.serverSeq) || message.serverSeq <= 0) throw new ChatDataIntegrityError('chat message invalid serverSeq')
   if (typeof message.serverMsgId !== 'string' || !message.serverMsgId.trim()) throw new ChatDataIntegrityError('chat message invalid serverMsgId')
   if (typeof message.clientMsgId !== 'string' || !message.clientMsgId.trim()) throw new ChatDataIntegrityError('chat message invalid clientMsgId')
-  if (message.msgType !== 'TEXT' && message.msgType !== 'IMAGE') throw new ChatDataIntegrityError('chat message invalid msgType')
+  if (typeof message.msgType !== 'string' || !message.msgType.trim()) throw new ChatDataIntegrityError('chat message invalid msgType')
   if (typeof message.contentJson !== 'string' || !message.contentJson.trim()) throw new ChatDataIntegrityError('chat message invalid contentJson')
   if (typeof message.createdAt !== 'string' || !message.createdAt) throw new ChatDataIntegrityError('chat message invalid createdAt')
   const content = parseMessageContentForValidation(message)
+  if (!isKnownChatMessageType(message.msgType)) return
   if (message.msgType === 'TEXT' && (typeof content.text !== 'string' || !content.text.trim())) throw new ChatDataIntegrityError('chat text message content invalid')
   if (message.msgType === 'IMAGE' && hasInvalidChatImageStorageUrl(content.url)) throw new ChatDataIntegrityError('chat message invalid image url')
+  if (message.msgType === 'VOICE' && !isValidVoiceMessageContent(content)) throw new ChatDataIntegrityError('chat voice message content invalid')
 }
 
 export function assertSendMessageResponse(value: unknown): asserts value is SendMessageResponse {
@@ -113,6 +122,23 @@ export function assertSendMessageResponse(value: unknown): asserts value is Send
   if (typeof ack.clientMsgId !== 'string' || !ack.clientMsgId.trim()) throw new Error('chat send invalid clientMsgId')
   if (!isValidBackendId(ack.senderId) || !isValidBackendId(ack.receiverId)) throw new Error('chat send invalid participant ids')
   if (ack.msgType !== 'TEXT' && ack.msgType !== 'IMAGE') throw new Error('chat send invalid msgType')
+}
+
+export function isValidVoiceMessageContent(content: Record<string, unknown>): boolean {
+  if (content.revoked === true || content.recalled === true) return true
+  const duration = normalizedVoiceDurationSeconds(content)
+  const url = content.url ?? content.audioUrl ?? content.voiceUrl
+  if (!Number.isFinite(duration) || duration < 0 || duration > 600) return false
+  if (typeof url !== 'string' || !url) return duration > 0
+  return isValidChatVoiceStorageUrl(url)
+}
+
+export function normalizedVoiceDurationSeconds(content: Record<string, unknown> | null | undefined): number {
+  if (!content) return 0
+  const seconds = Number(content.durationSeconds ?? content.duration ?? 0)
+  if (Number.isFinite(seconds) && seconds > 0) return seconds
+  const milliseconds = Number(content.durationMs ?? 0)
+  return Number.isFinite(milliseconds) && milliseconds > 0 ? milliseconds / 1000 : 0
 }
 
 export function guessImageMime(path: string, fallbackType?: string): ImageContentType {
@@ -178,6 +204,10 @@ export function hasInvalidStoredImageUrl(url: unknown, storagePrefix: string): b
 
 export function hasInvalidChatImageStorageUrl(url: unknown): boolean {
   return hasInvalidStoredImageUrl(url, chatImageStoragePrefix)
+}
+
+export function isValidChatVoiceStorageUrl(url: string): boolean {
+  return !hasInvalidStoredImageUrl(url, chatVoiceStoragePrefix)
 }
 
 export function validatedCommunityImageUrl(url: unknown): string {

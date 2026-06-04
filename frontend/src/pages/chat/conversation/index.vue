@@ -22,7 +22,7 @@
       <view v-for="message in messages" :key="message.serverMsgId" class="bubble-row" :class="{ mine: isMine(message) }">
         <view class="bubble">
           <image v-if="chatImageMessageUrl(message)" class="message-image" :src="chatImageMessageUrl(message)" mode="aspectFill" />
-          <view v-else class="message-body" :class="{ image: message.msgType === 'IMAGE' }">{{ renderMessage(message) }}</view>
+          <view v-else class="message-body" :class="{ image: message.msgType === 'IMAGE', voice: message.msgType === 'VOICE', unsupported: !isRenderableMessageType(message) }">{{ renderMessage(message) }}</view>
           <view class="message-meta">
             #{{ message.serverSeq }} · {{ formatTime(message.createdAt) }} · {{ receiptText(message) }}
           </view>
@@ -57,10 +57,12 @@ import {
   guessImageMime,
   hasInvalidChatImageStorageUrl,
   hasInvalidTempChatImagePath,
+  isKnownChatMessageType,
   imageFallbackName,
   imageFileSize,
   isPickerCancel,
   isValidBackendId,
+  normalizedVoiceDurationSeconds,
   parseMessageContentForValidation,
   readPositiveRouteNumber,
   validatedCommunityImageUrl,
@@ -487,9 +489,10 @@ function updateDraft(event: unknown): void {
 
 function isMine(message: ChatMessageItem): boolean { return message.senderId === currentUserId.value }
 
-function parsedMessageContent(message: ChatMessageItem): { text?: string; url?: string } | null {
+function parsedMessageContent(message: ChatMessageItem): Record<string, unknown> | null {
   try {
-    return JSON.parse(message.contentJson) as { text?: string; url?: string }
+    const parsed = JSON.parse(message.contentJson) as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null
   } catch (error) {
     blockChat('聊天数据校验失败，不能展示或发送聊天内容')
     console.warn('chat message content parse failed', { serverMsgId: message.serverMsgId, msgType: message.msgType, error })
@@ -503,10 +506,20 @@ function chatImageMessageUrl(message: ChatMessageItem): string {
   return hasInvalidChatImageStorageUrl(url) ? '' : url as string
 }
 
+function isRenderableMessageType(message: ChatMessageItem): boolean {
+  return isKnownChatMessageType(message.msgType)
+}
+
 function renderMessage(message: ChatMessageItem): string {
   const content = parsedMessageContent(message)
   if (message.msgType === 'IMAGE') return '图片暂不可用'
-  return content?.text || '消息内容暂不可用'
+  if (message.msgType === 'VOICE') {
+    if (content?.revoked === true || content?.recalled === true) return '语音已撤回'
+    const duration = normalizedVoiceDurationSeconds(content)
+    return Number.isFinite(duration) && duration > 0 ? `语音消息 ${Math.ceil(duration)}″` : '语音消息'
+  }
+  if (!isKnownChatMessageType(message.msgType)) return '暂不支持的消息类型'
+  return typeof content?.text === 'string' && content.text.trim() ? content.text : '消息内容暂不可用'
 }
 
 function receiptText(message: ChatMessageItem): string {

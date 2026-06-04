@@ -94,7 +94,7 @@ const requiredConversationMarkers = [
   'function assertMessageSyncResponse(value: unknown): asserts value is MessageSyncResponse',
   'function assertSendMessageResponse(value: unknown): asserts value is SendMessageResponse',
   'function assertSendMessageResponseForRequest(value: unknown, payload: SendMessageRequest): asserts value is SendMessageResponse',
-  'function parseMessageContentForValidation(message: ChatMessageItem): { text?: unknown; url?: unknown }',
+  'function parseMessageContentForValidation(message: ChatMessageItem): Record<string, unknown>',
   'class ChatDataIntegrityError extends Error',
   'function blockChat(reason: string): void',
   'function assertActiveConversationMessage(message: ChatMessageItem, activeConversationId: number, activeCurrentUserId: number, activeReceiverId: number): void',
@@ -234,7 +234,7 @@ if (!/const syncedAfterSend = await syncConversationMessages\(false, true\)[\s\S
   failed = true
 }
 
-if (!/function parseMessageContentForValidation\(message: ChatMessageItem\): \{ text\?: unknown; url\?: unknown \}[\s\S]*JSON\.parse\(message\.contentJson\)[\s\S]*throw new ChatDataIntegrityError\('chat message contentJson malformed'\)[\s\S]*function assertChatMessage\(value: unknown\): asserts value is ChatMessageItem[\s\S]*const content = parseMessageContentForValidation\(message\)[\s\S]*message\.msgType === 'TEXT' && \(typeof content\.text !== 'string' \|\| !content\.text\.trim\(\)\)[\s\S]*message\.msgType === 'IMAGE' && hasInvalidChatImageStorageUrl\(content\.url\)/s.test(conversation)) {
+if (!/function parseMessageContentForValidation\(message: ChatMessageItem\): Record<string, unknown>[\s\S]*JSON\.parse\(message\.contentJson\)[\s\S]*throw new ChatDataIntegrityError\('chat message contentJson malformed'\)[\s\S]*function assertChatMessage\(value: unknown\): asserts value is ChatMessageItem[\s\S]*const content = parseMessageContentForValidation\(message\)[\s\S]*message\.msgType === 'TEXT' && \(typeof content\.text !== 'string' \|\| !content\.text\.trim\(\)\)[\s\S]*message\.msgType === 'IMAGE' && hasInvalidChatImageStorageUrl\(content\.url\)[\s\S]*message\.msgType === 'VOICE' && !isValidVoiceMessageContent\(content\)/s.test(conversation)) {
   console.error(`${conversationFile}: message contentJson must be parsed and schema-validated by msgType before merge/render`)
   failed = true
 }

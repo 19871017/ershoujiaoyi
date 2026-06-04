@@ -1,13 +1,14 @@
 import { get, post } from '../http'
 
-export type MessageType = 'TEXT' | 'IMAGE'
+export type MessageType = 'TEXT' | 'IMAGE' | 'VOICE'
+export type SendableMessageType = 'TEXT' | 'IMAGE'
 export type SendState = 'sent'
 
 export interface SendMessageRequest {
   conversationId?: number
   clientMsgId: string
   receiverId: number
-  msgType: MessageType
+  msgType: SendableMessageType
   contentJson: string
 }
 
@@ -21,7 +22,7 @@ export interface ChatMessageAck {
   serverTs: string
   senderId: number
   receiverId: number
-  msgType: MessageType
+  msgType: string
 }
 
 export interface SendMessageResponse {
@@ -58,7 +59,7 @@ export interface ChatMessageItem {
   clientMsgId: string
   senderId: number
   receiverId: number
-  msgType: MessageType
+  msgType: string
   contentJson: string
   createdAt: string
   deliveredToReceiver?: boolean | null
