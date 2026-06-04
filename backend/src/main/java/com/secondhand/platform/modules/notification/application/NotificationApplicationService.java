@@ -147,6 +147,9 @@ public class NotificationApplicationService {
         if (trimmed.startsWith("/pages/after-sales/detail/index?")) {
             validateAfterSalesDetailTargetUrl(trimmed);
         }
+        if (trimmed.startsWith("/pages/order/detail/index?")) {
+            validateOrderDetailTargetUrl(trimmed);
+        }
         return trimmed;
     }
 
@@ -165,6 +168,27 @@ public class NotificationApplicationService {
             else if ("orderNo".equals(key)) orderNo = value;
         }
         if (!afterSalesNo.matches("AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}") || !orderNo.matches("OD-[0-9]{1,10}")) {
+            throw new IllegalArgumentException("notification targetUrl invalid");
+        }
+    }
+
+    private static void validateOrderDetailTargetUrl(String targetUrl) {
+        String query = targetUrl.substring("/pages/order/detail/index?".length());
+        String orderNo = "";
+        for (String pair : query.split("&")) {
+            String[] parts = pair.split("=", 2);
+            if (parts.length != 2) {
+                throw new IllegalArgumentException("notification targetUrl invalid");
+            }
+            String key = decode(parts[0]);
+            String value = decode(parts[1]);
+            if ("orderNo".equals(key)) {
+                orderNo = value;
+            } else {
+                throw new IllegalArgumentException("notification targetUrl invalid");
+            }
+        }
+        if (!orderNo.matches("OD-[0-9]{1,10}")) {
             throw new IllegalArgumentException("notification targetUrl invalid");
         }
     }

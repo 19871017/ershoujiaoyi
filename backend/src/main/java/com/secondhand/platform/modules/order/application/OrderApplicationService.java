@@ -6,6 +6,7 @@ import com.secondhand.platform.modules.order.OrderDetailResponse;
 import com.secondhand.platform.modules.order.OrderListItemResponse;
 import com.secondhand.platform.modules.order.ShipOrderResponse;
 
+import com.secondhand.platform.modules.notification.application.NotificationApplicationService;
 import com.secondhand.platform.modules.product.application.ProductApplicationService;
 import com.secondhand.platform.modules.product.application.ProductSnapshot;
 import com.secondhand.platform.modules.wallet_ledger.application.CreditCommand;
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -36,12 +38,21 @@ public class OrderApplicationService {
     private final ProductApplicationService productApplicationService;
     private final WalletLedgerService walletLedgerService;
     private final JdbcTemplate jdbcTemplate;
+    private final NotificationApplicationService notificationApplicationService;
 
     public OrderApplicationService(ProductApplicationService productApplicationService,
             WalletLedgerService walletLedgerService, JdbcTemplate jdbcTemplate) {
+        this(productApplicationService, walletLedgerService, jdbcTemplate, new NotificationApplicationService(jdbcTemplate));
+    }
+
+    @Autowired
+    public OrderApplicationService(ProductApplicationService productApplicationService,
+            WalletLedgerService walletLedgerService, JdbcTemplate jdbcTemplate,
+            NotificationApplicationService notificationApplicationService) {
         this.productApplicationService = productApplicationService;
         this.walletLedgerService = walletLedgerService;
         this.jdbcTemplate = jdbcTemplate;
+        this.notificationApplicationService = notificationApplicationService;
     }
 
     @Transactional
@@ -135,7 +146,9 @@ public class OrderApplicationService {
         if (changed == 0) {
             throw new IllegalStateException("order-payment-state-update-failed");
         }
-        return toPayResponse(findByOrderNoRequired(order.orderNo()), ledger.idempotentReplay());
+        OrderRecord paid = findByOrderNoRequired(order.orderNo());
+        notifyOrderPaid(paid);
+        return toPayResponse(paid, ledger.idempotentReplay());
     }
 
     @Transactional
@@ -163,6 +176,7 @@ public class OrderApplicationService {
                 """, sellerId, shippingType, company, trackingNo, remark, safeOrderNo, sellerId);
         if (changed == 0) throw new IllegalStateException("order-not-shippable");
         OrderRecord shipped = findByOrderNoRequired(safeOrderNo);
+        notifyOrderShipped(shipped);
         return new ShipOrderResponse(shipped.orderNo(), shipped.status(), shipped.shippingType(), shipped.shippingCompany(), shipped.trackingNo(), shipped.shippingRemark(), shipped.shippedAt());
     }
 
@@ -198,6 +212,7 @@ public class OrderApplicationService {
         if (changed == 0) {
             throw new IllegalStateException("order-confirm-state-update-failed");
         }
+        notifyOrderCompleted(findByOrderNoRequired(safeOrderNo));
         return detailOrder(safeOrderNo, buyerId);
     }
 
@@ -222,6 +237,7 @@ public class OrderApplicationService {
         } catch (org.springframework.dao.DuplicateKeyException duplicate) {
             throw new IllegalStateException("order-review-already-submitted");
         }
+        notifyOrderReviewed(order);
         return findReviewByNo(reviewNo);
     }
 
@@ -414,6 +430,72 @@ public class OrderApplicationService {
                 where order_no = ? and applicant_id = ? and after_sales_status not in ('REJECTED','CANCELLED','CLOSED')
                 """, Integer.class, orderNo, buyerId);
         return count != null && count > 0;
+    }
+
+    private void notifyOrderPaid(OrderRecord order) {
+        if (!hasNotificationTarget(order)) {
+            return;
+        }
+        notificationApplicationService.createNotification(
+                order.sellerId(),
+                "ORDER",
+                "买家已付款",
+                "订单 " + order.orderNo() + " 已付款，请尽快安排发货。",
+                orderDetailTargetUrl(order)
+        );
+    }
+
+    private void notifyOrderShipped(OrderRecord order) {
+        if (!hasNotificationTarget(order)) {
+            return;
+        }
+        notificationApplicationService.createNotification(
+                order.buyerId(),
+                "ORDER",
+                "卖家已发货",
+                "订单 " + order.orderNo() + " 已发货，请在订单详情查看物流或交付信息。",
+                orderDetailTargetUrl(order)
+        );
+    }
+
+    private void notifyOrderCompleted(OrderRecord order) {
+        if (!hasNotificationTarget(order)) {
+            return;
+        }
+        notificationApplicationService.createNotification(
+                order.sellerId(),
+                "ORDER",
+                "订单已完成",
+                "订单 " + order.orderNo() + " 已确认收货，结算记录以钱包账本为准。",
+                orderDetailTargetUrl(order)
+        );
+    }
+
+    private void notifyOrderReviewed(OrderRecord order) {
+        if (!hasNotificationTarget(order)) {
+            return;
+        }
+        notificationApplicationService.createNotification(
+                order.sellerId(),
+                "ORDER",
+                "买家已评价",
+                "订单 " + order.orderNo() + " 已收到买家评价，可在订单详情查看。",
+                orderDetailTargetUrl(order)
+        );
+    }
+
+    private String orderDetailTargetUrl(OrderRecord order) {
+        return "/pages/order/detail/index?orderNo=" + order.orderNo();
+    }
+
+    private boolean hasNotificationTarget(OrderRecord order) {
+        return order != null
+                && order.orderNo() != null
+                && order.orderNo().matches("OD-[0-9]{1,10}")
+                && order.buyerId() != null
+                && order.buyerId() > 0
+                && order.sellerId() != null
+                && order.sellerId() > 0;
     }
 
     private CreateOrderResponse toResponse(OrderRecord order) {

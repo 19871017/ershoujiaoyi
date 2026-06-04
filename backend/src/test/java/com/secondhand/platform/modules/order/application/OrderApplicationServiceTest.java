@@ -10,6 +10,8 @@ import com.secondhand.platform.modules.order.PayOrderResponse;
 import com.secondhand.platform.modules.order.OrderDetailResponse;
 import com.secondhand.platform.modules.order.OrderListItemResponse;
 import com.secondhand.platform.modules.order.ShipOrderResponse;
+import com.secondhand.platform.modules.notification.application.NotificationApplicationService;
+import com.secondhand.platform.modules.notification.application.NotificationItemResponse;
 import com.secondhand.platform.modules.product.CreateProductResponse;
 import com.secondhand.platform.modules.product.application.CreateProductRequest;
 import com.secondhand.platform.modules.product.application.ProductApplicationService;
@@ -29,6 +31,7 @@ class OrderApplicationServiceTest {
     private JdbcTemplate jdbcTemplate;
     private ProductApplicationService productService;
     private WalletLedgerService walletService;
+    private NotificationApplicationService notificationService;
     private OrderApplicationService orderService;
 
     @BeforeEach
@@ -41,7 +44,8 @@ class OrderApplicationServiceTest {
         jdbcTemplate = new JdbcTemplate(database);
         productService = new ProductApplicationService(jdbcTemplate, new com.secondhand.platform.modules.media.application.MediaUploadTicketService(jdbcTemplate));
         walletService = new WalletLedgerService(jdbcTemplate);
-        orderService = new OrderApplicationService(productService, walletService, jdbcTemplate);
+        notificationService = new NotificationApplicationService(jdbcTemplate);
+        orderService = new OrderApplicationService(productService, walletService, jdbcTemplate, notificationService);
     }
 
     @Test
@@ -81,6 +85,10 @@ class OrderApplicationServiceTest {
         PayOrderResponse paid = orderService.payOrder(order.getOrderNo(), 3001L);
         assertEquals("PAID", paid.getStatus());
         assertNotNull(paid.getLedgerNo());
+        List<NotificationItemResponse> sellerNotices = notificationService.listNotifications(1L, "ORDER", 20);
+        assertEquals(1, sellerNotices.size());
+        assertEquals("买家已付款", sellerNotices.get(0).title());
+        assertEquals("/pages/order/detail/index?orderNo=" + order.getOrderNo(), sellerNotices.get(0).targetUrl());
 
         OrderApplicationService reloaded = new OrderApplicationService(productService, walletService, jdbcTemplate);
         PayOrderResponse replay = reloaded.payOrder(order.getOrderNo(), 3001L);
@@ -88,6 +96,7 @@ class OrderApplicationServiceTest {
         assertEquals("PAID", replay.getStatus());
         assertTrue(replay.isIdempotentReplay());
         assertEquals(paid.getLedgerNo(), replay.getLedgerNo());
+        assertEquals(1, notificationService.listNotifications(1L, "ORDER", 20).size());
         assertEquals(1, jdbcTemplate.queryForObject("select count(*) from wallet_ledger_entry where biz_no = ? and biz_type = 'ORDER_PAYMENT'", Integer.class, order.getOrderNo()));
     }
 
@@ -105,12 +114,16 @@ class OrderApplicationServiceTest {
 
         ShipOrderResponse shipped = orderService.shipOrder(order.getOrderNo(), 1L, request);
         OrderDetailResponse detail = orderService.detailOrder(order.getOrderNo(), 5301L);
+        List<NotificationItemResponse> buyerNotices = notificationService.listNotifications(5301L, "ORDER", 20);
 
         assertEquals("SHIPPED", shipped.getStatus());
         assertEquals("EXPRESS", shipped.getShippingType());
         assertEquals("顺丰速运", detail.getShippingCompany());
         assertEquals("SF53010001", detail.getTrackingNo());
         assertNotNull(detail.getShippedAt());
+        assertEquals(1, buyerNotices.size());
+        assertEquals("卖家已发货", buyerNotices.get(0).title());
+        assertEquals("/pages/order/detail/index?orderNo=" + order.getOrderNo(), buyerNotices.get(0).targetUrl());
         assertThrows(IllegalStateException.class, () -> orderService.shipOrder(order.getOrderNo(), 1L, request));
     }
 
@@ -143,10 +156,13 @@ class OrderApplicationServiceTest {
 
         OrderDetailResponse completed = orderService.confirmReceipt(order.getOrderNo(), 5501L);
         OrderDetailResponse replay = orderService.confirmReceipt(order.getOrderNo(), 5501L);
+        List<NotificationItemResponse> sellerNotices = notificationService.listNotifications(1L, "ORDER", 20);
 
         assertEquals("COMPLETED", completed.getStatus());
         assertNotNull(completed.getCompletedAt());
         assertEquals("COMPLETED", replay.getStatus());
+        assertTrue(sellerNotices.stream().anyMatch(notice -> "订单已完成".equals(notice.title())
+                && ("/pages/order/detail/index?orderNo=" + order.getOrderNo()).equals(notice.targetUrl())));
         assertEquals(new BigDecimal("109.00"), jdbcTemplate.queryForObject("select withdrawable_balance from wallet_account where user_id = ?", BigDecimal.class, 1L));
         assertEquals(1, jdbcTemplate.queryForObject("select count(*) from wallet_ledger_entry where biz_no = ? and biz_type = 'ORDER_SETTLEMENT'", Integer.class, order.getOrderNo()));
     }
@@ -183,12 +199,15 @@ class OrderApplicationServiceTest {
         orderService.confirmReceipt(order.getOrderNo(), 5701L);
 
         OrderReviewResponse review = orderService.submitReview(order.getOrderNo(), 5701L, reviewRequest(5, 4, 5, "裙子和描述一致，沟通也很顺畅"));
+        List<NotificationItemResponse> sellerNotices = notificationService.listNotifications(1L, "ORDER", 20);
 
         assertEquals(order.getOrderNo(), review.orderNo());
         assertEquals(5701L, review.reviewerId());
         assertEquals(1L, review.revieweeId());
         assertEquals(5, review.descriptionScore());
         assertNotNull(review.reviewNo());
+        assertTrue(sellerNotices.stream().anyMatch(notice -> "买家已评价".equals(notice.title())
+                && ("/pages/order/detail/index?orderNo=" + order.getOrderNo()).equals(notice.targetUrl())));
         assertEquals(1, jdbcTemplate.queryForObject("select count(*) from order_review where order_no = ? and reviewer_id = ?", Integer.class, order.getOrderNo(), 5701L));
         assertThrows(IllegalStateException.class, () -> orderService.submitReview(order.getOrderNo(), 5701L, reviewRequest(5, 5, 5, "重复评价应该失败")));
     }

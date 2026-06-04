@@ -31,7 +31,7 @@ class NotificationApplicationServiceTest {
 
     @Test
     void listNotificationsShouldReturnOnlyOwnerRowsAndHideOtherUsersRows() {
-        service.createNotification(11L, "ORDER", "订单已更新", "订单状态以服务端记录为准", "/pages/order/detail/index?orderNo=ORD-abc123");
+        service.createNotification(11L, "ORDER", "订单已更新", "订单状态以服务端记录为准", "/pages/order/detail/index?orderNo=OD-12345");
         service.createNotification(12L, "CHAT", "收到新私信", "聊天记录以服务端会话为准", "/pages/chat/session-list/index");
 
         List<NotificationItemResponse> ownerRows = service.listNotifications(11L, "ALL", 20);
@@ -73,6 +73,9 @@ class NotificationApplicationServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.createNotification(41L, "SYSTEM", "越权通知", "跳转地址必须是站内白名单页面", "/pages/admin/risk/detail/index?riskNo=../secret"));
         assertThrows(IllegalArgumentException.class, () -> service.createNotification(41L, "ORDER", "售后通知", "售后目标编号必须来自后端", "/pages/after-sales/detail/index?afterSalesNo=preview-after-sales&orderNo=OD-1"));
         assertThrows(IllegalArgumentException.class, () -> service.createNotification(41L, "ORDER", "售后通知", "售后目标编号必须来自后端", "/pages/after-sales/detail/index?afterSalesNo=AS-USER-20260520-000001&orderNo=preview-order"));
+        assertThrows(IllegalArgumentException.class, () -> service.createNotification(41L, "ORDER", "订单通知", "订单目标编号必须来自后端", "/pages/order/detail/index?orderNo=preview-order"));
+        assertThrows(IllegalArgumentException.class, () -> service.createNotification(41L, "ORDER", "订单通知", "订单目标编号必须来自后端", "/pages/order/detail/index?orderNo=ORD-abc123"));
+        assertThrows(IllegalArgumentException.class, () -> service.createNotification(41L, "ORDER", "订单通知", "订单目标编号必须来自后端", "/pages/order/detail/index?orderNo=OD-12345&from=preview"));
 
         assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM notification_record WHERE user_id = ?", Integer.class, 41L));
     }
@@ -83,5 +86,13 @@ class NotificationApplicationServiceTest {
                 "/pages/after-sales/detail/index?afterSalesNo=AS-USER-20260520-000001&orderNo=OD-12345");
 
         assertEquals("/pages/after-sales/detail/index?afterSalesNo=AS-USER-20260520-000001&orderNo=OD-12345", notice.targetUrl());
+    }
+
+    @Test
+    void createNotificationShouldAllowCanonicalOrderDetailTarget() {
+        NotificationItemResponse notice = service.createNotification(52L, "ORDER", "买家已付款", "订单详情以服务端记录为准",
+                "/pages/order/detail/index?orderNo=OD-12345");
+
+        assertEquals("/pages/order/detail/index?orderNo=OD-12345", notice.targetUrl());
     }
 }
