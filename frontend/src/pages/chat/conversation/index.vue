@@ -63,6 +63,7 @@ import {
   isPickerCancel,
   isValidBackendId,
   normalizedVoiceDurationSeconds,
+  parseChatContentObject,
   parseMessageContentForValidation,
   readPositiveRouteNumber,
   validatedCommunityImageUrl,
@@ -491,10 +492,8 @@ function isMine(message: ChatMessageItem): boolean { return message.senderId ===
 
 function parsedMessageContent(message: ChatMessageItem): Record<string, unknown> | null {
   try {
-    const parsed = JSON.parse(message.contentJson) as unknown
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null
+    return parseChatContentObject(message.contentJson)
   } catch (error) {
-    blockChat('聊天数据校验失败，不能展示或发送聊天内容')
     console.warn('chat message content parse failed', { serverMsgId: message.serverMsgId, msgType: message.msgType, error })
     return null
   }
@@ -512,6 +511,7 @@ function isRenderableMessageType(message: ChatMessageItem): boolean {
 
 function renderMessage(message: ChatMessageItem): string {
   const content = parsedMessageContent(message)
+  if (!content) return '此条消息暂不可用'
   if (message.msgType === 'IMAGE') return '图片暂不可用'
   if (message.msgType === 'VOICE') {
     if (content?.revoked === true || content?.recalled === true) return '语音已撤回'

@@ -104,7 +104,7 @@ const requiredConversationMarkers = [
   'let discoveryFailureCount = 0',
   'discoveryFailureCount += 1',
   "statusText.value = '聊天用户资料暂不可用，消息仍以平台会话为准'",
-  "throw new ChatDataIntegrityError('chat text message content invalid')",
+  "return '此条消息暂不可用'",
   "throw new ChatDataIntegrityError('chat message conversation mismatch')",
   "throw new ChatDataIntegrityError('chat message participant mismatch')",
   "throw new Error('chat local send insertion missing required state')",
@@ -234,8 +234,22 @@ if (!/const syncedAfterSend = await syncConversationMessages\(false, true\)[\s\S
   failed = true
 }
 
-if (!/function parseMessageContentForValidation\(message: ChatMessageItem\): Record<string, unknown>[\s\S]*JSON\.parse\(message\.contentJson\)[\s\S]*throw new ChatDataIntegrityError\('chat message contentJson malformed'\)[\s\S]*function assertChatMessage\(value: unknown\): asserts value is ChatMessageItem[\s\S]*const content = parseMessageContentForValidation\(message\)[\s\S]*message\.msgType === 'TEXT' && \(typeof content\.text !== 'string' \|\| !content\.text\.trim\(\)\)[\s\S]*message\.msgType === 'IMAGE' && hasInvalidChatImageStorageUrl\(content\.url\)[\s\S]*message\.msgType === 'VOICE' && !isValidVoiceMessageContent\(content\)/s.test(conversation)) {
-  console.error(`${conversationFile}: message contentJson must be parsed and schema-validated by msgType before merge/render`)
+if (!/function assertChatMessage\(value: unknown\): asserts value is ChatMessageItem[\s\S]*message\.conversationId[\s\S]*message\.senderId[\s\S]*message\.receiverId[\s\S]*message\.serverSeq[\s\S]*message\.serverMsgId[\s\S]*message\.clientMsgId[\s\S]*message\.msgType[\s\S]*message\.contentJson[\s\S]*message\.createdAt/s.test(conversation)) {
+  console.error(`${conversationFile}: message sync must validate structural envelope before merge/render`)
+  failed = true
+}
+
+const malformedMessageIsolationMarkers = [
+  'function parseChatContentObject(contentJson: string): Record<string, unknown>',
+  'contentJson.trim().replace(',
+  'parseChatContentObject(message.contentJson)',
+  "console.warn('chat message content parse failed'",
+  "if (!content) return '此条消息暂不可用'",
+  "message.msgType === 'VOICE'",
+  'normalizedVoiceDurationSeconds(content)'
+]
+if (!malformedMessageIsolationMarkers.every((marker) => conversation.includes(marker))) {
+  console.error(`${conversationFile}: malformed per-message content must be isolated to one unavailable bubble and voice content must render without blocking the whole chat`)
   failed = true
 }
 

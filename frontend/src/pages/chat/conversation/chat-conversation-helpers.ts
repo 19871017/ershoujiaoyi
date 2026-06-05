@@ -87,12 +87,27 @@ export function assertMessageSyncResponse(value: unknown): asserts value is Mess
 
 export function parseMessageContentForValidation(message: ChatMessageItem): Record<string, unknown> {
   try {
-    const parsed = JSON.parse(message.contentJson) as unknown
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not-object')
-    return parsed as Record<string, unknown>
+    return parseChatContentObject(message.contentJson)
   } catch {
     throw new ChatDataIntegrityError('chat message contentJson malformed')
   }
+}
+
+export function parseChatContentObject(contentJson: string): Record<string, unknown> {
+  const candidates = [
+    contentJson,
+    contentJson.trim().replace(/\\"/g, '"')
+  ]
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as unknown
+      if (typeof parsed === 'string') return parseChatContentObject(parsed)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>
+    } catch {
+      // try the next legacy encoding form
+    }
+  }
+  throw new Error('chat content json malformed')
 }
 
 export function assertChatMessage(value: unknown): asserts value is ChatMessageItem {
@@ -105,11 +120,6 @@ export function assertChatMessage(value: unknown): asserts value is ChatMessageI
   if (typeof message.msgType !== 'string' || !message.msgType.trim()) throw new ChatDataIntegrityError('chat message invalid msgType')
   if (typeof message.contentJson !== 'string' || !message.contentJson.trim()) throw new ChatDataIntegrityError('chat message invalid contentJson')
   if (typeof message.createdAt !== 'string' || !message.createdAt) throw new ChatDataIntegrityError('chat message invalid createdAt')
-  const content = parseMessageContentForValidation(message)
-  if (!isKnownChatMessageType(message.msgType)) return
-  if (message.msgType === 'TEXT' && (typeof content.text !== 'string' || !content.text.trim())) throw new ChatDataIntegrityError('chat text message content invalid')
-  if (message.msgType === 'IMAGE' && hasInvalidChatImageStorageUrl(content.url)) throw new ChatDataIntegrityError('chat message invalid image url')
-  if (message.msgType === 'VOICE' && !isValidVoiceMessageContent(content)) throw new ChatDataIntegrityError('chat voice message content invalid')
 }
 
 export function assertSendMessageResponse(value: unknown): asserts value is SendMessageResponse {
