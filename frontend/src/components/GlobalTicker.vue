@@ -34,6 +34,13 @@ import { buildAnnouncementItems, buildGiftText, buildNoticeText, normalizeTarget
 const userStore = useUserStore()
 const items = ref<TickerItem[]>([])
 const currentIndex = ref(0)
+const OPTIONAL_SOURCE_COOLDOWN_MS = 5 * 60_000
+type OptionalTickerSource = 'announcement' | 'gift' | 'notice'
+const sourceCooldownUntil: Record<OptionalTickerSource, number> = {
+  announcement: 0,
+  gift: 0,
+  notice: 0
+}
 const visible = computed(() => items.value.length > 0)
 const renderedItems = computed(() => {
   if (!items.value.length) return []
@@ -84,21 +91,34 @@ function startRotation() {
   }, 3200)
 }
 
+function sourceInCooldown(source: OptionalTickerSource) {
+  return Date.now() < sourceCooldownUntil[source]
+}
+
+async function loadOptionalTickerSource<T>(
+  source: OptionalTickerSource,
+  label: string,
+  loader: () => Promise<T>,
+  fallback: T
+) {
+  if (sourceInCooldown(source)) return fallback
+  try {
+    const result = await loader()
+    sourceCooldownUntil[source] = 0
+    return result
+  } catch (error) {
+    sourceCooldownUntil[source] = Date.now() + OPTIONAL_SOURCE_COOLDOWN_MS
+    console.warn(`${label} unavailable`, error)
+    return fallback
+  }
+}
+
 async function loadTicker() {
   try {
     const [announcement, gifts, notifications] = await Promise.all([
-      getAnnouncementTicker().catch((error) => {
-        console.warn('announcement ticker unavailable', error)
-        return null
-      }),
-      getRecentGiftFeed().catch((error) => {
-        console.warn('recent gift feed unavailable', error)
-        return []
-      }),
-      userStore.token ? listNotifications('ALL').catch((error) => {
-        console.warn('ticker notifications unavailable', error)
-        return []
-      }) : Promise.resolve([])
+      loadOptionalTickerSource('announcement', 'announcement ticker', getAnnouncementTicker, null),
+      loadOptionalTickerSource('gift', 'recent gift feed', getRecentGiftFeed, []),
+      userStore.token ? loadOptionalTickerSource('notice', 'ticker notifications', () => listNotifications('ALL'), []) : Promise.resolve([])
     ])
     const announcementItems: TickerItem[] = buildAnnouncementItems(announcement)
     const giftItems: TickerItem[] = gifts
@@ -148,6 +168,7 @@ onMounted(() => {
 
 watch(visible, applyOffset)
 watch(() => userStore.token, () => {
+  sourceCooldownUntil.notice = 0
   void loadTicker()
 })
 

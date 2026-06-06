@@ -50,12 +50,20 @@ if (!tickerSource.includes('getRecentGiftFeed')) {
   failures.push(`${tickerFile}: global ticker must use the real recent gift feed`)
 }
 
-const giftFeedLoadsDirectly = tickerSource.includes('getRecentGiftFeed().catch((error) => {')
+const giftFeedLoadsDirectly = tickerSource.includes("loadOptionalTickerSource('gift', 'recent gift feed', getRecentGiftFeed, [])")
 const giftFeedIsLoginGated = [
   '(userStore.token || ENABLE_MOCK_DATA) ? getRecentGiftFeed()',
   'userStore.token ? getRecentGiftFeed()'
 ].some((gatedGiftFeedCall) => tickerSource.includes(gatedGiftFeedCall))
 const tickerTextScrolls = tickerSource.includes('<text class="ticker-text">{{ item.text }}</text>') && tickerSource.includes('@keyframes ticker-scroll')
+const optionalSourcesAreCooledDown = [
+  'OPTIONAL_SOURCE_COOLDOWN_MS',
+  'sourceCooldownUntil',
+  'sourceInCooldown',
+  'loadOptionalTickerSource',
+  "loadOptionalTickerSource('announcement', 'announcement ticker', getAnnouncementTicker, null)",
+  "loadOptionalTickerSource('gift', 'recent gift feed', getRecentGiftFeed, [])"
+].every((requiredSnippet) => tickerSource.includes(requiredSnippet))
 
 if (!giftFeedLoadsDirectly) {
   failures.push(`${tickerFile}: recent gift feed must be loaded from the public backend endpoint without login gating`)
@@ -67,6 +75,10 @@ if (giftFeedIsLoginGated) {
 
 if (!tickerTextScrolls) {
   failures.push(`${tickerFile}: ticker text must scroll horizontally so a single pinned announcement still visibly rotates`)
+}
+
+if (!optionalSourcesAreCooledDown) {
+  failures.push(`${tickerFile}: non-critical ticker sources must use cooldown after failures to avoid repeated 404 polling`)
 }
 
 if (!httpMockSource.includes("url === '/api/announcements/ticker'")) {
