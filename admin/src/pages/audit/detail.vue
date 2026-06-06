@@ -26,7 +26,8 @@
         <div><dt>复核时间</dt><dd>{{ detail.reviewedAt || '未复核' }}</dd></div>
         <div><dt>审核备注</dt><dd>{{ detail.reviewRemark || '暂无' }}</dd></div>
       </dl>
-      <div v-if="orderTraceLocation || afterSalesTraceLocation" class="toolbar detail-trace-actions">
+      <div v-if="chatTraceLocation || orderTraceLocation || afterSalesTraceLocation" class="toolbar detail-trace-actions">
+        <button v-if="chatTraceLocation" class="secondary-btn" @click="openChatTrace">私聊追溯</button>
         <button v-if="orderTraceLocation" class="secondary-btn" @click="openOrderTrace">订单追溯</button>
         <button v-if="afterSalesTraceLocation" class="secondary-btn" @click="openAfterSalesTrace">售后追溯</button>
       </div>
@@ -66,6 +67,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, RouterLink, useRouter } from 'vue-router'
 import { getAdminAuditDetail, isValidAdminAuditNo, type AuditRecordResponse } from '../../api'
 import { afterSalesAuditTraceLocation } from '../after-sales/after-sales-trace-links'
+import { chatAuditTraceLocation } from '../chat-trace/chat-trace-links'
 import { orderAuditTraceLocation } from '../orders/order-trace-links'
 import { extractReportEvidenceUrls } from './report-evidence'
 import { reportHandlingGuide } from './report-handling'
@@ -93,6 +95,7 @@ const detailSummary = computed(() => {
 })
 const reportEvidenceUrls = computed(() => detail.value?.auditType === 'REPORT' ? extractReportEvidenceUrls(detail.value.description) : [])
 const reportGuide = computed(() => detail.value ? reportHandlingGuide(detail.value) : null)
+const chatTraceLocation = computed(() => detail.value ? chatAuditTraceLocation(detail.value) : null)
 const afterSalesTraceLocation = computed(() => detail.value ? afterSalesAuditTraceLocation(detail.value) : null)
 const orderTraceLocation = computed(() => detail.value ? orderAuditTraceLocation(detail.value) : null)
 
@@ -121,6 +124,16 @@ function openAfterSalesTrace() {
   }
   router.push(afterSalesTraceLocation.value).catch(() => {
     error.value = '售后追溯页面打开失败，请稍后重试。'
+  })
+}
+
+function openChatTrace() {
+  if (!chatTraceLocation.value) {
+    error.value = '审核目标无法追溯到私聊记录。'
+    return
+  }
+  router.push(chatTraceLocation.value).catch(() => {
+    error.value = '私聊追溯页面打开失败，请稍后重试。'
   })
 }
 

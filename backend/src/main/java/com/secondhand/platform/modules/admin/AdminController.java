@@ -24,9 +24,13 @@ import com.secondhand.platform.modules.wallet_ledger.application.WalletLedgerSer
 import com.secondhand.platform.shared.kernel.Result;
 import com.secondhand.platform.shared.web.AdminAccessGuard;
 import jakarta.servlet.http.HttpServletRequest;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,6 +44,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
+    private static final Set<String> BLOCKED_ADMIN_SEARCH_KEYWORDS = Set.of(
+            "preview",
+            "demo",
+            "mock",
+            "sample",
+            "placeholder"
+    );
+
     private static final Set<String> ASSIGNABLE_OPERATOR_PERMISSIONS = Set.of(
             "audit:read",
             "audit:review",
@@ -311,6 +323,54 @@ public class AdminController {
         return Result.ok(afterSalesApplicationService.getAdminDetail(afterSalesNo));
     }
 
+    @GetMapping("/chat/conversations")
+    public Result<List<AdminChatConversationTraceResponse>> chatConversationList(@RequestParam(required = false) Long conversationId,
+                                                                                @RequestParam(required = false) Long userId,
+                                                                                @RequestParam(required = false) String keyword,
+                                                                                @RequestParam(defaultValue = "20") Integer limit,
+                                                                                HttpServletRequest request) {
+        adminAccessGuard.requireAdmin(request, "audit:read");
+        return Result.ok(queryAdminChatConversations(conversationId, userId, keyword, limit));
+    }
+
+    @GetMapping("/chat/conversations/{conversationId}/messages")
+    public Result<AdminChatConversationMessageTraceResponse> chatConversationMessages(@PathVariable Long conversationId,
+                                                                                     @RequestParam(defaultValue = "100") Integer limit,
+                                                                                     HttpServletRequest request) {
+        adminAccessGuard.requireAdmin(request, "audit:read");
+        long safeConversationId = requirePositiveId(conversationId, "conversationId invalid");
+        int safeLimit = normalizeLimit(limit, 100, 200, "chat message limit invalid");
+        List<AdminChatConversationTraceResponse> conversations = queryAdminChatConversations(safeConversationId, null, null, 1);
+        if (conversations.isEmpty()) {
+            throw new IllegalArgumentException("conversation not found");
+        }
+        List<AdminChatMessageTraceResponse> messages = jdbcTemplate.query("""
+                SELECT *
+                FROM (
+                    SELECT id, message_no, conversation_id, conversation_no, server_seq, client_msg_id,
+                           sender_id, receiver_id, message_type, content_json, created_at
+                    FROM im_message
+                    WHERE conversation_id = ?
+                    ORDER BY server_seq DESC
+                    LIMIT ?
+                ) recent_messages
+                ORDER BY server_seq ASC
+                """, (rs, rowNum) -> new AdminChatMessageTraceResponse(
+                rs.getLong("id"),
+                rs.getString("message_no"),
+                rs.getLong("conversation_id"),
+                rs.getString("conversation_no"),
+                rs.getLong("server_seq"),
+                rs.getString("client_msg_id"),
+                rs.getLong("sender_id"),
+                rs.getLong("receiver_id"),
+                rs.getString("message_type"),
+                rs.getString("content_json"),
+                toLocalDateTime(rs.getTimestamp("created_at"))
+        ), safeConversationId, safeLimit);
+        return Result.ok(new AdminChatConversationMessageTraceResponse(conversations.get(0), messages));
+    }
+
     @PostMapping("/after-sales/{afterSalesNo}/approve")
     public Result<AfterSalesResponse> approveAfterSales(@PathVariable String afterSalesNo,
                                                         @RequestBody(required = false) AdminAfterSalesReviewRequest body,
@@ -358,6 +418,142 @@ public class AdminController {
     private AdminOperatorPermissionResponse loadOperatorPermissions(Long userId) {
         OperatorRow row = findActiveOperator(userId);
         return new AdminOperatorPermissionResponse(row.userId(), row.userNo(), row.nickname(), row.status(), listOperatorPermissions(row.userId()));
+    }
+
+    private List<AdminChatConversationTraceResponse> queryAdminChatConversations(Long conversationId, Long userId, String keyword, Integer limit) {
+        Long safeConversationId = conversationId == null ? null : requirePositiveId(conversationId, "conversationId invalid");
+        Long safeUserId = userId == null ? null : requirePositiveId(userId, "userId invalid");
+        String safeKeyword = normalizeAdminSearchKeyword(keyword);
+        int safeLimit = normalizeLimit(limit, 20, 100, "chat conversation limit invalid");
+        StringBuilder sql = new StringBuilder("""
+                SELECT c.id, c.conversation_no, c.owner_user_id, c.peer_user_id, c.conversation_type,
+                       c.last_seq, c.last_message_summary, c.created_at, c.updated_at,
+                       owner.user_no AS owner_user_no,
+                       owner.nickname AS owner_nickname,
+                       owner.avatar_url AS owner_avatar_url,
+                       owner.status AS owner_status,
+                       owner_profile.gender AS owner_gender,
+                       owner_profile.city AS owner_city,
+                       COALESCE(owner_profile.main_role, 'BUYER') AS owner_main_role,
+                       COALESCE(owner_profile.video_verified, FALSE) AS owner_video_verified,
+                       peer.user_no AS peer_user_no,
+                       peer.nickname AS peer_nickname,
+                       peer.avatar_url AS peer_avatar_url,
+                       peer.status AS peer_status,
+                       peer_profile.gender AS peer_gender,
+                       peer_profile.city AS peer_city,
+                       COALESCE(peer_profile.main_role, 'BUYER') AS peer_main_role,
+                       COALESCE(peer_profile.video_verified, FALSE) AS peer_video_verified
+                FROM im_conversation c
+                LEFT JOIN user_account owner ON owner.id = c.owner_user_id
+                LEFT JOIN user_profile owner_profile ON owner_profile.user_id = owner.id
+                LEFT JOIN user_account peer ON peer.id = c.peer_user_id
+                LEFT JOIN user_profile peer_profile ON peer_profile.user_id = peer.id
+                WHERE 1 = 1
+                """);
+        List<Object> args = new ArrayList<>();
+        if (safeConversationId != null) {
+            sql.append(" AND c.id = ?");
+            args.add(safeConversationId);
+        }
+        if (safeUserId != null) {
+            sql.append(" AND (c.owner_user_id = ? OR c.peer_user_id = ?)");
+            args.add(safeUserId);
+            args.add(safeUserId);
+        }
+        if (safeKeyword != null) {
+            String likeKeyword = "%" + safeKeyword + "%";
+            sql.append("""
+                     AND (
+                        c.conversation_no = ?
+                        OR c.last_message_summary LIKE ?
+                        OR owner.user_no = ?
+                        OR peer.user_no = ?
+                        OR owner.nickname LIKE ?
+                        OR peer.nickname LIKE ?
+                """);
+            Collections.addAll(args, safeKeyword, likeKeyword, safeKeyword, safeKeyword, likeKeyword, likeKeyword);
+            if (safeKeyword.matches("^[1-9]\\d{0,18}$")) {
+                long numericKeyword = Long.parseLong(safeKeyword);
+                sql.append("""
+                        OR c.id = ?
+                        OR c.owner_user_id = ?
+                        OR c.peer_user_id = ?
+                """);
+                Collections.addAll(args, numericKeyword, numericKeyword, numericKeyword);
+            }
+            sql.append(")");
+        }
+        sql.append(" ORDER BY c.updated_at DESC, c.id DESC LIMIT ?");
+        args.add(safeLimit);
+        return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> new AdminChatConversationTraceResponse(
+                rs.getLong("id"),
+                rs.getString("conversation_no"),
+                rs.getString("conversation_type"),
+                rs.getLong("last_seq"),
+                rs.getString("last_message_summary"),
+                toLocalDateTime(rs.getTimestamp("created_at")),
+                toLocalDateTime(rs.getTimestamp("updated_at")),
+                new AdminChatParticipantTraceResponse(
+                        rs.getLong("owner_user_id"),
+                        rs.getString("owner_user_no"),
+                        rs.getString("owner_nickname"),
+                        rs.getString("owner_avatar_url"),
+                        rs.getString("owner_status"),
+                        rs.getString("owner_gender"),
+                        rs.getString("owner_city"),
+                        rs.getString("owner_main_role"),
+                        rs.getBoolean("owner_video_verified")
+                ),
+                new AdminChatParticipantTraceResponse(
+                        rs.getLong("peer_user_id"),
+                        rs.getString("peer_user_no"),
+                        rs.getString("peer_nickname"),
+                        rs.getString("peer_avatar_url"),
+                        rs.getString("peer_status"),
+                        rs.getString("peer_gender"),
+                        rs.getString("peer_city"),
+                        rs.getString("peer_main_role"),
+                        rs.getBoolean("peer_video_verified")
+                )
+        ), args.toArray());
+    }
+
+    private Long requirePositiveId(Long value, String message) {
+        if (value == null || value <= 0) {
+            throw new IllegalArgumentException(message);
+        }
+        return value;
+    }
+
+    private int normalizeLimit(Integer limit, int defaultLimit, int maxLimit, String message) {
+        int normalized = limit == null ? defaultLimit : limit;
+        if (normalized <= 0 || normalized > maxLimit) {
+            throw new IllegalArgumentException(message);
+        }
+        return normalized;
+    }
+
+    private String normalizeAdminSearchKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        String normalized = keyword.trim();
+        if (normalized.length() > 64) {
+            throw new IllegalArgumentException("keyword invalid");
+        }
+        String lower = normalized.toLowerCase(Locale.ROOT);
+        if (BLOCKED_ADMIN_SEARCH_KEYWORDS.stream().anyMatch(lower::contains)) {
+            throw new IllegalArgumentException("keyword invalid");
+        }
+        if (normalized.matches("^\\d+$") && !normalized.matches("^[1-9]\\d{0,18}$")) {
+            throw new IllegalArgumentException("keyword invalid");
+        }
+        return normalized;
+    }
+
+    private LocalDateTime toLocalDateTime(Timestamp timestamp) {
+        return timestamp == null ? null : timestamp.toLocalDateTime();
     }
 
     private void ensureActiveOperator(Long userId) {
@@ -456,6 +652,45 @@ public class AdminController {
     }
 
     private record OperatorRow(Long userId, String userNo, String nickname, String status) {
+    }
+
+    public record AdminChatParticipantTraceResponse(Long userId,
+                                                    String userNo,
+                                                    String nickname,
+                                                    String avatarUrl,
+                                                    String status,
+                                                    String gender,
+                                                    String city,
+                                                    String mainRole,
+                                                    Boolean videoVerified) {
+    }
+
+    public record AdminChatConversationTraceResponse(Long conversationId,
+                                                     String conversationNo,
+                                                     String conversationType,
+                                                     Long lastSeq,
+                                                     String lastMessageSummary,
+                                                     LocalDateTime createdAt,
+                                                     LocalDateTime updatedAt,
+                                                     AdminChatParticipantTraceResponse owner,
+                                                     AdminChatParticipantTraceResponse peer) {
+    }
+
+    public record AdminChatMessageTraceResponse(Long messageId,
+                                                String messageNo,
+                                                Long conversationId,
+                                                String conversationNo,
+                                                Long serverSeq,
+                                                String clientMsgId,
+                                                Long senderId,
+                                                Long receiverId,
+                                                String messageType,
+                                                String contentJson,
+                                                LocalDateTime createdAt) {
+    }
+
+    public record AdminChatConversationMessageTraceResponse(AdminChatConversationTraceResponse conversation,
+                                                            List<AdminChatMessageTraceResponse> messages) {
     }
 
     private void syncWithdrawalStatus(AuditRecordResponse response, String status, long adminUserId) {

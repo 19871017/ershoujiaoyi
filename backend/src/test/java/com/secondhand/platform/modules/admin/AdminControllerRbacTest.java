@@ -392,6 +392,71 @@ class AdminControllerRbacTest {
     }
 
     @Test
+    void adminChatTraceRequiresAuditReadAndReturnsParticipantProfiles() throws Exception {
+        createActiveUser(141L);
+        createChatTraceFixture();
+
+        mvc.perform(get("/api/admin/chat/conversations")
+                        .header("X-User-Id", "141")
+                        .header("X-Admin-Session", issueAdminSession(141L))
+                        .param("keyword", "CHAT-141-142")
+                        .param("limit", "20"))
+                .andExpect(status().isForbidden());
+
+        grantPermission(141L, "audit:read");
+
+        mvc.perform(get("/api/admin/chat/conversations")
+                        .header("X-User-Id", "141")
+                        .header("X-Admin-Session", issueAdminSession(141L))
+                        .param("keyword", "CHAT-141-142")
+                        .param("limit", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].conversationNo").value("CHAT-141-142"))
+                .andExpect(jsonPath("$.data[0].owner.nickname").value("私聊用户141"))
+                .andExpect(jsonPath("$.data[0].peer.city").value("上海"));
+
+        mvc.perform(get("/api/admin/chat/conversations")
+                        .header("X-User-Id", "141")
+                        .header("X-Admin-Session", issueAdminSession(141L))
+                        .param("userId", "142")
+                        .param("limit", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].peer.userId").value(142));
+    }
+
+    @Test
+    void adminChatTraceMessagesIncludeVoiceContentAndRejectUnsafeFilters() throws Exception {
+        createActiveUser(143L);
+        grantPermission(143L, "audit:read");
+        Long conversationId = createChatTraceFixture();
+
+        mvc.perform(get("/api/admin/chat/conversations/" + conversationId + "/messages")
+                        .header("X-User-Id", "143")
+                        .header("X-Admin-Session", issueAdminSession(143L))
+                        .param("limit", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.conversation.conversationNo").value("CHAT-141-142"))
+                .andExpect(jsonPath("$.data.messages.length()").value(2))
+                .andExpect(jsonPath("$.data.messages[1].messageType").value("VOICE"))
+                .andExpect(jsonPath("$.data.messages[1].contentJson").value(org.hamcrest.Matchers.containsString("/uploads/chat-voice/141/trace.webm")));
+
+        mvc.perform(get("/api/admin/chat/conversations")
+                        .header("X-User-Id", "143")
+                        .header("X-Admin-Session", issueAdminSession(143L))
+                        .param("keyword", "preview-chat")
+                        .param("limit", "20"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(get("/api/admin/chat/conversations")
+                        .header("X-User-Id", "143")
+                        .header("X-Admin-Session", issueAdminSession(143L))
+                        .param("userId", "0")
+                        .param("limit", "20"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void adminOperatorPermissionGrantRequiresOperatorGrantPermissionAndWritesAuditLog() throws Exception {
         createActiveUser(91L);
         createActiveUser(92L);
@@ -539,6 +604,59 @@ class AdminControllerRbacTest {
                 insert into user_account (id, user_no, phone, password_hash, nickname, status, created_at, updated_at)
                 values (?, ?, ?, ?, ?, 'DISABLED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """, userId, "U-ADMIN-INACTIVE-" + userId, "1391000" + userId, "hash", "停用管理员" + userId);
+    }
+
+    private Long createChatTraceFixture() {
+        upsertChatUser(141L, "U-CHAT-141", "私聊用户141", "女", "杭州", "SELLER", true);
+        upsertChatUser(142L, "U-CHAT-142", "私聊用户142", "男", "上海", "BUYER", false);
+        Integer existing = jdbcTemplate.queryForObject("select count(1) from im_conversation where conversation_no = ?", Integer.class, "CHAT-141-142");
+        if (existing != null && existing > 0) {
+            return jdbcTemplate.queryForObject("select id from im_conversation where conversation_no = ?", Long.class, "CHAT-141-142");
+        }
+        jdbcTemplate.update("""
+                insert into im_conversation (conversation_no, owner_user_id, peer_user_id, conversation_type, last_seq, last_message_summary, created_at, updated_at)
+                values (?, ?, ?, 'SINGLE', 2, '[语音]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, "CHAT-141-142", 141L, 142L);
+        Long conversationId = jdbcTemplate.queryForObject("select id from im_conversation where conversation_no = ?", Long.class, "CHAT-141-142");
+        jdbcTemplate.update("""
+                insert into im_message (message_no, conversation_id, conversation_no, server_seq, client_msg_id, client_key, sender_id, receiver_id, message_type, content_json, created_at, updated_at)
+                values (?, ?, ?, 1, ?, ?, ?, ?, 'TEXT', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, "MSG-TRACE-1", conversationId, "CHAT-141-142", "trace-text-1", conversationId + ":141:trace-text-1", 141L, 142L, "{\"text\":\"你好，后台可追溯\"}");
+        jdbcTemplate.update("""
+                insert into im_message (message_no, conversation_id, conversation_no, server_seq, client_msg_id, client_key, sender_id, receiver_id, message_type, content_json, created_at, updated_at)
+                values (?, ?, ?, 2, ?, ?, ?, ?, 'VOICE', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, "MSG-TRACE-2", conversationId, "CHAT-141-142", "trace-voice-1", conversationId + ":141:trace-voice-1", 141L, 142L,
+                "{\"url\":\"/uploads/chat-voice/141/trace.webm\",\"durationMs\":1800,\"sizeBytes\":4096,\"mimeType\":\"audio/webm\"}");
+        return conversationId;
+    }
+
+    private void upsertChatUser(Long userId, String userNo, String nickname, String gender, String city, String mainRole, boolean videoVerified) {
+        Integer accountRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_account WHERE id = ?", Integer.class, userId);
+        if (accountRows == null || accountRows == 0) {
+            jdbcTemplate.update("""
+                    insert into user_account (id, user_no, phone, password_hash, nickname, avatar_url, status, created_at, updated_at)
+                    values (?, ?, ?, ?, ?, ?, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """, userId, userNo, "1389000" + userId, "hash", nickname, "/uploads/avatar/" + userId + ".jpg");
+        } else {
+            jdbcTemplate.update("""
+                    update user_account
+                    set user_no = ?, nickname = ?, avatar_url = ?, status = 'ACTIVE', updated_at = CURRENT_TIMESTAMP
+                    where id = ?
+                    """, userNo, nickname, "/uploads/avatar/" + userId + ".jpg", userId);
+        }
+        Integer profileRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_profile WHERE user_id = ?", Integer.class, userId);
+        if (profileRows == null || profileRows == 0) {
+            jdbcTemplate.update("""
+                    insert into user_profile (user_id, gender, city, identity_status, main_role, video_identity_status, video_verified)
+                    values (?, ?, ?, 'VERIFIED', ?, ?, ?)
+                    """, userId, gender, city, mainRole, videoVerified ? "APPROVED" : "UNVERIFIED", videoVerified);
+        } else {
+            jdbcTemplate.update("""
+                    update user_profile
+                    set gender = ?, city = ?, identity_status = 'VERIFIED', main_role = ?, video_identity_status = ?, video_verified = ?, updated_at = CURRENT_TIMESTAMP
+                    where user_id = ?
+                    """, gender, city, mainRole, videoVerified ? "APPROVED" : "UNVERIFIED", videoVerified, userId);
+        }
     }
 
     private void upsertSellerProfile(Long userId) {

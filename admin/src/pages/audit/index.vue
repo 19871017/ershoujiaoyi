@@ -32,6 +32,7 @@
         <p>{{ item.reason || item.description || '无补充说明' }}</p>
         <div class="audit-trace-actions">
           <RouterLink class="detail-link" :to="`/audit/${encodeURIComponent(item.auditNo)}`">查看详情</RouterLink>
+          <button v-if="chatTraceFor(item)" class="link-btn" @click="openChatTrace(item)">私聊追溯</button>
           <button v-if="orderTraceFor(item)" class="link-btn" @click="openOrderTrace(item)">订单追溯</button>
           <button v-if="afterSalesTraceFor(item)" class="link-btn" @click="openAfterSalesTrace(item)">售后追溯</button>
         </div>
@@ -54,6 +55,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { approveAdminAudit, approveAdminProduct, getAdminAuditList, rejectAdminAudit, type AdminAuditListQuery, type AuditRecordResponse } from '../../api'
 import { canReviewAuditRecord, useAuthStore } from '../../store/modules/auth'
 import { afterSalesAuditTraceLocation } from '../after-sales/after-sales-trace-links'
+import { chatAuditTraceLocation } from '../chat-trace/chat-trace-links'
 import { orderAuditTraceLocation } from '../orders/order-trace-links'
 
 const audits = ref<AuditRecordResponse[]>([])
@@ -118,6 +120,21 @@ function afterSalesTraceFor(item: AuditRecordResponse) {
 
 function orderTraceFor(item: AuditRecordResponse) {
   return orderAuditTraceLocation(item)
+}
+
+function chatTraceFor(item: AuditRecordResponse) {
+  return chatAuditTraceLocation(item)
+}
+
+function openChatTrace(item: AuditRecordResponse) {
+  const location = chatTraceFor(item)
+  if (!location) {
+    error.value = '审核目标无法追溯到私聊记录。'
+    return
+  }
+  router.push(location).catch(() => {
+    error.value = '私聊追溯页面打开失败，请稍后重试。'
+  })
 }
 
 function openAfterSalesTrace(item: AuditRecordResponse) {

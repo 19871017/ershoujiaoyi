@@ -194,6 +194,8 @@ describe('admin auth helpers', () => {
     })
 
     expect(shouldRedirectToLogin('/audit/AU-20260510-0001', auditOnly)).toBe(false)
+    expect(shouldRedirectToLogin('/chat-trace', auditOnly)).toBe(false)
+    expect(shouldRedirectToLogin('/chat-trace/12', auditOnly)).toBe(false)
     expect(shouldRedirectToLogin('/users', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/users/8331', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/users', normalizeAdminSession({ username: 'user-admin', userId: '9', permissions: ['user:read'], sessionId: 'adm_ffffffffffffffffffffffffffffffff', expiresAt: FUTURE_EXPIRES_AT }))).toBe(false)
@@ -273,7 +275,7 @@ describe('admin auth helpers', () => {
     })
 
     expect(dashboardActionsForSession(financeOnly).map((item) => item.path)).toEqual(['/finance/withdrawals'])
-    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/finance/withdrawals', '/after-sales', '/orders', '/users', '/audit-logs', '/operators', '/system/location', '/system/banners', '/system/announcements'])
+    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/chat-trace', '/finance/withdrawals', '/after-sales', '/orders', '/users', '/audit-logs', '/operators', '/system/location', '/system/banners', '/system/announcements'])
     expect(dashboardActionsForSession(null)).toEqual([])
   })
 

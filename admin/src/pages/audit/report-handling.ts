@@ -63,8 +63,8 @@ export function reportHandlingGuide(target: ReportHandlingTarget): ReportHandlin
   if (targetType === 'CHAT') {
     return {
       targetLabel,
-      traceHint: '当前后台没有独立私聊追溯页，请结合举报凭证、双方用户编号和关联订单人工核查。',
-      steps: ['核对举报凭证是否来自真实聊天场景', '通过双方用户编号反查订单/售后关系', '处理后在审核备注中写明聊天编号、核查依据和是否需要继续补充私聊追溯'],
+      traceHint: '先打开私聊追溯，核对双方资料、文字消息、语音消息和举报凭证。',
+      steps: ['核对举报凭证是否来自真实聊天场景', '通过私聊追溯查看双方用户资料、文字和语音消息', '处理后在审核备注中写明聊天编号、核查依据和是否需要账号风控'],
       remarkTemplates: ['私聊举报属实，聊天凭证存在违规内容，建议进入账号风控。', '私聊举报证据不足，暂不处理账号，保留记录待补充。']
     }
   }

@@ -12,11 +12,11 @@ describe('admin report handling guide', () => {
     expect(afterSales?.traceHint).toContain('售后追溯')
   })
 
-  it('uses manual verification copy for chat reports without fake trace links', () => {
+  it('uses private chat trace copy for chat reports', () => {
     const chat = reportHandlingGuide({ auditType: 'REPORT', targetType: 'CHAT', targetId: 'CHAT-100088' })
 
     expect(chat?.targetLabel).toBe('私聊举报')
-    expect(chat?.traceHint).toContain('没有独立私聊追溯页')
+    expect(chat?.traceHint).toContain('私聊追溯')
     expect(chat?.remarkTemplates[0]).toContain('账号风控')
   })
 

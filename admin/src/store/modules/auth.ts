@@ -62,6 +62,7 @@ interface RoutePermissionRule {
 const PROTECTED_ROUTE_PERMISSIONS: RoutePermissionRule[] = [
   { pattern: /^\/dashboard\/?$/, permission: null },
   { pattern: /^\/audit(?:\/|$)/, permission: 'audit:read' },
+  { pattern: /^\/chat-trace(?:\/|$)/, permission: 'audit:read' },
   { pattern: /^\/finance\/withdrawals(?:\/|$)/, permission: 'finance:read' },
   { pattern: /^\/users(?:\/|$)/, permission: 'user:read' },
   { pattern: /^\/orders(?:\/|$)/, permission: 'order:read' },
@@ -81,6 +82,7 @@ export interface AdminMenuItem {
 
 export const ADMIN_DASHBOARD_ACTIONS: AdminMenuItem[] = [
   { path: '/audit', label: '审核工作台', permission: 'audit:read' },
+  { path: '/chat-trace', label: '私聊追溯', permission: 'audit:read' },
   { path: '/finance/withdrawals', label: '提现审核', permission: 'finance:read' },
   { path: '/after-sales', label: '售后管理', permission: 'after-sales:read' },
   { path: '/orders', label: '订单管理', permission: 'order:read' },

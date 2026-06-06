@@ -11,6 +11,8 @@ import {
   getAdminOrderDetail,
   getAdminOrderList,
   approveAdminProduct,
+  getAdminChatConversationMessages,
+  getAdminChatConversations,
   getAdminOperatorPermissions,
   updateAdminOperatorPermissions,
   getAdminUserDetail,
@@ -22,6 +24,8 @@ import {
   isValidAdminAuditKeyword,
   isValidAdminAuditLogId,
   isValidAdminAuditNo,
+  isValidAdminChatTraceId,
+  isValidAdminChatTraceKeyword,
   isValidAdminOrderKeyword,
   isValidAdminOrderNo,
   isValidAdminProductId,
@@ -419,6 +423,81 @@ describe('admin finance api', () => {
     await expect(getAdminAfterSalesList({ status: 'ALL', keyword: 'preview-after-sales', limit: 20 })).rejects.toThrow('售后关键词无效')
     await expect(getAdminAfterSalesList({ status: 'ALL', keyword: 'x'.repeat(65), limit: 20 })).rejects.toThrow('售后关键词无效')
     await expect(getAdminAfterSalesList({ status: 'ALL', limit: 101 })).rejects.toThrow('售后列表条数无效')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('loads admin chat trace conversations and messages with bounded filters', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              conversationId: 12,
+              conversationNo: 'CHAT-100088',
+              conversationType: 'SINGLE',
+              lastSeq: 2,
+              lastMessageSummary: '[语音]',
+              owner: { userId: 101, userNo: 'U-101', nickname: '买家' },
+              peer: { userId: 102, userNo: 'U-102', nickname: '卖家' }
+            }
+          ]
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            conversation: {
+              conversationId: 12,
+              conversationNo: 'CHAT-100088',
+              conversationType: 'SINGLE',
+              lastSeq: 2,
+              owner: { userId: 101, nickname: '买家' },
+              peer: { userId: 102, nickname: '卖家' }
+            },
+            messages: [
+              {
+                messageId: 8,
+                messageNo: 'MSG-12-2',
+                conversationId: 12,
+                conversationNo: 'CHAT-100088',
+                serverSeq: 2,
+                clientMsgId: 'voice-1',
+                senderId: 101,
+                receiverId: 102,
+                messageType: 'VOICE',
+                contentJson: '{"url":"/uploads/chat-voice/101/voice.webm","durationMs":1800,"mimeType":"audio/webm"}'
+              }
+            ]
+          }
+        })
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const rows = await getAdminChatConversations({ keyword: 'CHAT-100088', userId: 101, limit: 20 })
+    const detail = await getAdminChatConversationMessages(12, { limit: 100 })
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, expect.stringContaining('/api/admin/chat/conversations?userId=101&keyword=CHAT-100088&limit=20'), expect.any(Object))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringContaining('/api/admin/chat/conversations/12/messages?limit=100'), expect.any(Object))
+    expect(rows[0].conversationNo).toBe('CHAT-100088')
+    expect(detail.messages[0].messageType).toBe('VOICE')
+    expect(isValidAdminChatTraceId('12')).toBe(true)
+    expect(isValidAdminChatTraceKeyword('CHAT-100088')).toBe(true)
+  })
+
+  it('fails closed before admin chat trace requests with unsafe filters', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(isValidAdminChatTraceId('0')).toBe(false)
+    expect(isValidAdminChatTraceKeyword('preview-chat')).toBe(false)
+    await expect(getAdminChatConversations({ conversationId: 0, limit: 20 })).rejects.toThrow('私聊会话编号无效')
+    await expect(getAdminChatConversations({ userId: 'preview-user', limit: 20 })).rejects.toThrow('私聊用户编号无效')
+    await expect(getAdminChatConversations({ keyword: 'preview-chat', limit: 20 })).rejects.toThrow('私聊追溯关键词无效')
+    await expect(getAdminChatConversations({ keyword: 'CHAT-100088', limit: 101 })).rejects.toThrow('私聊会话条数无效')
+    await expect(getAdminChatConversationMessages('preview-conversation')).rejects.toThrow('私聊会话编号无效')
+    await expect(getAdminChatConversationMessages(12, { limit: 201 })).rejects.toThrow('私聊消息条数无效')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 

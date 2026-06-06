@@ -115,6 +115,60 @@ export interface AdminAuditLogQuery {
   limit?: number
 }
 
+export interface AdminChatParticipantTrace {
+  userId: number
+  userNo?: string | null
+  nickname?: string | null
+  avatarUrl?: string | null
+  status?: string | null
+  gender?: string | null
+  city?: string | null
+  mainRole?: string | null
+  videoVerified?: boolean | null
+}
+
+export interface AdminChatConversationTrace {
+  conversationId: number
+  conversationNo: string
+  conversationType: string
+  lastSeq: number
+  lastMessageSummary?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+  owner: AdminChatParticipantTrace
+  peer: AdminChatParticipantTrace
+}
+
+export interface AdminChatMessageTrace {
+  messageId: number
+  messageNo: string
+  conversationId: number
+  conversationNo: string
+  serverSeq: number
+  clientMsgId: string
+  senderId: number
+  receiverId: number
+  messageType: 'TEXT' | 'IMAGE' | 'VOICE' | string
+  contentJson: string
+  createdAt?: string | null
+}
+
+export interface AdminChatConversationMessageTrace {
+  conversation: AdminChatConversationTrace
+  messages: AdminChatMessageTrace[]
+}
+
+export interface AdminChatConversationTraceQuery {
+  conversationId?: string | number
+  userId?: string | number
+  keyword?: string
+  limit?: number
+}
+
+export interface AdminChatMessageTraceQuery {
+  limit?: number
+}
+
 export interface AdminAuditListQuery {
   auditType?: 'ALL' | 'REPORT' | 'WITHDRAWAL' | 'VIDEO_IDENTITY' | 'PRODUCT'
   status?: 'ALL' | AuditStatus
@@ -297,6 +351,18 @@ export function isValidAdminUserSearchKeyword(keyword: string) {
 
 export function isValidAdminAuditLogId(logId: string | number) {
   return /^[1-9]\d*$/.test(String(logId))
+}
+
+export function isValidAdminChatTraceId(id: string | number) {
+  return /^[1-9]\d{0,18}$/.test(String(id))
+}
+
+export function isValidAdminChatTraceKeyword(keyword: string) {
+  const normalized = keyword.trim()
+  if (!normalized || normalized.length > 64) return false
+  if (/(preview|demo|mock|sample|placeholder)/i.test(normalized)) return false
+  if (/^\d+$/.test(normalized) && !/^[1-9]\d{0,18}$/.test(normalized)) return false
+  return true
 }
 
 export async function getAdminAuditList(query: AdminAuditListQuery = {}) {
@@ -517,6 +583,48 @@ export async function getAdminAuditLogs(query: AdminAuditLogQuery = {}) {
   }
   const suffix = params.toString() ? `?${params.toString()}` : ''
   return request<AdminAuditLogEntry[]>({ url: `/api/admin/audit-logs${suffix}` })
+}
+
+export async function getAdminChatConversations(query: AdminChatConversationTraceQuery = {}) {
+  const params = new URLSearchParams()
+  if (query.conversationId !== undefined && String(query.conversationId).trim()) {
+    if (!isValidAdminChatTraceId(query.conversationId)) {
+      throw new Error('私聊会话编号无效')
+    }
+    params.set('conversationId', String(query.conversationId))
+  }
+  if (query.userId !== undefined && String(query.userId).trim()) {
+    if (!isValidAdminChatTraceId(query.userId)) {
+      throw new Error('私聊用户编号无效')
+    }
+    params.set('userId', String(query.userId))
+  }
+  const keyword = query.keyword?.trim() ?? ''
+  if (keyword) {
+    if (!isValidAdminChatTraceKeyword(keyword)) {
+      throw new Error('私聊追溯关键词无效')
+    }
+    params.set('keyword', keyword)
+  }
+  const limit = query.limit ?? 20
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new Error('私聊会话条数无效')
+  }
+  params.set('limit', String(limit))
+  return request<AdminChatConversationTrace[]>({ url: `/api/admin/chat/conversations?${params.toString()}` })
+}
+
+export async function getAdminChatConversationMessages(conversationId: string | number, query: AdminChatMessageTraceQuery = {}) {
+  if (!isValidAdminChatTraceId(conversationId)) {
+    throw new Error('私聊会话编号无效')
+  }
+  const limit = query.limit ?? 100
+  if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
+    throw new Error('私聊消息条数无效')
+  }
+  return request<AdminChatConversationMessageTrace>({
+    url: `/api/admin/chat/conversations/${encodeURIComponent(String(conversationId))}/messages?limit=${encodeURIComponent(String(limit))}`
+  })
 }
 
 export async function reviewAdminWithdrawal(
