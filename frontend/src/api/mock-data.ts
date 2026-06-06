@@ -70,11 +70,11 @@ function mockProductDetails(products: ProductListItemResponse[]): ProductDetailR
 
 function mockProfiles(): Record<number, UserProfileResponse> {
   return {
-    1: { userId: 1, userNo: 'XYQ10001', nickname: '雨哥体验号', avatarUrl: '', mainRole: 'BUYER', gender: 'god', city: '杭州', bio: '演示环境买家账号', videoIdentityStatus: 'UNVERIFIED', videoVerified: false },
-    8: { userId: 8, userNo: 'XYQ20008', nickname: '桃桃', avatarUrl: mockAsset('avatar-taotao.svg'), mainRole: 'SELLER', gender: 'goddess', city: '上海', bio: '认证商家｜穿搭和轻奢闲置', videoIdentityStatus: 'APPROVED', videoVerified: true, followedByMe: true },
-    12: { userId: 12, userNo: 'XYQ20012', nickname: '可心', avatarUrl: mockAsset('avatar-kexin.svg'), mainRole: 'SELLER', gender: 'goddess', city: '苏州', bio: '礼物互动很活跃的认证卖家', videoIdentityStatus: 'APPROVED', videoVerified: true, followedByMe: false },
-    18: { userId: 18, userNo: 'XYQ20018', nickname: '晚晚', avatarUrl: mockAsset('avatar-wanwan.svg'), mainRole: 'SELLER', gender: 'goddess', city: '成都', bio: '美妆、包包、香水都在更', videoIdentityStatus: 'APPROVED', videoVerified: true, followedByMe: false },
-    21: { userId: 21, userNo: 'XYQ30021', nickname: '阿澈', avatarUrl: '', mainRole: 'BUYER', gender: 'god', city: '南京', bio: '喜欢收相机和球鞋', videoIdentityStatus: 'UNVERIFIED', videoVerified: false }
+    1: { userId: 1, userNo: 'XYQ10001', nickname: '雨哥体验号', avatarUrl: '', mainRole: 'BUYER', gender: 'god', city: '杭州', bio: '演示环境买家账号', identityStatus: 'UNVERIFIED', videoIdentityStatus: 'UNVERIFIED', videoVerified: false },
+    8: { userId: 8, userNo: 'XYQ20008', nickname: '桃桃', avatarUrl: mockAsset('avatar-taotao.svg'), mainRole: 'SELLER', gender: 'goddess', city: '上海', bio: '认证商家｜穿搭和轻奢闲置', identityStatus: 'VERIFIED', videoIdentityStatus: 'APPROVED', videoVerified: true, followedByMe: true },
+    12: { userId: 12, userNo: 'XYQ20012', nickname: '可心', avatarUrl: mockAsset('avatar-kexin.svg'), mainRole: 'SELLER', gender: 'goddess', city: '苏州', bio: '礼物互动很活跃的认证卖家', identityStatus: 'VERIFIED', videoIdentityStatus: 'APPROVED', videoVerified: true, followedByMe: false },
+    18: { userId: 18, userNo: 'XYQ20018', nickname: '晚晚', avatarUrl: mockAsset('avatar-wanwan.svg'), mainRole: 'SELLER', gender: 'goddess', city: '成都', bio: '美妆、包包、香水都在更', identityStatus: 'VERIFIED', videoIdentityStatus: 'APPROVED', videoVerified: true, followedByMe: false },
+    21: { userId: 21, userNo: 'XYQ30021', nickname: '阿澈', avatarUrl: '', mainRole: 'BUYER', gender: 'god', city: '南京', bio: '喜欢收相机和球鞋', identityStatus: 'UNVERIFIED', videoIdentityStatus: 'UNVERIFIED', videoVerified: false }
   }
 }
 

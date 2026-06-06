@@ -156,6 +156,41 @@ class AuditControllerTest {
         org.junit.jupiter.api.Assertions.assertEquals(false, videoVerified);
     }
 
+    @Test
+    void realNameIdentityEndpointPersistsRealAuditAndRejectsClientSuppliedIdentityFields() throws Exception {
+        EmbeddedDatabase database = database();
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        jdbcTemplate.update("INSERT INTO user_account (user_no, phone, password_hash, nickname, status) VALUES (?,?,?,?,?)", "U-REAL-API", "13800137777", "hash", "实名接口用户", "ACTIVE");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800137777");
+        jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, video_identity_status, video_verified) VALUES (?,?,?,?)", userId, "UNVERIFIED", "UNVERIFIED", false);
+        AuditController controller = new AuditController(
+                new AuditApplicationService(jdbcTemplate),
+                devCurrentUserResolver(jdbcTemplate)
+        );
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new com.secondhand.platform.shared.web.GlobalExceptionHandler())
+                .build();
+
+        mvc.perform(post("/api/audit/real-name-identity")
+                        .header("X-User-Id", String.valueOf(userId))
+                        .header("X-Dev-Mode", "enabled")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"realName\":\"周小原\",\"idTail\":\"5678\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.auditType").value(AuditApplicationService.AUDIT_TYPE_REAL_NAME_IDENTITY))
+                .andExpect(jsonPath("$.data.status").value(AuditApplicationService.STATUS_PENDING));
+
+        org.junit.jupiter.api.Assertions.assertEquals("PENDING", jdbcTemplate.queryForObject("SELECT identity_status FROM user_profile WHERE user_id = ?", String.class, userId));
+
+        mvc.perform(post("/api/audit/real-name-identity")
+                        .header("X-User-Id", String.valueOf(userId))
+                        .header("X-Dev-Mode", "enabled")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"realName\":\"周小原\",\"idTail\":\"5678\",\"userId\":999,\"identityStatus\":\"VERIFIED\",\"admin\":true}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("identity fields must be server-derived"));
+    }
+
     private void createActiveUser(JdbcTemplate jdbcTemplate, Long userId) {
         jdbcTemplate.update("""
                 INSERT INTO user_account (id, user_no, phone, password_hash, nickname, status)

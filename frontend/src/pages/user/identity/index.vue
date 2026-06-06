@@ -33,16 +33,17 @@
 
     <view class="form-card ds-card">
       <view class="section-title">实名认证资料</view>
+      <view class="status-text">当前状态：{{ realNameStatusText }}</view>
       <input :value="form.name" class="input" placeholder="真实姓名" @input="updateRealNameField('name', $event)" />
       <input :value="form.idTail" class="input" maxlength="4" type="number" placeholder="证件号码后四位" @input="updateRealNameField('idTail', $event)" />
-      <view class="upload tapable" @click="choose">
+      <view class="upload">
         <view class="upload-icon">＋</view>
         <view>
-          <view class="upload-title">实名认证资料提交暂不可用</view>
-          <view class="upload-desc">当前仅校验填写格式；暂不提交实名审核。</view>
+          <view class="upload-title">提交最小实名资料</view>
+          <view class="upload-desc">仅提交真实姓名和证件后四位，不上传完整证件号；通过后台审核后用于提现和纠纷处理。</view>
         </view>
       </view>
-      <button class="primary-btn" @click="submit">校验实名认证草稿</button>
+      <button class="primary-btn" :disabled="realNameSubmitDisabled" @click="submit">{{ realNameSubmitButtonText }}</button>
     </view>
 
     <view class="check-card ds-card">
@@ -55,7 +56,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createMediaUploadTicket, uploadMediaTicketFile } from '../../../api/modules/media'
-import { getMyProfile, submitVideoIdentity, type UserProfileResponse } from '../../../api/modules/user'
+import { getMyProfile, submitRealNameIdentity, submitVideoIdentity, type UserProfileResponse } from '../../../api/modules/user'
 import {
   assertBackendProfile,
   checks,
@@ -64,7 +65,6 @@ import {
   hasApprovedVideoIdentity,
   hasInvalidTempVideoPath,
   isPickerCancel,
-  realNameBackendMissingCopy,
   validatedVideoIdentityUrl,
   type ChooseVideoResult,
   type RealNameFieldKey
@@ -74,20 +74,33 @@ const form = reactive({ name: '', idTail: '' })
 const videoUrl = ref('')
 const uploadingVideo = ref(false)
 const submittingVideo = ref(false)
+const submittingRealName = ref(false)
 const profileReady = ref(false)
 const profileUnavailable = ref(false)
-const profile = reactive<UserProfileResponse>({ userId: 0, nickname: '', mainRole: 'UNVERIFIED', videoIdentityStatus: 'UNVERIFIED', videoVerified: false })
+const profile = reactive<UserProfileResponse>({ userId: 0, nickname: '', mainRole: 'UNVERIFIED', identityStatus: 'UNVERIFIED', videoIdentityStatus: 'UNVERIFIED', videoVerified: false })
 const videoStatusText = computed(videoStatusLabel)
 const videoStatusClass = computed(videoStatusClassName)
 const videoSubmitButtonText = computed(submitVideoButtonLabel)
+const realNameStatusText = computed(realNameStatusLabel)
+const realNameSubmitButtonText = computed(submitRealNameButtonLabel)
 const videoActionDisabled = computed(() => !profileReady.value || profileUnavailable.value || uploadingVideo.value || hasApprovedVideoIdentity(profile))
 const videoSubmitDisabled = computed(() => submittingVideo.value || uploadingVideo.value || !profileReady.value || profileUnavailable.value || hasApprovedVideoIdentity(profile))
+const realNameSubmitDisabled = computed(() => submittingRealName.value || !profileReady.value || profileUnavailable.value || profile.identityStatus === 'VERIFIED')
 
 function clearVideoTrustState(): void {
+  profile.identityStatus = 'UNVERIFIED'
   profile.videoIdentityStatus = 'UNVERIFIED'
   profile.videoVerified = false
   profile.videoIdentityUrl = ''
   videoUrl.value = ''
+}
+
+function realNameStatusLabel(): string {
+  if (!profileReady.value || profileUnavailable.value) return '状态不可用'
+  if (profile.identityStatus === 'VERIFIED') return '已通过'
+  if (profile.identityStatus === 'PENDING') return '审核中'
+  if (profile.identityStatus === 'REJECTED') return '已拒绝'
+  return '未认证'
 }
 
 function videoStatusLabel(): string {
@@ -114,6 +127,15 @@ function submitVideoButtonLabel(): string {
   return '提交视频认证'
 }
 
+function submitRealNameButtonLabel(): string {
+  if (submittingRealName.value) return '提交中...'
+  if (!profileReady.value || profileUnavailable.value) return '认证状态不可用'
+  if (profile.identityStatus === 'VERIFIED') return '实名认证已通过'
+  if (profile.identityStatus === 'PENDING') return '重新提交实名资料'
+  if (profile.identityStatus === 'REJECTED') return '重新提交实名认证'
+  return '提交实名认证'
+}
+
 function inputValue(field: RealNameFieldKey, event: unknown): string | undefined {
   const value = (event as { detail?: { value?: unknown } } | null | undefined)?.detail?.value
   if (typeof value !== 'string') {
@@ -128,24 +150,6 @@ function updateRealNameField(field: RealNameFieldKey, event: unknown): void {
   const value = inputValue(field, event)
   if (value === undefined) return
   form[field] = value
-}
-
-function choose(): void {
-  const modalOptions = {
-    title: '实名认证提交暂不可用',
-    content: '证件类实名资料暂无法提交，请先完成视频认证或稍后再试。',
-    showCancel: false,
-    fail(error: unknown) {
-      console.warn('identity real-name unavailable modal failed', { error })
-      uni.showToast({ title: '实名认证接口尚未接入', icon: 'none' })
-    }
-  }
-  try {
-    uni.showModal(modalOptions)
-  } catch (error) {
-    console.warn('identity real-name unavailable modal failed', { error })
-    uni.showToast({ title: '实名认证接口尚未接入', icon: 'none' })
-  }
 }
 
 function chooseVideo(): void {
@@ -278,23 +282,40 @@ async function submitVideo(): Promise<void> {
   }
 }
 
-function submit(): void {
+async function submit(): Promise<void> {
+  if (!profileReady.value || profileUnavailable.value) return uni.showToast({ title: '认证状态暂时不可用，请稍后重新进入页面查看', icon: 'none' })
+  if (profile.identityStatus === 'VERIFIED') return uni.showToast({ title: '实名认证已通过', icon: 'none' })
   if (!form.name || form.name.length < 2) return uni.showToast({ title: '请填写真实姓名', icon: 'none' })
   if (!/^\d{4}$/.test(form.idTail)) return uni.showToast({ title: '请填写证件号码后四位', icon: 'none' })
-  const modalOptions = {
-    title: '实名认证提交暂不可用',
-    content: `${realNameBackendMissingCopy}，当前仅完成草稿格式校验。`,
-    showCancel: false,
-    fail(error: unknown) {
-      console.warn('identity real-name draft modal failed', { error })
-      uni.showToast({ title: realNameBackendMissingCopy, icon: 'none' })
-    }
+  if (submittingRealName.value) {
+    console.warn('identity real-name submit ignored because submission is already in progress')
+    return uni.showToast({ title: '实名认证正在提交，请勿重复点击', icon: 'none' })
   }
+  submittingRealName.value = true
   try {
-    uni.showModal(modalOptions)
+    await submitRealNameIdentity({ realName: form.name.trim(), idTail: form.idTail.trim() })
+    const refreshed = await loadProfile()
+    if (!refreshed) return uni.showToast({ title: '实名提交结果暂时无法校验，请稍后重新进入页面确认后再操作', icon: 'none' })
+    const modalOptions = {
+      title: '实名认证已提交',
+      content: '资料已由平台接收，当前实名状态已重新读取服务端记录；后台审核后会同步用于提现和纠纷处理。',
+      showCancel: false,
+      fail(error: unknown) {
+        console.warn('identity real-name submit success modal failed', { error })
+        uni.showToast({ title: '实名认证已提交，请稍后查看审核状态', icon: 'none' })
+      }
+    }
+    try {
+      uni.showModal(modalOptions)
+    } catch (error) {
+      console.warn('identity real-name submit success modal failed', { error })
+      uni.showToast({ title: '实名认证已提交，请稍后查看审核状态', icon: 'none' })
+    }
   } catch (error) {
-    console.warn('identity real-name draft modal failed', { error })
-    uni.showToast({ title: realNameBackendMissingCopy, icon: 'none' })
+    console.warn('identity real-name submit failed', { error })
+    uni.showToast({ title: error instanceof Error ? error.message : '实名认证提交失败', icon: 'none' })
+  } finally {
+    submittingRealName.value = false
   }
 }
 

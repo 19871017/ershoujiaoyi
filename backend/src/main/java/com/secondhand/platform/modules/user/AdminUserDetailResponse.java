@@ -9,6 +9,7 @@ public class AdminUserDetailResponse {
     private String mainRole;
     private String city;
     private String bio;
+    private String identityStatus;
     private String videoIdentityStatus;
     private boolean videoVerified;
     private String createdAt;
@@ -22,6 +23,7 @@ public class AdminUserDetailResponse {
                                    String mainRole,
                                    String city,
                                    String bio,
+                                   String identityStatus,
                                    String videoIdentityStatus,
                                    boolean videoVerified,
                                    String createdAt,
@@ -34,6 +36,7 @@ public class AdminUserDetailResponse {
         this.mainRole = mainRole;
         this.city = city;
         this.bio = bio;
+        this.identityStatus = identityStatus == null ? "UNVERIFIED" : identityStatus;
         this.videoIdentityStatus = videoIdentityStatus == null ? "UNVERIFIED" : videoIdentityStatus;
         this.videoVerified = videoVerified;
         this.createdAt = createdAt;
@@ -48,6 +51,7 @@ public class AdminUserDetailResponse {
     public String getMainRole() { return mainRole; }
     public String getCity() { return city; }
     public String getBio() { return bio; }
+    public String getIdentityStatus() { return identityStatus; }
     public String getVideoIdentityStatus() { return videoIdentityStatus; }
     public boolean isVideoVerified() { return videoVerified; }
     public String getCreatedAt() { return createdAt; }

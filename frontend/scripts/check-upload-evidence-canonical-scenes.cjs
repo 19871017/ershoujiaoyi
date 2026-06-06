@@ -187,11 +187,11 @@ if (identityPage.includes("uni.navigateTo({ url: '/pages/upload/evidence/index?s
 if (identityPage.includes("imageCount.value = Math.max(imageCount.value, 1)")) {
   failures.push('identity real-name picker must not locally increment evidence count before a server-issued upload ticket/storage URL exists')
 }
-if (identityPage.includes("title: '实名认证已提交'")) {
-  failures.push('identity real-name submit must not claim submission without a backend business API')
+if (identityPage.includes('实名认证接口尚未接入') || identityPage.includes('实名认证提交暂不可用') || identityPage.includes('realNameBackendMissingCopy')) {
+  failures.push('identity real-name submit must use the backend API instead of backend-missing copy')
 }
-if (!identityPage.includes('实名认证接口尚未接入')) {
-  failures.push('identity real-name submit should fail closed with explicit backend-missing copy')
+if (!identityPage.includes('submitRealNameIdentity({ realName: form.name.trim(), idTail: form.idTail.trim() })')) {
+  failures.push('identity real-name submit must call the backend real-name audit API with only realName and idTail')
 }
 if (identityPage.includes("uni.showToast({ title: '已生成上传凭证', icon: 'none' })")) {
   failures.push('identity video picker must say upload ticket, not saved/uploaded credential, because business submission has not happened yet')
@@ -199,7 +199,7 @@ if (identityPage.includes("uni.showToast({ title: '已生成上传凭证', icon:
 if (!identityPage.includes('已生成上传票据')) {
   failures.push('identity video picker should say only that a VIDEO_IDENTITY upload ticket was generated')
 }
-for (const marker of ['const videoIdentityStoragePrefix = \'/uploads/video-identity/\'', 'const profileReady = ref(false)', 'const profileUnavailable = ref(false)', 'function hasApprovedVideoIdentity(value: UserProfileResponse): boolean', 'function clearVideoTrustState(): void', 'function assertBackendProfile(value: unknown): asserts value is UserProfileResponse', 'function hasInvalidTempVideoPath(path: string): boolean', 'function validatedVideoIdentityUrl(storageUrl: unknown): string', 'validatedVideoIdentityUrl(uploaded.storageUrl)', 'const safeVideoUrl = validatedVideoIdentityUrl(videoUrl.value)', 'assertBackendProfile(backendProfile)', 'hasApprovedVideoIdentity(profile)', '视频上传中，请稍后提交', 'identity video invalid storageUrl', 'identity video upload failed', 'identity video picker failed', 'identity video picker returned invalid temp path', 'identity profile refresh failed; cleared video trust state', 'identity real-name unavailable modal failed', 'identity real-name draft modal failed', 'identity real-name input invalid', 'identity video submit ignored because submission is already in progress', 'const refreshed = await loadProfile()', 'identity notification navigation failed', 'identity video submit failed', 'identity video submit success modal failed', '认证提交结果暂时无法校验', "lower.startsWith('blob:')", "lower.startsWith('data:')", "storageUrl.startsWith('local://')", "storageUrl.startsWith('blob:')", "storageUrl.startsWith('data:')", "lower.includes('placeholder')", "lower.includes('%2e')", "lower.includes('%2f')", "lower.includes('%5c')", "storageUrl.includes('\\\\')", "relativePath.split('/').some"] ) {
+for (const marker of ['const videoIdentityStoragePrefix = \'/uploads/video-identity/\'', 'const profileReady = ref(false)', 'const profileUnavailable = ref(false)', 'function hasApprovedVideoIdentity(value: UserProfileResponse): boolean', 'function clearVideoTrustState(): void', 'function assertBackendProfile(value: unknown): asserts value is UserProfileResponse', 'function hasInvalidTempVideoPath(path: string): boolean', 'function validatedVideoIdentityUrl(storageUrl: unknown): string', 'validatedVideoIdentityUrl(uploaded.storageUrl)', 'const safeVideoUrl = validatedVideoIdentityUrl(videoUrl.value)', 'assertBackendProfile(backendProfile)', 'hasApprovedVideoIdentity(profile)', '视频上传中，请稍后提交', 'identity video invalid storageUrl', 'identity video upload failed', 'identity video picker failed', 'identity video picker returned invalid temp path', 'identity profile refresh failed; cleared video trust state', 'identity real-name submit ignored because submission is already in progress', 'identity real-name submit failed', 'identity real-name submit success modal failed', 'identity real-name input invalid', 'const refreshed = await loadProfile()', 'identity notification navigation failed', 'identity video submit failed', 'identity video submit success modal failed', '认证提交结果暂时无法校验', "lower.startsWith('blob:')", "lower.startsWith('data:')", "storageUrl.startsWith('local://')", "storageUrl.startsWith('blob:')", "storageUrl.startsWith('data:')", "lower.includes('placeholder')", "lower.includes('%2e')", "lower.includes('%2f')", "lower.includes('%5c')", "storageUrl.includes('\\\\')", "relativePath.split('/').some"] ) {
   if (!identityPage.includes(marker)) failures.push(`identity video flow must validate VIDEO_IDENTITY storage URL before state/submission and surface async failures: ${marker}`)
 }
 if (/v-model(?:\.trim)?=/.test(identityPage)) {
@@ -229,8 +229,11 @@ if (!/function navigateToNotificationAfterVideoSubmit\(\): void\s*\{[\s\S]*try\s
 if (!/async function submitVideo\(\): Promise<void>\s*\{[\s\S]*if \(!profileReady\.value \|\| profileUnavailable\.value\)[\s\S]*if \(hasApprovedVideoIdentity\(profile\)\)[\s\S]*const safeVideoUrl = validatedVideoIdentityUrl\(videoUrl\.value\)[\s\S]*submitVideoIdentity\(\{ videoUrl: safeVideoUrl, description:[\s\S]*const refreshed = await loadProfile\(\)[\s\S]*if \(!refreshed\) return uni\.showToast[\s\S]*try\s*\{\s*uni\.showModal\(modalOptions\)[\s\S]*catch \(error\)\s*\{[\s\S]*console\.warn\('identity video submit success modal failed'[\s\S]*console\.warn\('identity video submit failed'/s.test(identityPage)) {
   failures.push('identity video submit must require available backend state, validate storage URL, refresh backend state, and stop normal success flow when refresh fails')
 }
-if (!/function submit\(\): void\s*\{[\s\S]*const modalOptions[\s\S]*fail\(error: unknown\)[\s\S]*console\.warn\('identity real-name draft modal failed'[\s\S]*try\s*\{\s*uni\.showModal\(modalOptions\)[\s\S]*catch \(error\)\s*\{[\s\S]*console\.warn\('identity real-name draft modal failed'/s.test(identityPage)) {
-  failures.push('identity real-name draft validation modal must handle async and synchronous failures')
+if (!/async function submit\(\): Promise<void>\s*\{[\s\S]*if \(!profileReady\.value \|\| profileUnavailable\.value\)[\s\S]*if \(profile\.identityStatus === 'VERIFIED'\)[\s\S]*submitRealNameIdentity\(\{ realName: form\.name\.trim\(\), idTail: form\.idTail\.trim\(\) \}\)[\s\S]*const refreshed = await loadProfile\(\)[\s\S]*if \(!refreshed\) return uni\.showToast[\s\S]*try\s*\{\s*uni\.showModal\(modalOptions\)[\s\S]*catch \(error\)\s*\{[\s\S]*console\.warn\('identity real-name submit success modal failed'[\s\S]*console\.warn\('identity real-name submit failed'/s.test(identityPage)) {
+  failures.push('identity real-name submit must require backend state, call real audit API, refresh backend state, and handle modal/API failures')
+}
+if (/submitRealNameIdentity\(\{[^}]*\b(userId|senderId|buyerId|sellerId|admin|role|identityStatus|videoIdentityStatus|videoVerified)\b/s.test(identityPage)) {
+  failures.push('identity real-name submit must not include client-supplied identity/trust fields in the audit request body')
 }
 const forbiddenLocalIdentityTrustPatterns = [
   { label: 'local pending status assignment', pattern: /profile\.videoIdentityStatus\s*=\s*['"]PENDING['"]/ },

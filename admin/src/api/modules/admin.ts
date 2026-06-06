@@ -93,6 +93,7 @@ export interface AdminUserDetailResponse {
   mainRole: string
   city?: string | null
   bio?: string | null
+  identityStatus?: string
   videoIdentityStatus: string
   videoVerified: boolean
   createdAt?: string
@@ -170,7 +171,7 @@ export interface AdminChatMessageTraceQuery {
 }
 
 export interface AdminAuditListQuery {
-  auditType?: 'ALL' | 'REPORT' | 'WITHDRAWAL' | 'VIDEO_IDENTITY' | 'PRODUCT'
+  auditType?: 'ALL' | 'REPORT' | 'WITHDRAWAL' | 'VIDEO_IDENTITY' | 'REAL_NAME_IDENTITY' | 'PRODUCT'
   status?: 'ALL' | AuditStatus
   keyword?: string
   limit?: number
@@ -368,7 +369,7 @@ export function isValidAdminChatTraceKeyword(keyword: string) {
 export async function getAdminAuditList(query: AdminAuditListQuery = {}) {
   const params = new URLSearchParams()
   const auditType = query.auditType ?? 'ALL'
-  if (!['ALL', 'REPORT', 'WITHDRAWAL', 'VIDEO_IDENTITY', 'PRODUCT'].includes(auditType)) {
+  if (!['ALL', 'REPORT', 'WITHDRAWAL', 'VIDEO_IDENTITY', 'REAL_NAME_IDENTITY', 'PRODUCT'].includes(auditType)) {
     throw new Error('审核类型筛选无效')
   }
   if (auditType !== 'ALL') params.set('auditType', auditType)

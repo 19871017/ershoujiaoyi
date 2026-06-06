@@ -83,6 +83,55 @@ class AuditApplicationServiceTest {
     }
 
     @Test
+    void realNameIdentityAuditShouldMarkProfilePendingThenVerified() {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        jdbcTemplate.update("INSERT INTO user_account (user_no, phone, password_hash, nickname, status) VALUES (?,?,?,?,?)", "U-REAL-1", "13800138881", "hash", "实名用户", "ACTIVE");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138881");
+        jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, video_identity_status, video_verified) VALUES (?,?,?,?)", userId, "UNVERIFIED", "UNVERIFIED", false);
+
+        AuditRecordResponse created = service.submitRealNameIdentity(userId, "王小原", "6789");
+
+        assertEquals(AuditApplicationService.AUDIT_TYPE_REAL_NAME_IDENTITY, created.auditType());
+        assertEquals("REAL_NAME_IDENTITY", created.targetType());
+        assertEquals(String.valueOf(userId), created.targetId());
+        assertTrue(created.reason().contains("王**"));
+        assertTrue(created.reason().contains("6789"));
+        assertEquals("PENDING", jdbcTemplate.queryForObject("SELECT identity_status FROM user_profile WHERE user_id = ?", String.class, userId));
+
+        service.approve(created.auditNo(), "实名资料一致");
+
+        assertEquals("VERIFIED", jdbcTemplate.queryForObject("SELECT identity_status FROM user_profile WHERE user_id = ?", String.class, userId));
+    }
+
+    @Test
+    void rejectedRealNameIdentityAuditShouldMarkProfileRejected() {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        jdbcTemplate.update("INSERT INTO user_account (user_no, phone, password_hash, nickname, status) VALUES (?,?,?,?,?)", "U-REAL-2", "13800138882", "hash", "实名拒绝用户", "ACTIVE");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138882");
+        jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, video_identity_status, video_verified) VALUES (?,?,?,?)", userId, "UNVERIFIED", "UNVERIFIED", false);
+
+        AuditRecordResponse created = service.submitRealNameIdentity(userId, "李小原", "1234");
+        service.reject(created.auditNo(), "姓名不一致");
+
+        assertEquals("REJECTED", jdbcTemplate.queryForObject("SELECT identity_status FROM user_profile WHERE user_id = ?", String.class, userId));
+    }
+
+    @Test
+    void olderRealNameReviewShouldNotOverrideLatestIdentityStatus() {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        jdbcTemplate.update("INSERT INTO user_account (user_no, phone, password_hash, nickname, status) VALUES (?,?,?,?,?)", "U-REAL-3", "13800138883", "hash", "多次实名用户", "ACTIVE");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138883");
+        jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, video_identity_status, video_verified) VALUES (?,?,?,?)", userId, "UNVERIFIED", "UNVERIFIED", false);
+
+        AuditRecordResponse older = service.submitRealNameIdentity(userId, "赵小原", "1111");
+        AuditRecordResponse latest = service.submitRealNameIdentity(userId, "赵小原", "2222");
+        service.approve(latest.auditNo(), "最新实名通过");
+        service.reject(older.auditNo(), "旧实名驳回");
+
+        assertEquals("VERIFIED", jdbcTemplate.queryForObject("SELECT identity_status FROM user_profile WHERE user_id = ?", String.class, userId));
+    }
+
+    @Test
     void rejectedVideoIdentityAuditShouldNotExposeSellerAsVerified() {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
         jdbcTemplate.update("INSERT INTO user_account (user_no, phone, password_hash, nickname, status) VALUES (?,?,?,?,?)", "U-VIDEO-2", "13800139999", "hash", "待审核卖家", "ACTIVE");
@@ -121,6 +170,17 @@ class AuditApplicationServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.submitVideoIdentity(1L, "local://video.mp4", "local video"));
         assertThrows(IllegalArgumentException.class, () -> service.submitVideoIdentity(1L, "https://cdn.example.com/blocked-preview/video.mp4", "blocked preview video"));
         assertThrows(IllegalArgumentException.class, () -> service.submitVideoIdentity(1L, "https://cdn.example.com/video-identity/free.mp4", "external video"));
+    }
+
+    @Test
+    void realNameIdentityAuditShouldRejectInvalidInputAndMissingUser() {
+        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(404L, "王小原", "1234"));
+        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "测", "1234"));
+        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "preview-user", "1234"));
+        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "测试用户", "1234"));
+        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "王小原1", "1234"));
+        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "王小原", "123"));
+        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "王小原", "abcd"));
     }
 
     @Test
@@ -277,6 +337,22 @@ class AuditApplicationServiceTest {
         assertEquals(report.auditNo(), reportRows.get(0).auditNo());
         assertEquals(1, applicantRows.size());
         assertEquals(report.auditNo(), applicantRows.get(0).auditNo());
+    }
+
+    @Test
+    void adminAuditListShouldFilterRealNameIdentityByTypeAndKeyword() {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        jdbcTemplate.update("INSERT INTO user_account (user_no, phone, password_hash, nickname, status) VALUES (?,?,?,?,?)", "U-REAL-LIST", "13800138884", "hash", "实名列表用户", "ACTIVE");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138884");
+        jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, video_identity_status, video_verified) VALUES (?,?,?,?)", userId, "UNVERIFIED", "UNVERIFIED", false);
+        AuditRecordResponse realName = service.submitRealNameIdentity(userId, "钱小原", "9988");
+        service.submitReport(778L, "product", "PRODUCT-100901", "SPAM", "商品举报内容");
+
+        List<AuditRecordResponse> rows = service.listAdminAudits("REAL_NAME_IDENTITY", "PENDING", "9988", 20);
+
+        assertEquals(1, rows.size());
+        assertEquals(realName.auditNo(), rows.get(0).auditNo());
+        assertEquals(AuditApplicationService.AUDIT_TYPE_REAL_NAME_IDENTITY, rows.get(0).auditType());
     }
 
     @Test

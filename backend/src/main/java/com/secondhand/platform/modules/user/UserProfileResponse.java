@@ -11,6 +11,7 @@ public class UserProfileResponse {
     private String gender;
     private String city;
     private String bio;
+    private String identityStatus;
     private String videoIdentityStatus;
     private boolean videoVerified;
     private String videoIdentityUrl;
@@ -22,26 +23,30 @@ public class UserProfileResponse {
     private int buyerPowerScore;
 
     public UserProfileResponse(Long userId, String nickname, String mainRole) {
-        this(userId, null, nickname, null, mainRole, null, null, null, "UNVERIFIED", false, null, List.of(), false, 0, 0, 0, 0);
+        this(userId, null, nickname, null, mainRole, null, null, null, "UNVERIFIED", "UNVERIFIED", false, null, List.of(), false, 0, 0, 0, 0);
     }
 
     public UserProfileResponse(Long userId, String nickname, String mainRole, String videoIdentityStatus, boolean videoVerified) {
-        this(userId, null, nickname, null, mainRole, null, null, null, videoIdentityStatus, videoVerified, null, List.of(), false, 0, 0, 0, 0);
+        this(userId, null, nickname, null, mainRole, null, null, null, "UNVERIFIED", videoIdentityStatus, videoVerified, null, List.of(), false, 0, 0, 0, 0);
     }
 
     public UserProfileResponse(Long userId, String nickname, String mainRole, String videoIdentityStatus, boolean videoVerified, boolean followedByMe) {
-        this(userId, null, nickname, null, mainRole, null, null, null, videoIdentityStatus, videoVerified, null, List.of(), followedByMe, 0, 0, 0, 0);
+        this(userId, null, nickname, null, mainRole, null, null, null, "UNVERIFIED", videoIdentityStatus, videoVerified, null, List.of(), followedByMe, 0, 0, 0, 0);
     }
 
     public UserProfileResponse(Long userId, String userNo, String nickname, String avatarUrl, String mainRole, String gender, String city, String bio, String videoIdentityStatus, boolean videoVerified, boolean followedByMe) {
-        this(userId, userNo, nickname, avatarUrl, mainRole, gender, city, bio, videoIdentityStatus, videoVerified, null, List.of(), followedByMe, 0, 0, 0, 0);
+        this(userId, userNo, nickname, avatarUrl, mainRole, gender, city, bio, "UNVERIFIED", videoIdentityStatus, videoVerified, null, List.of(), followedByMe, 0, 0, 0, 0);
     }
 
     public UserProfileResponse(Long userId, String userNo, String nickname, String avatarUrl, String mainRole, String gender, String city, String bio, String videoIdentityStatus, boolean videoVerified, boolean followedByMe, int followerCount, int followingCount, int sellerCharmScore, int buyerPowerScore) {
-        this(userId, userNo, nickname, avatarUrl, mainRole, gender, city, bio, videoIdentityStatus, videoVerified, null, List.of(), followedByMe, followerCount, followingCount, sellerCharmScore, buyerPowerScore);
+        this(userId, userNo, nickname, avatarUrl, mainRole, gender, city, bio, "UNVERIFIED", videoIdentityStatus, videoVerified, null, List.of(), followedByMe, followerCount, followingCount, sellerCharmScore, buyerPowerScore);
     }
 
     public UserProfileResponse(Long userId, String userNo, String nickname, String avatarUrl, String mainRole, String gender, String city, String bio, String videoIdentityStatus, boolean videoVerified, String videoIdentityUrl, List<String> showcaseImageUrls, boolean followedByMe, int followerCount, int followingCount, int sellerCharmScore, int buyerPowerScore) {
+        this(userId, userNo, nickname, avatarUrl, mainRole, gender, city, bio, "UNVERIFIED", videoIdentityStatus, videoVerified, videoIdentityUrl, showcaseImageUrls, followedByMe, followerCount, followingCount, sellerCharmScore, buyerPowerScore);
+    }
+
+    public UserProfileResponse(Long userId, String userNo, String nickname, String avatarUrl, String mainRole, String gender, String city, String bio, String identityStatus, String videoIdentityStatus, boolean videoVerified, String videoIdentityUrl, List<String> showcaseImageUrls, boolean followedByMe, int followerCount, int followingCount, int sellerCharmScore, int buyerPowerScore) {
         this.userId = userId;
         this.userNo = userNo;
         this.nickname = nickname;
@@ -50,6 +55,7 @@ public class UserProfileResponse {
         this.gender = gender;
         this.city = city;
         this.bio = bio;
+        this.identityStatus = identityStatus == null ? "UNVERIFIED" : identityStatus;
         this.videoIdentityStatus = videoIdentityStatus == null ? "UNVERIFIED" : videoIdentityStatus;
         this.videoVerified = videoVerified;
         this.videoIdentityUrl = (videoVerified || "PENDING".equals(this.videoIdentityStatus)) ? videoIdentityUrl : null;
@@ -91,6 +97,10 @@ public class UserProfileResponse {
 
     public String getBio() {
         return bio;
+    }
+
+    public String getIdentityStatus() {
+        return identityStatus;
     }
 
     public String getVideoIdentityStatus() {

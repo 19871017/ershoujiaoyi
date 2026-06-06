@@ -12,6 +12,7 @@ export interface UserProfileResponse {
   age?: number | null
   city?: string
   bio?: string
+  identityStatus?: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED' | string
   videoIdentityStatus: 'UNVERIFIED' | 'PENDING' | 'APPROVED' | 'REJECTED' | string
   videoVerified: boolean
   videoIdentityUrl?: string | null
@@ -47,6 +48,11 @@ export interface AccountSecurityResponse {
 export interface SubmitVideoIdentityRequest {
   videoUrl: string
   description?: string
+}
+
+export interface SubmitRealNameIdentityRequest {
+  realName: string
+  idTail: string
 }
 
 export interface UpdateUserProfileRequest {
@@ -93,4 +99,8 @@ export function unfollowPublicProfile(userId: number | string) {
 
 export function submitVideoIdentity(data: SubmitVideoIdentityRequest) {
   return post('/api/audit/video-identity', data)
+}
+
+export function submitRealNameIdentity(data: SubmitRealNameIdentityRequest) {
+  return post('/api/audit/real-name-identity', data)
 }

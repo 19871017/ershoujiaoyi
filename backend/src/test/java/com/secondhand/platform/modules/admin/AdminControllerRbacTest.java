@@ -276,6 +276,35 @@ class AdminControllerRbacTest {
     }
 
     @Test
+    void adminRealNameAuditApprovalRequiresAuditReviewAndUpdatesIdentityStatus() throws Exception {
+        createActiveUser(34L);
+        grantPermission(34L, "audit:read");
+        createActiveUser(44L);
+        jdbcTemplate.update("insert into user_profile (user_id, identity_status, video_identity_status, video_verified) values (?,?,?,?)", 44L, "UNVERIFIED", "UNVERIFIED", false);
+        var realNameAudit = auditApplicationService.submitRealNameIdentity(44L, "孙小原", "3344");
+
+        mvc.perform(post("/api/admin/audit/" + realNameAudit.auditNo() + "/approve")
+                        .header("X-User-Id", "34")
+                        .header("X-Admin-Session", issueAdminSession(34L))
+                        .contentType("application/json")
+                        .content("{\"remark\":\"实名一致\"}"))
+                .andExpect(status().isForbidden());
+
+        grantPermission(34L, "audit:review");
+
+        mvc.perform(post("/api/admin/audit/" + realNameAudit.auditNo() + "/approve")
+                        .header("X-User-Id", "34")
+                        .header("X-Admin-Session", issueAdminSession(34L))
+                        .contentType("application/json")
+                        .content("{\"remark\":\"实名一致\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.auditType").value(AuditApplicationService.AUDIT_TYPE_REAL_NAME_IDENTITY))
+                .andExpect(jsonPath("$.data.status").value(AuditApplicationService.STATUS_APPROVED));
+
+        org.junit.jupiter.api.Assertions.assertEquals("VERIFIED", jdbcTemplate.queryForObject("select identity_status from user_profile where user_id = ?", String.class, 44L));
+    }
+
+    @Test
     void adminAfterSalesListRequiresAfterSalesReadPermission() throws Exception {
         createActiveUser(51L);
         grantPermission(51L, "audit:read");

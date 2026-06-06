@@ -183,6 +183,7 @@ const emptyProfile: UserProfileResponse = {
   userId: 0,
   nickname: '小原圈用户',
   mainRole: 'UNVERIFIED',
+  identityStatus: 'UNVERIFIED',
   videoIdentityStatus: 'UNVERIFIED',
   videoVerified: false,
   followedByMe: false,

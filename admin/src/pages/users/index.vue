@@ -44,6 +44,7 @@
         <div><dt>脱敏手机号</dt><dd>{{ detail.maskedPhone || '暂无' }}</dd></div>
         <div><dt>主要角色</dt><dd>{{ detail.mainRole || '暂无' }}</dd></div>
         <div><dt>城市</dt><dd>{{ detail.city || '暂无' }}</dd></div>
+        <div><dt>实名认证</dt><dd>{{ detail.identityStatus || 'UNVERIFIED' }}</dd></div>
         <div><dt>视频核验</dt><dd>{{ detail.videoIdentityStatus }} / {{ detail.videoVerified ? '已公开展示' : '未公开展示' }}</dd></div>
         <div><dt>创建时间</dt><dd>{{ detail.createdAt || '暂无' }}</dd></div>
       </dl>

@@ -168,7 +168,7 @@ public class UserApplicationService {
         }
         List<AdminUserDetailResponse> rows = jdbcTemplate.query("""
                 SELECT a.id, a.user_no, a.phone, a.nickname, a.status, a.created_at, a.updated_at,
-                       p.main_role, p.city, p.bio, p.video_identity_status, p.video_verified
+                       p.main_role, p.city, p.bio, p.identity_status, p.video_identity_status, p.video_verified
                 FROM user_account a
                 LEFT JOIN user_profile p ON p.user_id = a.id
                 WHERE a.id = ? AND a.status = 'ACTIVE'
@@ -184,6 +184,7 @@ public class UserApplicationService {
                             rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role"),
                             rs.getString("city"),
                             rs.getString("bio"),
+                            rs.getString("identity_status") == null ? "UNVERIFIED" : rs.getString("identity_status"),
                             videoStatus,
                             approvedVideo,
                             String.valueOf(rs.getTimestamp("created_at")),
@@ -204,7 +205,7 @@ public class UserApplicationService {
         String like = "%" + normalized + "%";
         List<AdminUserDetailResponse> rows = jdbcTemplate.query("""
                 SELECT a.id, a.user_no, a.phone, a.nickname, a.status, a.created_at, a.updated_at,
-                       p.main_role, p.city, p.bio, p.video_identity_status, p.video_verified
+                       p.main_role, p.city, p.bio, p.identity_status, p.video_identity_status, p.video_verified
                 FROM user_account a
                 LEFT JOIN user_profile p ON p.user_id = a.id
                 WHERE a.status = 'ACTIVE'
@@ -223,6 +224,7 @@ public class UserApplicationService {
                             rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role"),
                             rs.getString("city"),
                             rs.getString("bio"),
+                            rs.getString("identity_status") == null ? "UNVERIFIED" : rs.getString("identity_status"),
                             videoStatus,
                             approvedVideo,
                             String.valueOf(rs.getTimestamp("created_at")),
@@ -423,6 +425,7 @@ public class UserApplicationService {
                             rs.getString("gender"),
                             rs.getString("city"),
                             rs.getString("bio"),
+                            rs.getString("identity_status") == null ? "UNVERIFIED" : rs.getString("identity_status"),
                             responseVideoStatus,
                             sellerApprovedVideo,
                             videoIdentityUrl,

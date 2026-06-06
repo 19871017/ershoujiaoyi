@@ -46,4 +46,17 @@ public class AuditController {
                 body == null ? null : body.getDescription()
         ));
     }
+
+    @PostMapping("/real-name-identity")
+    public Result<AuditRecordResponse> submitRealNameIdentity(@RequestBody RealNameIdentityRequest body, HttpServletRequest request) {
+        if (body != null && body.hasClientDerivedIdentityFields()) {
+            throw new IllegalArgumentException("identity fields must be server-derived");
+        }
+        Long userId = currentUserResolver.resolve(request);
+        return Result.ok(auditApplicationService.submitRealNameIdentity(
+                userId,
+                body == null ? null : body.getRealName(),
+                body == null ? null : body.getIdTail()
+        ));
+    }
 }

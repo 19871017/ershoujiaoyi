@@ -91,6 +91,7 @@ const detailSummary = computed(() => {
   const current = detail.value
   if (!current) return ''
   if (current.auditType === 'VIDEO_IDENTITY') return current.description || '视频认证资料以平台上传票据为准。'
+  if (current.auditType === 'REAL_NAME_IDENTITY') return `${current.reason || '实名认证资料'}；${current.description || '仅展示脱敏实名摘要。'}`
   return current.reason || current.description || '无补充说明'
 })
 const reportEvidenceUrls = computed(() => detail.value?.auditType === 'REPORT' ? extractReportEvidenceUrls(detail.value.description) : [])

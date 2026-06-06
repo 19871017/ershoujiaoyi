@@ -8,6 +8,7 @@
         <option value="REPORT">举报处理</option>
         <option value="WITHDRAWAL">提现审核</option>
         <option value="VIDEO_IDENTITY">视频认证</option>
+        <option value="REAL_NAME_IDENTITY">实名认证</option>
         <option value="PRODUCT">商品审核</option>
       </select>
       <select v-model="statusFilter">
@@ -179,7 +180,7 @@ function syncQuery() {
 
 function initFiltersFromRoute() {
   const routeAuditType = String(route.query.auditType || '').toUpperCase()
-  if (['ALL', 'REPORT', 'WITHDRAWAL', 'VIDEO_IDENTITY', 'PRODUCT'].includes(routeAuditType)) {
+  if (['ALL', 'REPORT', 'WITHDRAWAL', 'VIDEO_IDENTITY', 'REAL_NAME_IDENTITY', 'PRODUCT'].includes(routeAuditType)) {
     auditTypeFilter.value = routeAuditType as NonNullable<AdminAuditListQuery['auditType']>
   }
   const routeStatus = String(route.query.status || '').toUpperCase()

@@ -5,10 +5,13 @@ export type RealNameFieldKey = 'name' | 'idTail'
 
 export const videoIdentityStoragePrefix = '/uploads/video-identity/'
 export const checks = ['姓名与收款账户一致', '证件凭证已打码', '视频认证需真人出镜', '账号无高风险举报', '提现前需通过平台审核']
-export const realNameBackendMissingCopy = '实名认证接口尚未接入'
 
 export function isValidVideoIdentityStatus(value: unknown): value is UserProfileResponse['videoIdentityStatus'] {
   return value === 'UNVERIFIED' || value === 'PENDING' || value === 'APPROVED' || value === 'REJECTED'
+}
+
+export function isValidIdentityStatus(value: unknown): value is NonNullable<UserProfileResponse['identityStatus']> {
+  return value === 'UNVERIFIED' || value === 'PENDING' || value === 'VERIFIED' || value === 'REJECTED'
 }
 
 export function hasApprovedVideoIdentity(value: UserProfileResponse): boolean {
@@ -19,6 +22,7 @@ export function assertBackendProfile(value: unknown): asserts value is UserProfi
   if (!value || typeof value !== 'object') throw new Error('identity invalid backend profile')
   const backendProfile = value as UserProfileResponse
   if (!Number.isSafeInteger(backendProfile.userId) || backendProfile.userId <= 0) throw new Error('identity invalid backend userId')
+  if (!isValidIdentityStatus(backendProfile.identityStatus || 'UNVERIFIED')) throw new Error('identity invalid backend real-name status')
   if (!isValidVideoIdentityStatus(backendProfile.videoIdentityStatus)) throw new Error('identity invalid backend video status')
   if (backendProfile.videoVerified === true && backendProfile.videoIdentityStatus !== 'APPROVED') throw new Error('identity video verified mismatch')
   const requiresVideoUrl = backendProfile.videoVerified === true || backendProfile.videoIdentityStatus === 'PENDING'

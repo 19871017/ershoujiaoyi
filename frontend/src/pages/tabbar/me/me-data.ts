@@ -8,6 +8,7 @@ export const emptyProfile: UserProfileResponse = {
   avatarUrl: '',
   gender: 'goddess',
   mainRole: 'BUYER',
+  identityStatus: 'UNVERIFIED',
   videoIdentityStatus: 'UNVERIFIED',
   videoVerified: false
 }

@@ -328,7 +328,7 @@ describe('admin finance api', () => {
     await expect(getAdminAuditDetail('preview-audit')).rejects.toThrow('审核编号无效')
   })
 
-  it('loads audit list with report filters and rejects invalid filters before fetch', async () => {
+  it('loads audit list with report and real-name filters and rejects invalid filters before fetch', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -351,6 +351,8 @@ describe('admin finance api', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/audit?auditType=REPORT&status=PENDING&keyword=PRODUCT-100001&limit=20'), expect.any(Object))
     expect(rows[0].auditType).toBe('REPORT')
+    await getAdminAuditList({ auditType: 'REAL_NAME_IDENTITY', status: 'PENDING', keyword: '8331', limit: 20 })
+    expect(fetchMock).toHaveBeenLastCalledWith(expect.stringContaining('/api/admin/audit?auditType=REAL_NAME_IDENTITY&status=PENDING&keyword=8331&limit=20'), expect.any(Object))
     expect(isValidAdminAuditKeyword('PRODUCT-100001')).toBe(true)
     expect(isValidAdminAuditKeyword('preview-report')).toBe(false)
 

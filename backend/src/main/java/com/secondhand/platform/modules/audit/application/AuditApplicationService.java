@@ -18,9 +18,14 @@ public class AuditApplicationService {
     public static final String AUDIT_TYPE_WITHDRAWAL = "WITHDRAWAL";
     public static final String AUDIT_TYPE_REPORT = "REPORT";
     public static final String AUDIT_TYPE_VIDEO_IDENTITY = "VIDEO_IDENTITY";
+    public static final String AUDIT_TYPE_REAL_NAME_IDENTITY = "REAL_NAME_IDENTITY";
     public static final String STATUS_PENDING = "PENDING";
     public static final String STATUS_APPROVED = "APPROVED";
     public static final String STATUS_REJECTED = "REJECTED";
+    private static final String IDENTITY_STATUS_UNVERIFIED = "UNVERIFIED";
+    private static final String IDENTITY_STATUS_PENDING = "PENDING";
+    private static final String IDENTITY_STATUS_VERIFIED = "VERIFIED";
+    private static final String IDENTITY_STATUS_REJECTED = "REJECTED";
 
     private final JdbcTemplate jdbcTemplate;
     private final com.secondhand.platform.modules.media.application.MediaUploadTicketService mediaUploadTicketService;
@@ -37,6 +42,26 @@ public class AuditApplicationService {
 
     public AuditRecordResponse submitWithdrawal(Long userId, String withdrawalNo, String reason, String description) {
         return create(AUDIT_TYPE_WITHDRAWAL, userId, "WITHDRAWAL", requireText(withdrawalNo, "withdrawalNo required"), requireText(reason, "withdrawal reason required"), safeText(description));
+    }
+
+    @Transactional
+    public AuditRecordResponse submitRealNameIdentity(Long userId, String realName, String idTail) {
+        validateUserId(userId);
+        String safeRealName = normalizeRealName(realName);
+        String safeIdTail = normalizeIdTail(idTail);
+        Integer existing = jdbcTemplate.queryForObject("select count(1) from user_profile where user_id = ?", Integer.class, userId);
+        if (existing == null || existing == 0) {
+            throw new IllegalArgumentException("user profile not found");
+        }
+        jdbcTemplate.update("update user_profile set identity_status = ?, updated_at = CURRENT_TIMESTAMP where user_id = ?", IDENTITY_STATUS_PENDING, userId);
+        return create(
+                AUDIT_TYPE_REAL_NAME_IDENTITY,
+                userId,
+                "REAL_NAME_IDENTITY",
+                String.valueOf(userId),
+                "实名：" + maskRealName(safeRealName) + " / 证件后四位：" + safeIdTail,
+                "实名资料仅保存姓名与证件后四位，管理员按平台规则复核。"
+        );
     }
 
     @Transactional
@@ -308,6 +333,7 @@ public class AuditApplicationService {
         if (changed == 1) {
             AuditRecordResponse reviewed = get(safeAuditNo);
             syncVideoIdentityStatus(reviewed, status);
+            syncRealNameIdentityStatus(reviewed, status);
             recordAdminAuditLog(reviewed, status, safeText(remark), operatorId);
             return reviewed;
         }
@@ -343,6 +369,34 @@ public class AuditApplicationService {
                     select id from audit_record where audit_no = ?
                 )
                 """, Integer.class, AUDIT_TYPE_VIDEO_IDENTITY, response.targetId(), response.auditNo());
+        return newerRows == null || newerRows == 0;
+    }
+
+    private void syncRealNameIdentityStatus(AuditRecordResponse response, String status) {
+        if (response == null || !AUDIT_TYPE_REAL_NAME_IDENTITY.equals(response.auditType())) {
+            return;
+        }
+        long userId = Long.parseLong(response.targetId());
+        if (!isLatestRealNameIdentityAudit(response)) {
+            return;
+        }
+        if (STATUS_APPROVED.equals(status)) {
+            jdbcTemplate.update("update user_profile set identity_status = ?, updated_at = CURRENT_TIMESTAMP where user_id = ?", IDENTITY_STATUS_VERIFIED, userId);
+            return;
+        }
+        if (STATUS_REJECTED.equals(status)) {
+            jdbcTemplate.update("update user_profile set identity_status = ?, updated_at = CURRENT_TIMESTAMP where user_id = ?", IDENTITY_STATUS_REJECTED, userId);
+        }
+    }
+
+    private boolean isLatestRealNameIdentityAudit(AuditRecordResponse response) {
+        Integer newerRows = jdbcTemplate.queryForObject("""
+                select count(1)
+                from audit_record
+                where audit_type = ? and target_id = ? and id > (
+                    select id from audit_record where audit_no = ?
+                )
+                """, Integer.class, AUDIT_TYPE_REAL_NAME_IDENTITY, response.targetId(), response.auditNo());
         return newerRows == null || newerRows == 0;
     }
 
@@ -410,7 +464,7 @@ public class AuditApplicationService {
             return null;
         }
         String upper = safeType.toUpperCase(Locale.ROOT);
-        if (!List.of(AUDIT_TYPE_REPORT, AUDIT_TYPE_WITHDRAWAL, AUDIT_TYPE_VIDEO_IDENTITY, "PRODUCT").contains(upper)) {
+        if (!List.of(AUDIT_TYPE_REPORT, AUDIT_TYPE_WITHDRAWAL, AUDIT_TYPE_VIDEO_IDENTITY, AUDIT_TYPE_REAL_NAME_IDENTITY, "PRODUCT").contains(upper)) {
             throw new IllegalArgumentException("audit type invalid");
         }
         return upper;
@@ -521,6 +575,42 @@ public class AuditApplicationService {
             return null;
         }
         return value.trim();
+    }
+
+    private String normalizeRealName(String value) {
+        String safe = requireText(value, "realName required");
+        String lower = safe.toLowerCase(Locale.ROOT);
+        if (safe.length() < 2
+                || safe.length() > 24
+                || lower.contains("preview")
+                || lower.contains("demo")
+                || lower.contains("mock")
+                || lower.contains("sample")
+                || lower.contains("placeholder")
+                || lower.contains("测试")
+                || safe.matches(".*[0-9@#￥$%^&*_+=<>/\\\\].*")) {
+            throw new IllegalArgumentException("realName invalid");
+        }
+        return safe;
+    }
+
+    private String normalizeIdTail(String value) {
+        String safe = requireText(value, "idTail required");
+        if (!safe.matches("\\d{4}")) {
+            throw new IllegalArgumentException("idTail invalid");
+        }
+        return safe;
+    }
+
+    private String maskRealName(String value) {
+        if (value == null || value.isBlank()) {
+            return "*";
+        }
+        String safe = value.trim();
+        if (safe.length() <= 1) {
+            return "*";
+        }
+        return safe.charAt(0) + "*".repeat(Math.min(3, safe.length() - 1));
     }
 
     private String generateAuditNo(String auditType) {
