@@ -68,7 +68,11 @@ class MediaUploadTicketServiceTest {
                 .storageUrl().startsWith("/uploads/report-evidence/7/"));
         assertTrue(service.issue(7L, "CHAT_IMAGE", "image/jpeg", 600_000L, "chat-proof.jpg")
                 .storageUrl().startsWith("/uploads/chat-image/7/"));
+        assertTrue(service.issue(7L, "CHAT_VOICE", "audio/webm", 600_000L, "chat-voice.webm")
+                .storageUrl().startsWith("/uploads/chat-voice/7/"));
         assertThrows(IllegalArgumentException.class, () -> service.issue(7L, "AFTER_SALES_EVIDENCE", "image/png", 10_000_001L, "too-large.png"));
+        assertThrows(IllegalArgumentException.class, () -> service.issue(7L, "CHAT_VOICE", "image/png", 600_000L, "chat-voice.png"));
+        assertThrows(IllegalArgumentException.class, () -> service.issue(7L, "CHAT_VOICE", "audio/webm", 10_000_001L, "chat-voice.webm"));
     }
 
     @Test
@@ -96,6 +100,22 @@ class MediaUploadTicketServiceTest {
         assertEquals("real-video", Files.readString(storedFile));
         assertEquals(issued.ticketNo(), service.requireUploadedStorageUrl(6L, "VIDEO_IDENTITY", issued.storageUrl()).ticketNo());
         assertThrows(IllegalArgumentException.class, () -> service.storeUploadedFile(6L, issued.ticketNo(), issued.uploadToken(), file));
+    }
+
+    @Test
+    void shouldStoreUploadedChatVoiceFileAndMarkTicketUploaded() throws Exception {
+        MediaUploadTicketResponse issued = service.issue(6L, "CHAT_VOICE", "audio/webm", 16L, "voice.webm");
+        MockMultipartFile file = new MockMultipartFile("file", "voice.webm", "audio/webm", "real-voice".getBytes());
+
+        MediaUploadTicketResponse uploaded = service.storeUploadedFile(6L, issued.ticketNo(), issued.uploadToken(), file);
+
+        Path storedFile = storageRoot.resolve(issued.storageUrl().substring(1));
+        assertEquals("UPLOADED", uploaded.status());
+        assertTrue(uploaded.storageUrl().startsWith("/uploads/chat-voice/6/"));
+        assertTrue(uploaded.storageUrl().endsWith(".webm"));
+        assertTrue(Files.exists(storedFile));
+        assertEquals("real-voice", Files.readString(storedFile));
+        assertEquals(issued.ticketNo(), service.requireUploadedStorageUrl(6L, "CHAT_VOICE", issued.storageUrl()).ticketNo());
     }
 
     @Test

@@ -34,6 +34,10 @@ public class ChatApplicationService {
     private static final int MAX_IMAGE_URL_LENGTH = 1024;
     private static final int MAX_IMAGE_MIME_TYPE_LENGTH = 64;
     private static final long MAX_IMAGE_SIZE_BYTES = 20L * 1024L * 1024L;
+    private static final int MAX_VOICE_URL_LENGTH = 1024;
+    private static final int MAX_VOICE_MIME_TYPE_LENGTH = 64;
+    private static final long MAX_VOICE_SIZE_BYTES = 10L * 1024L * 1024L;
+    private static final long MAX_VOICE_DURATION_MS = 600L * 1000L;
     private static final int DEFAULT_SYNC_LIMIT = 50;
     private static final int MAX_SYNC_LIMIT = 200;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -282,6 +286,10 @@ public class ChatApplicationService {
         }
         if (MessageType.IMAGE.name().equals(msgType)) {
             validateImageContent(senderId, content);
+            return;
+        }
+        if (MessageType.VOICE.name().equals(msgType)) {
+            validateVoiceContent(senderId, content);
         }
     }
 
@@ -313,10 +321,65 @@ public class ChatApplicationService {
                 || url.contains("preview")
                 || url.startsWith("http://")
                 || url.startsWith("https://")
-                || !url.startsWith("/uploads/")) {
+                || !url.startsWith("/uploads/chat-image/")) {
             throw new IllegalArgumentException("image url invalid");
         }
         mediaUploadTicketService.requireUploadedStorageUrl(senderId, "CHAT_IMAGE", url);
+    }
+
+    private void validateVoiceContent(Long senderId, String content) {
+        Map<String, Object> jsonObject = parseJsonObject(content);
+        Object urlValue = jsonObject.get("url");
+        if (!(urlValue instanceof String url) || url.isBlank() || url.length() > MAX_VOICE_URL_LENGTH) {
+            throw new IllegalArgumentException("voice url invalid");
+        }
+        validateChatVoiceTicket(senderId, url);
+        long durationMs = voiceDurationMs(jsonObject);
+        if (durationMs <= 0L || durationMs > MAX_VOICE_DURATION_MS) {
+            throw new IllegalArgumentException("voice duration invalid");
+        }
+        validateOptionalPositiveLong(jsonObject.get("sizeBytes"), "voice sizeBytes invalid", 1L, MAX_VOICE_SIZE_BYTES);
+        Object mimeTypeValue = jsonObject.get("mimeType");
+        if (!(mimeTypeValue instanceof String mimeType)
+                || mimeType.isBlank()
+                || mimeType.length() > MAX_VOICE_MIME_TYPE_LENGTH
+                || !mimeType.matches("audio/(webm|mp4|mpeg|wav|aac|x-m4a)")) {
+            throw new IllegalArgumentException("voice mimeType invalid");
+        }
+    }
+
+    private long voiceDurationMs(Map<String, Object> jsonObject) {
+        Object durationMsValue = jsonObject.get("durationMs");
+        if (durationMsValue instanceof Number number) {
+            long longValue = number.longValue();
+            if (Double.compare(number.doubleValue(), longValue) != 0) {
+                throw new IllegalArgumentException("voice duration invalid");
+            }
+            return longValue;
+        }
+        Object durationSecondsValue = jsonObject.get("durationSeconds");
+        if (durationSecondsValue instanceof Number number) {
+            double seconds = number.doubleValue();
+            if (!Double.isFinite(seconds)) {
+                throw new IllegalArgumentException("voice duration invalid");
+            }
+            return Math.round(seconds * 1000D);
+        }
+        throw new IllegalArgumentException("voice duration invalid");
+    }
+
+    private void validateChatVoiceTicket(Long senderId, String url) {
+        if (url.startsWith("local://")
+                || url.startsWith("blob:")
+                || url.startsWith("data:")
+                || url.contains("placeholder")
+                || url.contains("preview")
+                || url.startsWith("http://")
+                || url.startsWith("https://")
+                || !url.startsWith("/uploads/chat-voice/")) {
+            throw new IllegalArgumentException("voice url invalid");
+        }
+        mediaUploadTicketService.requireUploadedStorageUrl(senderId, "CHAT_VOICE", url);
     }
 
     private Map<String, Object> parseJsonObject(String content) {
@@ -463,6 +526,9 @@ public class ChatApplicationService {
         }
         if (MessageType.IMAGE.name().equals(msgType)) {
             return "[图片]";
+        }
+        if (MessageType.VOICE.name().equals(msgType)) {
+            return "[语音]";
         }
         return "[消息]";
     }

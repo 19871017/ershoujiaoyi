@@ -70,6 +70,30 @@ class ChatApplicationServiceTest {
     }
 
     @Test
+    void shouldValidateVoiceMessagesAgainstUploadedVoiceTicket() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        String chatVoiceUrl = issueChatVoiceTicket(1L, "/uploads/chat-voice/owner1-a.webm");
+
+        ChatMessageAck voiceAck = service.sendMessage(voice(conversationId, "v1", 1L, 2L, chatVoiceUrl));
+
+        assertEquals(1L, voiceAck.getServerSeq());
+        assertEquals("VOICE", voiceAck.getMsgType());
+        assertEquals("[语音]", service.listConversations(1L).get(0).getLastMessageSummary());
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(voice(conversationId, "voice-local", 1L, 2L, "local://voice.webm")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(voice(conversationId, "voice-blob", 1L, 2L, "blob:https://example.com/a")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(voice(conversationId, "voice-http", 1L, 2L, "https://cdn.example.com/a.webm")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(voice(conversationId, "voice-placeholder", 1L, 2L, "/uploads/chat-voice/placeholder.webm")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(voice(conversationId, "voice-other-owner", 2L, 1L, chatVoiceUrl)));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(voice(conversationId, "voice-not-ticket", 1L, 2L, "/uploads/chat-voice/no-ticket.webm")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(voiceWithContent(conversationId, "voice-zero-duration", 1L, 2L,
+                "{\"url\":\"" + chatVoiceUrl + "\",\"durationMs\":0,\"sizeBytes\":4096,\"mimeType\":\"audio/webm\"}")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(voiceWithContent(conversationId, "voice-bad-mime", 1L, 2L,
+                "{\"url\":\"" + chatVoiceUrl + "\",\"durationMs\":1200,\"sizeBytes\":4096,\"mimeType\":\"video/mp4\"}")));
+        String expiredChatVoiceUrl = issueExpiredChatVoiceTicket(1L, "/uploads/chat-voice/expired-owner1.webm");
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(voice(conversationId, "expired-voice-ticket", 1L, 2L, expiredChatVoiceUrl)));
+    }
+
+    @Test
     void listConversationsShouldIncludePeerProfileFields() {
         Long conversationId = service.createConversation(conversation(1L, 2L));
         insertUserAccount(2L, "真实卖家", "/uploads/avatar/seller.png");
@@ -242,6 +266,18 @@ class ChatApplicationServiceTest {
         return command;
     }
 
+    private SendMessageCommand voice(Long conversationId, String clientMsgId, Long senderId, Long receiverId, String url) {
+        return voiceWithContent(conversationId, clientMsgId, senderId, receiverId,
+                "{\"url\":\"" + url + "\",\"durationMs\":1800,\"sizeBytes\":4096,\"mimeType\":\"audio/webm\"}");
+    }
+
+    private SendMessageCommand voiceWithContent(Long conversationId, String clientMsgId, Long senderId, Long receiverId, String contentJson) {
+        SendMessageCommand command = baseMessage(conversationId, clientMsgId, senderId, receiverId);
+        command.setMsgType("VOICE");
+        command.setContentJson(contentJson);
+        return command;
+    }
+
     private SendMessageCommand baseMessage(Long conversationId, String clientMsgId, Long senderId, Long receiverId) {
         SendMessageCommand command = new SendMessageCommand();
         command.setConversationId(conversationId);
@@ -266,6 +302,24 @@ class ChatApplicationServiceTest {
                   ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
                 ) VALUES (?, ?, 'CHAT_IMAGE', 'chat.png', 'image/png', 1024, ?, 'hash', 'UPLOADED', DATEADD('HOUR', -2, CURRENT_TIMESTAMP), DATEADD('HOUR', -1, CURRENT_TIMESTAMP))
                 """, "EXPIRED-TICKET-" + ownerUserId + '-' + Math.abs(storageUrl.hashCode()), ownerUserId, storageUrl);
+        return storageUrl;
+    }
+
+    private String issueChatVoiceTicket(Long ownerUserId, String storageUrl) {
+        jdbcTemplate.update("""
+                INSERT INTO media_upload_ticket (
+                  ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
+                ) VALUES (?, ?, 'CHAT_VOICE', 'chat.webm', 'audio/webm', 4096, ?, 'hash', 'UPLOADED', CURRENT_TIMESTAMP, DATEADD('HOUR', 1, CURRENT_TIMESTAMP))
+                """, "VOICE-TICKET-" + ownerUserId + '-' + Math.abs(storageUrl.hashCode()), ownerUserId, storageUrl);
+        return storageUrl;
+    }
+
+    private String issueExpiredChatVoiceTicket(Long ownerUserId, String storageUrl) {
+        jdbcTemplate.update("""
+                INSERT INTO media_upload_ticket (
+                  ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
+                ) VALUES (?, ?, 'CHAT_VOICE', 'chat.webm', 'audio/webm', 4096, ?, 'hash', 'UPLOADED', DATEADD('HOUR', -2, CURRENT_TIMESTAMP), DATEADD('HOUR', -1, CURRENT_TIMESTAMP))
+                """, "EXPIRED-VOICE-TICKET-" + ownerUserId + '-' + Math.abs(storageUrl.hashCode()), ownerUserId, storageUrl);
         return storageUrl;
     }
 }

@@ -27,12 +27,14 @@ public class MediaUploadTicketService {
     private static final long MAX_PRODUCT_IMAGE_SIZE = 10_000_000L;
     private static final long MAX_COMMUNITY_IMAGE_SIZE = 10_000_000L;
     private static final long MAX_EVIDENCE_IMAGE_SIZE = 10_000_000L;
+    private static final long MAX_CHAT_VOICE_SIZE = 10_000_000L;
     private static final String SCENE_VIDEO_IDENTITY = "VIDEO_IDENTITY";
     private static final String SCENE_PRODUCT_IMAGE = "PRODUCT_IMAGE";
     private static final String SCENE_COMMUNITY_IMAGE = "COMMUNITY_IMAGE";
     private static final String SCENE_AFTER_SALES_EVIDENCE = "AFTER_SALES_EVIDENCE";
     private static final String SCENE_REPORT_EVIDENCE = "REPORT_EVIDENCE";
     private static final String SCENE_CHAT_IMAGE = "CHAT_IMAGE";
+    private static final String SCENE_CHAT_VOICE = "CHAT_VOICE";
 
     private final JdbcTemplate jdbcTemplate;
     private final Path storageRoot;
@@ -64,6 +66,7 @@ public class MediaUploadTicketService {
             case SCENE_AFTER_SALES_EVIDENCE -> "/uploads/evidence/after-sales/";
             case SCENE_REPORT_EVIDENCE -> "/uploads/report-evidence/";
             case SCENE_CHAT_IMAGE -> "/uploads/chat-image/";
+            case SCENE_CHAT_VOICE -> "/uploads/chat-voice/";
             default -> "/uploads/video-identity/";
         };
         String storageUrl = storageDir + userId + "/" + ticketNo + ext;
@@ -188,7 +191,7 @@ public class MediaUploadTicketService {
     }
 
     private void validateSceneAndMedia(String scene, String contentType, Long fileSize, String filename) {
-        if (!List.of(SCENE_VIDEO_IDENTITY, SCENE_PRODUCT_IMAGE, SCENE_COMMUNITY_IMAGE, SCENE_AFTER_SALES_EVIDENCE, SCENE_REPORT_EVIDENCE, SCENE_CHAT_IMAGE).contains(scene)) {
+        if (!List.of(SCENE_VIDEO_IDENTITY, SCENE_PRODUCT_IMAGE, SCENE_COMMUNITY_IMAGE, SCENE_AFTER_SALES_EVIDENCE, SCENE_REPORT_EVIDENCE, SCENE_CHAT_IMAGE, SCENE_CHAT_VOICE).contains(scene)) {
             throw new IllegalArgumentException("unsupported media scene");
         }
         if (SCENE_VIDEO_IDENTITY.equals(scene)) {
@@ -214,6 +217,15 @@ public class MediaUploadTicketService {
                 throw new IllegalArgumentException("image size invalid");
             }
         }
+        if (SCENE_CHAT_VOICE.equals(scene)) {
+            List<String> allowedTypes = List.of("audio/webm", "audio/mp4", "audio/mpeg", "audio/wav", "audio/aac", "audio/x-m4a");
+            if (!allowedTypes.contains(contentType)) {
+                throw new IllegalArgumentException("voice content type invalid");
+            }
+            if (fileSize == null || fileSize <= 0 || fileSize > MAX_CHAT_VOICE_SIZE) {
+                throw new IllegalArgumentException("voice size invalid");
+            }
+        }
         String lower = filename.toLowerCase(Locale.ROOT);
         if (lower.contains("..") || lower.contains("/") || lower.contains("\\") || lower.contains("placeholder") || lower.contains("preview")) {
             throw new IllegalArgumentException("filename invalid");
@@ -227,20 +239,50 @@ public class MediaUploadTicketService {
 
     private String extensionFor(String contentType, String filename) {
         String lower = filename.toLowerCase(Locale.ROOT);
+        if (contentType.startsWith("audio/")) {
+            if (lower.endsWith(".webm")) {
+                return ".webm";
+            }
+            if (lower.endsWith(".m4a")) {
+                return ".m4a";
+            }
+            if (lower.endsWith(".mp3")) {
+                return ".mp3";
+            }
+            if (lower.endsWith(".wav")) {
+                return ".wav";
+            }
+            if (lower.endsWith(".aac")) {
+                return ".aac";
+            }
+            if (contentType.equals("audio/webm")) {
+                return ".webm";
+            }
+            if (contentType.equals("audio/mpeg")) {
+                return ".mp3";
+            }
+            if (contentType.equals("audio/wav")) {
+                return ".wav";
+            }
+            if (contentType.equals("audio/aac")) {
+                return ".aac";
+            }
+            return ".m4a";
+        }
+        if (contentType.startsWith("image/")) {
+            if (lower.endsWith(".png")) {
+                return ".png";
+            }
+            if (lower.endsWith(".webp")) {
+                return ".webp";
+            }
+            return ".jpg";
+        }
         if (lower.endsWith(".mov")) {
             return ".mov";
         }
         if (lower.endsWith(".m4v")) {
             return ".m4v";
-        }
-        if (lower.endsWith(".png")) {
-            return ".png";
-        }
-        if (lower.endsWith(".webp")) {
-            return ".webp";
-        }
-        if (contentType.startsWith("image/")) {
-            return ".jpg";
         }
         return ".mp4";
     }

@@ -1,4 +1,4 @@
-import { post, upload } from '../http'
+import { post, upload, uploadBlob } from '../http'
 
 export type MediaUploadScene =
   | 'VIDEO_IDENTITY'
@@ -7,6 +7,7 @@ export type MediaUploadScene =
   | 'AFTER_SALES_EVIDENCE'
   | 'REPORT_EVIDENCE'
   | 'CHAT_IMAGE'
+  | 'CHAT_VOICE'
 
 export interface CreateMediaUploadTicketRequest {
   scene: MediaUploadScene
@@ -35,6 +36,16 @@ export function uploadMediaTicketFile(ticket: MediaUploadTicketResponse, filePat
   return upload<MediaUploadTicketResponse>({
     url: `/api/media/upload-tickets/${encodeURIComponent(ticket.ticketNo)}/file`,
     filePath,
+    name: 'file',
+    header: { 'X-Upload-Token': ticket.uploadToken }
+  })
+}
+
+export function uploadMediaTicketBlob(ticket: MediaUploadTicketResponse, blob: Blob, filename: string): Promise<MediaUploadTicketResponse> {
+  return uploadBlob<MediaUploadTicketResponse>({
+    url: `/api/media/upload-tickets/${encodeURIComponent(ticket.ticketNo)}/file`,
+    blob,
+    filename,
     name: 'file',
     header: { 'X-Upload-Token': ticket.uploadToken }
   })

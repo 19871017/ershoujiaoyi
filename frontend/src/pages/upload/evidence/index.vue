@@ -46,7 +46,8 @@ const storagePrefixByScene: Record<Scene, string> = {
   VIDEO_IDENTITY: '/uploads/video-identity/',
   PRODUCT_IMAGE: '/uploads/product-image/',
   COMMUNITY_IMAGE: '/uploads/community-image/',
-  CHAT_IMAGE: '/uploads/chat-image/'
+  CHAT_IMAGE: '/uploads/chat-image/',
+  CHAT_VOICE: '/uploads/chat-voice/'
 }
 const legacySceneMap: Record<string, Scene> = {
   AFTER_SALES: 'AFTER_SALES_EVIDENCE',

@@ -22,7 +22,12 @@
       <view v-for="message in messages" :key="message.serverMsgId" class="bubble-row" :class="{ mine: isMine(message) }">
         <view class="bubble">
           <image v-if="chatImageMessageUrl(message)" class="message-image" :src="chatImageMessageUrl(message)" mode="aspectFill" />
-          <view v-else class="message-body" :class="{ image: message.msgType === 'IMAGE', voice: message.msgType === 'VOICE', unsupported: !isRenderableMessageType(message) }">{{ renderMessage(message) }}</view>
+          <view
+            v-else
+            class="message-body"
+            :class="{ image: message.msgType === 'IMAGE', voice: message.msgType === 'VOICE', playing: playingVoiceMessageId === message.serverMsgId, unsupported: !isRenderableMessageType(message) }"
+            @click="handleMessageBodyTap(message)"
+          >{{ renderMessage(message) }}</view>
           <view class="message-meta">
             #{{ message.serverSeq }} · {{ formatTime(message.createdAt) }} · {{ receiptText(message) }}
           </view>
@@ -31,6 +36,7 @@
     </scroll-view>
 
     <view class="composer">
+      <view class="tool voice-tool tapable" :class="{ disabled: chatBlocked || sending, recording }" @click="toggleVoiceRecording">{{ recording ? '停' : '语' }}</view>
       <view class="tool tapable" :class="{ disabled: chatBlocked }" @click="sendImagePlaceholder">＋</view>
       <input :value="draft" class="field" confirm-type="send" placeholder="问尺码、瑕疵、发货时间..." :disabled="chatBlocked" @input="updateDraft" @confirm="handleSendText" />
       <button class="send-btn" :disabled="chatBlocked || sending" @click="handleSendText">{{ sending ? '...' : '发送' }}</button>
@@ -42,8 +48,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
+import { resolveBackendMediaUrl } from '../../../api/http'
 import { getChatConversations, markConversationRead, sendMessage, syncMessages, type ChatConversationItem, type ChatMessageItem, type SendMessageRequest, type SendMessageResponse } from '../../../api/modules/chat'
-import { createMediaUploadTicket, uploadMediaTicketFile } from '../../../api/modules/media'
+import { createMediaUploadTicket, uploadMediaTicketBlob, uploadMediaTicketFile } from '../../../api/modules/media'
 import { getMyProfile, getPublicProfile, type UserProfileResponse } from '../../../api/modules/user'
 import { buildChatPeerLevel, chatPeerIdentityBadges } from '../chat-peer'
 import {
@@ -55,6 +62,7 @@ import {
   formatTime,
   filenameFromPath,
   guessImageMime,
+  hasInvalidChatVoiceStorageUrl,
   hasInvalidChatImageStorageUrl,
   hasInvalidTempChatImagePath,
   isKnownChatMessageType,
@@ -63,16 +71,23 @@ import {
   isPickerCancel,
   isValidBackendId,
   normalizedVoiceDurationSeconds,
+  normalizedVoiceMimeType,
   parseChatContentObject,
   parseMessageContentForValidation,
   readPositiveRouteNumber,
+  voiceFallbackName,
   validatedCommunityImageUrl,
-  type ChooseImageFile
+  type ChooseImageFile,
+  type VoiceContentType
 } from './chat-conversation-helpers'
+
+const MAX_VOICE_RECORD_MS = 60_000
+const MIN_VOICE_RECORD_MS = 600
 
 const currentUserId = ref<number | null>(null)
 const draft = ref('')
 const sending = ref(false)
+const recording = ref(false)
 const loadingMessages = ref(false)
 const discoveringConversation = ref(false)
 const chatBlocked = ref(false)
@@ -80,9 +95,17 @@ const statusText = ref('')
 const conversationId = ref<number | undefined>()
 const receiverId = ref<number | undefined>()
 const messages = ref<ChatMessageItem[]>([])
+const playingVoiceMessageId = ref('')
 const nextAfterSeq = ref(0)
 const hasMore = ref(false)
 let syncTimer: ReturnType<typeof setInterval> | null = null
+let voiceRecorder: MediaRecorder | null = null
+let voiceStream: MediaStream | null = null
+let voiceRecordStartedAt = 0
+let voiceStopTimer: ReturnType<typeof setTimeout> | null = null
+let voiceRecordCancelled = false
+let voiceChunks: Blob[] = []
+let activeAudio: HTMLAudioElement | null = null
 let discoveryFailureCount = 0
 let autoReadInFlight = false
 const receiptRefreshWindow = 200
@@ -178,7 +201,11 @@ onLoad((options) => {
   void initializeChatPage(options)
 })
 
-onUnload(stopMessageSync)
+onUnload(() => {
+  stopMessageSync()
+  cleanupVoiceRecording()
+  stopActiveVoicePlayback()
+})
 
 async function initializeChatPage(options: Record<string, string | undefined> | undefined): Promise<void> {
   await loadCurrentUser()
@@ -376,6 +403,124 @@ async function handleMarkRead(): Promise<void> {
 
 async function handleSendText(): Promise<void> { await handleSend('TEXT') }
 
+async function toggleVoiceRecording(): Promise<void> {
+  if (recording.value) {
+    stopVoiceRecording(false)
+    return
+  }
+  await startVoiceRecording()
+}
+
+async function startVoiceRecording(): Promise<void> {
+  if (chatBlocked.value) { statusText.value = '聊天数据暂不可用，不能发送语音'; return }
+  if (sending.value || recording.value) return
+  if (!currentUserId.value) { statusText.value = '缺少当前登录用户，暂不能发送语音'; return }
+  if (!receiverId.value) { statusText.value = '缺少会话目标用户，暂不能发送语音'; return }
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+    statusText.value = '当前环境不支持语音录制，请使用 HTTPS 浏览器或手机浏览器测试'
+    return
+  }
+  try {
+    const mimeType = supportedVoiceMimeType()
+    voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    voiceChunks = []
+    voiceRecordCancelled = false
+    voiceRecordStartedAt = Date.now()
+    voiceRecorder = new MediaRecorder(voiceStream, mimeType ? { mimeType } : undefined)
+    voiceRecorder.ondataavailable = (event) => {
+      if (event.data?.size > 0) voiceChunks.push(event.data)
+    }
+    voiceRecorder.onerror = (event) => {
+      console.warn('chat voice recorder error', { event })
+      statusText.value = '语音录制失败，请检查麦克风权限'
+      cleanupVoiceRecording()
+    }
+    voiceRecorder.onstop = () => {
+      const durationMs = Date.now() - voiceRecordStartedAt
+      const chunks = [...voiceChunks]
+      const recorderMimeType = normalizedVoiceMimeType(voiceRecorder?.mimeType || mimeType)
+      const cancelled = voiceRecordCancelled
+      cleanupVoiceRecording()
+      if (cancelled) {
+        statusText.value = '已取消语音录制'
+        return
+      }
+      void handleRecordedVoice(chunks, durationMs, recorderMimeType)
+    }
+    voiceRecorder.start()
+    recording.value = true
+    statusText.value = '正在录音，点击“停”发送'
+    voiceStopTimer = setTimeout(() => stopVoiceRecording(false), MAX_VOICE_RECORD_MS)
+  } catch (error) {
+    console.warn('chat voice record start failed', { error })
+    cleanupVoiceRecording()
+    statusText.value = '无法开始录音，请检查麦克风权限'
+  }
+}
+
+function stopVoiceRecording(cancel: boolean): void {
+  voiceRecordCancelled = cancel
+  if (!voiceRecorder || voiceRecorder.state === 'inactive') {
+    cleanupVoiceRecording()
+    return
+  }
+  try {
+    voiceRecorder.stop()
+  } catch (error) {
+    console.warn('chat voice recorder stop failed', { error })
+    cleanupVoiceRecording()
+    statusText.value = '语音录制失败，请重新录制'
+  }
+}
+
+function cleanupVoiceRecording(): void {
+  if (voiceStopTimer) {
+    clearTimeout(voiceStopTimer)
+    voiceStopTimer = null
+  }
+  voiceStream?.getTracks().forEach((track) => track.stop())
+  voiceStream = null
+  voiceRecorder = null
+  voiceChunks = []
+  recording.value = false
+}
+
+function supportedVoiceMimeType(): VoiceContentType | '' {
+  const candidates: VoiceContentType[] = ['audio/webm', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/mpeg', 'audio/wav']
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') return 'audio/webm'
+  return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? ''
+}
+
+async function handleRecordedVoice(chunks: Blob[], durationMs: number, mimeType: VoiceContentType): Promise<void> {
+  if (durationMs < MIN_VOICE_RECORD_MS || chunks.length === 0) {
+    statusText.value = '录音时间太短，请重新录制'
+    return
+  }
+  const blob = new Blob(chunks, { type: mimeType })
+  if (blob.size <= 0 || blob.size > 10_000_000) {
+    statusText.value = '语音文件大小异常，请重新录制'
+    return
+  }
+  sending.value = true
+  statusText.value = '正在上传语音...'
+  try {
+    const ticket = await createMediaUploadTicket({ scene: 'CHAT_VOICE', contentType: mimeType, fileSize: blob.size, filename: voiceFallbackName(mimeType) })
+    const uploaded = await uploadMediaTicketBlob(ticket, blob, voiceFallbackName(mimeType))
+    if (hasInvalidChatVoiceStorageUrl(uploaded.storageUrl)) throw new Error('chat voice storageUrl invalid')
+    await handleSend('VOICE', {
+      url: uploaded.storageUrl,
+      durationMs: Math.max(1, Math.round(durationMs)),
+      sizeBytes: blob.size,
+      mimeType
+    })
+  } catch (error) {
+    console.warn('chat voice send failed', { durationMs, sizeBytes: blob.size, mimeType, error })
+    statusText.value = '语音发送失败，请重新录制后发送'
+  } finally {
+    sending.value = false
+  }
+}
+
 function sendImagePlaceholder(): void {
   if (chatBlocked.value) { statusText.value = '聊天数据暂不可用，不能发送图片'; return }
   if (sending.value) return
@@ -429,12 +574,13 @@ async function handleSendImage(localPath: string, file?: ChooseImageFile): Promi
   }
 }
 
-async function handleSend(type: 'TEXT' | 'IMAGE', imagePayload?: { url: string; width: number; height: number; sizeBytes: number; mimeType: string }): Promise<void> {
+async function handleSend(type: 'TEXT' | 'IMAGE' | 'VOICE', contentPayload?: Record<string, unknown>): Promise<void> {
   if (chatBlocked.value) { statusText.value = '聊天数据暂不可用，暂不能发送消息'; return }
   if (sending.value && type === 'TEXT') return
   if (!currentUserId.value) { statusText.value = '缺少当前登录用户，暂不能发送消息'; return }
   if (!receiverId.value) { statusText.value = '缺少会话目标用户，暂不能发送消息'; return }
-  if (type === 'IMAGE' && (!imagePayload || hasInvalidChatImageStorageUrl(imagePayload.url))) { statusText.value = '图片暂不可用，暂不能发送消息'; return }
+  if (type === 'IMAGE' && (!contentPayload || hasInvalidChatImageStorageUrl(contentPayload.url))) { statusText.value = '图片暂不可用，暂不能发送消息'; return }
+  if (type === 'VOICE' && (!contentPayload || hasInvalidChatVoiceStorageUrl(contentPayload.url))) { statusText.value = '语音暂不可用，暂不能发送消息'; return }
   const text = draft.value.trim()
   if (type === 'TEXT' && !text) { statusText.value = '消息不能为空，未发送默认聊天文案'; return }
   const payload: SendMessageRequest = {
@@ -442,7 +588,7 @@ async function handleSend(type: 'TEXT' | 'IMAGE', imagePayload?: { url: string; 
     clientMsgId: `h5-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     receiverId: receiverId.value,
     msgType: type,
-    contentJson: type === 'IMAGE' ? JSON.stringify(imagePayload) : JSON.stringify({ text })
+    contentJson: type === 'TEXT' ? JSON.stringify({ text }) : JSON.stringify(contentPayload)
   }
   let sent = false
   sending.value = true
@@ -505,6 +651,13 @@ function chatImageMessageUrl(message: ChatMessageItem): string {
   return hasInvalidChatImageStorageUrl(url) ? '' : url as string
 }
 
+function chatVoiceMessageUrl(message: ChatMessageItem): string {
+  if (message.msgType !== 'VOICE') return ''
+  const content = parsedMessageContent(message)
+  const url = content?.url ?? content?.audioUrl ?? content?.voiceUrl
+  return hasInvalidChatVoiceStorageUrl(url) ? '' : url as string
+}
+
 function isRenderableMessageType(message: ChatMessageItem): boolean {
   return isKnownChatMessageType(message.msgType)
 }
@@ -520,6 +673,58 @@ function renderMessage(message: ChatMessageItem): string {
   }
   if (!isKnownChatMessageType(message.msgType)) return '暂不支持的消息类型'
   return typeof content?.text === 'string' && content.text.trim() ? content.text : '消息内容暂不可用'
+}
+
+function handleMessageBodyTap(message: ChatMessageItem): void {
+  if (message.msgType !== 'VOICE') return
+  const content = parsedMessageContent(message)
+  if (content?.revoked === true || content?.recalled === true) {
+    statusText.value = '这条语音已撤回'
+    return
+  }
+  const voiceUrl = chatVoiceMessageUrl(message)
+  if (!voiceUrl) {
+    statusText.value = '语音文件暂不可播放'
+    return
+  }
+  playVoiceMessage(message.serverMsgId, voiceUrl)
+}
+
+function playVoiceMessage(serverMsgId: string, storageUrl: string): void {
+  if (playingVoiceMessageId.value === serverMsgId) {
+    stopActiveVoicePlayback()
+    return
+  }
+  stopActiveVoicePlayback()
+  try {
+    const audio = new Audio(resolveBackendMediaUrl(storageUrl))
+    activeAudio = audio
+    playingVoiceMessageId.value = serverMsgId
+    audio.onended = stopActiveVoicePlayback
+    audio.onerror = () => {
+      stopActiveVoicePlayback()
+      statusText.value = '语音播放失败，请稍后重试'
+    }
+    void audio.play().catch((error) => {
+      console.warn('chat voice play failed', { serverMsgId, error })
+      stopActiveVoicePlayback()
+      statusText.value = '语音播放失败，请检查浏览器播放权限'
+    })
+  } catch (error) {
+    console.warn('chat voice play failed', { serverMsgId, error })
+    stopActiveVoicePlayback()
+    statusText.value = '语音播放失败，请稍后重试'
+  }
+}
+
+function stopActiveVoicePlayback(): void {
+  if (activeAudio) {
+    activeAudio.pause()
+    activeAudio.onended = null
+    activeAudio.onerror = null
+  }
+  activeAudio = null
+  playingVoiceMessageId.value = ''
 }
 
 function receiptText(message: ChatMessageItem): string {

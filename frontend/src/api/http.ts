@@ -16,6 +16,15 @@ export interface UploadOptions {
   header?: Record<string, string>
 }
 
+export interface UploadBlobOptions {
+  url: string
+  blob: Blob
+  filename: string
+  name?: string
+  formData?: Record<string, string>
+  header?: Record<string, string>
+}
+
 export interface ApiResult<T> {
   success: boolean
   message: string
@@ -179,6 +188,36 @@ export function upload<T = unknown>(options: UploadOptions): Promise<T> {
       fail: reject
     })
   })
+}
+
+export async function uploadBlob<T = unknown>(options: UploadBlobOptions): Promise<T> {
+  if (typeof fetch !== 'function' || typeof FormData === 'undefined') {
+    throw new Error('当前环境不支持语音文件上传')
+  }
+  const formData = new FormData()
+  Object.entries(options.formData ?? {}).forEach(([key, value]) => formData.append(key, value))
+  formData.append(options.name ?? 'file', options.blob, options.filename)
+  const response = await fetch(`${RESOLVED_API_BASE_URL}${options.url}`, {
+    method: 'POST',
+    headers: { ...DEV_HEADERS, ...authHeaders(), ...(options.header ?? {}) },
+    body: formData
+  })
+  let result: unknown
+  try {
+    result = await response.json()
+  } catch {
+    result = undefined
+  }
+  if (!response.ok) {
+    throw toError(isApiResult<T>(result) ? result.message : undefined, `上传失败：HTTP ${response.status}`)
+  }
+  if (!isApiResult<T>(result)) {
+    throw toError(undefined, '上传响应格式异常，请稍后重试')
+  }
+  if (!result.success) {
+    throw toError(result.message, '上传失败，请重新录制语音后再试')
+  }
+  return result.data
 }
 
 export function put<T = unknown>(url: string, data?: unknown, header?: Record<string, string>) {

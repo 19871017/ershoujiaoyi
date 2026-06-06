@@ -18,6 +18,7 @@ export const chatVoiceStoragePrefix = '/uploads/chat-voice/'
 export const communityImageStoragePrefix = '/uploads/community-image/'
 
 export type ImageContentType = 'image/png' | 'image/webp' | 'image/jpeg'
+export type VoiceContentType = 'audio/webm' | 'audio/mp4' | 'audio/mpeg' | 'audio/wav' | 'audio/aac' | 'audio/x-m4a'
 export type ChooseImageFile = { name?: string; type?: string; size?: number }
 
 export class ChatDataIntegrityError extends Error {}
@@ -131,7 +132,7 @@ export function assertSendMessageResponse(value: unknown): asserts value is Send
   if (typeof ack.serverMsgId !== 'string' || !ack.serverMsgId.trim()) throw new Error('chat send invalid serverMsgId')
   if (typeof ack.clientMsgId !== 'string' || !ack.clientMsgId.trim()) throw new Error('chat send invalid clientMsgId')
   if (!isValidBackendId(ack.senderId) || !isValidBackendId(ack.receiverId)) throw new Error('chat send invalid participant ids')
-  if (ack.msgType !== 'TEXT' && ack.msgType !== 'IMAGE') throw new Error('chat send invalid msgType')
+  if (ack.msgType !== 'TEXT' && ack.msgType !== 'IMAGE' && ack.msgType !== 'VOICE') throw new Error('chat send invalid msgType')
 }
 
 export function isValidVoiceMessageContent(content: Record<string, unknown>): boolean {
@@ -174,6 +175,24 @@ export function imageFallbackName(contentType: ImageContentType): string {
   if (contentType === 'image/png') return 'chat-image.png'
   if (contentType === 'image/webp') return 'chat-image.webp'
   return 'chat-image.jpg'
+}
+
+export function normalizedVoiceMimeType(mimeType?: string): VoiceContentType {
+  const normalized = mimeType?.toLowerCase()
+  if (normalized === 'audio/mp4' || normalized === 'audio/mpeg' || normalized === 'audio/wav' || normalized === 'audio/aac' || normalized === 'audio/x-m4a') return normalized
+  return 'audio/webm'
+}
+
+export function voiceFallbackName(contentType: VoiceContentType): string {
+  if (contentType === 'audio/mpeg') return 'chat-voice.mp3'
+  if (contentType === 'audio/wav') return 'chat-voice.wav'
+  if (contentType === 'audio/aac') return 'chat-voice.aac'
+  if (contentType === 'audio/mp4' || contentType === 'audio/x-m4a') return 'chat-voice.m4a'
+  return 'chat-voice.webm'
+}
+
+export function hasInvalidChatVoiceStorageUrl(url: unknown): boolean {
+  return hasInvalidStoredImageUrl(url, chatVoiceStoragePrefix)
 }
 
 export function isPickerCancel(error: unknown): boolean {
