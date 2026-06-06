@@ -40,6 +40,8 @@ run npm test
 run npm run build
 
 cd "$ROOT"
+run python3 -m unittest "$ROOT/scripts/test_check_production_artifacts.py" "$ROOT/scripts/test_check_production_readiness.py"
+run python3 "$ROOT/scripts/check-production-artifacts.py"
 run python3 "$ROOT/scripts/check-production-readiness.py"
 
 if [[ "${RUN_SMOKE_API:-false}" == "true" ]]; then

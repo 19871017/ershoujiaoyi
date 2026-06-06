@@ -123,9 +123,10 @@ class WalletLedgerServiceTest {
     @Test
     void concurrentWithdrawalsShouldNotOverFreezeWithdrawableBalance() throws Exception {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "100.00"));
+        Long accountId = service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "alice@example.com"));
 
         ConcurrentOutcome outcome = runTwoConcurrentAttempts(
-                () -> service.createWithdrawal(1L, withdrawal("80.00"), "AU-WD-CONCURRENT-" + Thread.currentThread().getId()),
+                () -> service.createWithdrawal(1L, withdrawalWithAccount("80.00", accountId), "AU-WD-CONCURRENT-" + Thread.currentThread().getId()),
                 "insufficient withdrawable balance"
         );
 
@@ -459,6 +460,17 @@ class WalletLedgerServiceTest {
 
     private CreateWithdrawalRequest withdrawal(String amount) {
         return withdrawal(1L, amount);
+    }
+
+    private CreateWithdrawalRequest withdrawalWithAccount(String amount, Long payoutAccountId) {
+        CreateWithdrawalRequest request = new CreateWithdrawalRequest();
+        request.setAmount(new BigDecimal(amount));
+        request.setPayoutAccountId(payoutAccountId);
+        request.setPaymentMethod("alipay");
+        request.setAccountName("Alice");
+        request.setAccountNo("alice@example.com");
+        request.setRemark("test withdrawal");
+        return request;
     }
 
     private record ConcurrentOutcome(int successes, int expectedFailures) {
