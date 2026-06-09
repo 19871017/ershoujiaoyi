@@ -279,14 +279,17 @@ onUnload(stopConversationRefresh)
 </script>
 
 <style scoped>
-.session-page { padding-bottom:calc(70rpx + env(safe-area-inset-bottom)); background:radial-gradient(circle at 10% 0%,rgba(255,205,159,.32),transparent 27%),linear-gradient(180deg,#fff7ed 0%,#fffdfa 52%,#fff7ed 100%); }
+.session-page { --session-visible-height:calc(100vh - var(--window-top, 0px) - var(--window-bottom, 0px)); height:var(--session-visible-height); min-height:var(--session-visible-height); padding:calc(18rpx + var(--global-ticker-offset, 0rpx)) 18rpx calc(18rpx + env(safe-area-inset-bottom)); display:flex; flex-direction:column; overflow:hidden; background:radial-gradient(circle at 10% 0%,rgba(255,205,159,.32),transparent 27%),linear-gradient(180deg,#fff7ed 0%,#fffdfa 52%,#fff7ed 100%); }
+@supports (height: 100dvh) {
+  .session-page { --session-visible-height:calc(100dvh - var(--window-top, 0px) - var(--window-bottom, 0px)); }
+}
 .hero { padding:20rpx; display:flex; justify-content:space-between; gap:16rpx; align-items:flex-start; border-color:#ffd9bd; background:linear-gradient(135deg,#fff,#fff3e7); box-shadow:0 12rpx 26rpx rgba(255,122,69,.07); }
 .kicker { color:#ff7a45; font-size:20rpx; font-weight:950; }
 .hero-badge { padding:9rpx 15rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:20rpx; font-weight:950; }
 .search-card { margin-top:12rpx; padding:11rpx; display:flex; gap:10rpx; border-color:#ffd9bd; }
 .search-input { flex:1; height:56rpx; padding:0 16rpx; border-radius:999rpx; background:#fffaf6; color:#3a2a1f; font-size:22rpx; }
 .refresh-btn { margin:0; width:112rpx; height:56rpx; line-height:56rpx; border-radius:999rpx; background:#3a2a1f; color:#fff; font-size:21rpx; font-weight:950; }
-.filter-row { margin-top:12rpx; display:flex; gap:9rpx; overflow-x:auto; }
+.filter-row { flex:0 0 auto; margin-top:12rpx; display:flex; gap:9rpx; overflow-x:auto; }
 .filter-chip { flex:none; padding:10rpx 17rpx; border-radius:999rpx; background:#fff; border:1rpx solid #ffd9bd; color:#9b7560; font-size:20rpx; font-weight:900; }
 .filter-chip.active { background:#ff7a45; color:#fff; border-color:#ff7a45; }
 .status-card,.empty-card { margin-top:14rpx; padding:26rpx 20rpx; text-align:center; border-radius:24rpx; color:#9b7560; }
@@ -300,7 +303,7 @@ onUnload(stopConversationRefresh)
 .empty-action { min-width:116rpx; height:52rpx; padding:0 18rpx; border-radius:999rpx; display:flex; align-items:center; justify-content:center; background:#fffaf6; border:1rpx solid #ffd9bd; color:#7b5542; font-size:20rpx; font-weight:950; box-sizing:border-box; }
 .empty-action.primary { background:#3a2a1f; border-color:#3a2a1f; color:#fff; }
 .empty-action.warm { background:#ff7a45; border-color:#ff7a45; color:#fff; }
-.session-list { margin-top:12rpx; display:flex; flex-direction:column; gap:11rpx; }
+.session-list { flex:1; min-height:0; margin-top:12rpx; padding-bottom:12rpx; display:flex; flex-direction:column; gap:11rpx; overflow-y:auto; -webkit-overflow-scrolling:touch; }
 .session-card { padding:15rpx; display:flex; align-items:center; gap:13rpx; border-color:#ffd9bd; box-shadow:0 12rpx 26rpx rgba(255,122,69,.065); }
 .avatar { width:72rpx; height:72rpx; border-radius:50%; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:28rpx; font-weight:950; overflow:hidden; }
 .avatar.image { background:#fff3e7; }
@@ -315,4 +318,18 @@ onUnload(stopConversationRefresh)
 .identity-chip { padding:5rpx 10rpx; border-radius:999rpx; background:#fffaf6; color:#7b5542; border:1rpx solid #ffe4d1; font-weight:900; }
 .session-side { display:flex; flex-direction:column; align-items:flex-end; gap:8rpx; }
 .badge { min-width:32rpx; height:32rpx; padding:0 8rpx; border-radius:999rpx; background:#ff3f8d; color:#fff; font-size:19rpx; line-height:32rpx; text-align:center; }
+@media (max-width: 360px) {
+  .session-page { padding-left:14rpx; padding-right:14rpx; }
+  .hero { padding:16rpx; }
+  .page-title { font-size:32rpx; }
+  .search-card { gap:8rpx; padding:9rpx; }
+  .refresh-btn { width:96rpx; font-size:19rpx; }
+  .filter-chip { padding:9rpx 14rpx; font-size:19rpx; }
+  .session-card { padding:13rpx; gap:10rpx; }
+  .avatar { width:64rpx; height:64rpx; font-size:25rpx; }
+  .session-title { font-size:23rpx; }
+  .session-summary { font-size:20rpx; }
+  .session-meta { gap:6rpx; max-height:30rpx; overflow:hidden; flex-wrap:nowrap; }
+  .identity-chip,.scenario-chip { max-width:120rpx; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+}
 </style>

@@ -54,8 +54,10 @@ const pages = [
   {
     name: 'session-list',
     hash: '/pages/chat/session-list/index',
+    chatSessionListFixture: true,
     selectors: {
       page: '.session-page',
+      sessionList: '.session-list',
       cards: '.session-card'
     }
   },
@@ -123,6 +125,9 @@ async function main() {
       })
       for (const pageSpec of pages) {
         const page = await context.newPage()
+        if (pageSpec.chatSessionListFixture) {
+          await installChatSessionListFixture(page)
+        }
         if (pageSpec.authenticatedChatFixture) {
           await installAuthenticatedChatFixture(page)
         }
@@ -466,6 +471,19 @@ async function inspectPage(page, selectors) {
       }
     }
 
+    const sessionListRect = pageSelectors.sessionList ? rect(pageSelectors.sessionList) : null
+    if (pageSelectors.sessionList) {
+      if (!sessionListRect || sessionListRect.width <= 0 || sessionListRect.height <= 0) {
+        return { ok: false, message: 'private chat session list is missing on mobile' }
+      }
+      if (sessionListRect.height < Math.min(300, viewportHeight * 0.38)) {
+        return { ok: false, message: 'private chat session list viewport is too small on mobile' }
+      }
+      if (sessionListRect.bottom > viewportHeight + 2) {
+        return { ok: false, message: 'private chat session list is clipped outside mobile viewport' }
+      }
+    }
+
     const actionSelectors = [pageSelectors.action, pageSelectors.actions].filter(Boolean).join(',')
     const actionRects = actionSelectors
       ? Array.from(document.querySelectorAll(actionSelectors)).map((element) => {
@@ -589,6 +607,55 @@ async function installCommunityDetailFixture(page) {
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify(json({ conversations: [], serverTime: new Date().toISOString() }))
+  }))
+}
+
+async function installChatSessionListFixture(page) {
+  const json = (data) => ({ success: true, message: 'ok', data })
+  await page.route('**/api/chat/conversations', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(json({
+      conversations: [
+        {
+          conversationId: 1,
+          peerUserId: 2,
+          peerNickname: '移动端聊天对象',
+          peerAvatarUrl: '',
+          peerGender: 'god',
+          peerCity: '杭州',
+          peerMainRole: 'SELLER',
+          peerVideoVerified: true,
+          peerSellerCharmScore: 38,
+          peerBuyerPowerScore: 0,
+          lastMessageSummary: '手机端聊天窗口自适应检查',
+          lastServerSeq: 6,
+          deliveredSeq: 6,
+          readSeq: 5,
+          unreadCount: 1,
+          updatedAt: '2026-06-09T07:30:00'
+        },
+        {
+          conversationId: 2,
+          peerUserId: 3,
+          peerNickname: '雨哥体验号',
+          peerAvatarUrl: '',
+          peerGender: 'goddess',
+          peerCity: '新乡',
+          peerMainRole: 'BUYER',
+          peerVideoVerified: false,
+          peerSellerCharmScore: 0,
+          peerBuyerPowerScore: 16,
+          lastMessageSummary: '发货时间和瑕疵细节沟通',
+          lastServerSeq: 3,
+          deliveredSeq: 3,
+          readSeq: 3,
+          unreadCount: 0,
+          updatedAt: '2026-06-09T07:20:00'
+        }
+      ],
+      serverTime: new Date().toISOString()
+    }))
   }))
 }
 

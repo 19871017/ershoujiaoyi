@@ -387,7 +387,7 @@ if (
 }
 
 if (
-  /height:calc\(100vh\s*-/.test(style) ||
+  /(^|[;{]\s*)height:calc\(100vh\s*-/.test(style) ||
   /160rpx/.test(style) ||
   !/\.message-scroll-wrap\s*\{[^}]*flex:1;[^}]*min-height:0;/.test(style) ||
   !/\.message-scroll\s*\{[^}]*height:100%;[^}]*min-height:0;/.test(style) ||
