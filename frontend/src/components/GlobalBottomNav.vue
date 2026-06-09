@@ -6,6 +6,7 @@
         :key="item.path"
         class="bottom-nav-item tapable"
         :class="{ active: activePath === item.path, publish: item.path === publishPath, 'has-unread': item.path === communityPath && totalUnread > 0 }"
+        :data-nav-path="item.path"
         @click.stop="openTab(item.path)"
       >
         <view class="bottom-nav-icon">
@@ -16,14 +17,14 @@
       </view>
     </view>
     <view v-if="communityMenuOpen" class="community-switcher ds-card">
-      <view class="community-switcher-item tapable" @click="openCommunityFeed">
+      <view class="community-switcher-item tapable" data-community-switcher-action="feed" @click.stop="openCommunityFeed">
         <text class="switcher-icon">社</text>
         <view class="switcher-copy">
           <text class="switcher-title">社区动态</text>
           <text class="switcher-subtitle">看看新帖子</text>
         </view>
       </view>
-      <view class="community-switcher-item private tapable" @click="openPrivateChat">
+      <view class="community-switcher-item private tapable" data-community-switcher-action="private" @click.stop="openPrivateChat">
         <text class="switcher-icon">信</text>
         <view class="switcher-copy">
           <text class="switcher-title">私聊</text>
@@ -66,6 +67,10 @@ const displayUnread = computed(() => totalUnread.value > 99 ? '99+' : String(tot
 const privateSubtitle = computed(() => totalUnread.value > 0 ? `${displayUnread.value} 条未读` : '进入会话列表')
 const navigateToWithFailure = uni.navigateTo as unknown as NavigateToWithFailure
 let unreadTimer: ReturnType<typeof setInterval> | null = null
+
+function isTabPath(value: unknown): value is TabPath {
+  return typeof value === 'string' && tabs.some((item) => item.path === value)
+}
 
 function normalizePath(path: string): string {
   const value = path.replace(/^#/, '').split('?')[0]
@@ -144,6 +149,29 @@ function openPrivateChat(): void {
   })
 }
 
+function handleNativeNavClick(event: MouseEvent): void {
+  const target = event.target
+  if (!(target instanceof Element)) return
+  const wrap = target.closest('.global-bottom-nav-wrap')
+  if (!wrap) return
+  const switcherTarget = target.closest('[data-community-switcher-action]')
+  if (switcherTarget) {
+    event.preventDefault()
+    event.stopPropagation()
+    const action = switcherTarget.getAttribute('data-community-switcher-action')
+    if (action === 'feed') openCommunityFeed()
+    if (action === 'private') openPrivateChat()
+    return
+  }
+  const navTarget = target.closest('[data-nav-path]')
+  if (!navTarget) return
+  const path = navTarget.getAttribute('data-nav-path')
+  if (!isTabPath(path)) return
+  event.preventDefault()
+  event.stopPropagation()
+  openTab(path)
+}
+
 function isValidBackendId(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) > 0
 }
@@ -194,6 +222,7 @@ onMounted(() => {
   startUnreadRefresh()
   if (typeof window !== 'undefined') {
     window.addEventListener('hashchange', syncActivePath)
+    document.addEventListener('click', handleNativeNavClick)
   }
 })
 
@@ -202,6 +231,7 @@ onBeforeUnmount(() => {
   stopUnreadRefresh()
   if (typeof window !== 'undefined') {
     window.removeEventListener('hashchange', syncActivePath)
+    document.removeEventListener('click', handleNativeNavClick)
   }
 })
 

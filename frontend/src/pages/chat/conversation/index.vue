@@ -227,7 +227,7 @@ const peerIdentityBadges = computed(() => chatPeerIdentityBadges(peerIdentitySou
 const canManualSync = computed(() => !chatBlocked.value && (!!conversationId.value || !!receiverId.value))
 const composerBlocked = computed(() => chatBlocked.value || sending.value || !currentUserId.value)
 const textComposerBlocked = computed(() => composerBlocked.value || recording.value)
-const chatPageStyle = computed(() => ({ '--chat-keyboard-inset': `${keyboardInset.value}px` }))
+const chatPageStyle = computed(() => `--chat-keyboard-inset:${keyboardInset.value}px;`)
 const peerProfileUnavailableText = '对方资料暂时不可用，仍可继续聊天'
 const voicePlaybackRetryText = '语音播放失败，请确认浏览器允许音频播放后再点一次'
 const chatListStateText = computed(function chatListStateText(): string {
@@ -712,6 +712,12 @@ function handleComposerFocus(): void {
   keyboardInset.value = KEYBOARD_FOCUS_FALLBACK_INSET
   refreshKeyboardInset?.()
   scrollMessagesToBottom()
+  setTimeout(() => {
+    if (composerFocused.value && keyboardInset.value <= 0) {
+      keyboardInset.value = KEYBOARD_FOCUS_FALLBACK_INSET
+      scrollMessagesToBottom()
+    }
+  }, 120)
   setTimeout(scrollMessagesToBottom, 180)
 }
 
@@ -722,7 +728,7 @@ function handleComposerBlur(): void {
       keyboardInset.value = 0
       scrollMessagesToBottom()
     }
-  }, 120)
+  }, 220)
 }
 
 async function syncConversationMessages(showStatus: boolean, refreshReceipts: boolean, latest = false): Promise<boolean> {
