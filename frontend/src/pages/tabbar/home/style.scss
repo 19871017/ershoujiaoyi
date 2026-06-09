@@ -261,10 +261,17 @@
   color: #b45374;
 }
 
+.product-roll {
+  max-height: 820rpx;
+  border-radius: 32rpx;
+  overflow: hidden;
+}
+
 .product-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16rpx;
+  padding-bottom: 12rpx;
 }
 
 .product-grid-card {

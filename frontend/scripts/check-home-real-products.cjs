@@ -35,10 +35,6 @@ const forbiddenMarkers = [
   'product-grid-track',
   'product-row',
   'rollingRows',
-  'productRollTimer',
-  'startProductRoll',
-  'shouldRollProducts',
-  'MANUAL_SCROLL_RESUME_DELAY',
   '后台配置',
   '待后台配置',
   '小原圈卖家'

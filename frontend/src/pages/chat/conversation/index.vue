@@ -709,6 +709,7 @@ function scrollMessagesToBottom(): void {
 
 function handleComposerFocus(): void {
   composerFocused.value = true
+  keyboardInset.value = KEYBOARD_FOCUS_FALLBACK_INSET
   refreshKeyboardInset?.()
   scrollMessagesToBottom()
   setTimeout(scrollMessagesToBottom, 180)

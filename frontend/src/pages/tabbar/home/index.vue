@@ -35,43 +35,59 @@
     <view v-else-if="errorMessage" class="state ds-card muted">宝贝暂时不可用，请稍后再逛</view>
     <view v-else-if="products.length === 0" class="state ds-card muted">暂无在售宝贝</view>
 
-    <view v-else class="product-grid">
-      <view
-        v-for="item in products"
-        :key="item.productId"
-        class="product-grid-card ds-card tapable"
-        @click="goDetail(item.productId)"
-      >
-        <view class="product-cover-wrap" :class="toneClass(item.productId)">
-          <image v-if="item.coverImageUrl" class="product-cover" :src="item.coverImageUrl" mode="aspectFill" />
-          <view v-else class="product-cover-fallback">{{ iconFor(item.title) }}</view>
-          <view class="product-status-chip">{{ statusLabel(item.status) }}</view>
-        </view>
-
-        <view class="product-grid-info">
-          <view class="product-grid-title">{{ item.title }}</view>
-          <view class="product-grid-seller">
-            <view class="seller-badge">
-              <view class="seller-avatar-wrap" :class="{ image: !!sellerAvatarUrl(item) }">
-                <image v-if="sellerAvatarUrl(item)" class="seller-avatar-img" :src="sellerAvatarUrl(item)" mode="aspectFill" />
-                <text v-else class="seller-avatar">{{ sellerInitial(item) }}</text>
-              </view>
-              <text class="seller-name">{{ sellerDisplayName(item) }}</text>
-              <text v-if="item.sellerVideoVerified" class="seller-verified">认</text>
-            </view>
-            <text class="seller-time">{{ formatPublishTime(item.createdAt) }}</text>
+    <scroll-view
+      v-else
+      class="product-roll"
+      scroll-y
+      :scroll-top="productScrollTop"
+      @scroll="handleProductScroll"
+      @touchstart="handleUserInteract"
+      @touchmove="handleUserInteract"
+      @touchend="handleUserInteractEnd"
+      @touchcancel="handleUserInteractEnd"
+      @mousedown="handleUserInteract"
+      @mouseup="handleUserInteractEnd"
+      @mouseleave="handleUserInteractEnd"
+      @wheel="handleUserInteract"
+    >
+      <view class="product-grid">
+        <view
+          v-for="item in products"
+          :key="item.productId"
+          class="product-grid-card ds-card tapable"
+          @click="goDetail(item.productId)"
+        >
+          <view class="product-cover-wrap" :class="toneClass(item.productId)">
+            <image v-if="item.coverImageUrl" class="product-cover" :src="item.coverImageUrl" mode="aspectFill" />
+            <view v-else class="product-cover-fallback">{{ iconFor(item.title) }}</view>
+            <view class="product-status-chip">{{ statusLabel(item.status) }}</view>
           </view>
-          <view class="product-grid-bottom">
-            <text class="price">¥{{ compactPrice(item.price) }}</text>
+
+          <view class="product-grid-info">
+            <view class="product-grid-title">{{ item.title }}</view>
+            <view class="product-grid-seller">
+              <view class="seller-badge">
+                <view class="seller-avatar-wrap" :class="{ image: !!sellerAvatarUrl(item) }">
+                  <image v-if="sellerAvatarUrl(item)" class="seller-avatar-img" :src="sellerAvatarUrl(item)" mode="aspectFill" />
+                  <text v-else class="seller-avatar">{{ sellerInitial(item) }}</text>
+                </view>
+                <text class="seller-name">{{ sellerDisplayName(item) }}</text>
+                <text v-if="item.sellerVideoVerified" class="seller-verified">认</text>
+              </view>
+              <text class="seller-time">{{ formatPublishTime(item.createdAt) }}</text>
+            </view>
+            <view class="product-grid-bottom">
+              <text class="price">¥{{ compactPrice(item.price) }}</text>
+            </view>
           </view>
         </view>
       </view>
-    </view>
+    </scroll-view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getHomeBanners, type HomeBannerResponse } from '../../../api/modules/home'
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
 import {
@@ -94,7 +110,19 @@ const visibleBanners = computed(() => banners.value.filter(item => !!item.imageU
 const loading = ref(false)
 const errorMessage = ref('')
 const products = ref<ProductListItemResponse[]>([])
+const productScrollTop = ref(0)
+const isUserInteracting = ref(false)
+const isTouchingProducts = ref(false)
+const lastManualScrollAt = ref(0)
+const MANUAL_SCROLL_RESUME_DELAY = 6000
+const PRODUCT_ROLL_INTERVAL = 3200
+const PRODUCT_ROLL_STEP = 160
+const shouldRollProducts = computed(() => products.value.length > 4)
 const switchTabWithCallbacks = uni.switchTab as (options: { url: string; success?: () => void; fail?: () => void }) => void
+let productRollTimer: ReturnType<typeof setInterval> | null = null
+let resumeRollTimer: ReturnType<typeof setTimeout> | null = null
+let autoScrolling = false
+
 async function loadBanners() {
   bannerLoadError.value = false
   try {
@@ -112,6 +140,7 @@ async function loadProducts() {
   try {
     const remote = await listProducts()
     products.value = remote
+    if (!shouldRollProducts.value) productScrollTop.value = 0
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '宝贝加载失败'
     products.value = []
@@ -121,6 +150,66 @@ async function loadProducts() {
 }
 function showToast(title: string) { uni.showToast({ title, icon: 'none' }) }
 function goDetail(productId: number) { uni.navigateTo({ url: `/pages/product/detail/index?productId=${productId}` }) }
+
+function productRollDistance(): number {
+  const rows = Math.ceil(products.value.length / 2)
+  return Math.max(0, (rows - 2) * 360)
+}
+
+function rollProducts(): void {
+  if (!shouldRollProducts.value || isUserInteracting.value || isTouchingProducts.value) return
+  if (Date.now() - lastManualScrollAt.value < MANUAL_SCROLL_RESUME_DELAY) return
+  const distance = productRollDistance()
+  if (distance <= 0) return
+  const nextTop = productScrollTop.value + PRODUCT_ROLL_STEP
+  autoScrolling = true
+  productScrollTop.value = nextTop >= distance ? 0 : nextTop
+  setTimeout(() => { autoScrolling = false }, 180)
+}
+
+function scheduleResumeRoll(): void {
+  if (resumeRollTimer) clearTimeout(resumeRollTimer)
+  resumeRollTimer = setTimeout(() => {
+    isUserInteracting.value = false
+    isTouchingProducts.value = false
+  }, MANUAL_SCROLL_RESUME_DELAY)
+}
+
+function handleUserInteract(): void {
+  isUserInteracting.value = true
+  isTouchingProducts.value = true
+  lastManualScrollAt.value = Date.now()
+  scheduleResumeRoll()
+}
+
+function handleUserInteractEnd(): void {
+  isTouchingProducts.value = false
+  lastManualScrollAt.value = Date.now()
+  scheduleResumeRoll()
+}
+
+function handleProductScroll(event: unknown): void {
+  if (autoScrolling) return
+  const scrollTop = (event as { detail?: { scrollTop?: unknown } }).detail?.scrollTop
+  if (typeof scrollTop === 'number' && Number.isFinite(scrollTop)) productScrollTop.value = Math.max(0, scrollTop)
+  lastManualScrollAt.value = Date.now()
+  scheduleResumeRoll()
+}
+
+function startProductRoll(): void {
+  if (productRollTimer) return
+  productRollTimer = setInterval(() => {
+    if (autoScrolling) return
+    rollProducts()
+  }, PRODUCT_ROLL_INTERVAL)
+}
+
+function stopProductRoll(): void {
+  if (productRollTimer) clearInterval(productRollTimer)
+  if (resumeRollTimer) clearTimeout(resumeRollTimer)
+  productRollTimer = null
+  resumeRollTimer = null
+}
 
 function goCloset() { uni.switchTab({ url: '/pages/tabbar/category/index' }) }
 function handleBanner(action: BannerAction) {
@@ -141,6 +230,11 @@ function openForum() {
 onMounted(() => {
   void loadBanners()
   void loadProducts()
+  startProductRoll()
+})
+
+onBeforeUnmount(() => {
+  stopProductRoll()
 })
 </script>
 

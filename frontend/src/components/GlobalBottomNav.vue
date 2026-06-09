@@ -6,7 +6,7 @@
         :key="item.path"
         class="bottom-nav-item tapable"
         :class="{ active: activePath === item.path, publish: item.path === publishPath, 'has-unread': item.path === communityPath && totalUnread > 0 }"
-        @click="openTab(item.path)"
+        @click.stop="openTab(item.path)"
       >
         <view class="bottom-nav-icon">
           <text>{{ item.badge }}</text>
@@ -94,6 +94,7 @@ function publishCommunitySwitcherState(open = communityMenuOpen.value): void {
 function openTab(path: TabPath): void {
   if (path === communityPath) {
     communityMenuOpen.value = !communityMenuOpen.value
+    publishCommunitySwitcherState(communityMenuOpen.value)
     return
   }
   communityMenuOpen.value = false

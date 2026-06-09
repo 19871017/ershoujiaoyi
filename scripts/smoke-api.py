@@ -57,6 +57,25 @@ def call(name, method, path, body=None, expected=200, headers=None, redact_raw=F
         return raw
 
 
+def call_raw(name, method, path, expected=200, headers=None):
+    req = urllib.request.Request(BASE + path, headers=headers or {}, method=method)
+    try:
+        with OPENER.open(req, timeout=15) as resp:
+            raw = resp.read()
+            status = resp.status
+            content_type = resp.headers.get('Content-Type', '')
+    except urllib.error.HTTPError as exc:
+        raw = exc.read()
+        status = exc.code
+        content_type = exc.headers.get('Content-Type', '')
+    print(f'## {name}: HTTP {status}')
+    if raw:
+        print(f'<{len(raw)} bytes; content-type={content_type or "unknown"}>')
+    if expected is not None and status != expected:
+        raise SystemExit(f'{name} expected {expected}, got {status}')
+    return status, raw, content_type
+
+
 def require_api(result, name):
     if not isinstance(result, dict) or result.get('success') is not True:
         raise SystemExit(f'{name} not success: {result}')
@@ -195,6 +214,28 @@ def upload_blob(name, ticket, content, content_type):
     return require_api(json.loads(raw), name)
 
 
+def chat_media_path(storage_url):
+    return '/api/chat/media?url=' + urllib.parse.quote(storage_url, safe='')
+
+
+def assert_chat_media_readable(name, storage_url, headers, minimum_size):
+    status, raw, _ = call_raw(name, 'GET', chat_media_path(storage_url), expected=200, headers=headers)
+    if status != 200 or len(raw) < minimum_size:
+        raise SystemExit(f'{name} did not return expected media bytes')
+
+
+def assert_chat_media_denied(name, storage_url, headers):
+    status, _, _ = call_raw(name, 'GET', chat_media_path(storage_url), expected=None, headers=headers)
+    if status == 200:
+        raise SystemExit(f'{name} unexpectedly allowed protected chat media')
+
+
+def assert_direct_upload_denied(name, storage_url):
+    status, _, _ = call_raw(name, 'GET', storage_url, expected=None, headers={})
+    if status == 200:
+        raise SystemExit(f'{name} unexpectedly exposed protected upload path directly')
+
+
 def issue_ticket(scene, content_type, content, filename):
     ticket = require_api(call(
         f'issue {scene} ticket',
@@ -257,6 +298,10 @@ def smoke_im():
     voice_ack = voice_response.get('ack') or voice_response
     if voice_ack.get('conversationId') != conversation_id or voice_ack.get('msgType') != 'VOICE':
         raise SystemExit(f'voice ack invalid: {voice_ack}')
+    assert_chat_media_readable('sender read voice media', uploaded['storageUrl'], USER_1_HEADERS, len(audio))
+    assert_chat_media_readable('peer read voice media', uploaded['storageUrl'], USER_2_HEADERS, len(audio))
+    assert_chat_media_denied('anonymous voice media denied', uploaded['storageUrl'], {})
+    assert_direct_upload_denied('direct voice upload path denied', uploaded['storageUrl'])
 
     image = SMOKE_PNG_BYTES
     image_ticket = issue_ticket('CHAT_IMAGE', 'image/png', image, 'chat-image.png')
@@ -285,6 +330,10 @@ def smoke_im():
     image_ack = image_response.get('ack') or image_response
     if image_ack.get('conversationId') != conversation_id or image_ack.get('msgType') != 'IMAGE':
         raise SystemExit(f'image ack invalid: {image_ack}')
+    assert_chat_media_readable('sender read image media', image_uploaded['storageUrl'], USER_1_HEADERS, len(image))
+    assert_chat_media_readable('peer read image media', image_uploaded['storageUrl'], USER_2_HEADERS, len(image))
+    assert_chat_media_denied('anonymous image media denied', image_uploaded['storageUrl'], {})
+    assert_direct_upload_denied('direct image upload path denied', image_uploaded['storageUrl'])
 
     conversations = require_api(call('peer chat conversations', 'GET', '/api/chat/conversations', headers=USER_2_HEADERS), 'peer chat conversations')
     conversation_rows = conversations.get('conversations') or []
@@ -310,6 +359,7 @@ def smoke_im():
     ), 'revoke voice chat')
     if revoked.get('serverMsgId') != voice_server_msg_id or revoked.get('revoked') is not True:
         raise SystemExit(f'voice revoke invalid: {revoked}')
+    assert_chat_media_denied('peer revoked voice media denied', uploaded['storageUrl'], USER_2_HEADERS)
     call(
         'peer chat read',
         'POST',
@@ -333,6 +383,7 @@ def smoke_im():
     ), 'peer chat sync after clear')
     if cleared_sync.get('messages'):
         raise SystemExit(f'peer clear did not hide messages: {cleared_sync}')
+    assert_chat_media_denied('peer cleared image media denied', image_uploaded['storageUrl'], USER_2_HEADERS)
 
 
 def smoke_community():
