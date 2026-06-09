@@ -1394,6 +1394,111 @@ class AdminControllerRbacTest {
     }
 
     @Test
+    void adminCommunityPostBlockRequiresAuditReviewAndWritesAuditLog() throws Exception {
+        createActiveUser(153L);
+        grantPermission(153L, "audit:read");
+        Long postId = createCommunityTraceFixture();
+
+        mvc.perform(post("/api/admin/community/posts/" + postId + "/block")
+                        .header("X-User-Id", "153")
+                        .header("X-Admin-Session", issueAdminSession(153L))
+                        .contentType("application/json")
+                        .content("{\"reason\":\"社区内容违规\"}"))
+                .andExpect(status().isForbidden());
+
+        grantPermission(153L, "audit:review");
+
+        mvc.perform(post("/api/admin/community/posts/" + postId + "/block")
+                        .header("X-User-Id", "153")
+                        .header("X-Admin-Session", issueAdminSession(153L))
+                        .contentType("application/json")
+                        .content("{\"reason\":\"preview reason\"}"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(post("/api/admin/community/posts/" + postId + "/block")
+                        .header("X-User-Id", "153")
+                        .header("X-Admin-Session", issueAdminSession(153L))
+                        .contentType("application/json")
+                        .content("{\"reason\":\"社区内容违规\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.postId").value(postId))
+                .andExpect(jsonPath("$.data.status").value("BLOCKED"));
+
+        org.junit.jupiter.api.Assertions.assertEquals("BLOCKED",
+                jdbcTemplate.queryForObject("select status from community_post where id = ?", String.class, postId));
+        org.junit.jupiter.api.Assertions.assertEquals(153L,
+                jdbcTemplate.queryForObject("select operator_id from admin_audit_log where action = ? and target_id = ?", Long.class, "COMMUNITY_POST_BLOCK", String.valueOf(postId)));
+        org.junit.jupiter.api.Assertions.assertEquals("社区内容违规",
+                jdbcTemplate.queryForObject("select summary from admin_audit_log where action = ? and target_id = ?", String.class, "COMMUNITY_POST_BLOCK", String.valueOf(postId)));
+
+        mvc.perform(post("/api/admin/community/posts/" + postId + "/restore")
+                        .header("X-User-Id", "153")
+                        .header("X-Admin-Session", issueAdminSession(153L))
+                        .contentType("application/json")
+                        .content("{\"reason\":\"误封恢复帖子\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.postId").value(postId))
+                .andExpect(jsonPath("$.data.status").value("PUBLISHED"));
+
+        org.junit.jupiter.api.Assertions.assertEquals("PUBLISHED",
+                jdbcTemplate.queryForObject("select status from community_post where id = ?", String.class, postId));
+        org.junit.jupiter.api.Assertions.assertEquals(153L,
+                jdbcTemplate.queryForObject("select operator_id from admin_audit_log where action = ? and target_id = ?", Long.class, "COMMUNITY_POST_RESTORE", String.valueOf(postId)));
+    }
+
+    @Test
+    void adminCommunityCommentBlockRequiresAuditReviewRefreshesCountAndWritesAuditLog() throws Exception {
+        createActiveUser(154L);
+        grantPermission(154L, "audit:read");
+        Long postId = createCommunityTraceFixture();
+
+        mvc.perform(post("/api/admin/community/comments/CMT-162-1770000000000/block")
+                        .header("X-User-Id", "154")
+                        .header("X-Admin-Session", issueAdminSession(154L))
+                        .contentType("application/json")
+                        .content("{\"reason\":\"评论内容违规\"}"))
+                .andExpect(status().isForbidden());
+
+        grantPermission(154L, "audit:review");
+
+        mvc.perform(post("/api/admin/community/comments/CMT-162-1770000000000/block")
+                        .header("X-User-Id", "154")
+                        .header("X-Admin-Session", issueAdminSession(154L))
+                        .contentType("application/json")
+                        .content("{\"reason\":\"评论内容违规\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.postId").value(postId))
+                .andExpect(jsonPath("$.data.commentCount").value(0))
+                .andExpect(jsonPath("$.data.comments[0].commentNo").value("CMT-162-1770000000000"))
+                .andExpect(jsonPath("$.data.comments[0].status").value("BLOCKED"));
+
+        org.junit.jupiter.api.Assertions.assertEquals("BLOCKED",
+                jdbcTemplate.queryForObject("select status from community_comment where comment_no = ?", String.class, "CMT-162-1770000000000"));
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                jdbcTemplate.queryForObject("select comment_count from community_post where id = ?", Integer.class, postId));
+        org.junit.jupiter.api.Assertions.assertEquals(154L,
+                jdbcTemplate.queryForObject("select operator_id from admin_audit_log where action = ? and target_id = ?", Long.class, "COMMUNITY_COMMENT_BLOCK", "CMT-162-1770000000000"));
+
+        mvc.perform(post("/api/admin/community/comments/CMT-162-1770000000000/restore")
+                        .header("X-User-Id", "154")
+                        .header("X-Admin-Session", issueAdminSession(154L))
+                        .contentType("application/json")
+                        .content("{\"reason\":\"误封恢复评论\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.postId").value(postId))
+                .andExpect(jsonPath("$.data.commentCount").value(1))
+                .andExpect(jsonPath("$.data.comments[0].commentNo").value("CMT-162-1770000000000"))
+                .andExpect(jsonPath("$.data.comments[0].status").value("PUBLISHED"));
+
+        org.junit.jupiter.api.Assertions.assertEquals("PUBLISHED",
+                jdbcTemplate.queryForObject("select status from community_comment where comment_no = ?", String.class, "CMT-162-1770000000000"));
+        org.junit.jupiter.api.Assertions.assertEquals(1,
+                jdbcTemplate.queryForObject("select comment_count from community_post where id = ?", Integer.class, postId));
+        org.junit.jupiter.api.Assertions.assertEquals(154L,
+                jdbcTemplate.queryForObject("select operator_id from admin_audit_log where action = ? and target_id = ?", Long.class, "COMMUNITY_COMMENT_RESTORE", "CMT-162-1770000000000"));
+    }
+
+    @Test
     void adminOperatorPermissionGrantRequiresOperatorGrantPermissionAndWritesAuditLog() throws Exception {
         createActiveUser(91L);
         createActiveUser(92L);

@@ -434,6 +434,71 @@ class CommunityApplicationServiceTest {
     }
 
     @Test
+    void adminBlockPostShouldHidePublishedPostButKeepTraceableDetail() {
+        seedUser(93L, "社区处置作者");
+        CommunityPostResponse post = createPost(93L, post("社区屏蔽帖子", "生活日常", "后台运营需要能直接屏蔽违规帖子。", List.of()));
+
+        CommunityPostDetailResponse blocked = service.adminBlockPost(post.getPostId().toString(), "社区内容违规");
+
+        assertEquals("BLOCKED", blocked.getStatus());
+        assertTrue(service.listPublishedPosts(20, 31L).isEmpty());
+        assertEquals("post not found", assertThrows(IllegalArgumentException.class,
+                () -> service.detail(post.getPostId(), 31L)).getMessage());
+        assertEquals(post.getPostNo(), service.adminDetail(post.getPostId().toString()).getPostNo());
+        assertEquals("community post cannot be blocked", assertThrows(IllegalArgumentException.class,
+                () -> service.adminBlockPost(post.getPostId().toString(), "重复屏蔽帖子")).getMessage());
+        assertEquals("community moderation reason invalid", assertThrows(IllegalArgumentException.class,
+                () -> service.adminBlockPost(post.getPostId().toString(), "preview reason")).getMessage());
+
+        CommunityPostDetailResponse restored = service.adminRestorePost(post.getPostId().toString(), "误封恢复帖子");
+
+        assertEquals("PUBLISHED", restored.getStatus());
+        assertEquals(1, service.listPublishedPosts(20, 31L).size());
+        assertEquals("community post cannot be restored", assertThrows(IllegalArgumentException.class,
+                () -> service.adminRestorePost(post.getPostId().toString(), "重复恢复帖子")).getMessage());
+    }
+
+    @Test
+    void adminBlockCommentShouldHideOnlyThatCommentAndRefreshPublicCount() {
+        seedUser(94L, "评论处置作者");
+        seedUser(95L, "违规评论者");
+        seedUser(96L, "正常评论者");
+        CommunityPostResponse post = createPost(94L, post("社区屏蔽评论", "交易经验", "后台运营需要能直接屏蔽违规评论。", List.of()));
+        CommunityCommentResponse blockedComment = addComment(95L, post.getPostId(), comment("这条评论需要后台屏蔽。"));
+        CommunityCommentResponse keptComment = addComment(96L, post.getPostId(), comment("这条评论应继续公开展示。"));
+
+        CommunityPostDetailResponse adminDetail = service.adminBlockComment(blockedComment.getCommentNo(), "评论内容违规");
+
+        assertEquals(1, adminDetail.getCommentCount());
+        assertEquals(2, adminDetail.getComments().size());
+        assertEquals("BLOCKED", adminDetail.getComments().stream()
+                .filter(row -> row.getCommentNo().equals(blockedComment.getCommentNo()))
+                .findFirst()
+                .orElseThrow()
+                .getStatus());
+        CommunityPostDetailResponse publicDetail = service.detail(post.getPostId(), 31L);
+        assertEquals(1, publicDetail.getComments().size());
+        assertEquals(keptComment.getCommentNo(), publicDetail.getComments().get(0).getCommentNo());
+        assertEquals("community comment cannot be blocked", assertThrows(IllegalArgumentException.class,
+                () -> service.adminBlockComment(blockedComment.getCommentNo(), "重复屏蔽评论")).getMessage());
+        assertEquals("invalid comment no", assertThrows(IllegalArgumentException.class,
+                () -> service.adminBlockComment("preview-comment", "评论违规")).getMessage());
+
+        CommunityPostDetailResponse restored = service.adminRestoreComment(blockedComment.getCommentNo(), "误封恢复评论");
+
+        assertEquals(2, restored.getCommentCount());
+        assertTrue(restored.getComments().stream()
+                .filter(row -> row.getCommentNo().equals(blockedComment.getCommentNo()))
+                .findFirst()
+                .orElseThrow()
+                .getStatus()
+                .equals("PUBLISHED"));
+        assertEquals(2, service.detail(post.getPostId(), 31L).getComments().size());
+        assertEquals("community comment cannot be restored", assertThrows(IllegalArgumentException.class,
+                () -> service.adminRestoreComment(blockedComment.getCommentNo(), "重复恢复评论")).getMessage());
+    }
+
+    @Test
     void communityMutationsShouldRejectMissingOrDisabledUsersAtServiceLayer() {
         seedUser(91L, "正常作者");
         seedUser(92L, "禁用用户");

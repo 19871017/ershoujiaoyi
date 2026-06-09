@@ -280,6 +280,7 @@ export interface AdminCommunityCommentTrace {
   authorName?: string | null
   authorAvatar?: string | null
   content: string
+  status?: string | null
   createdAt?: string | null
 }
 
@@ -298,6 +299,10 @@ export interface AdminCommunityPostTraceQuery {
   keyword?: string
   authorId?: string | number
   limit?: number
+}
+
+export interface AdminCommunityModerationRequest {
+  reason: string
 }
 
 export interface AdminChatMessageTraceQuery {
@@ -537,12 +542,24 @@ export function isValidAdminCommunityTraceId(id: string | number) {
   return /^POST-[1-9]\d*-[1-9]\d*$/.test(normalized)
 }
 
+export function isValidAdminCommunityCommentNo(commentNo: string) {
+  const normalized = commentNo.trim()
+  if (!normalized || /(preview|demo|mock|sample|placeholder)/i.test(normalized)) return false
+  return /^CMT-[1-9]\d*-[1-9]\d*(?:-[A-Z0-9]{6,16})?$/.test(normalized)
+}
+
 export function isValidAdminCommunityTraceKeyword(keyword: string) {
   const normalized = keyword.trim()
   if (!normalized || normalized.length > 64) return false
   if (/(preview|demo|mock|sample|placeholder)/i.test(normalized)) return false
   if (/^\d+$/.test(normalized) && !/^[1-9]\d{0,18}$/.test(normalized)) return false
   return true
+}
+
+export function isValidAdminCommunityModerationReason(reason: string) {
+  const normalized = reason.trim()
+  if (!normalized || normalized.length > 128) return false
+  return !/(preview|demo|mock|sample|placeholder)/i.test(normalized)
 }
 
 export async function getAdminAuditList(query: AdminAuditListQuery = {}) {
@@ -933,6 +950,68 @@ export async function getAdminCommunityPostDetail(postId: string | number) {
     throw new Error('社区帖子编号无效')
   }
   return request<AdminCommunityPostDetailTrace>({ url: `/api/admin/community/posts/${encodeURIComponent(String(postId))}` })
+}
+
+export async function blockAdminCommunityPost(postId: string | number, payload: AdminCommunityModerationRequest) {
+  if (!isValidAdminCommunityTraceId(postId)) {
+    throw new Error('社区帖子编号无效')
+  }
+  const reason = payload?.reason?.trim() ?? ''
+  if (!isValidAdminCommunityModerationReason(reason)) {
+    throw new Error('社区处置原因无效')
+  }
+  return request<AdminCommunityPostDetailTrace>({
+    url: `/api/admin/community/posts/${encodeURIComponent(String(postId))}/block`,
+    method: 'POST',
+    data: { reason }
+  })
+}
+
+export async function restoreAdminCommunityPost(postId: string | number, payload: AdminCommunityModerationRequest) {
+  if (!isValidAdminCommunityTraceId(postId)) {
+    throw new Error('社区帖子编号无效')
+  }
+  const reason = payload?.reason?.trim() ?? ''
+  if (!isValidAdminCommunityModerationReason(reason)) {
+    throw new Error('社区处置原因无效')
+  }
+  return request<AdminCommunityPostDetailTrace>({
+    url: `/api/admin/community/posts/${encodeURIComponent(String(postId))}/restore`,
+    method: 'POST',
+    data: { reason }
+  })
+}
+
+export async function blockAdminCommunityComment(commentNo: string, payload: AdminCommunityModerationRequest) {
+  const safeCommentNo = commentNo.trim()
+  if (!isValidAdminCommunityCommentNo(safeCommentNo)) {
+    throw new Error('社区评论编号无效')
+  }
+  const reason = payload?.reason?.trim() ?? ''
+  if (!isValidAdminCommunityModerationReason(reason)) {
+    throw new Error('社区处置原因无效')
+  }
+  return request<AdminCommunityPostDetailTrace>({
+    url: `/api/admin/community/comments/${encodeURIComponent(safeCommentNo)}/block`,
+    method: 'POST',
+    data: { reason }
+  })
+}
+
+export async function restoreAdminCommunityComment(commentNo: string, payload: AdminCommunityModerationRequest) {
+  const safeCommentNo = commentNo.trim()
+  if (!isValidAdminCommunityCommentNo(safeCommentNo)) {
+    throw new Error('社区评论编号无效')
+  }
+  const reason = payload?.reason?.trim() ?? ''
+  if (!isValidAdminCommunityModerationReason(reason)) {
+    throw new Error('社区处置原因无效')
+  }
+  return request<AdminCommunityPostDetailTrace>({
+    url: `/api/admin/community/comments/${encodeURIComponent(safeCommentNo)}/restore`,
+    method: 'POST',
+    data: { reason }
+  })
 }
 
 export async function reviewAdminWithdrawal(

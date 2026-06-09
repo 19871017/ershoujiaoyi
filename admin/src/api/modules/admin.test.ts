@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   approveAdminAudit,
+  blockAdminCommunityComment,
+  blockAdminCommunityPost,
   getAdminAfterSalesDetail,
   getAdminAfterSalesList,
   getAdminAuditDetail,
@@ -32,6 +34,8 @@ import {
   isValidAdminAuditNo,
   isValidAdminChatTraceId,
   isValidAdminChatTraceKeyword,
+  isValidAdminCommunityCommentNo,
+  isValidAdminCommunityModerationReason,
   isValidAdminCommunityTraceId,
   isValidAdminCommunityTraceKeyword,
   isValidAdminOrderKeyword,
@@ -43,6 +47,8 @@ import {
   isValidAdminWithdrawalNo,
   rejectAdminAudit,
   recordAdminVideoEvidenceProgress,
+  restoreAdminCommunityComment,
+  restoreAdminCommunityPost,
   reviewAdminAfterSales,
   reviewAdminWithdrawal,
   updateAdminLocationConfig
@@ -737,7 +743,83 @@ describe('admin finance api', () => {
             likeCount: 2,
             commentCount: 1,
             comments: [
-              { commentNo: 'CMT-102-1770000000000', authorId: 102, authorName: '评论者', content: '真实评论' }
+              { commentNo: 'CMT-102-1770000000000', authorId: 102, authorName: '评论者', content: '真实评论', status: 'PUBLISHED' }
+            ]
+          }
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            postNo: 'POST-101-1770000000000',
+            postId: 18,
+            authorId: 101,
+            title: '社区追溯标题',
+            topic: '生活日常',
+            content: '社区追溯内容',
+            imageUrls: [],
+            status: 'PUBLISHED',
+            likeCount: 2,
+            commentCount: 1,
+            comments: []
+          }
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            postNo: 'POST-101-1770000000000',
+            postId: 18,
+            authorId: 101,
+            title: '社区追溯标题',
+            topic: '生活日常',
+            content: '社区追溯内容',
+            imageUrls: [],
+            status: 'BLOCKED',
+            likeCount: 2,
+            commentCount: 1,
+            comments: []
+          }
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            postNo: 'POST-101-1770000000000',
+            postId: 18,
+            authorId: 101,
+            title: '社区追溯标题',
+            topic: '生活日常',
+            content: '社区追溯内容',
+            imageUrls: [],
+            status: 'PUBLISHED',
+            likeCount: 2,
+            commentCount: 1,
+            comments: [
+              { commentNo: 'CMT-102-1770000000000', authorId: 102, authorName: '评论者', content: '真实评论', status: 'PUBLISHED' }
+            ]
+          }
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            postNo: 'POST-101-1770000000000',
+            postId: 18,
+            authorId: 101,
+            title: '社区追溯标题',
+            topic: '生活日常',
+            content: '社区追溯内容',
+            imageUrls: [],
+            status: 'PUBLISHED',
+            likeCount: 2,
+            commentCount: 0,
+            comments: [
+              { commentNo: 'CMT-102-1770000000000', authorId: 102, authorName: '评论者', content: '真实评论', status: 'BLOCKED' }
             ]
           }
         })
@@ -746,13 +828,36 @@ describe('admin finance api', () => {
 
     const rows = await getAdminCommunityPosts({ keyword: '社区追溯标题', authorId: 101, limit: 20 })
     const detail = await getAdminCommunityPostDetail(18)
+    await blockAdminCommunityPost(18, { reason: '社区内容违规' })
+    await restoreAdminCommunityPost(18, { reason: '误封恢复' })
+    await blockAdminCommunityComment('CMT-102-1770000000000', { reason: '评论内容违规' })
+    await restoreAdminCommunityComment('CMT-102-1770000000000', { reason: '评论误封恢复' })
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, expect.stringContaining('/api/admin/community/posts?authorId=101&keyword=%E7%A4%BE%E5%8C%BA%E8%BF%BD%E6%BA%AF%E6%A0%87%E9%A2%98&limit=20'), expect.any(Object))
     expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringContaining('/api/admin/community/posts/18'), expect.any(Object))
+    expect(fetchMock).toHaveBeenNthCalledWith(3, expect.stringContaining('/api/admin/community/posts/18/block'), expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ reason: '社区内容违规' })
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(4, expect.stringContaining('/api/admin/community/posts/18/restore'), expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ reason: '误封恢复' })
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(5, expect.stringContaining('/api/admin/community/comments/CMT-102-1770000000000/block'), expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ reason: '评论内容违规' })
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(6, expect.stringContaining('/api/admin/community/comments/CMT-102-1770000000000/restore'), expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ reason: '评论误封恢复' })
+    }))
     expect(rows[0].postNo).toBe('POST-101-1770000000000')
     expect(detail.comments[0].commentNo).toBe('CMT-102-1770000000000')
+    expect(detail.comments[0].status).toBe('PUBLISHED')
     expect(isValidAdminCommunityTraceId('POST-101-1770000000000')).toBe(true)
     expect(isValidAdminCommunityTraceKeyword('社区追溯标题')).toBe(true)
+    expect(isValidAdminCommunityCommentNo('CMT-102-1770000000000')).toBe(true)
+    expect(isValidAdminCommunityModerationReason('社区内容违规')).toBe(true)
   })
 
   it('fails closed before admin community trace requests with unsafe filters', async () => {
@@ -761,10 +866,20 @@ describe('admin finance api', () => {
 
     expect(isValidAdminCommunityTraceId('0')).toBe(false)
     expect(isValidAdminCommunityTraceKeyword('preview-community')).toBe(false)
+    expect(isValidAdminCommunityCommentNo('preview-comment')).toBe(false)
+    expect(isValidAdminCommunityModerationReason('preview reason')).toBe(false)
     await expect(getAdminCommunityPosts({ authorId: 0, limit: 20 })).rejects.toThrow('社区作者编号无效')
     await expect(getAdminCommunityPosts({ keyword: 'preview-community', limit: 20 })).rejects.toThrow('社区追溯关键词无效')
     await expect(getAdminCommunityPosts({ keyword: '社区追溯标题', limit: 101 })).rejects.toThrow('社区帖子条数无效')
     await expect(getAdminCommunityPostDetail('preview-post')).rejects.toThrow('社区帖子编号无效')
+    await expect(blockAdminCommunityPost('preview-post', { reason: '违规内容' })).rejects.toThrow('社区帖子编号无效')
+    await expect(blockAdminCommunityPost(18, { reason: 'preview reason' })).rejects.toThrow('社区处置原因无效')
+    await expect(restoreAdminCommunityPost('preview-post', { reason: '误封恢复' })).rejects.toThrow('社区帖子编号无效')
+    await expect(restoreAdminCommunityPost(18, { reason: 'preview reason' })).rejects.toThrow('社区处置原因无效')
+    await expect(blockAdminCommunityComment('preview-comment', { reason: '违规内容' })).rejects.toThrow('社区评论编号无效')
+    await expect(blockAdminCommunityComment('CMT-102-1770000000000', { reason: 'preview reason' })).rejects.toThrow('社区处置原因无效')
+    await expect(restoreAdminCommunityComment('preview-comment', { reason: '误封恢复' })).rejects.toThrow('社区评论编号无效')
+    await expect(restoreAdminCommunityComment('CMT-102-1770000000000', { reason: 'preview reason' })).rejects.toThrow('社区处置原因无效')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 

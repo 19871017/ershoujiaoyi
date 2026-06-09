@@ -280,6 +280,78 @@ public class AdminController {
         return Result.ok(response);
     }
 
+    @PostMapping("/community/posts/{postId}/block")
+    public Result<CommunityPostDetailResponse> blockCommunityPost(@PathVariable String postId,
+                                                                  @RequestBody(required = false) AdminCommunityModerationRequest body,
+                                                                  HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
+        String reason = body == null || body.getReason() == null ? null : body.getReason().trim();
+        CommunityPostDetailResponse response = communityApplicationService.adminBlockPost(postId, reason);
+        auditApplicationService.recordAdminOperation(
+                "COMMUNITY_POST_BLOCK",
+                adminUserId,
+                "COMMUNITY_POST",
+                String.valueOf(response.getPostId()),
+                "SUCCESS",
+                reason
+        );
+        return Result.ok(response);
+    }
+
+    @PostMapping("/community/posts/{postId}/restore")
+    public Result<CommunityPostDetailResponse> restoreCommunityPost(@PathVariable String postId,
+                                                                    @RequestBody(required = false) AdminCommunityModerationRequest body,
+                                                                    HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
+        String reason = body == null || body.getReason() == null ? null : body.getReason().trim();
+        CommunityPostDetailResponse response = communityApplicationService.adminRestorePost(postId, reason);
+        auditApplicationService.recordAdminOperation(
+                "COMMUNITY_POST_RESTORE",
+                adminUserId,
+                "COMMUNITY_POST",
+                String.valueOf(response.getPostId()),
+                "SUCCESS",
+                reason
+        );
+        return Result.ok(response);
+    }
+
+    @PostMapping("/community/comments/{commentNo}/block")
+    public Result<CommunityPostDetailResponse> blockCommunityComment(@PathVariable String commentNo,
+                                                                     @RequestBody(required = false) AdminCommunityModerationRequest body,
+                                                                     HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
+        String reason = body == null || body.getReason() == null ? null : body.getReason().trim();
+        CommunityPostDetailResponse response = communityApplicationService.adminBlockComment(commentNo, reason);
+        auditApplicationService.recordAdminOperation(
+                "COMMUNITY_COMMENT_BLOCK",
+                adminUserId,
+                "COMMUNITY_COMMENT",
+                commentNo.trim(),
+                "SUCCESS",
+                "postId=" + response.getPostId() + "; " + reason
+        );
+        return Result.ok(response);
+    }
+
+    @PostMapping("/community/comments/{commentNo}/restore")
+    public Result<CommunityPostDetailResponse> restoreCommunityComment(@PathVariable String commentNo,
+                                                                       @RequestBody(required = false) AdminCommunityModerationRequest body,
+                                                                       HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
+        String reason = body == null || body.getReason() == null ? null : body.getReason().trim();
+        CommunityPostDetailResponse response = communityApplicationService.adminRestoreComment(commentNo, reason);
+        auditApplicationService.recordAdminOperation(
+                "COMMUNITY_COMMENT_RESTORE",
+                adminUserId,
+                "COMMUNITY_COMMENT",
+                commentNo.trim(),
+                "SUCCESS",
+                "postId=" + response.getPostId() + "; " + reason
+        );
+        return Result.ok(response);
+    }
+
     @GetMapping("/users/{userId}")
     public Result<AdminUserDetailResponse> userDetail(@PathVariable Long userId, HttpServletRequest request) {
         adminAccessGuard.requireAdmin(request, "user:read");

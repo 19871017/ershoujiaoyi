@@ -62,7 +62,15 @@
               <strong>{{ detail.title }}</strong>
               <span>{{ detail.postNo }} / ID {{ detail.postId }}</span>
             </div>
-            <b :class="['status', detail.status.toLowerCase()]">{{ detail.status }}</b>
+            <div class="detail-actions">
+              <b :class="['status', detail.status.toLowerCase()]">{{ detail.status }}</b>
+              <button v-if="detail.status === 'PUBLISHED'" class="danger-btn compact" :disabled="moderating || !canBlockPost" @click="blockPost">
+                {{ moderating ? '处理中...' : '屏蔽帖子' }}
+              </button>
+              <button v-else-if="detail.status === 'BLOCKED'" class="secondary-btn compact" :disabled="moderating || !canRestorePost" @click="restorePost">
+                {{ moderating ? '处理中...' : '恢复帖子' }}
+              </button>
+            </div>
           </header>
 
           <dl class="detail-grid">
@@ -104,7 +112,10 @@
                 <div>
                   <strong>{{ comment.authorName || `用户 ${comment.authorId}` }}</strong>
                   <span>{{ comment.commentNo }}</span>
+                  <em :class="['comment-status', (comment.status || 'PUBLISHED').toLowerCase()]">{{ comment.status || 'PUBLISHED' }}</em>
                   <b v-if="commentMatchesKeyword(comment)">命中</b>
+                  <button v-if="(comment.status || 'PUBLISHED') === 'PUBLISHED'" class="danger-btn compact" :disabled="moderating || !canBlockComment(comment)" @click="blockComment(comment)">屏蔽</button>
+                  <button v-else-if="comment.status === 'BLOCKED'" class="secondary-btn compact" :disabled="moderating || !canRestoreComment(comment)" @click="restoreComment(comment)">恢复</button>
                 </div>
                 <p>{{ comment.content }}</p>
                 <small>{{ comment.createdAt || '暂无时间' }}</small>
@@ -112,7 +123,7 @@
             </div>
           </section>
 
-          <p class="safe-note">社区追溯仅展示平台持久化记录；删帖、封禁、支付或退款处置不在本页执行。</p>
+          <p class="safe-note">社区追溯和屏蔽动作均提交真实后台接口并写入审计日志；支付或退款处置不在本页执行。</p>
         </template>
         <div v-else class="empty">请选择左侧帖子，或输入帖子 ID 查询详情。</div>
       </article>
@@ -124,19 +135,26 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
+  blockAdminCommunityComment,
+  blockAdminCommunityPost,
   getAdminCommunityPostDetail,
   getAdminCommunityPosts,
+  isValidAdminCommunityModerationReason,
   isValidAdminCommunityTraceId,
   isValidAdminCommunityTraceKeyword,
   isValidAdminUserId,
+  restoreAdminCommunityComment,
+  restoreAdminCommunityPost,
   type AdminCommunityPostDetailTrace,
   type AdminCommunityCommentTrace,
   type AdminCommunityPostTrace
 } from '../../api'
 import { isSafeCommunityImageUrl } from './community-trace-media'
+import { canReviewAudit, useAuthStore } from '../../store/modules/auth'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 const postId = ref('')
 const authorId = ref('')
 const keyword = ref('')
@@ -146,11 +164,14 @@ const detail = ref<AdminCommunityPostDetailTrace | null>(null)
 const selectedPostId = ref<number | null>(null)
 const loadingList = ref(false)
 const loadingDetail = ref(false)
+const moderating = ref(false)
 const error = ref('')
 
 const safeImages = computed(() => (detail.value?.imageUrls || []).filter(isSafeCommunityImageUrl))
 const normalizedKeyword = computed(() => keyword.value.trim().toLowerCase())
 const matchedCommentCount = computed(() => (detail.value?.comments || []).filter(commentMatchesKeyword).length)
+const canBlockPost = computed(() => Boolean(detail.value && detail.value.status === 'PUBLISHED' && canReviewAudit(auth.session)))
+const canRestorePost = computed(() => Boolean(detail.value && detail.value.status === 'BLOCKED' && canReviewAudit(auth.session)))
 const relatedProductText = computed(() => {
   const current = detail.value
   if (!current?.relatedProductId) return '暂无关联商品'
@@ -164,6 +185,14 @@ function queryForCurrentFilters() {
     ...(keyword.value.trim() ? { keyword: keyword.value.trim() } : {}),
     limit: String(limit.value)
   }
+}
+
+function canBlockComment(comment: AdminCommunityCommentTrace): boolean {
+  return Boolean(detail.value?.status === 'PUBLISHED' && (comment.status || 'PUBLISHED') === 'PUBLISHED' && canReviewAudit(auth.session))
+}
+
+function canRestoreComment(comment: AdminCommunityCommentTrace): boolean {
+  return Boolean(detail.value?.status === 'PUBLISHED' && comment.status === 'BLOCKED' && canReviewAudit(auth.session))
 }
 
 function commentMatchesKeyword(comment: AdminCommunityCommentTrace): boolean {
@@ -236,6 +265,102 @@ async function loadDetail(id: string | number) {
   }
 }
 
+async function blockPost() {
+  if (!detail.value || !canBlockPost.value) return
+  const reason = window.prompt('请输入屏蔽帖子原因，便于后续追溯。', '')
+  if (reason === null) return
+  const safeReason = reason.trim()
+  if (!isValidAdminCommunityModerationReason(safeReason)) {
+    error.value = '社区处置原因无效：不能为空、最多 128 字，不能包含测试占位语义。'
+    return
+  }
+  if (!window.confirm('确认屏蔽该社区帖子？')) return
+  moderating.value = true
+  error.value = ''
+  try {
+    detail.value = await blockAdminCommunityPost(detail.value.postId, { reason: safeReason })
+    selectedPostId.value = detail.value.postId
+    postId.value = String(detail.value.postId)
+    await loadPosts()
+  } catch (err) {
+    error.value = err instanceof Error && err.message ? err.message : '帖子屏蔽失败，请确认审核权限和帖子状态。'
+  } finally {
+    moderating.value = false
+  }
+}
+
+async function restorePost() {
+  if (!detail.value || !canRestorePost.value) return
+  const reason = window.prompt('请输入恢复帖子原因，便于后续追溯。', '')
+  if (reason === null) return
+  const safeReason = reason.trim()
+  if (!isValidAdminCommunityModerationReason(safeReason)) {
+    error.value = '社区处置原因无效：不能为空、最多 128 字，不能包含测试占位语义。'
+    return
+  }
+  if (!window.confirm('确认恢复该社区帖子？')) return
+  moderating.value = true
+  error.value = ''
+  try {
+    detail.value = await restoreAdminCommunityPost(detail.value.postId, { reason: safeReason })
+    selectedPostId.value = detail.value.postId
+    postId.value = String(detail.value.postId)
+    await loadPosts()
+  } catch (err) {
+    error.value = err instanceof Error && err.message ? err.message : '帖子恢复失败，请确认审核权限、作者状态和帖子状态。'
+  } finally {
+    moderating.value = false
+  }
+}
+
+async function blockComment(comment: AdminCommunityCommentTrace) {
+  if (!canBlockComment(comment)) return
+  const reason = window.prompt('请输入屏蔽评论原因，便于后续追溯。', '')
+  if (reason === null) return
+  const safeReason = reason.trim()
+  if (!isValidAdminCommunityModerationReason(safeReason)) {
+    error.value = '社区处置原因无效：不能为空、最多 128 字，不能包含测试占位语义。'
+    return
+  }
+  if (!window.confirm('确认屏蔽该评论？')) return
+  moderating.value = true
+  error.value = ''
+  try {
+    detail.value = await blockAdminCommunityComment(comment.commentNo, { reason: safeReason })
+    selectedPostId.value = detail.value.postId
+    postId.value = String(detail.value.postId)
+    await loadPosts()
+  } catch (err) {
+    error.value = err instanceof Error && err.message ? err.message : '评论屏蔽失败，请确认审核权限和评论状态。'
+  } finally {
+    moderating.value = false
+  }
+}
+
+async function restoreComment(comment: AdminCommunityCommentTrace) {
+  if (!canRestoreComment(comment)) return
+  const reason = window.prompt('请输入恢复评论原因，便于后续追溯。', '')
+  if (reason === null) return
+  const safeReason = reason.trim()
+  if (!isValidAdminCommunityModerationReason(safeReason)) {
+    error.value = '社区处置原因无效：不能为空、最多 128 字，不能包含测试占位语义。'
+    return
+  }
+  if (!window.confirm('确认恢复该评论？')) return
+  moderating.value = true
+  error.value = ''
+  try {
+    detail.value = await restoreAdminCommunityComment(comment.commentNo, { reason: safeReason })
+    selectedPostId.value = detail.value.postId
+    postId.value = String(detail.value.postId)
+    await loadPosts()
+  } catch (err) {
+    error.value = err instanceof Error && err.message ? err.message : '评论恢复失败，请确认审核权限、作者状态、帖子状态和评论状态。'
+  } finally {
+    moderating.value = false
+  }
+}
+
 function syncQuery() {
   router.replace({
     path: route.path,
@@ -279,11 +404,17 @@ onMounted(() => {
 .trace-block-head,
 .post-row-title,
 .post-row-meta,
-.comment-item > div {
+.comment-item > div,
+.detail-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.detail-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .post-row {
@@ -367,6 +498,29 @@ onMounted(() => {
   background: #ef6f3f;
   color: #fff;
   font-size: 11px;
+}
+
+.comment-status {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #f6eadf;
+  color: #8f6b57;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.comment-status.blocked {
+  background: #fee2e2;
+  color: #b42318;
+}
+
+.compact {
+  min-height: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
 }
 
 .empty.inline {

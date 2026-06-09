@@ -27,6 +27,7 @@ public class CommunityApplicationService {
     private static final int DUPLICATE_SUBMIT_WINDOW_SECONDS = 30;
     private static final String COMMUNITY_IMAGE_STORAGE_PREFIX = "/uploads/community-image/";
     private static final Pattern PHONE_CONTACT_PATTERN = Pattern.compile("(?<!\\d)(?:\\+?86[-\\s]?)?1[3-9]\\d[-\\s]?\\d{4}[-\\s]?\\d{4}(?!\\d)");
+    private static final Pattern COMMUNITY_COMMENT_NO_PATTERN = Pattern.compile("CMT-[1-9]\\d*-[1-9]\\d*(?:-[A-Z0-9]{6,16})?");
     private static final List<String> ALLOWED_TOPICS = List.of("生活日常", "闲置避坑", "交易经验", "求购心愿");
     private static final String CERTIFIED_SELLER_RELATED_PRODUCT_FILTER = """
              AND EXISTS (
@@ -167,7 +168,7 @@ public class CommunityApplicationService {
                         WHERE c.post_id = ? AND c.status = 'PUBLISHED'
                         ORDER BY c.created_at ASC, c.id ASC
                         """,
-                (rs, rowNum) -> new CommunityCommentResponse(rs.getString("comment_no"), rs.getLong("author_id"), rs.getString("author_name"), rs.getString("author_avatar"), rs.getString("content"), toInstant(rs.getTimestamp("created_at"))), postId);
+                (rs, rowNum) -> mapComment(rs), postId);
         boolean liked = currentUserId != null && currentUserId > 0 && jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM community_like WHERE post_id = ? AND user_id = ?", Integer.class, postId, currentUserId) > 0;
         boolean followed = isViewerFollowingAuthor(currentUserId, post.getAuthorId());
@@ -262,10 +263,105 @@ public class CommunityApplicationService {
                         WHERE c.post_id = ?
                         ORDER BY c.created_at ASC, c.id ASC
                         """,
-                (rs, rowNum) -> new CommunityCommentResponse(rs.getString("comment_no"), rs.getLong("author_id"), rs.getString("author_name"), rs.getString("author_avatar"), rs.getString("content"), toInstant(rs.getTimestamp("created_at"))), id);
+                (rs, rowNum) -> mapComment(rs), id);
         return new CommunityPostDetailResponse(post.getPostNo(), post.getPostId(), post.getAuthorId(), post.getAuthorName(), post.getAuthorAvatar(), post.getCity(), post.getTitle(), post.getTopic(), post.getContent(),
                 post.getImageUrls(), post.getStatus(), post.getLikeCount(), post.getCommentCount(), post.getCreatedAt(), false, comments,
                 post.getRelatedProductId(), post.getRelatedProductTitle(), post.getRelatedProductPrice());
+    }
+
+    @Transactional
+    public CommunityPostDetailResponse adminBlockPost(String postIdOrNo, String reason) {
+        normalizeAdminModerationReason(reason);
+        Long postId = resolveAdminPostId(postIdOrNo);
+        int changed = jdbcTemplate.update("""
+                update community_post
+                set status = 'BLOCKED', updated_at = CURRENT_TIMESTAMP
+                where id = ? and status = 'PUBLISHED'
+                """, postId);
+        if (changed == 0) {
+            throw new IllegalArgumentException("community post cannot be blocked");
+        }
+        return adminDetail(postId.toString());
+    }
+
+    @Transactional
+    public CommunityPostDetailResponse adminRestorePost(String postIdOrNo, String reason) {
+        normalizeAdminModerationReason(reason);
+        Long postId = resolveAdminPostId(postIdOrNo);
+        int changed = jdbcTemplate.update("""
+                update community_post
+                set status = 'PUBLISHED', updated_at = CURRENT_TIMESTAMP
+                where id = ?
+                  and status = 'BLOCKED'
+                  and exists (
+                    select 1
+                    from user_account author
+                    where author.id = community_post.author_id
+                      and author.status = 'ACTIVE'
+                  )
+                """, postId);
+        if (changed == 0) {
+            throw new IllegalArgumentException("community post cannot be restored");
+        }
+        refreshPublishedCommentCount(postId);
+        return adminDetail(postId.toString());
+    }
+
+    @Transactional
+    public CommunityPostDetailResponse adminBlockComment(String commentNo, String reason) {
+        normalizeAdminModerationReason(reason);
+        String safeCommentNo = normalizeAdminCommentNo(commentNo);
+        List<Long> postIds = jdbcTemplate.query("""
+                select c.post_id
+                from community_comment c
+                join community_post p on p.id = c.post_id
+                where c.comment_no = ?
+                  and c.status = 'PUBLISHED'
+                  and p.status = 'PUBLISHED'
+                """, (rs, rowNum) -> rs.getLong("post_id"), safeCommentNo);
+        if (postIds.isEmpty()) {
+            throw new IllegalArgumentException("community comment cannot be blocked");
+        }
+        Long postId = postIds.get(0);
+        int changed = jdbcTemplate.update("""
+                update community_comment
+                set status = 'BLOCKED'
+                where comment_no = ? and status = 'PUBLISHED'
+                """, safeCommentNo);
+        if (changed == 0) {
+            throw new IllegalArgumentException("community comment cannot be blocked");
+        }
+        refreshPublishedCommentCount(postId);
+        return adminDetail(postId.toString());
+    }
+
+    @Transactional
+    public CommunityPostDetailResponse adminRestoreComment(String commentNo, String reason) {
+        normalizeAdminModerationReason(reason);
+        String safeCommentNo = normalizeAdminCommentNo(commentNo);
+        List<Long> postIds = jdbcTemplate.query("""
+                select c.post_id
+                from community_comment c
+                join community_post p on p.id = c.post_id
+                join user_account comment_author on comment_author.id = c.author_id and comment_author.status = 'ACTIVE'
+                where c.comment_no = ?
+                  and c.status = 'BLOCKED'
+                  and p.status = 'PUBLISHED'
+                """, (rs, rowNum) -> rs.getLong("post_id"), safeCommentNo);
+        if (postIds.isEmpty()) {
+            throw new IllegalArgumentException("community comment cannot be restored");
+        }
+        Long postId = postIds.get(0);
+        int changed = jdbcTemplate.update("""
+                update community_comment
+                set status = 'PUBLISHED'
+                where comment_no = ? and status = 'BLOCKED'
+                """, safeCommentNo);
+        if (changed == 0) {
+            throw new IllegalArgumentException("community comment cannot be restored");
+        }
+        refreshPublishedCommentCount(postId);
+        return adminDetail(postId.toString());
     }
 
     @Transactional
@@ -293,7 +389,7 @@ public class CommunityApplicationService {
                         JOIN user_account a ON a.id = c.author_id AND a.status = 'ACTIVE'
                         WHERE c.comment_no = ?
                         """,
-                (rs, rowNum) -> new CommunityCommentResponse(rs.getString("comment_no"), rs.getLong("author_id"), rs.getString("author_name"), rs.getString("author_avatar"), rs.getString("content"), toInstant(rs.getTimestamp("created_at"))), commentNo);
+                (rs, rowNum) -> mapComment(rs), commentNo);
     }
 
     @Transactional
@@ -351,6 +447,36 @@ public class CommunityApplicationService {
         return value;
     }
 
+    private Long resolveAdminPostId(String postIdOrNo) {
+        String normalized = postIdOrNo == null ? "" : postIdOrNo.trim();
+        if (!isValidPostLookup(normalized)) {
+            throw new IllegalArgumentException("invalid post id");
+        }
+        if (normalized.matches("\\d+")) {
+            return Long.parseLong(normalized);
+        }
+        List<Long> ids = jdbcTemplate.query("SELECT id FROM community_post WHERE post_no = ?", (rs, rowNum) -> rs.getLong("id"), normalized);
+        if (ids.isEmpty()) {
+            throw new IllegalArgumentException("post not found");
+        }
+        return ids.get(0);
+    }
+
+    private static String normalizeAdminCommentNo(String commentNo) {
+        String normalized = commentNo == null ? "" : commentNo.trim();
+        String lower = normalized.toLowerCase();
+        if (normalized.isBlank()
+                || lower.contains("preview")
+                || lower.contains("demo")
+                || lower.contains("mock")
+                || lower.contains("sample")
+                || lower.contains("placeholder")
+                || !COMMUNITY_COMMENT_NO_PATTERN.matcher(normalized).matches()) {
+            throw new IllegalArgumentException("invalid comment no");
+        }
+        return normalized;
+    }
+
     private void requireActiveCommunityUser(Long userId, String message) {
         Integer count = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
@@ -384,6 +510,21 @@ public class CommunityApplicationService {
         }
         if (normalized.matches("^\\d+$") && !normalized.matches("^[1-9]\\d{0,18}$")) {
             throw new IllegalArgumentException("invalid keyword");
+        }
+        return normalized;
+    }
+
+    private static String normalizeAdminModerationReason(String reason) {
+        String normalized = reason == null ? "" : reason.trim();
+        String lower = normalized.toLowerCase();
+        if (normalized.isBlank()
+                || normalized.length() > 128
+                || lower.contains("preview")
+                || lower.contains("demo")
+                || lower.contains("mock")
+                || lower.contains("sample")
+                || lower.contains("placeholder")) {
+            throw new IllegalArgumentException("community moderation reason invalid");
         }
         return normalized;
     }
@@ -679,6 +820,31 @@ public class CommunityApplicationService {
     private static Long nullableLong(java.sql.ResultSet rs, String column) throws java.sql.SQLException {
         long value = rs.getLong(column);
         return rs.wasNull() ? null : value;
+    }
+
+    private CommunityCommentResponse mapComment(java.sql.ResultSet rs) throws java.sql.SQLException {
+        return new CommunityCommentResponse(
+                rs.getString("comment_no"),
+                rs.getLong("author_id"),
+                rs.getString("author_name"),
+                rs.getString("author_avatar"),
+                rs.getString("content"),
+                rs.getString("status"),
+                toInstant(rs.getTimestamp("created_at"))
+        );
+    }
+
+    private void refreshPublishedCommentCount(Long postId) {
+        jdbcTemplate.update("""
+                update community_post
+                set comment_count = (
+                    select count(1)
+                    from community_comment
+                    where post_id = community_post.id and status = 'PUBLISHED'
+                ),
+                updated_at = CURRENT_TIMESTAMP
+                where id = ?
+                """, postId);
     }
 
     private boolean isViewerFollowingAuthor(Long viewerId, Long authorId) {
