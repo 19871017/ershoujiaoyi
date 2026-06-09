@@ -42,6 +42,7 @@ class GiftApplicationServiceTest {
 
     @Test
     void sendGiftShouldDebitSenderRechargeAndCreditReceiverIncomeAndPersistOrder() {
+        seedUser(1L, "送礼人", "U-GIFT-SENDER");
         seedRecharge(1L, "100.00");
         SendGiftRequest request = giftRequest(2L, "COFFEE", 2, "gift-req-001", null);
 
@@ -63,6 +64,12 @@ class GiftApplicationServiceTest {
                 "SELECT debit_ledger_no FROM gift_order WHERE gift_order_no = ?", String.class, response.getGiftOrderNo()));
         assertEquals(response.getReceiverCreditLedgerNo(), jdbcTemplate.queryForObject(
                 "SELECT receiver_credit_ledger_no FROM gift_order WHERE gift_order_no = ?", String.class, response.getGiftOrderNo()));
+        var notices = new com.secondhand.platform.modules.notification.application.NotificationApplicationService(jdbcTemplate)
+                .listNotifications(2L, "GIFT", 20);
+        assertEquals(1, notices.size());
+        assertEquals("你收到了新礼物", notices.get(0).title());
+        assertEquals("送礼人 送了 暖心咖啡 × 2", notices.get(0).description());
+        assertEquals("/pages/gift/index?mode=received", notices.get(0).targetUrl());
     }
 
     @Test
@@ -83,6 +90,8 @@ class GiftApplicationServiceTest {
         assertEquals(2, walletLedgerService.listLedger(1L).size());
         assertEquals(1, walletLedgerService.listLedger(2L).size());
         assertEquals(1, orderCount(first.getGiftOrderNo()));
+        assertEquals(1, new com.secondhand.platform.modules.notification.application.NotificationApplicationService(jdbcTemplate)
+                .listNotifications(2L, "GIFT", 20).size());
     }
 
     @Test

@@ -1,4 +1,5 @@
 import type { HomeBannerAction } from '../../../api/modules/home'
+import type { ProductListItemResponse } from '../../../api/modules/product'
 import rankingGoddessArtwork from '../../../assets/ranking/ranking-goddess-desktop.png'
 import rankingGodArtwork from '../../../assets/ranking/ranking-god-desktop.png'
 
@@ -12,10 +13,15 @@ export type RankingCard = {
 }
 
 export const launchReadinessMarkers = [
-  '暂未加载到后端在售宝贝',
-  '商品接口暂时不可用，未展示本地演示宝贝',
-  '首页轮播未加载到服务端配置时不展示本地兜底图',
-  '件后端在售宝贝'
+  '暂无在售宝贝',
+  '宝贝暂时不可用，请稍后再逛',
+  '新鲜宝贝会在这里陆续亮相',
+  '今日上新 · {{ products.length }} 件在售宝贝',
+  'products.value = remote',
+  'products.value = []',
+  'sellerDisplayName(item)',
+  'sellerAvatarUrl(item)',
+  'sellerInitial(item)'
 ]
 
 export const rankingCards: RankingCard[] = [
@@ -29,19 +35,16 @@ export const rankingCards: RankingCard[] = [
     tab: 'god',
     themeClass: 'ranking-god',
     artwork: rankingGodArtwork,
-    title: '霸总男神榜'
+    title: '多金男神榜'
   }
 ]
 
-export const PRODUCT_COLUMNS = 2
-export const VISIBLE_ROWS = 3
-export const MIN_SIMULATED_PRODUCTS = 20
-export const CARD_HEIGHT_RPX = 328
-export const ROW_GAP_RPX = 16
-export const MANUAL_SCROLL_RESUME_DELAY = 6000
-
 export function statusLabel(status: string) {
-  return status === 'created' || status === 'ACTIVE' ? '在售' : status
+  if (status === 'created' || status === 'ACTIVE') return '在售'
+  if (status === 'SOLD') return '已出'
+  if (status === 'OFFLINE') return '已下架'
+  if (status === 'PENDING_AUDIT') return '待完善'
+  return '更新中'
 }
 
 export function compactPrice(price: string) {
@@ -68,4 +71,34 @@ export function formatPublishTime(createdAt: string) {
   const diffDays = Math.floor(diffHours / 24)
   if (diffDays < 7) return `${diffDays} 天前`
   return `${date.getMonth() + 1}/${date.getDate()} 上新`
+}
+
+export function sellerDisplayName(item: ProductListItemResponse) {
+  const name = item.sellerNickname?.trim()
+  if (name) return name
+  return item.sellerId ? `卖家 ${item.sellerId}` : '卖家资料待同步'
+}
+
+export function sellerInitial(item: ProductListItemResponse) {
+  return sellerDisplayName(item).slice(0, 1) || '卖'
+}
+
+export function sellerAvatarUrl(item: ProductListItemResponse) {
+  const avatar = item.sellerAvatarUrl?.trim()
+  if (!avatar) return ''
+  const lower = avatar.toLowerCase()
+  const allowedPrefix = avatar.startsWith('/uploads/avatar/') || avatar.startsWith('/uploads/community-image/')
+  const invalid = avatar.startsWith('local://') ||
+    avatar.startsWith('blob:') ||
+    avatar.startsWith('data:') ||
+    lower.includes('placeholder') ||
+    lower.includes('preview') ||
+    lower.includes('%2e') ||
+    lower.includes('%2f') ||
+    lower.includes('%5c') ||
+    avatar.includes('\\') ||
+    avatar.includes('..') ||
+    avatar.includes('//') ||
+    !allowedPrefix
+  return invalid ? '' : avatar
 }

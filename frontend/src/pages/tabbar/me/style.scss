@@ -1,7 +1,7 @@
 .me-page {
   min-height: 100vh;
   padding-top: 18rpx;
-  padding-bottom: 150rpx;
+  padding-bottom: calc(230rpx + env(safe-area-inset-bottom));
   background:
     radial-gradient(circle at 12% 0%, rgba(255, 202, 150, .28), transparent 28%),
     radial-gradient(circle at 88% 16%, rgba(255, 226, 214, .44), transparent 24%),
@@ -53,6 +53,10 @@
   background: linear-gradient(135deg, rgba(255, 255, 255, .98), rgba(255, 244, 234, .96));
 }
 
+.profile-card.loading .avatar {
+  background: linear-gradient(135deg, #caa28a, #f0c6a9);
+}
+
 .avatar,
 .order-item,
 .seller-fab-icon {
@@ -95,6 +99,7 @@
 .profile-main,
 .seller-entry-main {
   flex: 1;
+  min-width: 0;
 }
 
 .nickname,
@@ -109,6 +114,9 @@
 .nickname {
   font-size: 31rpx;
   letter-spacing: .16rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .id-line {
@@ -116,6 +124,9 @@
   color: #8f6b57;
   font-size: 20rpx;
   font-weight: 820;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tag-row {
@@ -161,6 +172,17 @@
 .wallet-card {
   padding: 20rpx;
   background: linear-gradient(180deg, rgba(255, 255, 255, .97), rgba(255, 248, 242, .96));
+}
+
+.data-alert {
+  margin-top: 14rpx;
+  padding: 16rpx 18rpx;
+  color: #8f4d32;
+  background: rgba(255, 246, 239, .96);
+  font-size: 22rpx;
+  font-weight: 820;
+  line-height: 1.45;
+  border-color: rgba(239, 111, 63, .20);
 }
 
 .ops-card {
@@ -356,6 +378,11 @@
   color: #7b5542;
   font-size: 19rpx;
   font-weight: 920;
+  max-width: 100%;
+  line-height: 1.16;
+  text-align: center;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 .badge {
@@ -425,6 +452,16 @@
   box-shadow: 0 14rpx 30rpx rgba(255, 122, 69, .22), inset 0 0 0 1rpx rgba(255, 255, 255, .45);
   gap: 10rpx;
   color: #fffaf4;
+}
+
+.seller-verify-fab.verified {
+  background: rgba(58, 42, 31, .74);
+  box-shadow: 0 12rpx 26rpx rgba(58, 42, 31, .18), inset 0 0 0 1rpx rgba(255, 255, 255, .38);
+}
+
+.seller-verify-fab.disabled {
+  background: rgba(154, 112, 93, .68);
+  box-shadow: 0 10rpx 22rpx rgba(58, 42, 31, .12), inset 0 0 0 1rpx rgba(255, 255, 255, .34);
 }
 
 .seller-fab-icon {

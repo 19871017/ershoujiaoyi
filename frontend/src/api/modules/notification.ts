@@ -1,6 +1,6 @@
 import { get, post } from '../http'
 
-export type NotificationType = 'ORDER' | 'CHAT' | 'AUDIT' | 'SYSTEM'
+export type NotificationType = 'ORDER' | 'CHAT' | 'AUDIT' | 'SYSTEM' | 'FOLLOW' | 'LIKE' | 'COMMENT' | 'GIFT'
 
 export interface NotificationItemResponse {
   notificationNo: string

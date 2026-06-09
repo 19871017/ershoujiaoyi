@@ -7,8 +7,8 @@ function childPaths() {
 }
 
 describe('admin router sensitive detail routes', () => {
-  it('registers backend-id detail routes for order, withdrawal, after-sales, audit, chat, and user workbenches', () => {
+  it('registers backend-id detail routes for order, withdrawal, after-sales, audit, chat, product, and user workbenches', () => {
     expect(childPaths()).toEqual(expect.arrayContaining(['orders/:orderNo', 'finance/withdrawals/:withdrawalNo', 'after-sales/:afterSalesNo', 'users/:userId']))
-    expect(childPaths()).toEqual(expect.arrayContaining(['audit/:auditNo', 'chat-trace', 'chat-trace/:conversationId']))
+    expect(childPaths()).toEqual(expect.arrayContaining(['audit/:auditNo', 'chat-trace', 'chat-trace/:conversationId', 'products', 'products/:productId']))
   })
 })

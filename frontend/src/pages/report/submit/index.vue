@@ -52,7 +52,7 @@ import { submitReport, type AuditRecordResponse, type AuditStatus } from '../../
 import { createMediaUploadTicket, uploadMediaTicketFile } from '../../../api/modules/media'
 
 type ImageContentType = 'image/png' | 'image/webp' | 'image/jpeg'
-type ReportTargetType = 'GOODS' | 'PRODUCT' | 'CHAT' | 'ORDER' | 'AFTER_SALES' | 'USER' | 'REPORT'
+type ReportTargetType = 'GOODS' | 'PRODUCT' | 'COMMUNITY' | 'COMMUNITY_POST' | 'COMMUNITY_COMMENT' | 'POST' | 'CHAT' | 'ORDER' | 'AFTER_SALES' | 'USER' | 'REPORT'
 type ChooseImageFile = { name?: string; type?: string; size?: number }
 type ChooseImageResult = { tempFilePaths?: string[]; tempFiles?: ChooseImageFile[] }
 
@@ -74,7 +74,7 @@ const uploadingEvidence = ref(false)
 const submitting = ref(false)
 const reasons = ['私下交易引导', '商品描述不符', '疑似假货', '骚扰/辱骂', '虚假定位', '其他风险']
 const targetTypeLabel = computed(() => {
-  const map: Record<ReportTargetType, string> = { GOODS: '商品', PRODUCT: '商品', CHAT: '聊天', ORDER: '订单', AFTER_SALES: '售后', USER: '用户', REPORT: '举报' }
+  const map: Record<ReportTargetType, string> = { GOODS: '商品', PRODUCT: '商品', COMMUNITY: '社区动态', COMMUNITY_POST: '社区动态', COMMUNITY_COMMENT: '社区评论', POST: '社区动态', CHAT: '聊天', ORDER: '订单', AFTER_SALES: '售后', USER: '用户', REPORT: '举报' }
   return map[targetType.value] || targetType.value
 })
 function decodeRouteValue(fieldName: string, value: string): string {
@@ -86,7 +86,7 @@ function decodeRouteValue(fieldName: string, value: string): string {
   }
 }
 function isValidReportTargetType(value: string): value is ReportTargetType {
-  return value === 'GOODS' || value === 'PRODUCT' || value === 'CHAT' || value === 'ORDER' || value === 'AFTER_SALES' || value === 'USER' || value === 'REPORT'
+  return value === 'GOODS' || value === 'PRODUCT' || value === 'COMMUNITY' || value === 'COMMUNITY_POST' || value === 'COMMUNITY_COMMENT' || value === 'POST' || value === 'CHAT' || value === 'ORDER' || value === 'AFTER_SALES' || value === 'USER' || value === 'REPORT'
 }
 function readQuery() {
   const pages = getCurrentPages()
@@ -98,7 +98,7 @@ function readQuery() {
   const routeTargetId = decodeRouteValue('targetId', rawTargetId)
   if (!isValidReportTargetType(routeTargetType) || !isValidReportTargetId(routeTargetId, routeTargetType)) {
     console.warn('report submit invalid route target', { targetType: routeTargetType, targetIdLength: routeTargetId.length, targetIdPreview: routeTargetId.slice(0, 24) })
-    routeError.value = '缺少有效举报对象，请从商品、聊天、订单、售后或用户页面发起举报'
+    routeError.value = '缺少有效举报对象，请从商品、社区、聊天、订单、售后或用户页面发起举报'
     targetId.value = ''
     return
   }
@@ -131,10 +131,14 @@ function imageFallbackName(contentType: ImageContentType, index: number) {
 }
 function isValidReportTargetId(value: string, type = targetType.value) {
   const normalizedType = (type || '').toUpperCase()
-  if (normalizedType !== 'AFTER_SALES' && /^[1-9]\d{0,18}$/.test(value)) return true
+  if (normalizedType !== 'AFTER_SALES' && normalizedType !== 'COMMUNITY_COMMENT' && /^[1-9]\d{0,18}$/.test(value)) return true
   const patterns: Record<string, RegExp> = {
     GOODS: /^(GOODS|PRODUCT)-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
     PRODUCT: /^(GOODS|PRODUCT)-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
+    COMMUNITY: /^POST-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
+    COMMUNITY_POST: /^POST-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
+    COMMUNITY_COMMENT: /^CMT-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
+    POST: /^POST-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
     ORDER: /^(ORDER-[A-Za-z0-9][A-Za-z0-9_-]{5,63}|OD-[1-9][0-9]{0,9})$/,
     AFTER_SALES: /^AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,
     CHAT: /^CHAT-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/,

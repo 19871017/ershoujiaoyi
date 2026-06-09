@@ -1,7 +1,7 @@
 .detail-page {
   min-height: 100vh;
   padding-top: 18rpx;
-  padding-bottom: 138rpx;
+  padding-bottom: calc(138rpx + env(safe-area-inset-bottom));
   background:
     radial-gradient(circle at 12% 0%, rgba(255, 202, 150, .28), transparent 28%),
     radial-gradient(circle at 88% 15%, rgba(255, 226, 214, .42), transparent 25%),
@@ -131,7 +131,7 @@
   color: #ef6f3f;
   font-size: 42rpx;
   font-weight: 950;
-  letter-spacing: -.6rpx;
+  letter-spacing: 0;
   text-shadow: 0 1rpx 0 rgba(255, 255, 255, .72);
 }
 
@@ -349,11 +349,15 @@
 }
 
 .icon-btn {
-  padding: 0 14rpx;
-  min-width: 88rpx;
+  padding: 0 18rpx;
+  min-width: 96rpx;
   height: 56rpx;
   line-height: 56rpx;
   color: #6f4d3d;
+}
+
+.more-btn {
+  flex: 0 0 auto;
 }
 
 .action {

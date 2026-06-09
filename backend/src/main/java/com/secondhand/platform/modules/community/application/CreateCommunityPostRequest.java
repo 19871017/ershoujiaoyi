@@ -7,6 +7,7 @@ public class CreateCommunityPostRequest {
     private String topic;
     private String content;
     private List<String> imageUrls;
+    private Long relatedProductId;
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -16,4 +17,6 @@ public class CreateCommunityPostRequest {
     public void setContent(String content) { this.content = content; }
     public List<String> getImageUrls() { return imageUrls; }
     public void setImageUrls(List<String> imageUrls) { this.imageUrls = imageUrls; }
+    public Long getRelatedProductId() { return relatedProductId; }
+    public void setRelatedProductId(Long relatedProductId) { this.relatedProductId = relatedProductId; }
 }

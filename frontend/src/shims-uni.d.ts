@@ -48,7 +48,9 @@ declare global {
     navigateBack(options?: { delta?: number }): void
     showToast(options: { title: string; icon?: 'success' | 'error' | 'fail' | 'exception' | 'loading' | 'none'; duration?: number }): void
     showModal(options: { title?: string; content: string; showCancel?: boolean; confirmText?: string; cancelText?: string; success?: (result: { confirm: boolean; cancel: boolean }) => void }): void
+    showActionSheet(options: { itemList: string[]; success?: (result: { tapIndex: number }) => void; fail?: (error: unknown) => void }): void
     chooseImage(options: { count?: number; sizeType?: Array<'original' | 'compressed'>; sourceType?: Array<'album' | 'camera'>; success?: (result: { tempFilePaths: string[] }) => void; fail?: (error: unknown) => void }): void
+    previewImage(options: { current?: string; urls: string[] }): void
     chooseVideo(options: { sourceType?: Array<'album' | 'camera'>; compressed?: boolean; maxDuration?: number; success?: (result: { tempFilePath: string; duration?: number; size?: number }) => void; fail?: (error: unknown) => void }): void
     getLocation(options: { type?: 'wgs84' | 'gcj02'; success?: (result: { latitude: number; longitude: number }) => void; fail?: (error: unknown) => void }): void
     getStorageSync(key: string): unknown

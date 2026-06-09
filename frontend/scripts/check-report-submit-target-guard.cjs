@@ -6,10 +6,14 @@ const reportFile = 'src/pages/report/submit/index.vue'
 const productDetailFile = 'src/pages/product/detail/index.vue'
 const orderDetailFile = 'src/pages/order/detail/index.vue'
 const afterSalesDetailFile = 'src/pages/after-sales/detail/index.vue'
+const communityDetailFile = 'src/pages/community/detail/index.vue'
+const communityFeedFile = 'src/pages/tabbar/message/index.vue'
 const reportContent = fs.readFileSync(path.join(root, reportFile), 'utf8')
 const productDetailContent = fs.readFileSync(path.join(root, productDetailFile), 'utf8')
 const orderDetailContent = fs.readFileSync(path.join(root, orderDetailFile), 'utf8')
 const afterSalesDetailContent = fs.readFileSync(path.join(root, afterSalesDetailFile), 'utf8')
+const communityDetailContent = fs.readFileSync(path.join(root, communityDetailFile), 'utf8')
+const communityFeedContent = fs.readFileSync(path.join(root, communityFeedFile), 'utf8')
 const failures = []
 
 if (!reportContent.includes('function isValidReportTargetId')) {
@@ -19,9 +23,13 @@ if (!reportContent.includes('function isValidReportTargetId')) {
 for (const marker of [
   'function decodeRouteValue(fieldName: string, value: string): string',
   'function isValidReportTargetType(value: string): value is ReportTargetType',
+  "'COMMUNITY_POST'",
+  "'COMMUNITY_COMMENT'",
+  "COMMUNITY_POST: /^POST-",
+  "COMMUNITY_COMMENT: /^CMT-",
   "console.warn('report submit route decode failed'",
   "console.warn('report submit invalid route target'",
-  '缺少有效举报对象，请从商品、聊天、订单、售后或用户页面发起举报',
+  '缺少有效举报对象，请从商品、社区、聊天、订单、售后或用户页面发起举报',
   "const reportEvidenceStoragePrefix = '/uploads/report-evidence/'",
   'function hasInvalidReportEvidenceUrl(url: unknown): boolean',
   'function hasInvalidTempReportEvidencePath(path: string): boolean',
@@ -43,7 +51,7 @@ if (/targetId\.value\s*===\s*['"]UNKNOWN['"]/.test(reportContent) || /targetId\.
   failures.push('report target guard must not rely on narrow UNKNOWN/preview equality checks')
 }
 
-if (!reportContent.includes('/^[1-9]\\d{0,18}$/') || !reportContent.includes('GOODS: /^(GOODS|PRODUCT)-') || !reportContent.includes('ORDER: /^(ORDER-') || !reportContent.includes('OD-[1-9][0-9]{0,9}') || !reportContent.includes('AFTER_SALES: /^AS-')) {
+if (!reportContent.includes('/^[1-9]\\d{0,18}$/') || !reportContent.includes('GOODS: /^(GOODS|PRODUCT)-') || !reportContent.includes('COMMUNITY_POST: /^POST-') || !reportContent.includes('COMMUNITY_COMMENT: /^CMT-') || !reportContent.includes('ORDER: /^(ORDER-') || !reportContent.includes('OD-[1-9][0-9]{0,9}') || !reportContent.includes('AFTER_SALES: /^AS-')) {
   failures.push('report target guard must allow only positive numeric IDs, canonical typed backend IDs, backend OD order numbers, or AS after-sales numbers')
 }
 
@@ -62,7 +70,7 @@ if (!/if \(!isValidReportTargetId\(targetId\.value\)\)/.test(reportContent)) {
   failures.push('submit() must fail closed unless targetId passes isValidReportTargetId(targetId.value)')
 }
 
-if (!/function readQuery\(\)[\s\S]*decodeRouteValue\('targetType'[\s\S]*decodeRouteValue\('targetId'[\s\S]*!isValidReportTargetType\(routeTargetType\) \|\| !isValidReportTargetId\(routeTargetId, routeTargetType\)[\s\S]*routeError\.value = '缺少有效举报对象，请从商品、聊天、订单、售后或用户页面发起举报'/s.test(reportContent)) {
+if (!/function readQuery\(\)[\s\S]*decodeRouteValue\('targetType'[\s\S]*decodeRouteValue\('targetId'[\s\S]*!isValidReportTargetType\(routeTargetType\) \|\| !isValidReportTargetId\(routeTargetId, routeTargetType\)[\s\S]*routeError\.value = '缺少有效举报对象，请从商品、社区、聊天、订单、售后或用户页面发起举报'/s.test(reportContent)) {
   failures.push('report route params must decode and validate targetType/targetId fail-closed before submission')
 }
 
@@ -145,6 +153,22 @@ if (!/function reportOrder\(\): void\s*\{[\s\S]*if \(!currentOrder \|\| !isValid
 
 if (!/function reportAfterSales\(\): void\s*\{[\s\S]*if \(!currentDetail \|\| !isValidAfterSalesNo\(currentDetail\.afterSalesNo\)\)[\s\S]*targetType=AFTER_SALES&targetId=\$\{encodeURIComponent\(safeAfterSalesNo\)\}[\s\S]*console\.warn\('after-sales report navigation failed'/s.test(afterSalesDetailContent)) {
   failures.push('after-sales detail report entry must use validated AS backend afterSalesNo and handle navigation failures before opening report page')
+}
+
+if (!/function reportPost\(\)[\s\S]*if \(!isValidCommunityPostId\(postId\.value\)\)[\s\S]*targetType=COMMUNITY_POST&targetId=\$\{encodeURIComponent\(postId\.value\)\}/s.test(communityDetailContent)) {
+  failures.push('community detail report entry must use validated backend post id and COMMUNITY_POST target type before opening report page')
+}
+
+if (!/function reportComment\(item: CommentItem\)[\s\S]*if \(!item \|\| !isValidCommunityCommentNo\(item\.id\)\)[\s\S]*targetType=COMMUNITY_COMMENT&targetId=\$\{encodeURIComponent\(item\.id\)\}/s.test(communityDetailContent)) {
+  failures.push('community detail comment report entry must use validated backend commentNo and COMMUNITY_COMMENT target type before opening report page')
+}
+
+if (!/function reportFeedPost\(item: CommunityPostResponse\)[\s\S]*if \(!isValidCommunityPostId\(item\.postId\)\)[\s\S]*targetType=COMMUNITY_POST&targetId=\$\{encodeURIComponent\(String\(item\.postId\)\)\}/s.test(communityFeedContent)) {
+  failures.push('community feed report entry must use validated backend post id and COMMUNITY_POST target type before opening report page')
+}
+
+if (!/function navigateToReport\(url: string\)[\s\S]*navigateToWithFailure\(\{[\s\S]*fail: \(error: unknown\)[\s\S]*console\.warn\('community feed report navigation failed'[\s\S]*catch \(error\)[\s\S]*暂时无法打开举报页，请稍后重试/s.test(communityFeedContent)) {
+  failures.push('community feed report navigation must handle async and synchronous navigation failures')
 }
 
 if (failures.length) {

@@ -25,7 +25,8 @@ export function imageContentType(path: string) {
 
 export function hasInvalidTempImagePath(path: string): boolean {
   const lower = path.toLowerCase()
-  return !path || path.startsWith('local://') || path.startsWith('blob:') || path.startsWith('data:') || lower.includes('placeholder') || lower.includes('%2e') || lower.includes('%2f') || lower.includes('%5c') || path.includes('\\') || path.includes('..')
+  const isH5BlobPath = lower.startsWith('blob:')
+  return !path || path.startsWith('local://') || path.startsWith('data:') || lower.includes('placeholder') || lower.includes('%2e') || lower.includes('%2f') || lower.includes('%5c') || path.includes('\\') || path.includes('..') || (!isH5BlobPath && path.includes('//'))
 }
 
 export function hasInvalidProductImageUrl(url: unknown): boolean {

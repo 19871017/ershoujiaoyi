@@ -51,7 +51,45 @@
       <div class="toolbar">
         <button class="secondary-btn" @click="openUserOrderTrace">追溯该用户订单</button>
         <button class="secondary-btn" @click="openUserAfterSalesTrace">追溯该用户售后</button>
+        <button class="secondary-btn" @click="openUserChatTrace">追溯该用户私聊</button>
+        <button class="secondary-btn" @click="openUserWithdrawalTrace">追溯该用户提现</button>
       </div>
+      <section v-if="detail.opsSummary" class="audit-card">
+        <h3>运营复盘</h3>
+        <div class="ops-grid">
+          <div>
+            <span>订单</span>
+            <strong>{{ detail.opsSummary.orderCount }}</strong>
+            <small>已支付链路 {{ detail.opsSummary.paidOrderCount }}</small>
+          </div>
+          <div>
+            <span>售后</span>
+            <strong>{{ detail.opsSummary.afterSalesCount }}</strong>
+            <small>待处理 {{ detail.opsSummary.pendingAfterSalesCount }}</small>
+          </div>
+          <div>
+            <span>举报</span>
+            <strong>{{ detail.opsSummary.reportCount }}</strong>
+            <small>待处理 {{ detail.opsSummary.pendingReportCount }}</small>
+          </div>
+          <div>
+            <span>提现</span>
+            <strong>{{ detail.opsSummary.withdrawalCount }}</strong>
+            <small>待审核 {{ detail.opsSummary.pendingWithdrawalCount }}</small>
+          </div>
+          <div>
+            <span>私聊</span>
+            <strong>{{ detail.opsSummary.chatConversationCount }}</strong>
+            <small>会话数</small>
+          </div>
+        </div>
+        <dl class="detail-grid">
+          <div><dt>最近订单</dt><dd>{{ detail.opsSummary.lastOrderNo || '暂无' }}</dd></div>
+          <div><dt>最近售后</dt><dd>{{ detail.opsSummary.lastAfterSalesNo || '暂无' }}</dd></div>
+          <div><dt>最近提现</dt><dd>{{ detail.opsSummary.lastWithdrawalNo || '暂无' }}</dd></div>
+          <div><dt>最近私聊会话</dt><dd>{{ detail.opsSummary.lastChatConversationId || '暂无' }}</dd></div>
+        </dl>
+      </section>
       <p class="safe-note">{{ detail.bio || '暂无补充简介' }}</p>
       <p class="safe-note">用户资料以平台记录为准；本页仅展示脱敏联系方式与平台返回资料。</p>
     </article>
@@ -61,8 +99,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getAdminUserDetail, isValidAdminUserId, searchAdminUsers, type AdminUserDetailResponse } from '../../api/modules/admin'
+import { getAdminUserDetail, isValidAdminUserId, isValidAdminWithdrawalNo, searchAdminUsers, type AdminUserDetailResponse } from '../../api/modules/admin'
 import { afterSalesTraceListLocation } from '../after-sales/after-sales-trace-links'
+import { chatTraceDetailLocation, chatTraceListLocation } from '../chat-trace/chat-trace-links'
 import { orderTraceListLocation } from '../orders/order-trace-links'
 
 const route = useRoute()
@@ -114,6 +153,7 @@ async function loadUsers() {
 function selectUser(item: AdminUserDetailResponse) {
   userId.value = String(item.userId)
   detail.value = item
+  loadDetail()
 }
 
 function openUserAfterSalesTrace() {
@@ -134,6 +174,27 @@ function openUserOrderTrace() {
   router.push(location)
 }
 
+function openUserChatTrace() {
+  const recentConversation = detail.value?.opsSummary?.lastChatConversationId
+  const location = recentConversation
+    ? chatTraceDetailLocation(recentConversation)
+    : chatTraceListLocation(detail.value?.userId || userId.value)
+  if (!location) {
+    error.value = '用户编号无效，未打开私聊追溯。'
+    return
+  }
+  router.push(location)
+}
+
+function openUserWithdrawalTrace() {
+  const withdrawalNo = detail.value?.opsSummary?.lastWithdrawalNo || ''
+  if (withdrawalNo && isValidAdminWithdrawalNo(withdrawalNo)) {
+    router.push({ path: `/finance/withdrawals/${encodeURIComponent(withdrawalNo)}` })
+    return
+  }
+  router.push({ path: '/finance/withdrawals' })
+}
+
 onMounted(() => {
   const routeUserId = String(route.params.userId || '').trim()
   if (routeUserId) {
@@ -142,3 +203,33 @@ onMounted(() => {
   }
 })
 </script>
+
+<style scoped>
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.ops-grid div {
+  border: 1px solid #f0e4d6;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fffaf5;
+}
+
+.ops-grid span,
+.ops-grid small {
+  display: block;
+  color: #7c6a5b;
+  font-size: 12px;
+}
+
+.ops-grid strong {
+  display: block;
+  margin: 6px 0;
+  color: #4c2f1a;
+  font-size: 24px;
+}
+</style>

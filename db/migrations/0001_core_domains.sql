@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS content_audit_record (
   id BIGINT PRIMARY KEY,
   audit_no VARCHAR(128) NOT NULL,
   target_type VARCHAR(64) NOT NULL,
-  target_id BIGINT NOT NULL,
+  target_id VARCHAR(128) NOT NULL,
   user_id BIGINT NULL,
   content_type VARCHAR(32) NOT NULL,
   audit_status VARCHAR(32) NOT NULL DEFAULT 'pending',
@@ -58,11 +58,11 @@ CREATE TABLE IF NOT EXISTS risk_event (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS report_record (
-  id BIGINT PRIMARY KEY,
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   report_no VARCHAR(128) NOT NULL,
   reporter_id BIGINT NOT NULL,
   target_type VARCHAR(64) NOT NULL,
-  target_id BIGINT NOT NULL,
+  target_id VARCHAR(128) NOT NULL,
   reason_code VARCHAR(64) NOT NULL,
   description VARCHAR(512) NULL,
   report_status VARCHAR(32) NOT NULL DEFAULT 'pending',

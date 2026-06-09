@@ -73,3 +73,21 @@ export async function request<T = unknown>(options: HttpOptions): Promise<T> {
   }
   return payload as T
 }
+
+export async function requestBlob(options: Pick<HttpOptions, 'url' | 'headers'>): Promise<Blob> {
+  const adminHeaders = resolveAdminHeaders()
+  const response = await fetch(`${API_BASE}${options.url}`, {
+    method: 'GET',
+    headers: {
+      ...filterRequestHeaders(options.headers),
+      ...adminHeaders
+    },
+    credentials: 'include'
+  })
+
+  if (!response.ok) {
+    throw new HttpError(`后台接口请求失败(${response.status})`, response.status)
+  }
+
+  return response.blob()
+}

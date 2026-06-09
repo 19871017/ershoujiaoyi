@@ -1,10 +1,14 @@
 import { del, get, post } from '../http'
 
+export const COMMUNITY_TOPICS = ['生活日常', '闲置避坑', '交易经验', '求购心愿'] as const
+export type CommunityTopic = typeof COMMUNITY_TOPICS[number]
+
 export interface CreateCommunityPostRequest {
   title: string
-  topic: string
+  topic: CommunityTopic | string
   content: string
   imageUrls: string[]
+  relatedProductId?: number | null
 }
 
 export interface CommunityPostResponse {
@@ -19,6 +23,7 @@ export interface CommunityPostResponse {
   likeCount: number
   commentCount: number
   likedByMe: boolean
+  followedByMe: boolean
   createdAt: string
   authorName?: string
   authorAvatar?: string
@@ -31,6 +36,8 @@ export interface CommunityPostResponse {
 export interface CommunityCommentResponse {
   commentNo: string
   authorId: number
+  authorName?: string
+  authorAvatar?: string
   content: string
   createdAt: string
 }
@@ -40,8 +47,12 @@ export interface CommunityPostDetailResponse extends CommunityPostResponse {
   comments: CommunityCommentResponse[]
 }
 
-export function listCommunityPosts(limit = 20) {
-  return get<CommunityPostResponse[]>('/api/community/posts', { limit })
+export function listCommunityPosts(limit = 20, topic?: CommunityTopic | string) {
+  const query: { limit: number; topic?: CommunityTopic } = { limit }
+  if (topic !== undefined && topic !== null && String(topic).trim()) {
+    query.topic = normalizeCommunityTopic(topic)
+  }
+  return get<CommunityPostResponse[]>('/api/community/posts', query)
 }
 
 export function getCommunityPostDetail(postId: string | number) {
@@ -49,7 +60,7 @@ export function getCommunityPostDetail(postId: string | number) {
 }
 
 export function createCommunityPost(data: CreateCommunityPostRequest) {
-  return post<CommunityPostResponse>('/api/community/posts', data)
+  return post<CommunityPostResponse>('/api/community/posts', { ...data, topic: normalizeCommunityTopic(data.topic) })
 }
 
 export function createCommunityComment(postId: number, content: string) {
@@ -62,4 +73,16 @@ export function likeCommunityPost(postId: number) {
 
 export function unlikeCommunityPost(postId: number) {
   return del<CommunityPostDetailResponse>(`/api/community/posts/${postId}/likes`)
+}
+
+export function isCommunityTopic(value: unknown): value is CommunityTopic {
+  return typeof value === 'string' && COMMUNITY_TOPICS.includes(value.trim() as CommunityTopic)
+}
+
+function normalizeCommunityTopic(value: unknown): CommunityTopic {
+  const topic = typeof value === 'string' ? value.trim() : ''
+  if (!isCommunityTopic(topic)) {
+    throw new Error('请选择有效社区话题')
+  }
+  return topic
 }

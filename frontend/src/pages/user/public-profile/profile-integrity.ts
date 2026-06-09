@@ -1,12 +1,13 @@
 import type { ProductListItemResponse } from '../../../api/modules/product'
 import type { UserProfileResponse } from '../../../api/modules/user'
 
-export const unavailableProfileMessage = '卖家数据暂时不可用，未展示本地卖家样例'
-export const noBackendProductsMessage = '暂无后端公开在售商品，未展示本地商品样例'
-export const productLoadFailedMessage = '卖家商品加载失败，未展示本地商品样例'
+export const unavailableProfileMessage = '卖家资料暂时不可用，请稍后再看'
+export const noBackendProductsMessage = '这位卖家暂时没有公开在售宝贝'
+export const productLoadFailedMessage = '卖家宝贝暂时加载失败，请稍后重试'
 export const soldProductLoadFailedMessage = '卖家已售记录加载失败'
 export const videoIdentityStoragePrefix = '/uploads/video-identity/'
 export const showcaseImageStoragePrefix = '/uploads/community-image/'
+export const avatarImageStoragePrefix = '/uploads/avatar/'
 export const productImageStoragePrefix = '/uploads/product-image/'
 export const levelThresholds = [0, 50, 200, 800, 2000, 5000, 12000, 30000, 80000, 200000]
 export const godLevelTitles = ['初见绅士', '心动骑士', '闪耀贵宾', '星光守护', '黄金公子', '铂金名士', '钻石守护', '星河领主', '传奇男神', '原圈荣耀']
@@ -14,15 +15,18 @@ export const goddessLevelTitles = ['心动新星', '魅力甜心', '人气佳人
 
 const rejectedPublicMediaWarnings = new Set<string>()
 
-export function validatedPublicMediaUrl(url: unknown, expectedPrefix: string): string {
+export function validatedPublicMediaUrl(url: unknown, expectedPrefix: string | string[]): string {
   if (!url) return ''
+  const prefixes = Array.isArray(expectedPrefix) ? expectedPrefix : [expectedPrefix]
   if (typeof url !== 'string') {
-    console.warn('public profile rejected media url', { expectedPrefix, url })
+    console.warn('public profile rejected media url', { expectedPrefix: prefixes.join(','), url })
     return ''
   }
+  const matchedPrefix = prefixes.find((prefix) => url.startsWith(prefix))
   const lower = url.toLowerCase()
-  const relativePath = url.startsWith(expectedPrefix) ? url.slice(expectedPrefix.length) : ''
+  const relativePath = matchedPrefix ? url.slice(matchedPrefix.length) : ''
   const invalid = !relativePath ||
+    !matchedPrefix ||
     url.startsWith('local://') ||
     url.startsWith('blob:') ||
     url.startsWith('data:') ||
@@ -35,10 +39,10 @@ export function validatedPublicMediaUrl(url: unknown, expectedPrefix: string): s
     url.includes('//') ||
     relativePath.split('/').some(segment => !segment)
   if (invalid) {
-    const warningKey = `${expectedPrefix}:${url}`
+    const warningKey = `${prefixes.join(',')}:${url}`
     if (!rejectedPublicMediaWarnings.has(warningKey)) {
       rejectedPublicMediaWarnings.add(warningKey)
-      console.warn('public profile rejected media url', { expectedPrefix, url })
+      console.warn('public profile rejected media url', { expectedPrefix: prefixes.join(','), url })
     }
     return ''
   }
@@ -56,6 +60,12 @@ export function decodeRouteValue(fieldName: string, value: string): string {
 
 export function isValidVideoIdentityStatus(value: unknown): value is UserProfileResponse['videoIdentityStatus'] {
   return value === 'UNVERIFIED' || value === 'PENDING' || value === 'APPROVED' || value === 'REJECTED'
+}
+
+export function hasApprovedPublicSellerVideo(profile: UserProfileResponse): boolean {
+  return profile.videoVerified === true &&
+    profile.videoIdentityStatus === 'APPROVED' &&
+    !!validatedPublicMediaUrl(profile.videoIdentityUrl || '', videoIdentityStoragePrefix)
 }
 
 export function isValidBackendUserId(value: string): boolean {

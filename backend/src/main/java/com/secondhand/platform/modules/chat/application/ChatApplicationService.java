@@ -3,23 +3,32 @@ package com.secondhand.platform.modules.chat.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.secondhand.platform.modules.chat.ChatMediaAccessResponse;
 import com.secondhand.platform.modules.chat.ChatMessageAck;
 import com.secondhand.platform.modules.chat.ChatMessageResponse;
+import com.secondhand.platform.modules.chat.ClearConversationResponse;
 import com.secondhand.platform.modules.chat.ConversationListItemResponse;
 import com.secondhand.platform.modules.chat.DeliveryReceiptResponse;
 import com.secondhand.platform.modules.chat.MessageSyncResponse;
 import com.secondhand.platform.modules.chat.ReadConversationResponse;
+import com.secondhand.platform.modules.chat.RevokeMessageResponse;
 import com.secondhand.platform.modules.chat.domain.ChatMessage;
 import com.secondhand.platform.modules.chat.domain.Conversation;
 import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
+import com.secondhand.platform.modules.notification.application.NotificationApplicationService;
 import com.secondhand.platform.shared.contracts.chat.MessageType;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -31,6 +40,8 @@ public class ChatApplicationService {
     private static final String CONVERSATION_TYPE_SINGLE = "SINGLE";
     private static final int MAX_CLIENT_MSG_ID_LENGTH = 64;
     private static final int MAX_CONTENT_JSON_LENGTH = 4000;
+    private static final int MAX_TEXT_LENGTH = 1000;
+    private static final int MAX_MESSAGE_SUMMARY_LENGTH = 80;
     private static final int MAX_IMAGE_URL_LENGTH = 1024;
     private static final int MAX_IMAGE_MIME_TYPE_LENGTH = 64;
     private static final long MAX_IMAGE_SIZE_BYTES = 20L * 1024L * 1024L;
@@ -40,20 +51,48 @@ public class ChatApplicationService {
     private static final long MAX_VOICE_DURATION_MS = 600L * 1000L;
     private static final int DEFAULT_SYNC_LIMIT = 50;
     private static final int MAX_SYNC_LIMIT = 200;
+    private static final int MESSAGE_REVOKE_WINDOW_MINUTES = 2;
+    private static final String REVOKED_MESSAGE_CONTENT = "{\"revoked\":true}";
+    private static final Pattern MOBILE_PHONE_PATTERN = Pattern.compile("1[3-9]\\d{9}");
+    private static final Set<String> BLOCKED_TEXT_TOKENS = Set.of(
+            "微信",
+            "weixin",
+            "wechat",
+            "v信",
+            "vx",
+            "qq",
+            "支付宝",
+            "alipay",
+            "银行卡",
+            "转账",
+            "私下交易",
+            "线下交易",
+            "绕平台",
+            "脱离平台",
+            "不走平台",
+            "先付款"
+    );
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final TypeReference<Map<String, Object>> JSON_OBJECT_TYPE = new TypeReference<>() { };
 
     private final JdbcTemplate jdbcTemplate;
     private final MediaUploadTicketService mediaUploadTicketService;
+    private final NotificationApplicationService notificationApplicationService;
 
     public ChatApplicationService(JdbcTemplate jdbcTemplate) {
-        this(jdbcTemplate, new MediaUploadTicketService(jdbcTemplate));
+        this(jdbcTemplate, new MediaUploadTicketService(jdbcTemplate), new NotificationApplicationService(jdbcTemplate));
     }
 
     @Autowired
     public ChatApplicationService(JdbcTemplate jdbcTemplate, MediaUploadTicketService mediaUploadTicketService) {
+        this(jdbcTemplate, mediaUploadTicketService, new NotificationApplicationService(jdbcTemplate));
+    }
+
+    public ChatApplicationService(JdbcTemplate jdbcTemplate, MediaUploadTicketService mediaUploadTicketService, NotificationApplicationService notificationApplicationService) {
         this.jdbcTemplate = jdbcTemplate;
         this.mediaUploadTicketService = mediaUploadTicketService;
+        this.notificationApplicationService = notificationApplicationService;
+        ensureChatSchemaCompatibility();
     }
 
     @Transactional
@@ -108,6 +147,7 @@ public class ChatApplicationService {
                 SET last_seq = ?, last_message_summary = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 """, serverSeq, buildMessageSummary(command), conversationId);
+        notifyChatMessageReceived(command, conversationId, serverSeq);
         return toAck(requireMessageByClientKey(clientKey));
     }
 
@@ -115,15 +155,36 @@ public class ChatApplicationService {
         validateUserId(userId);
         return jdbcTemplate.query("""
                 SELECT c.id, c.owner_user_id, c.peer_user_id, c.last_seq, c.last_message_summary, c.updated_at,
+                       COALESCE(viewer_receipt.cleared_seq, 0) AS viewer_cleared_seq,
                        peer.nickname AS peer_nickname, peer.avatar_url AS peer_avatar_url,
                        profile.gender AS peer_gender,
                        profile.city AS peer_city,
                        COALESCE(profile.main_role, 'BUYER') AS peer_main_role,
-                       COALESCE(profile.video_verified, FALSE) AS peer_video_verified,
+                       CASE WHEN COALESCE(profile.video_identity_status, 'UNVERIFIED') = 'APPROVED'
+                                 AND COALESCE(profile.video_verified, FALSE) = TRUE
+                                 AND UPPER(COALESCE(profile.main_role, 'BUYER')) IN ('SELLER', 'BOTH')
+                                 AND EXISTS (
+                                     SELECT 1
+                                     FROM media_upload_ticket video_ticket
+                                     WHERE video_ticket.owner_user_id = profile.user_id
+                                       AND video_ticket.scene = 'VIDEO_IDENTITY'
+                                       AND video_ticket.status = 'UPLOADED'
+                                       AND video_ticket.storage_url LIKE '/uploads/video-identity/%'
+                                       AND EXISTS (
+                                           SELECT 1
+                                           FROM audit_record audit
+                                           WHERE audit.audit_type = 'VIDEO_IDENTITY'
+                                             AND audit.user_id = profile.user_id
+                                             AND audit.target_id = CONCAT('', profile.user_id)
+                                             AND audit.status = 'APPROVED'
+                                             AND audit.reason = video_ticket.storage_url
+                                       )
+                                 )
+                            THEN TRUE ELSE FALSE END AS peer_video_verified,
                        COALESCE(received_gifts.seller_charm_score, 0) AS peer_seller_charm_score,
                        FLOOR(COALESCE(sent_gifts.sent_gift_amount, 0) + COALESCE(paid_orders.paid_order_amount, 0)) AS peer_buyer_power_score
                 FROM im_conversation c
-                LEFT JOIN user_account peer ON peer.id = CASE WHEN c.owner_user_id = ? THEN c.peer_user_id ELSE c.owner_user_id END AND peer.status = 'ACTIVE'
+                JOIN user_account peer ON peer.id = CASE WHEN c.owner_user_id = ? THEN c.peer_user_id ELSE c.owner_user_id END AND peer.status = 'ACTIVE'
                 LEFT JOIN user_profile profile ON profile.user_id = peer.id
                 LEFT JOIN (
                     SELECT receiver_id, FLOOR(COALESCE(SUM(total_amount), 0)) AS seller_charm_score
@@ -143,9 +204,74 @@ public class ChatApplicationService {
                     WHERE order_status IN ('PAID', 'SHIPPED', 'COMPLETED')
                     GROUP BY buyer_id
                 ) paid_orders ON paid_orders.buyer_id = peer.id
-                WHERE c.owner_user_id = ? OR c.peer_user_id = ?
+                LEFT JOIN im_receipt viewer_receipt ON viewer_receipt.conversation_id = c.id AND viewer_receipt.user_id = ?
+                WHERE (c.owner_user_id = ? OR c.peer_user_id = ?)
+                  AND (c.last_seq = 0 OR c.last_seq > COALESCE(viewer_receipt.cleared_seq, 0))
                 ORDER BY c.updated_at DESC, c.id DESC
-                """, (rs, rowNum) -> toConversationItem(rs, userId), userId, userId, userId);
+                """, (rs, rowNum) -> toConversationItem(rs, userId), userId, userId, userId, userId);
+    }
+
+    public ConversationListItemResponse getConversation(Long conversationId, Long userId) {
+        validateUserId(userId);
+        requireParticipantConversation(conversationId, userId);
+        List<ConversationListItemResponse> rows = jdbcTemplate.query("""
+                SELECT c.id, c.owner_user_id, c.peer_user_id, c.last_seq, c.last_message_summary, c.updated_at,
+                       COALESCE(viewer_receipt.cleared_seq, 0) AS viewer_cleared_seq,
+                       peer.nickname AS peer_nickname, peer.avatar_url AS peer_avatar_url,
+                       profile.gender AS peer_gender,
+                       profile.city AS peer_city,
+                       COALESCE(profile.main_role, 'BUYER') AS peer_main_role,
+                       CASE WHEN COALESCE(profile.video_identity_status, 'UNVERIFIED') = 'APPROVED'
+                                 AND COALESCE(profile.video_verified, FALSE) = TRUE
+                                 AND UPPER(COALESCE(profile.main_role, 'BUYER')) IN ('SELLER', 'BOTH')
+                                 AND EXISTS (
+                                     SELECT 1
+                                     FROM media_upload_ticket video_ticket
+                                     WHERE video_ticket.owner_user_id = profile.user_id
+                                       AND video_ticket.scene = 'VIDEO_IDENTITY'
+                                       AND video_ticket.status = 'UPLOADED'
+                                       AND video_ticket.storage_url LIKE '/uploads/video-identity/%'
+                                       AND EXISTS (
+                                           SELECT 1
+                                           FROM audit_record audit
+                                           WHERE audit.audit_type = 'VIDEO_IDENTITY'
+                                             AND audit.user_id = profile.user_id
+                                             AND audit.target_id = CONCAT('', profile.user_id)
+                                             AND audit.status = 'APPROVED'
+                                             AND audit.reason = video_ticket.storage_url
+                                       )
+                                 )
+                            THEN TRUE ELSE FALSE END AS peer_video_verified,
+                       COALESCE(received_gifts.seller_charm_score, 0) AS peer_seller_charm_score,
+                       FLOOR(COALESCE(sent_gifts.sent_gift_amount, 0) + COALESCE(paid_orders.paid_order_amount, 0)) AS peer_buyer_power_score
+                FROM im_conversation c
+                JOIN user_account peer ON peer.id = CASE WHEN c.owner_user_id = ? THEN c.peer_user_id ELSE c.owner_user_id END AND peer.status = 'ACTIVE'
+                LEFT JOIN user_profile profile ON profile.user_id = peer.id
+                LEFT JOIN (
+                    SELECT receiver_id, FLOOR(COALESCE(SUM(total_amount), 0)) AS seller_charm_score
+                    FROM gift_order
+                    WHERE status = 'SUCCESS'
+                    GROUP BY receiver_id
+                ) received_gifts ON received_gifts.receiver_id = peer.id
+                LEFT JOIN (
+                    SELECT sender_id, COALESCE(SUM(total_amount), 0) AS sent_gift_amount
+                    FROM gift_order
+                    WHERE status = 'SUCCESS'
+                    GROUP BY sender_id
+                ) sent_gifts ON sent_gifts.sender_id = peer.id
+                LEFT JOIN (
+                    SELECT buyer_id, COALESCE(SUM(amount), 0) AS paid_order_amount
+                    FROM trade_order
+                    WHERE order_status IN ('PAID', 'SHIPPED', 'COMPLETED')
+                    GROUP BY buyer_id
+                ) paid_orders ON paid_orders.buyer_id = peer.id
+                LEFT JOIN im_receipt viewer_receipt ON viewer_receipt.conversation_id = c.id AND viewer_receipt.user_id = ?
+                WHERE c.id = ? AND (c.owner_user_id = ? OR c.peer_user_id = ?)
+                """, (rs, rowNum) -> toConversationItem(rs, userId), userId, userId, conversationId, userId, userId);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("conversation not found");
+        }
+        return rows.get(0);
     }
 
     @Transactional
@@ -163,18 +289,78 @@ public class ChatApplicationService {
         normalizedLimit = Math.min(normalizedLimit, MAX_SYNC_LIMIT);
 
         List<ChatMessageResponse> rows = jdbcTemplate.query("""
-                SELECT id, conversation_id, server_seq, client_msg_id, message_no, sender_id, receiver_id, message_type, content_json, created_at, updated_at
+                SELECT id, conversation_id, server_seq, client_msg_id, message_no, sender_id, receiver_id, message_type, content_json, revoked, created_at, updated_at
                 FROM im_message
-                WHERE conversation_id = ? AND server_seq > ?
+                WHERE conversation_id = ? AND server_seq > ? AND server_seq > ?
                 ORDER BY server_seq ASC
                 LIMIT ?
-                """, (rs, rowNum) -> toMessageResponse(mapMessage(rs), userId), conversationId, normalizedAfterSeq, normalizedLimit + 1);
+                """, (rs, rowNum) -> toMessageResponse(mapMessage(rs), userId), conversationId, normalizedAfterSeq, getClearedSeq(conversationId, userId), normalizedLimit + 1);
         boolean hasMore = rows.size() > normalizedLimit;
         List<ChatMessageResponse> pageMessages = hasMore ? rows.subList(0, normalizedLimit) : rows;
         long nextAfterSeq = pageMessages.isEmpty() ? normalizedAfterSeq : pageMessages.get(pageMessages.size() - 1).getServerSeq();
         long nextDeliveredSeq = Math.min(Math.max(getDeliveredSeq(conversationId, userId), nextAfterSeq), safeLastServerSeq(conversation));
         upsertReceiptSeq(conversationId, userId, getReadSeq(conversationId, userId), nextDeliveredSeq);
         return new MessageSyncResponse(pageMessages, nextAfterSeq, hasMore);
+    }
+
+    @Transactional
+    public MessageSyncResponse syncEarlierMessages(Long conversationId, Long userId, Long beforeSeq, Integer limit) {
+        validateUserId(userId);
+        requireParticipantConversation(conversationId, userId);
+        long normalizedBeforeSeq = beforeSeq == null ? 0L : beforeSeq;
+        if (normalizedBeforeSeq <= 0L) {
+            throw new IllegalArgumentException("beforeSeq invalid");
+        }
+        int normalizedLimit = limit == null ? DEFAULT_SYNC_LIMIT : limit;
+        if (normalizedLimit <= 0) {
+            throw new IllegalArgumentException("limit invalid");
+        }
+        normalizedLimit = Math.min(normalizedLimit, MAX_SYNC_LIMIT);
+        long clearedSeq = getClearedSeq(conversationId, userId);
+
+        List<ChatMessageResponse> descendingRows = jdbcTemplate.query("""
+                SELECT id, conversation_id, server_seq, client_msg_id, message_no, sender_id, receiver_id, message_type, content_json, revoked, created_at, updated_at
+                FROM im_message
+                WHERE conversation_id = ? AND server_seq > ? AND server_seq < ?
+                ORDER BY server_seq DESC
+                LIMIT ?
+                """, (rs, rowNum) -> toMessageResponse(mapMessage(rs), userId), conversationId, clearedSeq, normalizedBeforeSeq, normalizedLimit + 1);
+        boolean hasEarlier = descendingRows.size() > normalizedLimit;
+        List<ChatMessageResponse> pageMessages = (hasEarlier ? descendingRows.subList(0, normalizedLimit) : descendingRows).stream()
+                .sorted((left, right) -> Long.compare(left.getServerSeq(), right.getServerSeq()))
+                .toList();
+        long previousBeforeSeq = pageMessages.isEmpty() ? normalizedBeforeSeq : pageMessages.get(0).getServerSeq();
+        long nextAfterSeq = pageMessages.isEmpty() ? normalizedBeforeSeq : pageMessages.get(pageMessages.size() - 1).getServerSeq();
+        return new MessageSyncResponse(pageMessages, nextAfterSeq, false, previousBeforeSeq, hasEarlier);
+    }
+
+    @Transactional
+    public MessageSyncResponse syncRecentMessages(Long conversationId, Long userId, Integer limit) {
+        validateUserId(userId);
+        Conversation conversation = requireParticipantConversation(conversationId, userId);
+        int normalizedLimit = limit == null ? DEFAULT_SYNC_LIMIT : limit;
+        if (normalizedLimit <= 0) {
+            throw new IllegalArgumentException("limit invalid");
+        }
+        normalizedLimit = Math.min(normalizedLimit, MAX_SYNC_LIMIT);
+        long clearedSeq = getClearedSeq(conversationId, userId);
+
+        List<ChatMessageResponse> descendingRows = jdbcTemplate.query("""
+                SELECT id, conversation_id, server_seq, client_msg_id, message_no, sender_id, receiver_id, message_type, content_json, revoked, created_at, updated_at
+                FROM im_message
+                WHERE conversation_id = ? AND server_seq > ?
+                ORDER BY server_seq DESC
+                LIMIT ?
+                """, (rs, rowNum) -> toMessageResponse(mapMessage(rs), userId), conversationId, clearedSeq, normalizedLimit);
+        List<ChatMessageResponse> pageMessages = descendingRows.stream()
+                .sorted((left, right) -> Long.compare(left.getServerSeq(), right.getServerSeq()))
+                .toList();
+        long nextAfterSeq = pageMessages.isEmpty() ? clearedSeq : pageMessages.get(pageMessages.size() - 1).getServerSeq();
+        long previousBeforeSeq = pageMessages.isEmpty() ? nextAfterSeq : pageMessages.get(0).getServerSeq();
+        boolean hasEarlier = previousBeforeSeq > clearedSeq + 1L;
+        long nextDeliveredSeq = Math.min(Math.max(getDeliveredSeq(conversationId, userId), nextAfterSeq), safeLastServerSeq(conversation));
+        upsertReceiptSeq(conversationId, userId, getReadSeq(conversationId, userId), nextDeliveredSeq);
+        return new MessageSyncResponse(pageMessages, nextAfterSeq, false, previousBeforeSeq, hasEarlier);
     }
 
     @Transactional
@@ -206,6 +392,141 @@ public class ChatApplicationService {
         return new ReadConversationResponse(conversationId, nextReadSeq, nextDeliveredSeq, lastServerSeq, unreadCount(conversationId, userId, nextReadSeq));
     }
 
+    @Transactional
+    public RevokeMessageResponse revokeMessage(String serverMsgId, Long userId) {
+        validateUserId(userId);
+        if (serverMsgId == null || serverMsgId.isBlank() || serverMsgId.trim().length() > 128) {
+            throw new IllegalArgumentException("serverMsgId invalid");
+        }
+        ChatMessage message = requireMessageByServerMsgId(serverMsgId.trim());
+        Conversation conversation = requireParticipantConversation(message.getConversationId(), userId);
+        if (!Objects.equals(message.getSenderId(), userId)) {
+            throw new IllegalArgumentException("only sender can revoke message");
+        }
+        if (!Boolean.TRUE.equals(message.getRevoked())) {
+            requireWithinRevokeWindow(message);
+            jdbcTemplate.update("""
+                    UPDATE im_message
+                    SET revoked = TRUE, revoked_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND revoked = FALSE
+                    """, message.getId());
+        }
+        if (Objects.equals(message.getServerSeq(), safeLastServerSeq(conversation))) {
+            jdbcTemplate.update("""
+                    UPDATE im_conversation
+                    SET last_message_summary = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """, "消息已撤回", message.getConversationId());
+        }
+        return new RevokeMessageResponse(message.getConversationId(), message.getServerSeq(), message.getServerMsgId(), true);
+    }
+
+    @Transactional
+    public ClearConversationResponse clearConversation(Long conversationId, Long userId) {
+        validateUserId(userId);
+        Conversation conversation = requireParticipantConversation(conversationId, userId);
+        long lastServerSeq = safeLastServerSeq(conversation);
+        long currentReadSeq = getReadSeq(conversationId, userId);
+        long currentDeliveredSeq = getDeliveredSeq(conversationId, userId);
+        upsertReceiptSeq(conversationId, userId, currentReadSeq, currentDeliveredSeq, lastServerSeq);
+        return new ClearConversationResponse(conversationId, lastServerSeq, lastServerSeq);
+    }
+
+    public ChatMediaAccessResponse requireChatMediaAccess(Long viewerUserId, String storageUrl) {
+        validateUserId(viewerUserId);
+        String safeUrl = normalizeChatMediaStorageUrl(storageUrl);
+        String scene = sceneForChatMediaUrl(safeUrl);
+        Long ownerUserId = loadChatMediaOwnerUserId(safeUrl, scene);
+        mediaUploadTicketService.requireUploadedStorageUrl(ownerUserId, scene, safeUrl);
+        String jsonEscapedSafeUrl = safeUrl.replace("/", "\\/");
+        List<ChatMediaAccessResponse> rows = jdbcTemplate.query("""
+                SELECT m.conversation_id, m.sender_id, m.receiver_id, m.message_type, m.content_json, t.content_type, t.file_size
+                FROM im_message m
+                JOIN media_upload_ticket t ON t.storage_url = ?
+                LEFT JOIN im_receipt viewer_receipt ON viewer_receipt.conversation_id = m.conversation_id AND viewer_receipt.user_id = ?
+                WHERE m.message_type IN ('IMAGE', 'VOICE')
+                  AND m.revoked = FALSE
+                  AND (m.sender_id = ? OR m.receiver_id = ?)
+                  AND m.server_seq > COALESCE(viewer_receipt.cleared_seq, 0)
+                  AND t.owner_user_id = m.sender_id
+                  AND t.scene = ?
+                  AND t.status = 'UPLOADED'
+                  AND (LOCATE(?, m.content_json) > 0 OR LOCATE(?, m.content_json) > 0)
+                ORDER BY m.id DESC
+                """, (rs, rowNum) -> {
+            String messageType = rs.getString("message_type");
+            String contentJson = rs.getString("content_json");
+            if (!chatMediaContentReferencesUrl(messageType, contentJson, safeUrl)) {
+                return null;
+            }
+            return new ChatMediaAccessResponse(
+                    safeUrl,
+                    rs.getLong("conversation_id"),
+                    rs.getLong("sender_id"),
+                    rs.getLong("receiver_id"),
+                    rs.getString("content_type"),
+                    rs.getLong("file_size")
+            );
+        }, safeUrl, viewerUserId, viewerUserId, viewerUserId, scene, safeUrl, jsonEscapedSafeUrl).stream().filter(Objects::nonNull).toList();
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("chat media access denied");
+        }
+        return rows.get(0);
+    }
+
+    private boolean chatMediaContentReferencesUrl(String messageType, String contentJson, String safeUrl) {
+        if (contentJson == null || contentJson.isBlank()) {
+            return false;
+        }
+        Map<String, Object> jsonObject;
+        try {
+            jsonObject = parseLegacyCompatibleJsonObject(contentJson);
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+        if (MessageType.IMAGE.name().equals(messageType)) {
+            return Objects.equals(jsonObject.get("url"), safeUrl);
+        }
+        if (MessageType.VOICE.name().equals(messageType)) {
+            return Objects.equals(jsonObject.get("url"), safeUrl)
+                    || Objects.equals(jsonObject.get("audioUrl"), safeUrl)
+                    || Objects.equals(jsonObject.get("voiceUrl"), safeUrl);
+        }
+        return false;
+    }
+
+    private Map<String, Object> parseLegacyCompatibleJsonObject(String contentJson) {
+        String content = contentJson.trim();
+        for (int index = 0; index < 3; index += 1) {
+            try {
+                return parseJsonObject(content);
+            } catch (IllegalArgumentException ignored) {
+                String unwrapped = unwrapJsonString(content);
+                if (unwrapped.equals(content)) {
+                    throw ignored;
+                }
+                content = unwrapped.trim();
+            }
+        }
+        return parseJsonObject(content);
+    }
+
+    private String unwrapJsonString(String content) {
+        try {
+            String value = OBJECT_MAPPER.readValue(content, String.class);
+            if (value != null && value.trim().startsWith(String.valueOf((char) 123))) {
+                return value;
+            }
+        } catch (JsonProcessingException ignored) {
+            // Some legacy H5 bundles stored escaped JSON without wrapping quotes.
+        }
+        String trimmed = content.trim();
+        if (trimmed.startsWith("{\\\"") && trimmed.endsWith("}")) {
+            return trimmed.replace("\\\"", "\"");
+        }
+        return content;
+    }
+
     private Long resolveConversationId(SendMessageCommand command) {
         if (command.getConversationId() != null) {
             Conversation conversation = requireConversation(command.getConversationId());
@@ -221,6 +542,8 @@ public class ChatApplicationService {
     private ConversationListItemResponse toConversationItem(ResultSet rs, Long userId) throws SQLException {
         long conversationId = rs.getLong("id");
         long lastServerSeq = rs.getLong("last_seq");
+        long clearedSeq = rs.getLong("viewer_cleared_seq");
+        boolean clearedAllVisibleMessages = lastServerSeq > 0 && lastServerSeq <= clearedSeq;
         long readSeq = getReadSeq(conversationId, userId);
         long deliveredSeq = getDeliveredSeq(conversationId, userId);
         ConversationListItemResponse item = new ConversationListItemResponse();
@@ -234,11 +557,11 @@ public class ChatApplicationService {
         item.setPeerVideoVerified(rs.getBoolean("peer_video_verified"));
         item.setPeerSellerCharmScore(rs.getInt("peer_seller_charm_score"));
         item.setPeerBuyerPowerScore(rs.getInt("peer_buyer_power_score"));
-        item.setLastMessageSummary(rs.getString("last_message_summary"));
+        item.setLastMessageSummary(clearedAllVisibleMessages ? null : rs.getString("last_message_summary"));
         item.setLastServerSeq(lastServerSeq);
         item.setDeliveredSeq(deliveredSeq);
         item.setReadSeq(readSeq);
-        item.setUnreadCount(unreadCount(conversationId, userId, readSeq));
+        item.setUnreadCount(clearedAllVisibleMessages ? 0L : unreadCount(conversationId, userId, readSeq));
         item.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));
         return item;
     }
@@ -247,9 +570,13 @@ public class ChatApplicationService {
         if (command == null || command.getOwnerUserId() == null || command.getPeerUserId() == null) {
             throw new IllegalArgumentException("conversation participants required");
         }
+        validateUserId(command.getOwnerUserId());
+        validateUserId(command.getPeerUserId());
         if (Objects.equals(command.getOwnerUserId(), command.getPeerUserId())) {
             throw new IllegalArgumentException("conversation participants must be different");
         }
+        requireActiveUser(command.getOwnerUserId(), "conversation owner not found");
+        requireActiveUser(command.getPeerUserId(), "conversation peer not found");
     }
 
     private void validateMessage(SendMessageCommand command) {
@@ -279,9 +606,7 @@ public class ChatApplicationService {
             throw new IllegalArgumentException("contentJson invalid");
         }
         if (MessageType.TEXT.name().equals(msgType)) {
-            if (!content.contains("\"text\"") || content.matches(".*\"text\"\\s*:\\s*\"\\s*\".*")) {
-                throw new IllegalArgumentException("text content required");
-            }
+            requireTextContent(content);
             return;
         }
         if (MessageType.IMAGE.name().equals(msgType)) {
@@ -390,8 +715,84 @@ public class ChatApplicationService {
         }
     }
 
+    private String requireTextContent(String content) {
+        Map<String, Object> jsonObject = parseJsonObject(content);
+        Object textValue = jsonObject.get("text");
+        if (!(textValue instanceof String text)) {
+            throw new IllegalArgumentException("text content required");
+        }
+        String normalizedText = text.trim();
+        if (normalizedText.isEmpty() || normalizedText.length() > MAX_TEXT_LENGTH) {
+            throw new IllegalArgumentException("text content required");
+        }
+        if (containsBlockedContactOrOffPlatformTrade(normalizedText)) {
+            throw new IllegalArgumentException("contact info is not allowed");
+        }
+        return normalizedText;
+    }
+
+    private boolean containsBlockedContactOrOffPlatformTrade(String text) {
+        String compact = text.toLowerCase(Locale.ROOT)
+                .replaceAll("[\\s\\p{Punct}，。！？、；：‘’“”（）【】《》￥]+", "");
+        String digitsOnly = text.replaceAll("\\D", "");
+        if (MOBILE_PHONE_PATTERN.matcher(digitsOnly).find()) {
+            return true;
+        }
+        return BLOCKED_TEXT_TOKENS.stream().anyMatch(compact::contains);
+    }
+
     private boolean isAllowedImageUrl(String url) {
         return url.startsWith("/uploads/");
+    }
+
+    private String normalizeChatMediaStorageUrl(String storageUrl) {
+        if (storageUrl == null || storageUrl.isBlank()) {
+            throw new IllegalArgumentException("chat media url required");
+        }
+        String safeUrl = storageUrl.trim();
+        String lower = safeUrl.toLowerCase();
+        if (safeUrl.length() > MAX_IMAGE_URL_LENGTH
+                || safeUrl.startsWith("local://")
+                || safeUrl.startsWith("blob:")
+                || safeUrl.startsWith("data:")
+                || safeUrl.startsWith("http://")
+                || safeUrl.startsWith("https://")
+                || safeUrl.contains("\\")
+                || safeUrl.contains("..")
+                || safeUrl.contains("//")
+                || lower.contains("%2e")
+                || lower.contains("%2f")
+                || lower.contains("%5c")
+                || lower.contains("placeholder")
+                || lower.contains("preview")
+                || !(safeUrl.startsWith("/uploads/chat-image/") || safeUrl.startsWith("/uploads/chat-voice/"))) {
+            throw new IllegalArgumentException("chat media url invalid");
+        }
+        return safeUrl;
+    }
+
+    private String sceneForChatMediaUrl(String storageUrl) {
+        if (storageUrl.startsWith("/uploads/chat-image/")) {
+            return "CHAT_IMAGE";
+        }
+        if (storageUrl.startsWith("/uploads/chat-voice/")) {
+            return "CHAT_VOICE";
+        }
+        throw new IllegalArgumentException("chat media url invalid");
+    }
+
+    private Long loadChatMediaOwnerUserId(String storageUrl, String scene) {
+        List<Long> rows = jdbcTemplate.queryForList("""
+                SELECT owner_user_id
+                FROM media_upload_ticket
+                WHERE storage_url = ? AND scene = ? AND status = 'UPLOADED'
+                ORDER BY id DESC
+                LIMIT 1
+                """, Long.class, storageUrl, scene);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("chat media ticket not found");
+        }
+        return rows.get(0);
     }
 
     private void validateOptionalPositiveInt(Object value, String errorMessage, int min, int max) {
@@ -428,6 +829,8 @@ public class ChatApplicationService {
         if (!senderMatched || !receiverMatched) {
             throw new IllegalArgumentException("message participants not in conversation");
         }
+        requireActiveUser(command.getSenderId(), "message sender not found");
+        requireActiveUser(command.getReceiverId(), "message receiver not found");
     }
 
     private Conversation requireParticipantConversation(Long conversationId, Long userId) {
@@ -441,6 +844,14 @@ public class ChatApplicationService {
     private void validateUserId(Long userId) {
         if (userId == null || userId <= 0L) {
             throw new IllegalArgumentException("userId required");
+        }
+    }
+
+    private void requireActiveUser(Long userId, String message) {
+        validateUserId(userId);
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_account WHERE id = ? AND status = 'ACTIVE'", Integer.class, userId);
+        if (count == null || count <= 0) {
+            throw new IllegalArgumentException(message);
         }
     }
 
@@ -459,27 +870,36 @@ public class ChatApplicationService {
     }
 
     private void upsertReceiptSeq(Long conversationId, Long userId, Long readSeq, Long deliveredSeq) {
+        upsertReceiptSeq(conversationId, userId, readSeq, deliveredSeq, getClearedSeq(conversationId, userId));
+    }
+
+    private long getClearedSeq(Long conversationId, Long userId) {
+        Long value = queryLong("SELECT cleared_seq FROM im_receipt WHERE conversation_id = ? AND user_id = ?", conversationId, userId);
+        return value == null ? 0L : value;
+    }
+
+    private void upsertReceiptSeq(Long conversationId, Long userId, Long readSeq, Long deliveredSeq, Long clearedSeq) {
         Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM im_receipt WHERE conversation_id = ? AND user_id = ?", Integer.class, conversationId, userId);
         if (count != null && count > 0) {
             jdbcTemplate.update("""
                     UPDATE im_receipt
-                    SET read_seq = GREATEST(read_seq, ?), delivered_seq = GREATEST(delivered_seq, ?), updated_at = CURRENT_TIMESTAMP
+                    SET read_seq = GREATEST(read_seq, ?), delivered_seq = GREATEST(delivered_seq, ?), cleared_seq = GREATEST(cleared_seq, ?), updated_at = CURRENT_TIMESTAMP
                     WHERE conversation_id = ? AND user_id = ?
-                    """, readSeq, deliveredSeq, conversationId, userId);
+                    """, readSeq, deliveredSeq, clearedSeq, conversationId, userId);
             return;
         }
         jdbcTemplate.update("""
-                INSERT INTO im_receipt (conversation_id, user_id, read_seq, delivered_seq, updated_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-                """, conversationId, userId, readSeq, deliveredSeq);
+                INSERT INTO im_receipt (conversation_id, user_id, read_seq, delivered_seq, cleared_seq, updated_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """, conversationId, userId, readSeq, deliveredSeq, clearedSeq);
     }
 
     private long unreadCount(Long conversationId, Long userId, long readSeq) {
         Integer count = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                 FROM im_message
-                WHERE conversation_id = ? AND receiver_id = ? AND server_seq > ?
-                """, Integer.class, conversationId, userId, readSeq);
+                WHERE conversation_id = ? AND receiver_id = ? AND server_seq > ? AND server_seq > ? AND revoked = FALSE
+                """, Integer.class, conversationId, userId, readSeq, getClearedSeq(conversationId, userId));
         return count == null ? 0L : count.longValue();
     }
 
@@ -496,8 +916,9 @@ public class ChatApplicationService {
         response.setSenderId(message.getSenderId());
         response.setReceiverId(message.getReceiverId());
         response.setMsgType(message.getMsgType());
-        response.setContentJson(message.getContentJson());
+        response.setContentJson(Boolean.TRUE.equals(message.getRevoked()) ? REVOKED_MESSAGE_CONTENT : message.getContentJson());
         response.setCreatedAt(message.getCreatedAt());
+        response.setRevoked(Boolean.TRUE.equals(message.getRevoked()));
         if (Objects.equals(message.getSenderId(), viewerUserId)) {
             response.setDeliveredToReceiver(getDeliveredSeq(message.getConversationId(), message.getReceiverId()) >= message.getServerSeq());
             response.setReadByReceiver(getReadSeq(message.getConversationId(), message.getReceiverId()) >= message.getServerSeq());
@@ -511,18 +932,7 @@ public class ChatApplicationService {
     private String buildMessageSummary(SendMessageCommand command) {
         String msgType = normalizeMsgType(command.getMsgType());
         if (MessageType.TEXT.name().equals(msgType)) {
-            String content = command.getContentJson() == null ? "" : command.getContentJson().trim();
-            String marker = "\"text\"";
-            int keyIndex = content.indexOf(marker);
-            if (keyIndex >= 0) {
-                int colonIndex = content.indexOf(':', keyIndex + marker.length());
-                int startQuoteIndex = colonIndex < 0 ? -1 : content.indexOf('"', colonIndex + 1);
-                int endQuoteIndex = startQuoteIndex < 0 ? -1 : content.indexOf('"', startQuoteIndex + 1);
-                if (endQuoteIndex > startQuoteIndex) {
-                    return content.substring(startQuoteIndex + 1, endQuoteIndex);
-                }
-            }
-            return "[文字]";
+            return summarizeText(requireTextContent(command.getContentJson().trim()));
         }
         if (MessageType.IMAGE.name().equals(msgType)) {
             return "[图片]";
@@ -531,6 +941,35 @@ public class ChatApplicationService {
             return "[语音]";
         }
         return "[消息]";
+    }
+
+    private void notifyChatMessageReceived(SendMessageCommand command, long conversationId, long serverSeq) {
+        if (command == null || command.getReceiverId() == null || command.getSenderId() == null || Objects.equals(command.getReceiverId(), command.getSenderId())) {
+            return;
+        }
+        notificationApplicationService.createNotification(
+                command.getReceiverId(),
+                "CHAT",
+                "你有一条新私信",
+                displayUserName(command.getSenderId()) + " 发来新消息：" + buildMessageSummary(command),
+                "/pages/chat/conversation/index?conversationId=" + conversationId + "&receiverId=" + command.getSenderId()
+        );
+    }
+
+    private String displayUserName(Long userId) {
+        List<String> rows = jdbcTemplate.query("""
+                SELECT COALESCE(NULLIF(nickname, ''), NULLIF(user_no, ''), CONCAT('用户', id)) AS display_name
+                FROM user_account
+                WHERE id = ? AND status = 'ACTIVE'
+                """, (rs, rowNum) -> rs.getString("display_name"), userId);
+        return rows.isEmpty() ? "用户" + userId : rows.get(0);
+    }
+
+    private String summarizeText(String text) {
+        if (text.length() <= MAX_MESSAGE_SUMMARY_LENGTH) {
+            return text;
+        }
+        return text.substring(0, MAX_MESSAGE_SUMMARY_LENGTH) + "...";
     }
 
     private ChatMessageAck toAck(ChatMessage message) {
@@ -546,6 +985,13 @@ public class ChatApplicationService {
         ack.setReceiverId(message.getReceiverId());
         ack.setMsgType(message.getMsgType());
         return ack;
+    }
+
+    private void requireWithinRevokeWindow(ChatMessage message) {
+        LocalDateTime createdAt = message == null ? null : message.getCreatedAt();
+        if (createdAt == null || createdAt.isBefore(LocalDateTime.now().minusMinutes(MESSAGE_REVOKE_WINDOW_MINUTES))) {
+            throw new IllegalStateException("message revoke window expired");
+        }
     }
 
     private Conversation requireConversation(Long conversationId) {
@@ -583,11 +1029,23 @@ public class ChatApplicationService {
 
     private ChatMessage findMessageByClientKey(String clientKey) {
         List<ChatMessage> rows = jdbcTemplate.query("""
-                SELECT id, conversation_id, server_seq, client_msg_id, message_no, sender_id, receiver_id, message_type, content_json, created_at, updated_at
+                SELECT id, conversation_id, server_seq, client_msg_id, message_no, sender_id, receiver_id, message_type, content_json, revoked, created_at, updated_at
                 FROM im_message
                 WHERE client_key = ?
                 """, (rs, rowNum) -> mapMessage(rs), clientKey);
         return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    private ChatMessage requireMessageByServerMsgId(String serverMsgId) {
+        List<ChatMessage> rows = jdbcTemplate.query("""
+                SELECT id, conversation_id, server_seq, client_msg_id, message_no, sender_id, receiver_id, message_type, content_json, revoked, created_at, updated_at
+                FROM im_message
+                WHERE message_no = ?
+                """, (rs, rowNum) -> mapMessage(rs), serverMsgId);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("message not found");
+        }
+        return rows.get(0);
     }
 
     private Conversation mapConversation(ResultSet rs) throws SQLException {
@@ -614,6 +1072,7 @@ public class ChatApplicationService {
         message.setReceiverId(rs.getLong("receiver_id"));
         message.setMsgType(rs.getString("message_type"));
         message.setContentJson(rs.getString("content_json"));
+        message.setRevoked(rs.getBoolean("revoked"));
         message.setCreatedAt(toLocalDateTime(rs.getTimestamp("created_at")));
         message.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));
         return message;
@@ -652,5 +1111,39 @@ public class ChatApplicationService {
 
     private String normalizeMsgType(String msgType) {
         return MessageType.from(msgType).name();
+    }
+
+    private void ensureChatSchemaCompatibility() {
+        ensureColumn("im_message", "revoked", "ALTER TABLE im_message ADD COLUMN revoked BOOLEAN NOT NULL DEFAULT FALSE");
+        ensureColumn("im_message", "revoked_at", "ALTER TABLE im_message ADD COLUMN revoked_at TIMESTAMP");
+        ensureColumn("im_receipt", "cleared_seq", "ALTER TABLE im_receipt ADD COLUMN cleared_seq BIGINT NOT NULL DEFAULT 0");
+    }
+
+    private void ensureColumn(String tableName, String columnName, String alterSql) {
+        try {
+            if (!columnExists(tableName, columnName)) {
+                jdbcTemplate.execute(alterSql);
+            }
+        } catch (Exception ex) {
+            throw new IllegalStateException("chat schema compatibility check failed: " + tableName + "." + columnName, ex);
+        }
+    }
+
+    private boolean columnExists(String tableName, String columnName) throws SQLException {
+        if (jdbcTemplate.getDataSource() == null) {
+            throw new SQLException("dataSource unavailable");
+        }
+        try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            return columnExists(metaData, tableName, columnName)
+                    || columnExists(metaData, tableName.toUpperCase(), columnName.toUpperCase())
+                    || columnExists(metaData, tableName.toLowerCase(), columnName.toLowerCase());
+        }
+    }
+
+    private boolean columnExists(DatabaseMetaData metaData, String tableName, String columnName) throws SQLException {
+        try (ResultSet columns = metaData.getColumns(null, null, tableName, columnName)) {
+            return columns.next();
+        }
     }
 }

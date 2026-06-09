@@ -32,7 +32,7 @@ export function peerGenderSymbol(item: Pick<ChatConversationItem, 'peerGender'>)
   const gender = normalizedPeerGender(item)
   if (gender === 'god') return '♂'
   if (gender === 'goddess') return '♀'
-  return '性别待完善'
+  return ''
 }
 
 export function buildChatPeerLevel(item: Pick<ChatConversationItem, 'peerGender' | 'peerSellerCharmScore' | 'peerBuyerPowerScore'>): ChatPeerLevel {
@@ -54,7 +54,7 @@ export function chatPeerIdentityBadges(item: ChatPeerIdentitySource): string[] {
   const level = buildChatPeerLevel(item)
   return [
     peerGenderSymbol(item),
-    item.peerCity?.trim() || '地区待完善',
+    item.peerCity?.trim() || '',
     `LV.${level.level} ${level.title}`,
     item.peerVideoVerified ? '视频认证' : ''
   ].filter(Boolean)

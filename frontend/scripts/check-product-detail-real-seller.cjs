@@ -12,6 +12,7 @@ const source = [
 ].join('\n')
 const productApiFile = 'src/api/modules/product.ts'
 const productApiSource = fs.readFileSync(path.join(root, productApiFile), 'utf8')
+const productDetailUserVisibleSource = fs.readFileSync(path.join(root, file), 'utf8')
 
 const failures = []
 
@@ -60,27 +61,42 @@ const requiredMarkers = [
   'sellerTrustText',
   'sellerTags',
   'sellerId?: number | null',
+  'getMyProfile',
+  'currentUserId',
+  'function ensureCurrentUserId(): Promise<number | null>',
+  'function composeCommunityPost(): Promise<void>',
+  '只有商品卖家可以关联发动态',
+  '商品资料暂时不可用，未进入发动态',
+  '缺少真实卖家ID，未进入发动态',
+  "`/pages/community/compose/index?productId=${encodeURIComponent(String(detail.value.productId))}&productTitle=${encodeURIComponent(detail.value.title)}&productPrice=${encodeURIComponent(String(detail.value.price))}`",
+  "console.warn('product community compose navigation failed'",
   'resolveProductSellerContactTarget(detail.value)',
-  '商品卖家信息以服务端返回为准',
-  '暂无服务端信用/成交统计',
+  '卖家资料以平台记录为准',
+  '暂无公开信用/成交统计',
   '平台交易',
-  '订单、支付和售后状态以服务端记录为准',
-  '沟通内容以服务端会话记录为准',
-  '交付与收货状态以服务端订单记录为准',
+  '订单、支付和售后状态以平台记录为准',
+  '沟通内容以平台私信记录为准',
+  '交付与收货状态以平台订单记录为准',
   'favoriteProduct(detail.value.productId)',
   'unfavoriteProduct(detail.value.productId)',
   'favoriteLoading',
-  '收藏已提交后端',
-  '取消收藏已提交后端',
-  '收藏接口调用失败，未执行本地收藏变更',
-  '商品缺少后端 productId，未执行收藏变更',
+  '已收藏',
+  '已取消收藏',
+  '收藏没有提交成功，请稍后重试',
+  '商品资料暂时不可用，未完成收藏',
   "const productImageStoragePrefix = '/uploads/product-image/'",
   "const communityImageStoragePrefix = '/uploads/community-image/'",
+  "const avatarImageStoragePrefix = '/uploads/avatar/'",
   "const videoIdentityStoragePrefix = '/uploads/video-identity/'",
-  'function validatedDisplayMediaUrl(url: unknown, expectedPrefix: string, purpose: string): string',
+  'function validatedDisplayMediaUrl(url: unknown, expectedPrefix: string | string[], purpose: string): string',
   "console.warn('product detail rejected media url'",
-  "const sellerHasVerifiedVideo = computed(() => sellerProfile.value?.videoVerified === true && sellerProfile.value.videoIdentityStatus === 'APPROVED' && !!validatedDisplayMediaUrl(sellerProfile.value?.videoIdentityUrl || '', videoIdentityStoragePrefix, 'seller-video'))",
-  "const sellerAvatarUrl = computed(() => validatedDisplayMediaUrl(sellerProfile.value?.avatarUrl || '', communityImageStoragePrefix, 'seller-avatar'))",
+  'function productStatusText(status: unknown): string',
+  "if (normalized === 'ACTIVE' || normalized === 'CREATED' || normalized === 'APPROVED') return '在售'",
+  'function auditStateText(auditState: unknown): string',
+  "const statusText = computed(() => productStatusText(detail.value?.status))",
+  "const auditText = computed(() => auditStateText(detail.value?.auditState))",
+  "const sellerHasVerifiedVideo = computed(() => sellerProfile.value?.videoVerified === true && sellerProfile.value.videoIdentityStatus === 'APPROVED' && !!validatedDisplayMediaUrl(sellerProfile.value?.videoIdentityUrl || '', videoIdentityStoragePrefix, 'seller-video') && hasApprovedSellerVideoIdentity(sellerProfile.value))",
+  "const sellerAvatarUrl = computed(() => validatedDisplayMediaUrl(sellerProfile.value?.avatarUrl || '', [avatarImageStoragePrefix, communityImageStoragePrefix], 'seller-avatar'))",
   "const urls = (detail.value?.imageUrls || []).filter((url) => validatedDisplayMediaUrl(url, productImageStoragePrefix, 'product-image'))",
   'function decodeRouteValue(fieldName: string, value: string): string',
   "console.warn('product detail route decode failed'",
@@ -116,13 +132,38 @@ for (const { pattern, message } of forbiddenFavoritePatterns) {
   if (pattern.test(source)) failures.push(`${file}: ${message}`)
 }
 
+const bottomActionsMatch = productDetailUserVisibleSource.match(/<view class="bottom-actions">([\s\S]*?)<\/view>/)
+if (!bottomActionsMatch) {
+  failures.push(`${file}: product detail must keep a compact bottom action bar`)
+} else {
+  const bottomActions = bottomActionsMatch[1]
+  for (const marker of ['composeCommunityPost', 'reportProduct', '分享</button>', '发动态</button>', '举报</button>']) {
+    if (bottomActions.includes(marker)) failures.push(`${file}: bottom action bar must keep secondary actions behind 更多 instead of directly rendering ${marker}`)
+  }
+  for (const marker of ['showMoreActions', 'contactSeller', 'createAndPay']) {
+    if (!bottomActions.includes(marker)) failures.push(`${file}: compact bottom action bar missing required action marker: ${marker}`)
+  }
+}
+
+for (const marker of ['function showMoreActions(): void', 'uni.showActionSheet', "const actions = ['关联发动态', '举报商品']", 'void composeCommunityPost()']) {
+  if (!source.includes(marker)) failures.push(`${file}: product detail more-actions sheet missing marker: ${marker}`)
+}
+
+if (source.includes('shareProduct') || source.includes('分享功能暂时不可用') || source.includes('分享商品')) {
+  failures.push(`${file}: product detail must not expose an unavailable share action in the more-actions sheet`)
+}
+
 for (const marker of requiredMarkers) {
   const checkSource = marker === 'sellerId?: number | null' ? productApiSource : source
   const checkFile = marker === 'sellerId?: number | null' ? productApiFile : file
   if (!checkSource.includes(marker)) failures.push(`${checkFile}: missing backend-derived/neutral seller marker: ${marker}`)
 }
 
-for (const marker of ["typeof url !== 'string'", "url.startsWith('local://')", "url.startsWith('blob:')", "url.startsWith('data:')", "lower.includes('%2e')", "lower.includes('%2f')", "lower.includes('%5c')", "url.includes('\\\\')", "url.includes('..')", "url.includes('//')", "relativePath.split('/').some", '!url.startsWith(expectedPrefix)']) {
+for (const marker of ['后端', '服务端', '本地', '样例', 'demo', 'mock']) {
+  if (productDetailUserVisibleSource.includes(marker)) failures.push(`${file}: user-visible product detail copy must not expose technical/testing wording: ${marker}`)
+}
+
+for (const marker of ["typeof url !== 'string'", "url.startsWith('local://')", "url.startsWith('blob:')", "url.startsWith('data:')", "lower.includes('%2e')", "lower.includes('%2f')", "lower.includes('%5c')", "url.includes('\\\\')", "url.includes('..')", "url.includes('//')", "relativePath.split('/').some", 'const matchedPrefix =', '!matchedPrefix']) {
   if (!source.includes(marker)) failures.push(`${file}: product detail must reject unsafe media URL marker before display: ${marker}`)
 }
 

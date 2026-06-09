@@ -80,12 +80,27 @@
         <div><dt>原因</dt><dd>{{ detail.reason }}</dd></div>
         <div><dt>上传票据数量</dt><dd>{{ detail.evidenceUrls?.length || 0 }}</dd></div>
       </dl>
+      <div v-if="detail.evidenceUrls?.length" class="evidence-panel">
+        <strong>售后凭证</strong>
+        <div class="evidence-actions">
+          <button
+            v-for="(url, index) in detail.evidenceUrls"
+            :key="`${detail.afterSalesNo}-${index}`"
+            class="secondary-btn"
+            :disabled="loadingEvidenceIndex === index || afterSalesReviewing"
+            @click="openEvidence(index, url)"
+          >
+            {{ loadingEvidenceIndex === index ? '加载中...' : `授权查看凭证 ${index + 1}` }}
+          </button>
+        </div>
+        <p v-if="evidenceError" class="safe-note media-error">{{ evidenceError }}</p>
+      </div>
       <div class="toolbar">
         <button class="secondary-btn" @click="openRelatedOrder">查看关联订单</button>
         <button class="secondary-btn" @click="openApplicantOrders">追溯申请人订单</button>
         <button class="secondary-btn" @click="openAfterSalesOrders">按售后追溯订单</button>
       </div>
-      <p class="safe-note">{{ detail.description || '暂无补充说明' }}</p>
+      <p class="safe-note">{{ safeDetailDescription }}</p>
       <p class="safe-note">售后处理以平台订单、支付、物流、聊天记录和已提交票据为准；审核成功只以平台响应为准。</p>
       <div class="review-panel">
         <label>
@@ -113,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   getAdminAfterSalesDetail,
@@ -124,8 +139,11 @@ import {
   type AdminAfterSalesDetail,
   type AdminAfterSalesListQuery
 } from '../../api'
+import { requestBlob } from '../../api/http'
 import { canReviewAfterSales, useAuthStore } from '../../store/modules/auth'
+import { maskSensitiveMediaText } from '../audit/sensitive-media-text'
 import { orderTraceDetailLocation, orderTraceListLocation } from '../orders/order-trace-links'
+import { afterSalesEvidenceMediaUrl, isValidAfterSalesEvidenceUrl } from './after-sales-evidence'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -141,10 +159,14 @@ const detailError = ref('')
 const reviewRemark = ref('')
 const afterSalesConfirmText = ref('')
 const afterSalesReviewing = ref(false)
+const loadingEvidenceIndex = ref<number | null>(null)
+const evidenceError = ref('')
+const evidenceBlobUrls = ref<string[]>([])
 const rows = ref<AdminAfterSalesDetail[]>([])
 const detail = ref<AdminAfterSalesDetail | null>(null)
 const canReviewDetail = computed(() => canReviewAfterSales(auth.session) && detail.value?.status === 'PENDING_REVIEW')
 const expectedAfterSalesConfirmText = computed(() => `售后审核${detail.value?.afterSalesNo || ''}`)
+const safeDetailDescription = computed(() => maskSensitiveMediaText(detail.value?.description) || '暂无补充说明')
 const statusValues: NonNullable<AdminAfterSalesListQuery['status']>[] = ['ALL', 'PENDING_REVIEW', 'APPROVED', 'REJECTED']
 
 async function loadList() {
@@ -168,6 +190,7 @@ async function loadList() {
 
 async function selectDetail(no: string) {
   if (afterSalesReviewing.value) return
+  clearEvidenceBlobs()
   afterSalesNo.value = no
   afterSalesConfirmText.value = ''
   reviewRemark.value = ''
@@ -180,6 +203,8 @@ async function loadDetail() {
   loadingDetail.value = true
   detailError.value = ''
   detail.value = null
+  evidenceError.value = ''
+  clearEvidenceBlobs()
   afterSalesConfirmText.value = ''
   reviewRemark.value = ''
   if (!isValidAdminAfterSalesNo(safeNo)) {
@@ -230,6 +255,37 @@ async function submitReview(action: 'approve' | 'reject') {
   }
 }
 
+async function openEvidence(index: number, evidenceUrl: string) {
+  evidenceError.value = ''
+  if (!detail.value || !isValidAdminAfterSalesNo(detail.value.afterSalesNo)) {
+    evidenceError.value = '售后编号无效，未加载凭证。'
+    return
+  }
+  if (!isValidAfterSalesEvidenceUrl(evidenceUrl)) {
+    evidenceError.value = '售后凭证地址无效，已阻止打开。'
+    return
+  }
+  loadingEvidenceIndex.value = index
+  try {
+    const blob = await requestBlob({ url: afterSalesEvidenceMediaUrl(detail.value.afterSalesNo, evidenceUrl) })
+    const objectUrl = URL.createObjectURL(blob)
+    evidenceBlobUrls.value.push(objectUrl)
+    window.open(objectUrl, '_blank', 'noopener,noreferrer')
+  } catch {
+    evidenceError.value = '售后凭证加载失败，请确认管理员权限与服务状态。'
+  } finally {
+    loadingEvidenceIndex.value = null
+  }
+}
+
+function clearEvidenceBlobs() {
+  for (const url of evidenceBlobUrls.value) {
+    URL.revokeObjectURL(url)
+  }
+  evidenceBlobUrls.value = []
+  loadingEvidenceIndex.value = null
+}
+
 function openRelatedOrder() {
   const location = orderTraceDetailLocation(detail.value?.orderNo)
   if (!location) {
@@ -271,4 +327,6 @@ onMounted(() => {
     loadDetail()
   }
 })
+
+onBeforeUnmount(() => clearEvidenceBlobs())
 </script>

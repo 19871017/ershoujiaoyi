@@ -3,20 +3,21 @@ import type { UserProfileResponse } from '../../../api/modules/user'
 
 export const productImageStoragePrefix = '/uploads/product-image/'
 export const communityImageStoragePrefix = '/uploads/community-image/'
+export const avatarImageStoragePrefix = '/uploads/avatar/'
 export const videoIdentityStoragePrefix = '/uploads/video-identity/'
-export const sellerProfileFallbackText = '商品卖家信息以服务端返回为准 · 暂无服务端信用/成交统计'
-export const sellerProfileFailedText = '卖家资料暂时不可用，未展示本地卖家样例'
+export const sellerProfileFallbackText = '卖家资料以平台记录为准 · 暂无公开信用/成交统计'
+export const sellerProfileFailedText = '卖家资料暂时不可用，请稍后再看'
 
 export const safeRules = [
-  { icon: '🛡️', title: '平台交易', desc: '订单、支付和售后状态以服务端记录为准' },
-  { icon: '💬', title: '会话记录', desc: '沟通内容以服务端会话记录为准' },
-  { icon: '📦', title: '交付确认', desc: '交付与收货状态以服务端订单记录为准' }
+  { icon: '🛡️', title: '平台交易', desc: '订单、支付和售后状态以平台记录为准' },
+  { icon: '💬', title: '会话记录', desc: '沟通内容以平台私信记录为准' },
+  { icon: '📦', title: '交付确认', desc: '交付与收货状态以平台订单记录为准' }
 ]
 
 export const defaultConfirmItems = [
-  { key: 'rule', label: '已阅读订单、支付和售后状态以服务端记录为准', checked: true },
+  { key: 'rule', label: '已阅读订单、支付和售后状态以平台记录为准', checked: true },
   { key: 'condition', label: '已确认商品成色和瑕疵说明', checked: false },
-  { key: 'address', label: '已确认收货信息；交付与收货状态以服务端订单记录为准', checked: false }
+  { key: 'address', label: '已确认收货信息；交付与收货状态以平台订单记录为准', checked: false }
 ]
 
 export function isUnsupportedDisplayMediaUrl(url: string, expectedPrefix: string): boolean {
@@ -36,10 +37,12 @@ export function isUnsupportedDisplayMediaUrl(url: string, expectedPrefix: string
     relativePath.split('/').some(segment => !segment)
 }
 
-export function validatedDisplayMediaUrl(url: unknown, expectedPrefix: string, purpose: string): string {
+export function validatedDisplayMediaUrl(url: unknown, expectedPrefix: string | string[], purpose: string): string {
   if (!url) return ''
-  if (typeof url !== 'string' || isUnsupportedDisplayMediaUrl(url, expectedPrefix) || !url.startsWith(expectedPrefix)) {
-    console.warn('product detail rejected media url', { purpose, expectedPrefix, url })
+  const prefixes = Array.isArray(expectedPrefix) ? expectedPrefix : [expectedPrefix]
+  const matchedPrefix = typeof url === 'string' ? prefixes.find((prefix) => url.startsWith(prefix)) : ''
+  if (typeof url !== 'string' || !matchedPrefix || isUnsupportedDisplayMediaUrl(url, matchedPrefix)) {
+    console.warn('product detail rejected media url', { purpose, expectedPrefix: prefixes.join(','), url })
     return ''
   }
   return url
@@ -75,6 +78,12 @@ export function isValidVideoIdentityStatus(value: unknown): value is UserProfile
   return value === 'UNVERIFIED' || value === 'PENDING' || value === 'APPROVED' || value === 'REJECTED'
 }
 
+export function hasApprovedSellerVideoIdentity(profile: UserProfileResponse): boolean {
+  return profile.videoVerified === true &&
+    profile.videoIdentityStatus === 'APPROVED' &&
+    !!validatedDisplayMediaUrl(profile.videoIdentityUrl || '', videoIdentityStoragePrefix, 'seller-video')
+}
+
 export function assertProductDetail(value: unknown): asserts value is ProductDetailResponse {
   if (!value || typeof value !== 'object') throw new Error('product detail invalid backend product')
   const product = value as ProductDetailResponse
@@ -100,6 +109,7 @@ export function assertSellerProfile(value: unknown, sellerId: number): asserts v
   if (typeof profile.videoVerified !== 'boolean') throw new Error('product seller profile invalid video verified state')
   if (profile.videoVerified === true && profile.videoIdentityStatus !== 'APPROVED') throw new Error('product seller profile video verified mismatch')
   if (profile.videoIdentityUrl != null && typeof profile.videoIdentityUrl !== 'string') throw new Error('product seller profile invalid video url')
+  if (profile.videoVerified === true && !hasApprovedSellerVideoIdentity(profile)) throw new Error('product seller profile invalid approved video url')
 }
 
 export function compactNumber(value: number | undefined): string {
@@ -107,6 +117,24 @@ export function compactNumber(value: number | undefined): string {
   if (!Number.isFinite(numberValue) || numberValue <= 0) return '0'
   if (numberValue >= 10000) return `${(numberValue / 10000).toFixed(numberValue >= 100000 ? 0 : 1)}万`
   return String(Math.floor(numberValue))
+}
+
+export function productStatusText(status: unknown): string {
+  const normalized = String(status || '').toUpperCase()
+  if (normalized === 'ACTIVE' || normalized === 'CREATED' || normalized === 'APPROVED') return '在售'
+  if (normalized === 'SOLD') return '已售'
+  if (normalized === 'OFFLINE') return '已下架'
+  if (normalized === 'PENDING_AUDIT' || normalized === 'PENDING') return '审核中'
+  if (normalized === 'REJECTED') return '未通过'
+  return '状态待确认'
+}
+
+export function auditStateText(auditState: unknown): string {
+  const normalized = String(auditState || '').toUpperCase()
+  if (normalized === 'APPROVED') return '已审核'
+  if (normalized === 'PENDING' || normalized === 'PENDING_AUDIT') return '审核中'
+  if (normalized === 'REJECTED') return '未通过'
+  return '审核状态'
 }
 
 export function compactPrice(price: string): string {

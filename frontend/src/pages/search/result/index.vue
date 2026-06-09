@@ -84,7 +84,7 @@ function applySearch() {
   loadProducts()
 }
 function openProduct(productId: number) { uni.navigateTo({ url: `/pages/product/detail/index?productId=${productId}` }) }
-function goPublish() { uni.switchTab({ url: '/pages/tabbar/publish/index' }) }
+function goPublish() { uni.navigateTo({ url: '/pages/product/publish/index' }) }
 function updateKeyword(event: unknown) { keyword.value = inputValue(event) }
 async function loadProducts() {
   loading.value = true

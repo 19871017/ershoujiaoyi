@@ -1,25 +1,5 @@
 <template>
   <view class="page-shell public-profile">
-    <view v-if="hasIdentityVideo" class="video-verify-card ds-card">
-      <video
-        class="verify-video-bg"
-        :src="identityVideoUrl"
-        autoplay
-        muted
-        loop
-        object-fit="cover"
-        :controls="false"
-        :show-center-play-btn="false"
-        :show-play-btn="false"
-        :enable-progress-gesture="false"
-      />
-      <view class="verify-card-shade"></view>
-      <view class="verify-copy">
-        <view class="verify-kicker">VIDEO VERIFIED</view>
-        <view class="verify-title">视频认证</view>
-      </view>
-    </view>
-
     <view v-if="profileLoaded" class="hero ds-card">
       <view class="profile-top">
         <view class="avatar-wrap">
@@ -58,6 +38,26 @@
           <text class="stat-value big">{{ compactNumber(primaryScoreValue) }}</text>
         </view>
       </view>
+    </view>
+
+    <view v-if="hasIdentityVideo" class="video-verify-card ds-card tapable" @click="openVideoPreview">
+      <video
+        class="verify-video-bg"
+        :src="identityVideoUrl"
+        muted
+        object-fit="cover"
+        :controls="false"
+        :show-center-play-btn="false"
+        :show-play-btn="false"
+        :enable-progress-gesture="false"
+      />
+      <view class="verify-card-shade"></view>
+      <view class="verify-copy">
+        <view class="verify-kicker">真人认证</view>
+        <view class="verify-title">查看认证视频</view>
+        <view class="verify-subtitle">平台审核通过后展示</view>
+      </view>
+      <view class="verify-play">▶</view>
     </view>
 
     <view v-if="loadError" class="empty-card ds-card">{{ loadError }}</view>
@@ -108,7 +108,7 @@
           <view class="section-title">卖家宝贝</view>
           <view class="section-subtitle">在售 {{ products.length }} · 已售 {{ soldProducts.length }}</view>
         </view>
-        <view class="seller-verified-chip">认证卖家</view>
+        <view class="seller-verified-chip" :class="{ pending: !hasIdentityVideo }">{{ sellerTradeBadgeText }}</view>
       </view>
 
       <view class="trade-block">
@@ -156,10 +156,12 @@ import { listSellerProducts, listSellerSoldProducts, type ProductListItemRespons
 import {
   assertProductList,
   assertPublicProfile,
+  avatarImageStoragePrefix,
   compactNumber,
   decodeRouteValue,
   goddessLevelTitles,
   godLevelTitles,
+  hasApprovedPublicSellerVideo,
   isValidBackendUserId,
   levelGlow,
   levelThresholds,
@@ -200,16 +202,17 @@ const sellerProducts = ref<ProductListItemResponse[]>([])
 const sellerSoldProducts = ref<ProductListItemResponse[]>([])
 const followed = computed(() => profile.followedByMe === true)
 const avatarText = computed(() => (profile.nickname || '原').slice(-1))
-const safeAvatarUrl = computed(() => resolveBackendMediaUrl(validatedPublicMediaUrl(profile.avatarUrl || '', showcaseImageStoragePrefix)))
+const safeAvatarUrl = computed(() => resolveBackendMediaUrl(validatedPublicMediaUrl(profile.avatarUrl || '', [avatarImageStoragePrefix, showcaseImageStoragePrefix])))
 const products = computed(() => sellerProducts.value.map((item) => ({ ...item, coverImageUrl: resolveBackendMediaUrl(validatedPublicMediaUrl(item.coverImageUrl, productImageStoragePrefix)) })))
 const soldProducts = computed(() => sellerSoldProducts.value.map((item) => ({ ...item, coverImageUrl: resolveBackendMediaUrl(validatedPublicMediaUrl(item.coverImageUrl, productImageStoragePrefix)) })))
 const isSellerProfile = computed(() => ['SELLER', 'BOTH'].includes((profile.mainRole || '').toUpperCase()))
 const profileGender = computed(() => profile.gender === 'god' ? 'god' : 'goddess')
 const genderSymbol = computed(() => profileGender.value === 'god' ? '♂' : '♀')
-const hasApprovedSellerVideo = computed(() => profileLoaded.value && isSellerProfile.value && profile.videoVerified === true && profile.videoIdentityStatus === 'APPROVED')
+const hasApprovedSellerVideo = computed(() => profileLoaded.value && isSellerProfile.value && profile.videoVerified === true && profile.videoIdentityStatus === 'APPROVED' && hasApprovedPublicSellerVideo(profile))
 const showSellerTradePanel = computed(() => profileLoaded.value && isSellerProfile.value)
 const identityVideoUrl = computed(() => hasApprovedSellerVideo.value ? resolveBackendMediaUrl(validatedPublicMediaUrl(profile.videoIdentityUrl || '', videoIdentityStoragePrefix)) : '')
 const hasIdentityVideo = computed(() => !!identityVideoUrl.value)
+const sellerTradeBadgeText = computed(() => hasIdentityVideo.value ? '认证卖家' : '卖家资料')
 const showcasePhotos = computed(() => profileLoaded.value ? (profile.showcaseImageUrls || []).map((url) => resolveBackendMediaUrl(validatedPublicMediaUrl(url, showcaseImageStoragePrefix))).filter((url) => !!url) : [])
 const primaryScoreLabel = computed(() => isSellerProfile.value ? '魅力值' : '实力值')
 const primaryScoreValue = computed(() => isSellerProfile.value ? profile.sellerCharmScore : profile.buyerPowerScore)
@@ -377,7 +380,7 @@ async function toggleFollow(): Promise<void> {
     return
   }
   if (!isValidBackendUserId(userId.value) || !profileLoaded.value) {
-    uni.showToast({ title: '缺少真实用户ID，未执行任何关注变更', icon: 'none' })
+    uni.showToast({ title: '用户资料暂时不可用，未完成关注', icon: 'none' })
     return
   }
   const wasFollowing = followed.value
@@ -388,7 +391,7 @@ async function toggleFollow(): Promise<void> {
     uni.showToast({ title: wasFollowing ? '已取消关注' : '已关注', icon: 'none' })
   } catch (error) {
     console.warn('public profile follow mutation failed', { userId: userId.value, wasFollowing, error })
-    uni.showToast({ title: wasFollowing ? '取消关注没有提交成功，未执行本地关注变更' : '关注没有提交成功，未执行本地关注变更', icon: 'none' })
+    uni.showToast({ title: wasFollowing ? '取消关注没有提交成功，请稍后重试' : '关注没有提交成功，请稍后重试', icon: 'none' })
   }
 }
 
@@ -397,7 +400,7 @@ function chat(): void {
     switchToMe('不能给自己发私信')
     return
   }
-  navigateToUserRoute('缺少真实用户ID，未进入私信', (backendUserId) => `/pages/chat/conversation/index?receiverId=${backendUserId}`)
+  navigateToUserRoute('用户资料暂时不可用，未进入私信', (backendUserId) => `/pages/chat/conversation/index?receiverId=${backendUserId}`)
 }
 
 function openGift(): void {
@@ -405,11 +408,11 @@ function openGift(): void {
     switchToMe('不能给自己送礼物')
     return
   }
-  navigateToUserRoute('缺少真实用户ID，未进入送礼', (backendUserId) => `/pages/gift/index?mode=send&receiverId=${backendUserId}&sceneType=PROFILE&sceneId=${backendUserId}`)
+  navigateToUserRoute('用户资料暂时不可用，未进入送礼', (backendUserId) => `/pages/gift/index?mode=send&receiverId=${backendUserId}&sceneType=PROFILE&sceneId=${backendUserId}`)
 }
 
 function report(): void {
-  navigateToUserRoute('缺少真实用户ID，未进入举报', (backendUserId) => `/pages/report/submit/index?targetType=USER&targetId=${backendUserId}`)
+  navigateToUserRoute('用户资料暂时不可用，未进入举报', (backendUserId) => `/pages/report/submit/index?targetType=USER&targetId=${backendUserId}`)
 }
 
 function openPhotoPreview(url: string): void {
@@ -431,7 +434,7 @@ function closeVideoPreview(): void {
 
 function openProduct(productId: number): void {
   if (!productId || productId <= 0) {
-    uni.showToast({ title: '缺少后端商品编号，未打开商品详情', icon: 'none' })
+    uni.showToast({ title: '商品资料暂时不可用，未打开详情', icon: 'none' })
     return
   }
   const route = {

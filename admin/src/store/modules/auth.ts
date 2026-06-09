@@ -52,7 +52,7 @@ export interface AdminSessionInput {
   expiresAt?: string
 }
 
-export type AdminPermission = 'audit:read' | 'audit:review' | 'finance:read' | 'finance:review' | 'user:read' | 'user:risk-control' | 'order:read' | 'after-sales:read' | 'after-sales:review' | 'system:config' | 'audit:log' | 'operator:grant'
+export type AdminPermission = 'audit:read' | 'audit:review' | 'chat:trace' | 'finance:read' | 'finance:review' | 'user:read' | 'user:risk-control' | 'order:read' | 'after-sales:read' | 'after-sales:review' | 'system:config' | 'audit:log' | 'operator:grant'
 
 interface RoutePermissionRule {
   pattern: RegExp
@@ -62,7 +62,9 @@ interface RoutePermissionRule {
 const PROTECTED_ROUTE_PERMISSIONS: RoutePermissionRule[] = [
   { pattern: /^\/dashboard\/?$/, permission: null },
   { pattern: /^\/audit(?:\/|$)/, permission: 'audit:read' },
-  { pattern: /^\/chat-trace(?:\/|$)/, permission: 'audit:read' },
+  { pattern: /^\/chat-trace(?:\/|$)/, permission: 'chat:trace' },
+  { pattern: /^\/community-trace(?:\/|$)/, permission: 'audit:read' },
+  { pattern: /^\/products(?:\/|$)/, permission: 'audit:read' },
   { pattern: /^\/finance\/withdrawals(?:\/|$)/, permission: 'finance:read' },
   { pattern: /^\/users(?:\/|$)/, permission: 'user:read' },
   { pattern: /^\/orders(?:\/|$)/, permission: 'order:read' },
@@ -82,7 +84,9 @@ export interface AdminMenuItem {
 
 export const ADMIN_DASHBOARD_ACTIONS: AdminMenuItem[] = [
   { path: '/audit', label: '审核工作台', permission: 'audit:read' },
-  { path: '/chat-trace', label: '私聊追溯', permission: 'audit:read' },
+  { path: '/chat-trace', label: '私聊追溯', permission: 'chat:trace' },
+  { path: '/community-trace', label: '社区追溯', permission: 'audit:read' },
+  { path: '/products', label: '商品管理', permission: 'audit:read' },
   { path: '/finance/withdrawals', label: '提现审核', permission: 'finance:read' },
   { path: '/after-sales', label: '售后管理', permission: 'after-sales:read' },
   { path: '/orders', label: '订单管理', permission: 'order:read' },
@@ -110,7 +114,7 @@ interface AuthState {
 
 const STORAGE_KEY = 'xiaoyuanquan_admin_session'
 const USER_ID_PATTERN = /^[1-9]\d*$/
-const DEFAULT_DEV_ADMIN_PERMISSIONS: AdminPermission[] = ['audit:read', 'audit:review', 'finance:read', 'finance:review', 'user:read', 'user:risk-control', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log', 'operator:grant']
+const DEFAULT_DEV_ADMIN_PERMISSIONS: AdminPermission[] = ['audit:read', 'audit:review', 'chat:trace', 'finance:read', 'finance:review', 'user:read', 'user:risk-control', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log', 'operator:grant']
 const PERMISSION_SET = new Set<AdminPermission>(DEFAULT_DEV_ADMIN_PERMISSIONS)
 
 function normalizePermissions(permissions?: string[]): AdminPermission[] {

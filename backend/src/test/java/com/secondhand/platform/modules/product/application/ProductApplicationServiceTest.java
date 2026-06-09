@@ -40,6 +40,7 @@ class ProductApplicationServiceTest {
 
         assertEquals("PENDING_AUDIT", response.getStatus());
         assertEquals("PENDING", response.getAuditState());
+        assertProductAudit(response.getProductId(), 7L, "PENDING", "商品发布待审核", "奶油色针织开衫");
         assertFalse(response.getVisible());
         assertThrows(IllegalArgumentException.class, () -> service.detailProduct(response.getProductId()));
         assertTrue(service.listProducts().isEmpty());
@@ -95,6 +96,7 @@ class ProductApplicationServiceTest {
         assertEquals("改后商品标题", updated.getTitle());
         assertEquals("PENDING_AUDIT", updated.getStatus());
         assertEquals("PENDING", updated.getAuditState());
+        assertProductAudit(response.getProductId(), 1L, "PENDING", "商品编辑后重新审核", "改后商品标题");
         assertFalse(updated.getVisible());
         assertThrows(IllegalArgumentException.class, () -> service.detailProduct(response.getProductId()));
     }
@@ -220,6 +222,73 @@ class ProductApplicationServiceTest {
     }
 
     @Test
+    void approvedSellerWithoutUploadedVideoIdentityTicketCannotPublishOrExposeProducts() {
+        upsertProfile(31L, "SELLER", "APPROVED", true);
+        jdbcTemplate.update("DELETE FROM media_upload_ticket WHERE owner_user_id = ? AND scene = 'VIDEO_IDENTITY'", 31L);
+
+        IllegalArgumentException createError = assertThrows(IllegalArgumentException.class, () -> service.createProduct(31L, product(31L, "脏认证卖家商品", "88.00")));
+
+        assertEquals("seller certification required", createError.getMessage());
+
+        CreateProductResponse product = service.createProduct(1L, product("认证后票据丢失商品", "99.00"));
+        service.approveForSale(product.getProductId());
+        jdbcTemplate.update("DELETE FROM media_upload_ticket WHERE owner_user_id = ? AND scene = 'VIDEO_IDENTITY'", 1L);
+
+        assertTrue(service.listProducts().isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> service.detailProduct(product.getProductId()));
+    }
+
+    @Test
+    void approvedSellerWithoutMatchingVideoIdentityAuditCannotPublishOrExposeProducts() {
+        upsertProfile(32L, "SELLER", "APPROVED", true);
+        jdbcTemplate.update("DELETE FROM audit_record WHERE user_id = ? AND audit_type = 'VIDEO_IDENTITY'", 32L);
+
+        IllegalArgumentException createError = assertThrows(IllegalArgumentException.class, () -> service.createProduct(32L, product(32L, "无审核记录认证商品", "88.00")));
+
+        assertEquals("seller certification required", createError.getMessage());
+
+        CreateProductResponse product = service.createProduct(1L, product("认证后审核记录丢失商品", "99.00"));
+        service.approveForSale(product.getProductId());
+        jdbcTemplate.update("DELETE FROM audit_record WHERE user_id = ? AND audit_type = 'VIDEO_IDENTITY'", 1L);
+
+        assertTrue(service.listProducts().isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> service.detailProduct(product.getProductId()));
+    }
+
+    @Test
+    void adminAndMineShouldNotExposeRawVideoVerifiedWhenStatusIsNotApproved() {
+        upsertProfile(41L, "SELLER", "REJECTED", true);
+        CreateProductResponse product = service.createProduct(1L, product("脏状态认证字段商品", "99.00"));
+        jdbcTemplate.update("UPDATE product_item SET seller_id = ? WHERE id = ?", 41L, product.getProductId());
+
+        var adminRows = service.adminListProducts(null, null, "脏状态认证字段商品", 20);
+        var mineRows = service.listMyProducts(41L);
+
+        assertEquals(1, adminRows.size());
+        assertEquals(1, mineRows.size());
+        assertFalse(adminRows.get(0).getSellerVideoVerified());
+        assertFalse(mineRows.get(0).getSellerVideoVerified());
+    }
+
+    @Test
+    void adminAndMineShouldNotExposeRawVideoVerifiedWithoutUploadedTicketOrAudit() {
+        upsertProfile(42L, "SELLER", "APPROVED", true);
+        jdbcTemplate.update("DELETE FROM media_upload_ticket WHERE owner_user_id = ? AND scene = 'VIDEO_IDENTITY'", 42L);
+        CreateProductResponse missingTicket = service.createProduct(1L, product("缺票据认证字段商品", "99.00"));
+        jdbcTemplate.update("UPDATE product_item SET seller_id = ? WHERE id = ?", 42L, missingTicket.getProductId());
+
+        upsertProfile(43L, "SELLER", "APPROVED", true);
+        jdbcTemplate.update("DELETE FROM audit_record WHERE user_id = ? AND audit_type = 'VIDEO_IDENTITY'", 43L);
+        CreateProductResponse missingAudit = service.createProduct(1L, product("缺审核认证字段商品", "98.00"));
+        jdbcTemplate.update("UPDATE product_item SET seller_id = ? WHERE id = ?", 43L, missingAudit.getProductId());
+
+        assertFalse(service.adminListProducts(null, null, "缺票据认证字段商品", 20).get(0).getSellerVideoVerified());
+        assertFalse(service.listMyProducts(42L).get(0).getSellerVideoVerified());
+        assertFalse(service.adminListProducts(null, null, "缺审核认证字段商品", 20).get(0).getSellerVideoVerified());
+        assertFalse(service.listMyProducts(43L).get(0).getSellerVideoVerified());
+    }
+
+    @Test
     void revokedSellerProductsShouldNotStayPublicOrSaleable() {
         CreateProductResponse response = service.createProduct(1L, product("撤销后隐藏商品", "88.00"));
         service.approveForSale(response.getProductId());
@@ -270,6 +339,21 @@ class ProductApplicationServiceTest {
         return jdbcTemplate;
     }
 
+    private void assertProductAudit(Long productId, Long sellerId, String status, String reason, String description) {
+        Integer count = jdbcTemplate.queryForObject("""
+                select count(1)
+                from audit_record
+                where audit_type = 'PRODUCT'
+                  and target_type = 'PRODUCT'
+                  and target_id = ?
+                  and user_id = ?
+                  and status = ?
+                  and reason = ?
+                  and description = ?
+                """, Integer.class, String.valueOf(productId), sellerId, status, reason, description);
+        assertEquals(1, count);
+    }
+
     private void upsertProfile(long userId, String role, String videoStatus, boolean videoVerified) {
         Integer accountRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_account WHERE id = ?", Integer.class, userId);
         if (accountRows == null || accountRows == 0) {
@@ -278,9 +362,12 @@ class ProductApplicationServiceTest {
         Integer profileRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_profile WHERE user_id = ?", Integer.class, userId);
         if (profileRows == null || profileRows == 0) {
             jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, main_role, video_identity_status, video_verified) VALUES (?, ?, ?, ?, ?)", userId, "VERIFIED", role, videoStatus, videoVerified);
-            return;
+        } else {
+            jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", role, videoStatus, videoVerified, userId);
         }
-        jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", role, videoStatus, videoVerified, userId);
+        if (videoVerified && "APPROVED".equals(videoStatus) && List.of("SELLER", "BOTH").contains(role)) {
+            uploadedVideoIdentity(userId);
+        }
     }
 
     private CreateProductRequest product(String title, String price) {
@@ -303,6 +390,18 @@ class ProductApplicationServiceTest {
                 .issue(ownerUserId, "PRODUCT_IMAGE", "image/jpeg", fileSize, filename)
                 .storageUrl();
         jdbcTemplate.update("UPDATE media_upload_ticket SET status = 'UPLOADED' WHERE owner_user_id = ? AND storage_url = ?", ownerUserId, storageUrl);
+        return storageUrl;
+    }
+
+    private String uploadedVideoIdentity(Long ownerUserId) {
+        String storageUrl = new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database))
+                .issue(ownerUserId, "VIDEO_IDENTITY", "video/mp4", 1_000_000L, "identity-" + ownerUserId + ".mp4")
+                .storageUrl();
+        jdbcTemplate.update("UPDATE media_upload_ticket SET status = 'UPLOADED' WHERE owner_user_id = ? AND storage_url = ?", ownerUserId, storageUrl);
+        jdbcTemplate.update("""
+                INSERT INTO audit_record (audit_no, audit_type, user_id, target_type, target_id, reason, description, status, created_at, reviewed_at)
+                VALUES (?, 'VIDEO_IDENTITY', ?, 'VIDEO_IDENTITY', ?, ?, '商品发布认证视频', 'APPROVED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, "AUDIT-PRODUCT-VIDEO-" + ownerUserId, ownerUserId, String.valueOf(ownerUserId), storageUrl);
         return storageUrl;
     }
 }

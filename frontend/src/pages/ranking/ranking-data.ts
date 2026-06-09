@@ -14,6 +14,7 @@ export interface RankingUser {
   city: string
   giftScore: number
   viewerFollows: boolean
+  videoVerified: boolean
 }
 
 export const periodTabs = [
@@ -33,7 +34,8 @@ export function toRankingUser(item: UserRankingResponse): RankingUser {
     bio: item.bio || '这个用户还没有填写个人介绍',
     city: item.city || '全部',
     giftScore: item.giftScore ?? item.popularityScore,
-    viewerFollows: item.followedByMe
+    viewerFollows: item.followedByMe,
+    videoVerified: item.videoVerified === true && item.videoIdentityStatus === 'APPROVED'
   }
 }
 

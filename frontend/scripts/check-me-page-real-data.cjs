@@ -42,9 +42,33 @@ const requiredMarkers = [
   'isValidNotificationNo',
   'assertNotificationItem',
   "const publishRoles = ['SELLER', 'BOTH']",
-  "const canPublish = computed(() => profile.videoVerified && publishRoles.includes(String(profile.mainRole || '').toUpperCase()))",
-  "const sellerEntryTitleText = computed(() => canPublish.value ? '卖家认证' : '申请卖家认证')",
-  "const trustTagText = computed(() => canPublish.value ? '已认证卖家' : '普通买家')",
+  "const canPublish = computed(() => {",
+  "const videoStatus = String(profile.videoIdentityStatus || '').toUpperCase()",
+  "return profile.videoVerified === true && videoStatus === 'APPROVED' && publishRoles.includes(role)",
+  "const sellerEntryDisabled = computed(() => profileLoading.value || Boolean(profileError.value))",
+  'const profileLoading = ref(true)',
+  'const walletLoading = ref(true)',
+  'const profileLoaded = ref(false)',
+  'const walletLoaded = ref(false)',
+  'const opsLoaded = ref(false)',
+  "if (profileLoading.value && !profileLoaded.value) return '资料加载中'",
+  "if (profileLoading.value && !profileLoaded.value) return '正在读取真实账号资料'",
+  "if (profileLoading.value && !profileLoaded.value) return '身份读取中'",
+  "const walletLabelText = computed(() => walletLoading.value && !walletLoaded.value ? '钱包加载中' : '钱包')",
+  "if (walletLoading.value && !walletLoaded.value) return '--'",
+  "if (opsLoading.value && !opsLoaded.value) return '待处理事项加载中'",
+  "if (opsLoading.value && !opsLoaded.value) return '--'",
+  'profileLoading.value = true',
+  'profileLoaded.value = true',
+  'profileLoaded.value = false',
+  'walletLoading.value = true',
+  'walletLoaded.value = true',
+  'walletLoaded.value = false',
+  'else opsLoaded.value = true',
+  "if (profileError.value) return '资料暂不可用'",
+  "if (profileError.value) return '请先刷新资料'",
+  "const trustTagText = computed(() => {",
+  "if (profileError.value) return '身份信息待刷新'",
   'Object.assign(profile, emptyProfile)',
   'Object.assign(balance, emptyBalance)',
   '<view class="ops-card ds-card">',
@@ -67,6 +91,12 @@ const requiredMarkers = [
   'assertConversationListResponse(chatRows)',
   'assertOrderList(buyerRows)',
   'assertOrderList(sellerRows)',
+  'Promise.allSettled',
+  'async function loadNotificationSummary(): Promise<void>',
+  'async function loadChatSummary(): Promise<void>',
+  'async function loadBuyerOrderSummary(): Promise<void>',
+  'async function loadSellerOrderSummary(): Promise<void>',
+  "opsError.value = '部分待处理事项暂时未更新'",
   'async function openRecentActionNotice()',
   'const read = await markNotificationRead(item.notificationNo)',
   'assertNotificationItem(read)',
@@ -76,7 +106,7 @@ const requiredMarkers = [
   "console.warn('me notification target navigation failed'",
   'if (isTabBarNotificationTargetUrl(item.targetUrl)) uni.switchTab(route)',
   'else uni.navigateTo(route)',
-  "opsError.value = '运营待办暂时不可用，请稍后刷新'",
+  "opsError.value = '待处理事项暂时不可用，请稍后刷新'",
   "console.warn('me operational summary load failed', { error })",
   "return safe > 99 ? '99+' : String(safe)",
   "pendingPay: { role: 'buyer', status: 'PENDING_PAY' }",
@@ -90,7 +120,10 @@ const requiredMarkers = [
   "if (item.key === 'afterSales')",
   "openOrderStatus('afterSales')",
   '<view v-if="canPublish" class="seller-entry-card ds-card tapable" @click="goPublishForm">',
-  '<view class="seller-verify-fab tapable" @click="goVideoVerify">',
+  '@click="handleSellerVerifyEntry"',
+  'function handleSellerVerifyEntry()',
+  "showToast('个人资料暂时不可用，请刷新后再试')",
+  "showToast('卖家认证已通过')",
   'uni.navigateTo({ url: \'/pages/user/identity/index?tab=video\' })',
   "uni.showToast({ title: '请先完成卖家认证', icon: 'none' })"
 ]
@@ -105,6 +138,10 @@ if (!/async function openRecentActionNotice\(\)[\s\S]*if \(!isValidNotificationN
 
 if (!/function navigateToNoticeTarget\(item: NotificationItemResponse\): void\s*\{[\s\S]*if \(!item\.targetUrl \|\| !isSafeNotificationTargetUrl\(item\.targetUrl\)\)[\s\S]*fail\(error: unknown\)[\s\S]*console\.warn\('me notification target navigation failed'[\s\S]*if \(isTabBarNotificationTargetUrl\(item\.targetUrl\)\) uni\.switchTab\(route\)[\s\S]*else uni\.navigateTo\(route\)[\s\S]*catch \(error\)/s.test(source)) {
   failures.push(`${file}: recent actionable notice navigation must use safe target checks and handle navigation failures`)
+}
+
+if (/catch \(error\)\s*\{[\s\S]{0,300}notifications\.value = \[\][\s\S]{0,300}chatConversations\.value = \[\][\s\S]{0,300}buyerOrders\.value = \[\][\s\S]{0,300}sellerOrders\.value = \[\]/s.test(source)) {
+  failures.push(`${file}: operational summary must not clear all existing sections when one backend request fails`)
 }
 
 if (failures.length) {

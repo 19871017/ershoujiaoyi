@@ -14,6 +14,7 @@ public class ChatMessageResponse {
     private LocalDateTime createdAt;
     private Boolean deliveredToReceiver;
     private Boolean readByReceiver;
+    private Boolean revoked;
 
     public Long getConversationId() { return conversationId; }
     public void setConversationId(Long conversationId) { this.conversationId = conversationId; }
@@ -37,4 +38,6 @@ public class ChatMessageResponse {
     public void setDeliveredToReceiver(Boolean deliveredToReceiver) { this.deliveredToReceiver = deliveredToReceiver; }
     public Boolean getReadByReceiver() { return readByReceiver; }
     public void setReadByReceiver(Boolean readByReceiver) { this.readByReceiver = readByReceiver; }
+    public Boolean getRevoked() { return revoked; }
+    public void setRevoked(Boolean revoked) { this.revoked = revoked; }
 }

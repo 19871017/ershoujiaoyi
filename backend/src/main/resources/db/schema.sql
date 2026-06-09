@@ -299,6 +299,8 @@ CREATE TABLE IF NOT EXISTS im_message (
   receiver_id BIGINT NOT NULL,
   message_type VARCHAR(32) NOT NULL,
   content_json TEXT NOT NULL,
+  revoked BOOLEAN NOT NULL DEFAULT FALSE,
+  revoked_at TIMESTAMP,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -309,6 +311,7 @@ CREATE TABLE IF NOT EXISTS im_receipt (
   user_id BIGINT NOT NULL,
   read_seq BIGINT NOT NULL DEFAULT 0,
   delivered_seq BIGINT NOT NULL DEFAULT 0,
+  cleared_seq BIGINT NOT NULL DEFAULT 0,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(conversation_id, user_id)
 );
@@ -342,6 +345,7 @@ CREATE TABLE IF NOT EXISTS community_post (
   topic VARCHAR(64) NOT NULL,
   content TEXT NOT NULL,
   image_urls TEXT,
+  related_product_id BIGINT,
   status VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED',
   like_count INT NOT NULL DEFAULT 0,
   comment_count INT NOT NULL DEFAULT 0,
@@ -418,6 +422,7 @@ CREATE TABLE IF NOT EXISTS report_record (
   target_id VARCHAR(128) NOT NULL,
   reason_code VARCHAR(64) NOT NULL,
   description VARCHAR(512),
+  evidence_urls TEXT,
   report_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   handled_at TIMESTAMP

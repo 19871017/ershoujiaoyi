@@ -2,7 +2,7 @@
   <view class="page-shell category-page">
     <view class="search-card ds-card">
       <view class="search-icon-wrap"><text class="search-icon">🔎</text></view>
-      <input v-model.trim="keyword" class="search-input" placeholder="搜连衣裙、鞋子、袜子、包包" confirm-type="search" @confirm="openSearchResult" />
+      <input :value="keyword" class="search-input" placeholder="搜全部在售宝贝" confirm-type="search" @input="updateKeyword" @confirm="openSearchResult" />
       <view class="search-action tapable" @click="openSearchResult">搜索</view>
     </view>
 
@@ -26,30 +26,12 @@
       </view>
 
       <view v-if="loading" class="state-tip">加载分类宝贝中...</view>
-      <view v-else-if="errorText" class="state-tip danger">商品接口暂时不可用，未展示本地分类宝贝样例</view>
-      <view v-else-if="products.length === 0" class="state-tip">暂未加载到后端分类宝贝</view>
+      <view v-else-if="errorText" class="state-tip danger">{{ errorText }}</view>
+      <view v-else-if="products.length === 0" class="state-tip">{{ emptyCategoryText }}</view>
 
-      <view class="sub-grid compact">
+      <view v-if="activeItems.length" class="sub-grid compact">
         <view v-for="item in activeItems" :key="item.name" class="sub-item tapable" :class="{ active: subCategory === item.name }" @click="selectSubCategory(item.name)">
-          <view class="sub-icon" :class="{ 'wear-icon-wrap': item.iconType }">
-            <view v-if="item.iconType === 'bra'" class="wear-icon">
-              <view class="bra-cup left" />
-              <view class="bra-cup right" />
-              <view class="bra-band" />
-            </view>
-            <view v-else-if="item.iconType === 'panty'" class="wear-icon">
-              <view class="panty-waist" />
-              <view class="panty-body" />
-            </view>
-            <view v-else-if="item.iconType === 'bikini'" class="wear-icon">
-              <view class="bikini-top">
-                <view class="bikini-cup left" />
-                <view class="bikini-cup right" />
-              </view>
-              <view class="bikini-bottom" />
-            </view>
-            <text v-else>{{ item.icon }}</text>
-          </view>
+          <view class="sub-icon"><text>{{ item.icon }}</text></view>
           <view class="sub-name">{{ item.name }}</view>
           <view class="sub-count">{{ subCategoryCount(item.name) }} 件</view>
         </view>
@@ -59,7 +41,7 @@
     <view class="product-section-head">
       <view>
         <view class="product-section-title">精选宝贝</view>
-        <view class="product-section-subtitle">按真实在售商品筛选展示</view>
+        <view class="product-section-subtitle">只看当前在售，喜欢就去看看</view>
       </view>
       <view class="filter-row">
         <view v-for="item in sortOptions" :key="item.value" class="filter-chip tapable" :class="{ active: sortBy === item.value }" @click="sortBy = item.value">{{ item.label }}</view>
@@ -77,7 +59,7 @@
         <view class="product-info">
           <view class="product-title">{{ item.title }}</view>
           <view class="product-meta">
-            <text class="product-no">{{ shortProductNo(item.productNo) }}</text>
+            <text class="product-no">{{ productFreshness(item.createdAt) }}</text>
             <text class="product-time">{{ formatPublishTime(item.createdAt) }}</text>
           </view>
           <view class="product-bottom">
@@ -88,9 +70,23 @@
       </view>
     </view>
 
-    <view v-else-if="!loading" class="empty-card ds-card">
+    <view v-else-if="!loading && !errorText && products.length > 0" class="empty-card ds-card category-empty">
       <view class="empty-icon">🪞</view>
       <view class="empty-title">暂时没找到这个宝贝</view>
+      <view class="empty-copy">换个关键词，或恢复到全部在售宝贝看看。</view>
+      <view class="empty-actions">
+        <view class="empty-action primary tapable" @click="resetFilters">查看全部宝贝</view>
+        <view v-if="keyword" class="empty-action tapable" @click="clearKeyword">清空搜索</view>
+      </view>
+    </view>
+
+    <view v-else-if="!loading && !errorText && products.length === 0" class="empty-card ds-card category-empty">
+      <view class="empty-icon">✨</view>
+      <view class="empty-title">暂时还没有在售宝贝</view>
+      <view class="empty-copy">可以稍后刷新看看，新的宝贝上架后会直接出现在这里。</view>
+      <view class="empty-actions">
+        <view class="empty-action primary tapable" @click="refreshCategoryData(true)">刷新看看</view>
+      </view>
     </view>
 
     <view v-if="canPublish" class="publish-fab tapable" @click="goPublishForm">＋</view>
@@ -98,27 +94,30 @@
 </template>
 
 <script setup lang="ts">
+import { onShow } from '@dcloudio/uni-app'
 import { computed, onMounted, ref } from 'vue'
 import { listProducts, type ProductListItemResponse } from '../../../api/modules/product'
 import { getMyProfile } from '../../../api/modules/user'
 
-const launchReadinessMarkers = [
-  '商品暂时不可用，请稍后重试',
-  '暂未加载到平台分类宝贝'
-]
+const loadErrorText = '商品暂时不可用，请稍后再来看看'
+const emptyCategoryText = '这里暂时还没有上架宝贝'
 
-type WearIconType = 'bra' | 'panty' | 'bikini'
-type CategoryItem = { name: string; icon: string; iconType?: WearIconType }
+type CategoryItem = { name: string; icon: string; keywords?: string[] }
 type CategoryGroup = { name: string; icon: string; items: CategoryItem[] }
 
 const groups: CategoryGroup[] = [
   {
+    name: '全部',
+    icon: '✨',
+    items: []
+  },
+  {
     name: '衣物',
     icon: '👗',
     items: [
-      { name: '上衣', icon: '胸罩', iconType: 'bra' },
-      { name: '下衣', icon: '内裤', iconType: 'panty' },
-      { name: '套装', icon: '比基尼', iconType: 'bikini' }
+      { name: '上衣', icon: '👚', keywords: ['上衣', '外套', '衬衫', '针织'] },
+      { name: '下装', icon: '👖', keywords: ['下装', '下衣', '裤', '裙'] },
+      { name: '套装', icon: '🧥', keywords: ['套装', '成套', '两件套'] }
     ]
   },
   {
@@ -152,6 +151,8 @@ const loading = ref(false)
 const errorText = ref('')
 const products = ref<ProductListItemResponse[]>([])
 const canPublish = ref(false)
+const didMount = ref(false)
+const categoryRefreshing = ref(false)
 const publishRoles: readonly string[] = ['SELLER', 'BOTH']
 const sortOptions: Array<{ label: string; value: SortBy }> = [
   { label: '最新', value: 'new' },
@@ -161,8 +162,12 @@ const sortOptions: Array<{ label: string; value: SortBy }> = [
 const currentGroup = computed(() => groups.find((item) => item.name === active.value) ?? defaultGroup)
 const activeItems = computed(() => currentGroup.value.items)
 const categoryKeywords = computed(() => {
-  if (subCategory.value) return [subCategory.value]
-  return activeItems.value.map((item) => item.name)
+  if (currentGroup.value.name === defaultGroup.name) return []
+  if (subCategory.value) {
+    const selected = activeItems.value.find((item) => item.name === subCategory.value)
+    return selected ? itemKeywords(selected) : [subCategory.value]
+  }
+  return activeItems.value.flatMap((item) => itemKeywords(item))
 })
 const filteredProducts = computed(() => {
   const kw = keyword.value.toLowerCase()
@@ -179,13 +184,16 @@ const filteredProducts = computed(() => {
   })
 })
 
-function productSearchText(item: ProductListItemResponse): string {
-  return `${item.title}${item.productNo}${item.status}${item.auditState}`.toLowerCase()
-}
+function itemKeywords(item: CategoryItem): string[] { return item.keywords ?? [item.name] }
+function productSearchText(item: ProductListItemResponse): string { return `${item.title}${item.category ?? ''}${item.productNo}`.toLowerCase() }
 
 function subCategoryCount(name: string) {
-  const category = name.toLowerCase()
-  return products.value.filter((item) => productSearchText(item).includes(category)).length
+  const selected = activeItems.value.find((item) => item.name === name)
+  const keywords = (selected ? itemKeywords(selected) : [name]).map((item) => item.toLowerCase())
+  return products.value.filter((item) => {
+    const text = productSearchText(item)
+    return keywords.some((category) => text.includes(category))
+  }).length
 }
 
 function selectGroup(name: string) {
@@ -195,13 +203,42 @@ function selectGroup(name: string) {
 function selectSubCategory(name: string) {
   subCategory.value = subCategory.value === name ? '' : name
 }
-function openSearchResult() { uni.navigateTo({ url: `/pages/search/result/index?keyword=${encodeURIComponent(keyword.value || active.value)}` }) }
+function resetFilters(): void {
+  active.value = defaultGroup.name
+  subCategory.value = ''
+  keyword.value = ''
+}
+function clearKeyword(): void {
+  keyword.value = ''
+}
+function updateKeyword(event: unknown): void {
+  const value = (event as { detail?: { value?: unknown } }).detail?.value
+  if (typeof value !== 'string') {
+    console.warn('category keyword input invalid')
+    return
+  }
+  keyword.value = value.trim()
+}
+function openSearchResult() { uni.navigateTo({ url: `/pages/search/result/index?keyword=${encodeURIComponent(keyword.value)}` }) }
 function openProduct(productId: number) { uni.navigateTo({ url: `/pages/product/detail/index?productId=${productId}` }) }
 function goPublishForm(): void { uni.navigateTo({ url: '/pages/product/publish/index' }) }
 function iconFor(title: string) { if (title.includes('裙')) return '👗'; if (title.includes('鞋')) return '👠'; if (title.includes('袜')) return '🧦'; return '👜' }
-function statusLabel(status: string) { return status === 'created' || status === 'ACTIVE' ? '在售' : status }
+function statusLabel(status: string) {
+  if (status === 'created' || status === 'ACTIVE') return '在售'
+  if (status === 'SOLD') return '已出'
+  if (status === 'OFFLINE') return '已下架'
+  if (status === 'PENDING_AUDIT') return '待上架'
+  return '更新中'
+}
 function compactPrice(price: string) { return Number(price).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
-function shortProductNo(productNo: string) { return productNo ? `编号 ${productNo.slice(-5)}` : '平台严选' }
+function productFreshness(createdAt: string) {
+  const date = new Date(createdAt)
+  if (Number.isNaN(date.getTime())) return '新鲜上架'
+  const diffHours = Math.max(0, (Date.now() - date.getTime()) / (1000 * 60 * 60))
+  if (diffHours < 24) return '今日上新'
+  if (diffHours < 24 * 7) return '本周上新'
+  return '近期上新'
+}
 function formatPublishTime(createdAt: string) {
   const date = new Date(createdAt)
   if (Number.isNaN(date.getTime())) return '刚刚上新'
@@ -216,7 +253,8 @@ async function loadPublishPermission(): Promise<void> {
   try {
     const profile = await getMyProfile()
     const role = String(profile.mainRole || '').toUpperCase()
-    canPublish.value = Boolean(profile.videoVerified) && publishRoles.includes(role)
+    const videoStatus = String(profile.videoIdentityStatus || '').toUpperCase()
+    canPublish.value = profile.videoVerified === true && videoStatus === 'APPROVED' && publishRoles.includes(role)
   } catch {
     canPublish.value = false
   }
@@ -228,15 +266,31 @@ async function loadProducts() {
   try {
     const remote = await listProducts()
     products.value = remote
-  } catch (error) {
-    errorText.value = error instanceof Error ? error.message : '分类宝贝加载失败'
+  } catch {
+    errorText.value = loadErrorText
     products.value = []
   } finally {
     loading.value = false
   }
 }
-onMounted(loadProducts)
-onMounted(loadPublishPermission)
+async function refreshCategoryData(showLoading = false): Promise<void> {
+  if (categoryRefreshing.value) return
+  categoryRefreshing.value = true
+  try {
+    if (showLoading) await Promise.all([loadProducts(), loadPublishPermission()])
+    else await Promise.all([loadProducts(), loadPublishPermission()])
+  } finally {
+    categoryRefreshing.value = false
+  }
+}
+onMounted(() => {
+  didMount.value = true
+  void refreshCategoryData(true)
+})
+onShow(() => {
+  if (!didMount.value) return
+  void refreshCategoryData(false)
+})
 </script>
 
 <style scoped lang="scss" src="./style.scss"></style>

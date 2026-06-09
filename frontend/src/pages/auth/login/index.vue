@@ -47,6 +47,7 @@ import { reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { login, register, type LoginRequest, type RegisterGender } from '../../../api/modules/auth'
 import { useUserStore } from '../../../store/modules/user'
+import { loginRedirectIsTabbar, normalizeLoginRedirect } from './login-redirect'
 
 type AuthMode = 'login' | 'register'
 
@@ -72,15 +73,10 @@ function toggleAgreement() {
   message.value = ''
   isError.value = false
 }
-function normalizeRedirect(url: string) {
-  const value = decodeURIComponent(url || '').trim()
-  if (!value.startsWith('/pages/')) return ''
-  return value
-}
 function resolveLoginTarget() {
   const fallback = '/pages/tabbar/home/index'
   const target = redirectUrl.value || fallback
-  if (target.startsWith('/pages/tabbar/')) {
+  if (loginRedirectIsTabbar(target)) {
     return () => uni.switchTab({ url: target })
   }
   return () => uni.redirectTo({ url: target })
@@ -122,7 +118,7 @@ async function handleSubmit() {
 }
 
 onLoad((options) => {
-  redirectUrl.value = normalizeRedirect(String(options?.redirect || ''))
+  redirectUrl.value = normalizeLoginRedirect(String(options?.redirect || ''))
 })
 </script>
 

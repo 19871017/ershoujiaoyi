@@ -12,6 +12,7 @@ import com.secondhand.platform.modules.chat.ConversationListItemResponse;
 import com.secondhand.platform.modules.chat.DeliveryReceiptResponse;
 import com.secondhand.platform.modules.chat.MessageSyncResponse;
 import com.secondhand.platform.modules.chat.ReadConversationResponse;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -31,9 +32,12 @@ class ChatApplicationServiceTest {
                 .generateUniqueName(true)
                 .addScript("db/schema.sql")
                 .build();
-        jdbcTemplate = new JdbcTemplate(database);
-        service = new ChatApplicationService(jdbcTemplate);
-    }
+	        jdbcTemplate = new JdbcTemplate(database);
+	        service = new ChatApplicationService(jdbcTemplate);
+	        insertUserAccount(1L, "买家一", "/uploads/avatar/user1.png");
+	        insertUserAccount(2L, "卖家二", "/uploads/avatar/user2.png");
+	        insertUserAccount(3L, "用户三", "/uploads/avatar/user3.png");
+	    }
 
     @Test
     void singleConversationShouldBeUniqueRegardlessOfCreateOrder() {
@@ -60,13 +64,59 @@ class ChatApplicationServiceTest {
         assertEquals(2L, imageAck.getServerSeq());
         assertEquals("IMAGE", imageAck.getMsgType());
         assertThrows(IllegalArgumentException.class, () -> service.sendMessage(textWithContent(conversationId, "bad-text", 1L, 2L, "{\"text\":\"   \"}")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(textWithContent(conversationId, "missing-text", 1L, 2L, "{\"body\":\"hello\"}")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(textWithContent(conversationId, "number-text", 1L, 2L, "{\"text\":123}")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(textWithContent(conversationId, "null-text", 1L, 2L, "{\"text\":null}")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(textWithContent(conversationId, "malformed-text", 1L, 2L, "{\"text\":\"hello\"")));
         assertThrows(IllegalArgumentException.class, () -> service.sendMessage(image(conversationId, "bad-image", 1L, 2L, "ftp://cdn.example.com/a.png")));
         assertThrows(IllegalArgumentException.class, () -> service.sendMessage(image(conversationId, "local-image", 1L, 2L, "local://chat/a.png")));
         assertThrows(IllegalArgumentException.class, () -> service.sendMessage(image(conversationId, "placeholder-image", 1L, 2L, "/uploads/chat-image/placeholder.png")));
         assertThrows(IllegalArgumentException.class, () -> service.sendMessage(image(conversationId, "other-owner", 1L, 2L, chatImageUrl)));
         assertThrows(IllegalArgumentException.class, () -> service.sendMessage(image(conversationId, "not-ticket", 1L, 2L, "/uploads/chat-image/no-ticket.png")));
-        String expiredChatImageUrl = issueExpiredChatImageTicket(1L, "/uploads/chat-image/expired-owner1.png");
-        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(image(conversationId, "expired-ticket", 1L, 2L, expiredChatImageUrl)));
+        String expiredUploadedChatImageUrl = issueExpiredUploadedChatImageTicket(1L, "/uploads/chat-image/expired-owner1.png");
+        ChatMessageAck expiredUploadedImageAck = service.sendMessage(image(conversationId, "expired-uploaded-ticket", 1L, 2L, expiredUploadedChatImageUrl));
+        assertEquals(3L, expiredUploadedImageAck.getServerSeq());
+        assertEquals("IMAGE", expiredUploadedImageAck.getMsgType());
+    }
+
+    @Test
+    void textSummaryShouldUseParsedJsonAndPreserveEscapedCharacters() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+
+        service.sendMessage(textWithContent(conversationId, "quote-text", 1L, 2L, "{\"text\":\"这是\\\"报价\\\"，可小刀\"}"));
+
+        assertEquals("这是\"报价\"，可小刀", service.listConversations(1L).get(0).getLastMessageSummary());
+    }
+
+    @Test
+    void textMessageShouldRejectContactInfoAndOffPlatformTrade() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+
+        assertEquals("contact info is not allowed", assertThrows(IllegalArgumentException.class,
+                () -> service.sendMessage(text(conversationId, "risk-phone", 1L, 2L, "联系 1 8 0-0 3 8 0-0 6 6 6"))).getMessage());
+        assertEquals("contact info is not allowed", assertThrows(IllegalArgumentException.class,
+                () -> service.sendMessage(text(conversationId, "risk-wechat", 1L, 2L, "加我微信聊"))).getMessage());
+        assertEquals("contact info is not allowed", assertThrows(IllegalArgumentException.class,
+                () -> service.sendMessage(text(conversationId, "risk-off-platform", 1L, 2L, "我们私下交易先转账"))).getMessage());
+        assertEquals(0, jdbcTemplate.queryForObject("select count(1) from im_message where conversation_id = ?", Integer.class, conversationId));
+    }
+
+    @Test
+    void sendingMessageShouldCreateOneChatNotificationForReceiver() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+
+        service.sendMessage(text(conversationId, "notify-1", 1L, 2L, "hello"));
+        service.sendMessage(text(conversationId, "notify-1", 1L, 2L, "hello"));
+
+        List<String> rows = jdbcTemplate.query("""
+                SELECT notification_type || '|' || title || '|' || description || '|' || target_url
+                FROM notification_record
+                WHERE user_id = ?
+                ORDER BY id ASC
+                """, (rs, rowNum) -> rs.getString(1), 2L);
+
+        assertEquals(1, rows.size());
+        assertEquals("CHAT|你有一条新私信|买家一 发来新消息：hello|/pages/chat/conversation/index?conversationId=" + conversationId + "&receiverId=1", rows.get(0));
     }
 
     @Test
@@ -89,15 +139,93 @@ class ChatApplicationServiceTest {
                 "{\"url\":\"" + chatVoiceUrl + "\",\"durationMs\":0,\"sizeBytes\":4096,\"mimeType\":\"audio/webm\"}")));
         assertThrows(IllegalArgumentException.class, () -> service.sendMessage(voiceWithContent(conversationId, "voice-bad-mime", 1L, 2L,
                 "{\"url\":\"" + chatVoiceUrl + "\",\"durationMs\":1200,\"sizeBytes\":4096,\"mimeType\":\"video/mp4\"}")));
-        String expiredChatVoiceUrl = issueExpiredChatVoiceTicket(1L, "/uploads/chat-voice/expired-owner1.webm");
-        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(voice(conversationId, "expired-voice-ticket", 1L, 2L, expiredChatVoiceUrl)));
+        String expiredUploadedChatVoiceUrl = issueExpiredUploadedChatVoiceTicket(1L, "/uploads/chat-voice/expired-owner1.webm");
+        ChatMessageAck expiredUploadedVoiceAck = service.sendMessage(voice(conversationId, "expired-uploaded-voice-ticket", 1L, 2L, expiredUploadedChatVoiceUrl));
+        assertEquals(2L, expiredUploadedVoiceAck.getServerSeq());
+        assertEquals("VOICE", expiredUploadedVoiceAck.getMsgType());
+    }
+
+    @Test
+    void chatMediaAccessShouldRequireExactMessageContentUrlField() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        String imageUrl = issueChatImageTicket(1L, "/uploads/chat-image/owner1-access.png");
+        String doubleEncodedVoiceUrl = issueChatVoiceTicket(1L, "/uploads/chat-voice/owner1-double.webm");
+        String legacyEscapedVoiceUrl = issueChatVoiceTicket(1L, "/uploads/chat-voice/owner1-escaped.webm");
+        String smuggledVoiceUrl = issueChatVoiceTicket(3L, "/uploads/chat-voice/owner3-smuggled.webm");
+
+        service.sendMessage(image(conversationId, "media-access-image", 1L, 2L, imageUrl));
+        insertLegacyVoiceMessage(conversationId, "legacy-double-voice", 1L, 2L, doubleEncodedVoiceUrl, true);
+        insertLegacyVoiceMessage(conversationId, "legacy-escaped-voice", 1L, 2L, legacyEscapedVoiceUrl, false);
+        service.sendMessage(textWithContent(conversationId, "media-access-smuggled-text", 1L, 2L,
+                "{\"text\":\"hello\",\"extra\":\"" + smuggledVoiceUrl + "\"}"));
+
+        var access = service.requireChatMediaAccess(2L, imageUrl);
+        var doubleEncodedVoiceAccess = service.requireChatMediaAccess(2L, doubleEncodedVoiceUrl);
+        var legacyEscapedVoiceAccess = service.requireChatMediaAccess(2L, legacyEscapedVoiceUrl);
+
+        assertEquals(imageUrl, access.storageUrl());
+        assertEquals(conversationId, access.conversationId());
+        assertEquals(doubleEncodedVoiceUrl, doubleEncodedVoiceAccess.storageUrl());
+        assertEquals(conversationId, doubleEncodedVoiceAccess.conversationId());
+        assertEquals(legacyEscapedVoiceUrl, legacyEscapedVoiceAccess.storageUrl());
+        assertEquals(conversationId, legacyEscapedVoiceAccess.conversationId());
+        assertThrows(IllegalArgumentException.class, () -> service.requireChatMediaAccess(2L, smuggledVoiceUrl));
+        assertThrows(IllegalArgumentException.class, () -> service.requireChatMediaAccess(3L, doubleEncodedVoiceUrl));
+    }
+
+    @Test
+    void chatMediaAccessShouldAuthorizeLegacySlashEscapedMediaUrl() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        String slashEscapedVoiceUrl = issueChatVoiceTicket(1L, "/uploads/chat-voice/owner1-slash-escaped.webm");
+
+        insertSlashEscapedVoiceMessage(conversationId, "legacy-slash-voice", 1L, 2L, slashEscapedVoiceUrl);
+
+        var access = service.requireChatMediaAccess(2L, slashEscapedVoiceUrl);
+
+        assertEquals(slashEscapedVoiceUrl, access.storageUrl());
+        assertEquals(conversationId, access.conversationId());
+        assertThrows(IllegalArgumentException.class, () -> service.requireChatMediaAccess(3L, slashEscapedVoiceUrl));
+    }
+
+    @Test
+    void chatMediaAccessShouldAuthorizeOlderMediaBeyondLatestWindow() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        String olderVoiceUrl = issueChatVoiceTicket(1L, "/uploads/chat-voice/owner1-oldest.webm");
+
+        service.sendMessage(voice(conversationId, "old-voice", 1L, 2L, olderVoiceUrl));
+        for (int index = 1; index <= 201; index += 1) {
+            String newerVoiceUrl = issueChatVoiceTicket(1L, "/uploads/chat-voice/owner1-newer-" + index + ".webm");
+            service.sendMessage(voice(conversationId, "newer-voice-" + index, 1L, 2L, newerVoiceUrl));
+        }
+
+        var access = service.requireChatMediaAccess(2L, olderVoiceUrl);
+
+        assertEquals(olderVoiceUrl, access.storageUrl());
+        assertEquals(conversationId, access.conversationId());
+        assertEquals(1L, access.senderId());
+        assertEquals(2L, access.receiverId());
+    }
+
+    @Test
+    void chatMediaAccessShouldRejectDirtyMessageWhoseTicketOwnerIsNotSender() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        String dirtyVoiceUrl = issueChatVoiceTicket(3L, "/uploads/chat-voice/owner3-dirty.webm");
+        insertLegacyVoiceMessage(conversationId, "legacy-dirty-owner", 1L, 2L, dirtyVoiceUrl, false);
+
+        assertEquals("chat media access denied", assertThrows(IllegalArgumentException.class,
+                () -> service.requireChatMediaAccess(1L, dirtyVoiceUrl)).getMessage());
+        assertEquals("chat media access denied", assertThrows(IllegalArgumentException.class,
+                () -> service.requireChatMediaAccess(2L, dirtyVoiceUrl)).getMessage());
+        assertEquals("chat media access denied", assertThrows(IllegalArgumentException.class,
+                () -> service.requireChatMediaAccess(3L, dirtyVoiceUrl)).getMessage());
     }
 
     @Test
     void listConversationsShouldIncludePeerProfileFields() {
         Long conversationId = service.createConversation(conversation(1L, 2L));
-        insertUserAccount(2L, "真实卖家", "/uploads/avatar/seller.png");
+        updateUserAccount(2L, "真实卖家", "/uploads/avatar/seller.png");
         insertUserProfile(2L, "goddess", "杭州", "SELLER", true);
+        approveVideoIdentity(2L, issueVideoIdentityTicket(2L));
         insertGiftOrder("GIFT-2", 1L, 2L, 88);
         insertTradeOrder("TRADE-2", 2L, 1L, 36);
         service.sendMessage(text(conversationId, "profile-1", 1L, 2L, "hello"));
@@ -113,7 +241,74 @@ class ChatApplicationServiceTest {
         assertTrue(item.getPeerVideoVerified());
         assertEquals(88, item.getPeerSellerCharmScore());
         assertEquals(36, item.getPeerBuyerPowerScore());
+	    }
+
+    @Test
+    void chatPeerVideoBadgeShouldRequireApprovedSellerVideoIdentity() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        service.sendMessage(text(conversationId, "video-badge-1", 1L, 2L, "hello"));
+        insertUserProfileWithVideoStatus(2L, "goddess", "杭州", "SELLER", "PENDING", true);
+
+        ConversationListItemResponse pendingItem = service.listConversations(1L).get(0);
+        assertFalse(pendingItem.getPeerVideoVerified());
+
+        jdbcTemplate.update("UPDATE user_profile SET video_identity_status = 'APPROVED', video_verified = TRUE WHERE user_id = ?", 2L);
+        ConversationListItemResponse dirtyApprovedItem = service.listConversations(1L).get(0);
+        assertFalse(dirtyApprovedItem.getPeerVideoVerified());
+        assertFalse(service.getConversation(conversationId, 1L).getPeerVideoVerified());
+
+        String videoUrl = issueVideoIdentityTicket(2L);
+        ConversationListItemResponse ticketOnlyItem = service.listConversations(1L).get(0);
+        assertFalse(ticketOnlyItem.getPeerVideoVerified());
+
+        approveVideoIdentity(2L, "/uploads/video-identity/2/other.mp4");
+        ConversationListItemResponse mismatchedAuditItem = service.listConversations(1L).get(0);
+        assertFalse(mismatchedAuditItem.getPeerVideoVerified());
+        assertFalse(service.getConversation(conversationId, 1L).getPeerVideoVerified());
+
+        approveVideoIdentity(2L, videoUrl);
+        ConversationListItemResponse approvedItem = service.listConversations(1L).get(0);
+        assertTrue(approvedItem.getPeerVideoVerified());
+        assertTrue(service.getConversation(conversationId, 1L).getPeerVideoVerified());
+
+        jdbcTemplate.update("UPDATE user_profile SET main_role = 'BUYER' WHERE user_id = ?", 2L);
+        ConversationListItemResponse buyerItem = service.listConversations(1L).get(0);
+        assertFalse(buyerItem.getPeerVideoVerified());
     }
+
+	    @Test
+	    void shouldRejectMissingOrInactiveChatParticipants() {
+	        assertThrows(IllegalArgumentException.class, () -> service.createConversation(conversation(1L, 999L)));
+
+	        insertInactiveUserAccount(4L, "停用用户", "/uploads/avatar/inactive.png");
+
+	        assertThrows(IllegalArgumentException.class, () -> service.createConversation(conversation(1L, 4L)));
+	        Long conversationId = service.createConversation(conversation(1L, 2L));
+	        markUserInactive(2L);
+	        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(text(conversationId, "inactive-send", 1L, 2L, "hello")));
+	    }
+
+	    @Test
+	    void listConversationsShouldHideRowsWhosePeerIsMissingOrInactive() {
+	        Long activeConversationId = service.createConversation(conversation(1L, 2L));
+	        service.sendMessage(text(activeConversationId, "active-peer", 1L, 2L, "hello"));
+	        insertInactiveUserAccount(4L, "停用用户", "/uploads/avatar/inactive.png");
+	        jdbcTemplate.update("""
+	                INSERT INTO im_conversation (
+	                  conversation_no, owner_user_id, peer_user_id, conversation_type, last_seq, last_message_summary, created_at, updated_at
+	                ) VALUES ('IM-SINGLE-1-4', 1, 4, 'SINGLE', 1, 'ghost', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	                """);
+	        jdbcTemplate.update("""
+	                INSERT INTO im_conversation (
+	                  conversation_no, owner_user_id, peer_user_id, conversation_type, last_seq, last_message_summary, created_at, updated_at
+	                ) VALUES ('IM-SINGLE-1-999', 1, 999, 'SINGLE', 1, 'missing', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	                """);
+
+	        List<ConversationListItemResponse> rows = service.listConversations(1L);
+
+	        assertEquals(1, rows.size());
+	        assertEquals(2L, rows.get(0).getPeerUserId());
+	    }
 
     @Test
     void syncShouldRespectAfterSeqLimitAndUpdateDeliveredSeq() {
@@ -143,6 +338,39 @@ class ChatApplicationServiceTest {
     }
 
     @Test
+    void recentSyncShouldReturnLatestWindowForLongConversation() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        for (int index = 1; index <= 60; index += 1) {
+            service.sendMessage(text(conversationId, "long-" + index, 1L, 2L, "message " + index));
+        }
+
+        MessageSyncResponse firstForwardPage = service.syncMessages(conversationId, 2L, 0L, 50);
+        MessageSyncResponse latestPage = service.syncRecentMessages(conversationId, 2L, 50);
+
+        assertEquals(50, firstForwardPage.getMessages().size());
+        assertEquals("long-1", firstForwardPage.getMessages().get(0).getClientMsgId());
+        assertEquals("long-50", firstForwardPage.getMessages().get(49).getClientMsgId());
+        assertTrue(firstForwardPage.getHasMore());
+
+        assertEquals(50, latestPage.getMessages().size());
+        assertEquals("long-11", latestPage.getMessages().get(0).getClientMsgId());
+        assertEquals("long-60", latestPage.getMessages().get(49).getClientMsgId());
+        assertEquals(60L, latestPage.getNextAfterSeq());
+        assertFalse(latestPage.getHasMore());
+        assertEquals(11L, latestPage.getPreviousBeforeSeq());
+        assertTrue(latestPage.getHasEarlier());
+        assertEquals(60L, service.listConversations(2L).get(0).getDeliveredSeq());
+
+        MessageSyncResponse earlierPage = service.syncEarlierMessages(conversationId, 2L, latestPage.getPreviousBeforeSeq(), 50);
+
+        assertEquals(10, earlierPage.getMessages().size());
+        assertEquals("long-1", earlierPage.getMessages().get(0).getClientMsgId());
+        assertEquals("long-10", earlierPage.getMessages().get(9).getClientMsgId());
+        assertEquals(1L, earlierPage.getPreviousBeforeSeq());
+        assertFalse(earlierPage.getHasEarlier());
+    }
+
+    @Test
     void unreadCountShouldOnlyIncludeMessagesReceivedByViewer() {
         Long conversationId = service.createConversation(conversation(1L, 2L));
         service.sendMessage(text(conversationId, "c1", 1L, 2L, "one"));
@@ -156,6 +384,20 @@ class ChatApplicationServiceTest {
 
         assertEquals(1L, readBySecondUser.getUnreadCount());
         assertEquals(1L, service.listConversations(2L).get(0).getUnreadCount());
+    }
+
+    @Test
+    void unreadCountShouldIgnoreRevokedMessages() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        ChatMessageAck ack = service.sendMessage(text(conversationId, "revoked-unread", 1L, 2L, "撤回后不应红点提醒"));
+
+        assertEquals(1L, service.listConversations(2L).get(0).getUnreadCount());
+
+        service.revokeMessage(ack.getServerMsgId(), 1L);
+
+        assertEquals(0L, service.listConversations(2L).get(0).getUnreadCount());
+        assertEquals(0L, service.markConversationDelivered(conversationId, 2L).getUnreadCount());
+        assertEquals(0L, service.markConversationRead(conversationId, 2L, null).getUnreadCount());
     }
 
     @Test
@@ -186,6 +428,108 @@ class ChatApplicationServiceTest {
     }
 
     @Test
+    void senderCanRevokeMessageWhileAuditContentStaysPersisted() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        ChatMessageAck textAck = service.sendMessage(text(conversationId, "revoke-text", 1L, 2L, "可撤回消息"));
+
+        var revoked = service.revokeMessage(textAck.getServerMsgId(), 1L);
+
+        assertEquals(conversationId, revoked.getConversationId());
+        assertEquals(textAck.getServerSeq(), revoked.getServerSeq());
+        assertTrue(revoked.getRevoked());
+        MessageSyncResponse receiverView = service.syncMessages(conversationId, 2L, 0L, 10);
+        assertEquals(1, receiverView.getMessages().size());
+        assertTrue(receiverView.getMessages().get(0).getRevoked());
+        assertEquals("{\"revoked\":true}", receiverView.getMessages().get(0).getContentJson());
+        assertEquals("{\"text\":\"可撤回消息\"}", jdbcTemplate.queryForObject("select content_json from im_message where message_no = ?", String.class, textAck.getServerMsgId()));
+        assertEquals("消息已撤回", service.listConversations(2L).get(0).getLastMessageSummary());
+    }
+
+    @Test
+    void senderCannotRevokeMessageAfterWindowExpired() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        ChatMessageAck textAck = service.sendMessage(text(conversationId, "revoke-expired", 1L, 2L, "超过窗口不能撤回"));
+        jdbcTemplate.update("update im_message set created_at = DATEADD('MINUTE', -3, CURRENT_TIMESTAMP), updated_at = DATEADD('MINUTE', -3, CURRENT_TIMESTAMP) where message_no = ?", textAck.getServerMsgId());
+
+        assertEquals("message revoke window expired", assertThrows(IllegalStateException.class,
+                () -> service.revokeMessage(textAck.getServerMsgId(), 1L)).getMessage());
+
+        MessageSyncResponse receiverView = service.syncMessages(conversationId, 2L, 0L, 10);
+        assertFalse(receiverView.getMessages().get(0).getRevoked());
+        assertEquals("{\"text\":\"超过窗口不能撤回\"}", receiverView.getMessages().get(0).getContentJson());
+    }
+
+    @Test
+    void nonSenderCannotRevokeMessage() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        ChatMessageAck textAck = service.sendMessage(text(conversationId, "revoke-denied", 1L, 2L, "不能被对方撤回"));
+
+        assertThrows(IllegalArgumentException.class, () -> service.revokeMessage(textAck.getServerMsgId(), 2L));
+        MessageSyncResponse receiverView = service.syncMessages(conversationId, 2L, 0L, 10);
+        assertFalse(receiverView.getMessages().get(0).getRevoked());
+    }
+
+    @Test
+    void clearConversationOnlyHidesHistoryForCurrentUser() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        service.sendMessage(text(conversationId, "clear-1", 1L, 2L, "one"));
+        service.sendMessage(text(conversationId, "clear-2", 2L, 1L, "two"));
+
+        var cleared = service.clearConversation(conversationId, 1L);
+
+        assertEquals(conversationId, cleared.getConversationId());
+        assertEquals(2L, cleared.getClearedSeq());
+        assertEquals(0, service.listConversations(1L).size());
+        ConversationListItemResponse clearedConversation = service.getConversation(conversationId, 1L);
+        assertEquals(2L, clearedConversation.getPeerUserId());
+        assertNull(clearedConversation.getLastMessageSummary());
+        assertEquals(2L, clearedConversation.getLastServerSeq());
+        assertEquals(0L, clearedConversation.getUnreadCount());
+        assertEquals(0L, clearedConversation.getReadSeq());
+        assertEquals(0L, clearedConversation.getDeliveredSeq());
+        assertEquals(0, service.syncMessages(conversationId, 1L, 0L, 10).getMessages().size());
+        assertEquals(1, service.listConversations(2L).size());
+        assertEquals(2, service.syncMessages(conversationId, 2L, 0L, 10).getMessages().size());
+
+        service.sendMessage(text(conversationId, "clear-3", 2L, 1L, "three"));
+
+        assertEquals(1, service.listConversations(1L).size());
+        ConversationListItemResponse visibleAfterNewMessage = service.getConversation(conversationId, 1L);
+        assertEquals(2L, visibleAfterNewMessage.getPeerUserId());
+        assertEquals("three", visibleAfterNewMessage.getLastMessageSummary());
+        assertEquals(3L, visibleAfterNewMessage.getLastServerSeq());
+        assertEquals(1L, visibleAfterNewMessage.getUnreadCount());
+        assertEquals(0L, visibleAfterNewMessage.getReadSeq());
+        assertEquals(0L, visibleAfterNewMessage.getDeliveredSeq());
+        MessageSyncResponse firstUserView = service.syncMessages(conversationId, 1L, 0L, 10);
+        assertEquals(1, firstUserView.getMessages().size());
+        assertEquals("clear-3", firstUserView.getMessages().get(0).getClientMsgId());
+    }
+
+    @Test
+    void clearConversationShouldDenyClearedViewerOldChatMediaAccess() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        String oldVoiceUrl = issueChatVoiceTicket(2L, "/uploads/chat-voice/owner2-clear-old.webm");
+        String newVoiceUrl = issueChatVoiceTicket(2L, "/uploads/chat-voice/owner2-clear-new.webm");
+        service.sendMessage(voice(conversationId, "clear-media-old", 2L, 1L, oldVoiceUrl));
+
+        assertEquals(oldVoiceUrl, service.requireChatMediaAccess(1L, oldVoiceUrl).storageUrl());
+        assertEquals(oldVoiceUrl, service.requireChatMediaAccess(2L, oldVoiceUrl).storageUrl());
+
+        var cleared = service.clearConversation(conversationId, 1L);
+
+        assertEquals(1L, cleared.getClearedSeq());
+        assertEquals("chat media access denied", assertThrows(IllegalArgumentException.class,
+                () -> service.requireChatMediaAccess(1L, oldVoiceUrl)).getMessage());
+        assertEquals(oldVoiceUrl, service.requireChatMediaAccess(2L, oldVoiceUrl).storageUrl());
+
+        service.sendMessage(voice(conversationId, "clear-media-new", 2L, 1L, newVoiceUrl));
+
+        assertEquals(newVoiceUrl, service.requireChatMediaAccess(1L, newVoiceUrl).storageUrl());
+        assertEquals(newVoiceUrl, service.requireChatMediaAccess(2L, newVoiceUrl).storageUrl());
+    }
+
+    @Test
     void nonParticipantShouldNotSyncOrMarkReceipts() {
         Long conversationId = service.createConversation(conversation(1L, 2L));
         service.sendMessage(text(conversationId, "c1", 1L, 2L, "one"));
@@ -193,6 +537,7 @@ class ChatApplicationServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.syncMessages(conversationId, 3L, 0L, 10));
         assertThrows(IllegalArgumentException.class, () -> service.markConversationDelivered(conversationId, 3L));
         assertThrows(IllegalArgumentException.class, () -> service.markConversationRead(conversationId, 3L, null));
+        assertThrows(IllegalArgumentException.class, () -> service.clearConversation(conversationId, 3L));
     }
 
     @Test
@@ -212,14 +557,32 @@ class ChatApplicationServiceTest {
         assertEquals(1L, reloaded.listConversations(1L).get(0).getLastServerSeq());
     }
 
-    private void insertUserAccount(Long userId, String nickname, String avatarUrl) {
-        jdbcTemplate.update("INSERT INTO user_account (id, user_no, phone, password_hash, nickname, avatar_url, status) VALUES (?, ?, ?, 'hash', ?, ?, 'ACTIVE')",
-                userId, "U" + userId, "1380000" + userId, nickname, avatarUrl);
-    }
+	    private void insertUserAccount(Long userId, String nickname, String avatarUrl) {
+	        jdbcTemplate.update("INSERT INTO user_account (id, user_no, phone, password_hash, nickname, avatar_url, status) VALUES (?, ?, ?, 'hash', ?, ?, 'ACTIVE')",
+	                userId, "U" + userId, "1380000" + userId, nickname, avatarUrl);
+	    }
+
+	    private void updateUserAccount(Long userId, String nickname, String avatarUrl) {
+	        jdbcTemplate.update("UPDATE user_account SET nickname = ?, avatar_url = ?, status = 'ACTIVE' WHERE id = ?", nickname, avatarUrl, userId);
+	    }
+
+	    private void insertInactiveUserAccount(Long userId, String nickname, String avatarUrl) {
+	        jdbcTemplate.update("INSERT INTO user_account (id, user_no, phone, password_hash, nickname, avatar_url, status) VALUES (?, ?, ?, 'hash', ?, ?, 'DISABLED')",
+	                userId, "U" + userId, "1380000" + userId, nickname, avatarUrl);
+	    }
+
+	    private void markUserInactive(Long userId) {
+	        jdbcTemplate.update("UPDATE user_account SET status = 'DISABLED' WHERE id = ?", userId);
+	    }
 
     private void insertUserProfile(Long userId, String gender, String city, String mainRole, boolean videoVerified) {
         jdbcTemplate.update("INSERT INTO user_profile (user_id, gender, city, main_role, video_identity_status, video_verified) VALUES (?, ?, ?, ?, ?, ?)",
                 userId, gender, city, mainRole, videoVerified ? "APPROVED" : "UNVERIFIED", videoVerified);
+    }
+
+    private void insertUserProfileWithVideoStatus(Long userId, String gender, String city, String mainRole, String videoIdentityStatus, boolean videoVerified) {
+        jdbcTemplate.update("INSERT INTO user_profile (user_id, gender, city, main_role, video_identity_status, video_verified) VALUES (?, ?, ?, ?, ?, ?)",
+                userId, gender, city, mainRole, videoIdentityStatus, videoVerified);
     }
 
     private void insertGiftOrder(String giftOrderNo, Long senderId, Long receiverId, int totalAmount) {
@@ -287,6 +650,44 @@ class ChatApplicationServiceTest {
         return command;
     }
 
+    private void insertLegacyVoiceMessage(Long conversationId, String clientMsgId, Long senderId, Long receiverId, String url, boolean doubleEncoded) {
+        Long serverSeq = jdbcTemplate.queryForObject("SELECT COALESCE(MAX(server_seq), 0) + 1 FROM im_message WHERE conversation_id = ?", Long.class, conversationId);
+        String messageNo = "MSG-" + conversationId + "-" + serverSeq;
+        String contentJson = "{\"url\":\"" + url + "\",\"durationMs\":1800,\"sizeBytes\":4096,\"mimeType\":\"audio/webm\"}";
+        String legacyContentJson = doubleEncoded
+                ? "\"" + contentJson.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+                : contentJson.replace("\"", "\\\"");
+        jdbcTemplate.update("""
+                INSERT INTO im_message (
+                  message_no, conversation_id, conversation_no, server_seq, client_msg_id, client_key,
+                  sender_id, receiver_id, message_type, content_json, revoked, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'VOICE', ?, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, messageNo, conversationId, "IM-SINGLE-1-2", serverSeq, clientMsgId, conversationId + ":" + senderId + ":" + clientMsgId, senderId, receiverId, legacyContentJson);
+        jdbcTemplate.update("""
+                UPDATE im_conversation
+                SET last_seq = ?, last_message_summary = '[语音]', updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """, serverSeq, conversationId);
+    }
+
+    private void insertSlashEscapedVoiceMessage(Long conversationId, String clientMsgId, Long senderId, Long receiverId, String url) {
+        Long serverSeq = jdbcTemplate.queryForObject("SELECT COALESCE(MAX(server_seq), 0) + 1 FROM im_message WHERE conversation_id = ?", Long.class, conversationId);
+        String messageNo = "MSG-" + conversationId + "-" + serverSeq;
+        String slashEscapedUrl = url.replace("/", "\\/");
+        String contentJson = "{\"url\":\"" + slashEscapedUrl + "\",\"durationMs\":1800,\"sizeBytes\":4096,\"mimeType\":\"audio/webm\"}";
+        jdbcTemplate.update("""
+                INSERT INTO im_message (
+                  message_no, conversation_id, conversation_no, server_seq, client_msg_id, client_key,
+                  sender_id, receiver_id, message_type, content_json, revoked, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'VOICE', ?, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, messageNo, conversationId, "IM-SINGLE-1-2", serverSeq, clientMsgId, conversationId + ":" + senderId + ":" + clientMsgId, senderId, receiverId, contentJson);
+        jdbcTemplate.update("""
+                UPDATE im_conversation
+                SET last_seq = ?, last_message_summary = '[语音]', updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """, serverSeq, conversationId);
+    }
+
     private String issueChatImageTicket(Long ownerUserId, String storageUrl) {
         jdbcTemplate.update("""
                 INSERT INTO media_upload_ticket (
@@ -296,7 +697,7 @@ class ChatApplicationServiceTest {
         return storageUrl;
     }
 
-    private String issueExpiredChatImageTicket(Long ownerUserId, String storageUrl) {
+    private String issueExpiredUploadedChatImageTicket(Long ownerUserId, String storageUrl) {
         jdbcTemplate.update("""
                 INSERT INTO media_upload_ticket (
                   ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
@@ -314,7 +715,25 @@ class ChatApplicationServiceTest {
         return storageUrl;
     }
 
-    private String issueExpiredChatVoiceTicket(Long ownerUserId, String storageUrl) {
+    private String issueVideoIdentityTicket(Long ownerUserId) {
+        String storageUrl = "/uploads/video-identity/" + ownerUserId + "/identity.mp4";
+        jdbcTemplate.update("""
+                INSERT INTO media_upload_ticket (
+                  ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
+                ) VALUES (?, ?, 'VIDEO_IDENTITY', 'identity.mp4', 'video/mp4', 1024, ?, 'hash', 'UPLOADED', CURRENT_TIMESTAMP, DATEADD('HOUR', 1, CURRENT_TIMESTAMP))
+                """, "VIDEO-TICKET-" + ownerUserId + '-' + Math.abs(storageUrl.hashCode()), ownerUserId, storageUrl);
+        return storageUrl;
+    }
+
+    private void approveVideoIdentity(Long ownerUserId, String storageUrl) {
+        jdbcTemplate.update("""
+                INSERT INTO audit_record (
+                  audit_no, audit_type, user_id, target_type, target_id, reason, description, status, reviewed_at
+                ) VALUES (?, 'VIDEO_IDENTITY', ?, 'USER', ?, ?, '视频认证通过', 'APPROVED', CURRENT_TIMESTAMP)
+                """, "AUDIT-VIDEO-" + ownerUserId + '-' + Math.abs(storageUrl.hashCode()), ownerUserId, String.valueOf(ownerUserId), storageUrl);
+    }
+
+    private String issueExpiredUploadedChatVoiceTicket(Long ownerUserId, String storageUrl) {
         jdbcTemplate.update("""
                 INSERT INTO media_upload_ticket (
                   ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at

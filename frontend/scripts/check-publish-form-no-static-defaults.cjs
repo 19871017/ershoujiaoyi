@@ -3,6 +3,9 @@ const path = require('path')
 
 const root = path.resolve(__dirname, '..')
 const publishPath = path.join(root, 'src/pages/product/publish/index.vue')
+const searchResultPath = path.join(root, 'src/pages/search/result/index.vue')
+const emptyPath = path.join(root, 'src/pages/system/empty/index.vue')
+const publishStylePath = path.join(root, 'src/pages/product/publish/style.scss')
 const supportFiles = [
   'src/pages/product/publish/publish-integrity.ts'
 ]
@@ -10,6 +13,9 @@ const source = [
   ...supportFiles.map((supportFile) => fs.readFileSync(path.join(root, supportFile), 'utf8')),
   fs.readFileSync(publishPath, 'utf8')
 ].join('\n')
+const searchResultSource = fs.readFileSync(searchResultPath, 'utf8')
+const emptySource = fs.readFileSync(emptyPath, 'utf8')
+const publishStyleSource = fs.readFileSync(publishStylePath, 'utf8')
 const formBlock = source.match(/const form = reactive\(\{[\s\S]*?\n\}\)/)?.[0] || ''
 
 const failures = []
@@ -34,6 +40,15 @@ if (!/imageUrls:\s*\[\]\s+as\s+string\[\]/.test(source)) {
 
 if (!/createProduct\(/.test(source) || !/createMediaUploadTicket\(/.test(source) || !/uploadMediaTicketFile\(/.test(source)) {
   failures.push('publish page must continue to use real product API and completed media upload flow')
+}
+if (searchResultSource.includes("switchTab({ url: '/pages/tabbar/publish/index' })") || emptySource.includes("switchTab({ url: '/pages/tabbar/publish/index' })")) {
+  failures.push('go-publish entry points must navigate to the real product publish form, not the merchant-showcase tab')
+}
+if (!searchResultSource.includes("navigateTo({ url: '/pages/product/publish/index' })") || !emptySource.includes("navigateTo({ url: '/pages/product/publish/index' })")) {
+  failures.push('search and empty go-publish entry points must open /pages/product/publish/index')
+}
+if (!/padding-bottom:\s*calc\(190rpx \+ env\(safe-area-inset-bottom\)\)/.test(publishStyleSource)) {
+  failures.push('product publish page must reserve bottom space for the custom H5 navigation bar')
 }
 
 for (const marker of [

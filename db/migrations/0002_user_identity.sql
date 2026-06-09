@@ -79,12 +79,12 @@ CREATE TABLE IF NOT EXISTS user_tag (
 CREATE TABLE IF NOT EXISTS user_follow (
   id BIGINT PRIMARY KEY,
   follower_id BIGINT NOT NULL,
-  followee_id BIGINT NOT NULL,
+  followed_id BIGINT NOT NULL,
   relation_status VARCHAR(32) NOT NULL DEFAULT 'following',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uk_user_follow_pair (follower_id, followee_id),
-  KEY idx_user_follow_followee (followee_id, created_at),
+  UNIQUE KEY uk_user_follow_pair (follower_id, followed_id),
+  KEY idx_user_follow_followed (followed_id, created_at),
   KEY idx_user_follow_follower (follower_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

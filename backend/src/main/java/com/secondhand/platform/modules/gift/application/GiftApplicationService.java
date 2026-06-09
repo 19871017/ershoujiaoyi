@@ -4,6 +4,7 @@ import com.secondhand.platform.modules.gift.GiftCatalogItemResponse;
 import com.secondhand.platform.modules.gift.ReceivedGiftItemResponse;
 import com.secondhand.platform.modules.gift.RecentGiftFeedItemResponse;
 import com.secondhand.platform.modules.gift.SendGiftResponse;
+import com.secondhand.platform.modules.notification.application.NotificationApplicationService;
 import com.secondhand.platform.modules.wallet_ledger.application.CreditCommand;
 import com.secondhand.platform.modules.wallet_ledger.application.DebitCommand;
 import com.secondhand.platform.modules.wallet_ledger.application.LedgerTransactionResponse;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,10 +45,17 @@ public class GiftApplicationService {
 
     private final WalletLedgerService walletLedgerService;
     private final JdbcTemplate jdbcTemplate;
+    private final NotificationApplicationService notificationApplicationService;
 
     public GiftApplicationService(WalletLedgerService walletLedgerService, JdbcTemplate jdbcTemplate) {
+        this(walletLedgerService, jdbcTemplate, new NotificationApplicationService(jdbcTemplate));
+    }
+
+    @Autowired
+    public GiftApplicationService(WalletLedgerService walletLedgerService, JdbcTemplate jdbcTemplate, NotificationApplicationService notificationApplicationService) {
         this.walletLedgerService = walletLedgerService;
         this.jdbcTemplate = jdbcTemplate;
+        this.notificationApplicationService = notificationApplicationService;
     }
 
     public List<GiftCatalogItemResponse> listCatalog() {
@@ -144,6 +153,7 @@ public class GiftApplicationService {
                 nowText()
         );
         insertGiftOrder(senderId, request, quantity, response, idempotencyKey);
+        notifyGiftReceived(senderId, request.getReceiverId(), gift, quantity);
         return findGiftOrder(giftOrderNo);
     }
 
@@ -306,6 +316,25 @@ public class GiftApplicationService {
             return null;
         }
         return value.trim();
+    }
+
+    private void notifyGiftReceived(Long senderId, Long receiverId, GiftConfig gift, int quantity) {
+        notificationApplicationService.createNotification(
+                receiverId,
+                "GIFT",
+                "你收到了新礼物",
+                displayUserName(senderId) + " 送了 " + gift.name() + " × " + quantity,
+                "/pages/gift/index?mode=received"
+        );
+    }
+
+    private String displayUserName(Long userId) {
+        List<String> rows = jdbcTemplate.query("""
+                SELECT COALESCE(NULLIF(nickname, ''), NULLIF(user_no, ''), CONCAT('用户', id)) AS display_name
+                FROM user_account
+                WHERE id = ? AND status = 'ACTIVE'
+                """, (rs, rowNum) -> rs.getString("display_name"), userId);
+        return rows.isEmpty() ? "用户" + userId : rows.get(0);
     }
 
     private String sha256(String value) {

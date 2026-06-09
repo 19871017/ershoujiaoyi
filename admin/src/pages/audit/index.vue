@@ -30,10 +30,11 @@
       <div class="audit-main">
         <strong>{{ item.auditNo }}</strong>
         <span>{{ item.auditType }} / {{ item.targetType || '未标注目标' }}</span>
-        <p>{{ item.reason || item.description || '无补充说明' }}</p>
+        <p>{{ auditSummary(item) }}</p>
         <div class="audit-trace-actions">
           <RouterLink class="detail-link" :to="`/audit/${encodeURIComponent(item.auditNo)}`">查看详情</RouterLink>
           <button v-if="chatTraceFor(item)" class="link-btn" @click="openChatTrace(item)">私聊追溯</button>
+          <button v-if="communityTraceFor(item)" class="link-btn" @click="openCommunityTrace(item)">社区追溯</button>
           <button v-if="orderTraceFor(item)" class="link-btn" @click="openOrderTrace(item)">订单追溯</button>
           <button v-if="afterSalesTraceFor(item)" class="link-btn" @click="openAfterSalesTrace(item)">售后追溯</button>
         </div>
@@ -41,9 +42,11 @@
       <div class="audit-side">
         <b :class="['status', item.status.toLowerCase()]">{{ item.status }}</b>
         <div class="actions" v-if="item.status === 'PENDING' && canReviewAuditRecord(auth.session, item.auditType)">
-          <button :disabled="reviewingAuditNo === item.auditNo" @click="review(item, 'approve')">{{ reviewingAuditNo === item.auditNo ? '提交中...' : '通过' }}</button>
+          <RouterLink v-if="requiresVideoEvidenceBeforeApproval(item)" class="secondary-btn compact" :to="`/audit/${encodeURIComponent(item.auditNo)}`">进详情复核</RouterLink>
+          <button v-else :disabled="reviewingAuditNo === item.auditNo" @click="review(item, 'approve')">{{ reviewingAuditNo === item.auditNo ? '提交中...' : '通过' }}</button>
           <button class="danger" :disabled="reviewingAuditNo === item.auditNo" @click="review(item, 'reject')">拒绝</button>
         </div>
+        <div class="permission-note" v-if="requiresVideoEvidenceBeforeApproval(item) && item.status === 'PENDING'">视频认证需进入详情并授权查看视频后才能通过；列表只允许拒绝或进入详情。</div>
         <div class="permission-note" v-else-if="item.status === 'PENDING'">{{ item.auditType === 'WITHDRAWAL' ? '提现审核需 finance:review 权限，audit:review 不会触发资金审核。' : '仅拥有 audit:review 权限的管理员可提交审核动作。' }}</div>
       </div>
     </article>
@@ -53,11 +56,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { approveAdminAudit, approveAdminProduct, getAdminAuditList, rejectAdminAudit, type AdminAuditListQuery, type AuditRecordResponse } from '../../api'
+import { approveAdminAudit, approveAdminProduct, getAdminAuditList, rejectAdminAudit, rejectAdminProduct, type AdminAuditListQuery, type AuditRecordResponse } from '../../api'
 import { canReviewAuditRecord, useAuthStore } from '../../store/modules/auth'
 import { afterSalesAuditTraceLocation } from '../after-sales/after-sales-trace-links'
 import { chatAuditTraceLocation } from '../chat-trace/chat-trace-links'
+import { communityAuditTraceLocation } from '../community-trace/community-trace-links'
 import { orderAuditTraceLocation } from '../orders/order-trace-links'
+import { requiresVideoEvidenceBeforeApproval } from './audit-review-policy'
+import { maskSensitiveMediaText } from './sensitive-media-text'
 
 const audits = ref<AuditRecordResponse[]>([])
 const auth = useAuthStore()
@@ -98,13 +104,23 @@ async function review(item: AuditRecordResponse, action: 'approve' | 'reject') {
     error.value = item.auditType === 'WITHDRAWAL' ? '提现审核已阻止：当前管理员缺少 finance:review 权限。' : '审核操作已阻止：当前管理员缺少 audit:review 权限。'
     return
   }
+  if (action === 'approve' && requiresVideoEvidenceBeforeApproval(item)) {
+    error.value = '视频认证通过已阻止：请进入详情授权查看视频证据后再通过。'
+    return
+  }
   error.value = ''
   reviewingAuditNo.value = item.auditNo
   try {
     const remark = action === 'approve' ? '后台审核通过' : '后台审核拒绝'
-    const isProductAudit = action === 'approve' && item.targetType === 'PRODUCT'
+    const isProductAudit = item.targetType === 'PRODUCT'
     if (isProductAudit) {
-      await approveAdminProduct(item.targetId || '')
+      if (action === 'approve') {
+        await approveAdminProduct(item.targetId || '')
+      } else {
+        await rejectAdminProduct(item.targetId || '')
+      }
+      await load()
+      return
     }
     const updated = action === 'approve' ? await approveAdminAudit(item.auditNo, remark) : await rejectAdminAudit(item.auditNo, remark)
     audits.value = audits.value.map((row) => row.auditNo === item.auditNo ? updated : row)
@@ -123,8 +139,16 @@ function orderTraceFor(item: AuditRecordResponse) {
   return orderAuditTraceLocation(item)
 }
 
+function auditSummary(item: AuditRecordResponse) {
+  return maskSensitiveMediaText(item.reason || item.description) || '无补充说明'
+}
+
 function chatTraceFor(item: AuditRecordResponse) {
   return chatAuditTraceLocation(item)
+}
+
+function communityTraceFor(item: AuditRecordResponse) {
+  return communityAuditTraceLocation(item)
 }
 
 function openChatTrace(item: AuditRecordResponse) {
@@ -135,6 +159,17 @@ function openChatTrace(item: AuditRecordResponse) {
   }
   router.push(location).catch(() => {
     error.value = '私聊追溯页面打开失败，请稍后重试。'
+  })
+}
+
+function openCommunityTrace(item: AuditRecordResponse) {
+  const location = communityTraceFor(item)
+  if (!location) {
+    error.value = '审核目标无法追溯到社区记录。'
+    return
+  }
+  router.push(location).catch(() => {
+    error.value = '社区追溯页面打开失败，请稍后重试。'
   })
 }
 

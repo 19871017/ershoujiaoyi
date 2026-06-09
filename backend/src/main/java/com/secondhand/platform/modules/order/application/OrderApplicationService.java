@@ -30,6 +30,7 @@ public class OrderApplicationService {
     private static final String STATUS_PAID = "PAID";
     private static final String STATUS_SHIPPED = "SHIPPED";
     private static final String STATUS_COMPLETED = "COMPLETED";
+    private static final String STATUS_CANCELLED = "CANCELLED";
     private static final String ORDER_PAYMENT = "ORDER_PAYMENT";
     private static final String ORDER_SETTLEMENT = "ORDER_SETTLEMENT";
     private static final String BALANCE_TYPE_RECHARGE = "RECHARGE";
@@ -149,6 +150,30 @@ public class OrderApplicationService {
         OrderRecord paid = findByOrderNoRequired(order.orderNo());
         notifyOrderPaid(paid);
         return toPayResponse(paid, ledger.idempotentReplay());
+    }
+
+    @Transactional
+    public OrderDetailResponse cancelPendingOrder(String orderNo, Long buyerId) {
+        if (buyerId == null || buyerId <= 0) throw new IllegalArgumentException("buyerId required");
+        String safeOrderNo = requireText(orderNo, "orderNo required");
+        OrderRecord order = findByOrderNoRequired(safeOrderNo);
+        assertBuyer(order, buyerId);
+        if (STATUS_CANCELLED.equals(order.status())) {
+            return detailOrder(safeOrderNo, buyerId);
+        }
+        if (!STATUS_PENDING_PAY.equals(order.status())) {
+            throw new IllegalStateException("order-not-cancellable");
+        }
+        productApplicationService.releaseOrderLock(order.productId(), order.orderNo());
+        int changed = jdbcTemplate.update("""
+                update trade_order set order_status = ?, updated_at = CURRENT_TIMESTAMP
+                where order_no = ? and buyer_id = ? and order_status = ?
+                """, STATUS_CANCELLED, safeOrderNo, buyerId, STATUS_PENDING_PAY);
+        if (changed == 0) {
+            throw new IllegalStateException("order-cancel-state-update-failed");
+        }
+        notifyOrderCancelled(findByOrderNoRequired(safeOrderNo));
+        return detailOrder(safeOrderNo, buyerId);
     }
 
     @Transactional
@@ -474,6 +499,19 @@ public class OrderApplicationService {
         );
     }
 
+    private void notifyOrderCancelled(OrderRecord order) {
+        if (!hasNotificationTarget(order)) {
+            return;
+        }
+        notificationApplicationService.createNotification(
+                order.sellerId(),
+                "ORDER",
+                "买家已取消订单",
+                "订单 " + order.orderNo() + " 已取消，商品锁定已释放。",
+                orderDetailTargetUrl(order)
+        );
+    }
+
     private void notifyOrderShipped(OrderRecord order) {
         if (!hasNotificationTarget(order)) {
             return;
@@ -585,7 +623,7 @@ public class OrderApplicationService {
         if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) return "ALL";
         String value = status.trim().toUpperCase(Locale.ROOT);
         return switch (value) {
-            case "PENDING_PAY", "PAID", "SHIPPED", "COMPLETED", "REFUNDING" -> value;
+            case "PENDING_PAY", "PAID", "SHIPPED", "COMPLETED", "CANCELLED", "REFUNDING" -> value;
             default -> throw new IllegalArgumentException("order status invalid");
         };
     }

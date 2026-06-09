@@ -9,8 +9,8 @@
       </swiper-item>
     </swiper>
     <view v-else class="showcase-empty ds-card">
-      <view class="showcase-empty-title">{{ showcaseLoadError ? '商家秀轮播暂时不可用' : '商家秀顶部轮播待后台配置' }}</view>
-      <view class="showcase-empty-desc">顶部图片以后台轮播配置为准，未获取到服务端配置时不展示本地兜底图。</view>
+      <view class="showcase-empty-title">{{ showcaseLoadError ? '商家秀轮播暂时不可用' : '商家秀轮播暂未开放' }}</view>
+      <view class="showcase-empty-desc">{{ showcaseLoadError ? '请稍后刷新重试，认证商家列表仍可继续浏览。' : '运营配置完成后会展示认证商家精选内容。' }}</view>
     </view>
 
     <view class="podium-panel ds-card">
@@ -190,7 +190,7 @@ function openProfile(item: MerchantShowUser): void {
 </script>
 
 <style scoped>
-.seller-page{min-height:100vh;padding-top:18rpx;padding-bottom:34rpx;background:radial-gradient(circle at 12% 0%,rgba(255,202,150,.25),transparent 28%),radial-gradient(circle at 86% 14%,rgba(255,226,214,.42),transparent 24%),linear-gradient(180deg,#fff8f0 0%,#fffdfa 50%,#fff5ee 100%)}
+.seller-page{min-height:100vh;padding-top:18rpx;padding-bottom:calc(230rpx + env(safe-area-inset-bottom));background:radial-gradient(circle at 12% 0%,rgba(255,202,150,.25),transparent 28%),radial-gradient(circle at 86% 14%,rgba(255,226,214,.42),transparent 24%),linear-gradient(180deg,#fff8f0 0%,#fffdfa 50%,#fff5ee 100%)}
 .showcase-swiper{height:520rpx;border-radius:38rpx;overflow:hidden;box-shadow:0 18rpx 42rpx rgba(97,54,38,.14)}
 .showcase-empty{min-height:218rpx;padding:28rpx;border-color:rgba(255,217,189,.78);background:linear-gradient(135deg,rgba(255,255,255,.98),rgba(255,244,234,.95));display:flex;flex-direction:column;justify-content:center;gap:12rpx;box-shadow:0 14rpx 30rpx rgba(132,70,36,.075)}
 .showcase-empty-title{color:#3a261a;font-size:28rpx;font-weight:950;letter-spacing:.2rpx}

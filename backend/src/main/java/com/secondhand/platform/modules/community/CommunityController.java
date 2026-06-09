@@ -31,13 +31,15 @@ public class CommunityController {
     }
 
     @GetMapping
-    public Result<List<CommunityPostResponse>> list(@RequestParam(defaultValue = "20") int limit, HttpServletRequest request) {
-        return Result.ok(communityApplicationService.listPublishedPosts(limit, currentUserResolver.resolve(request)));
+    public Result<List<CommunityPostResponse>> list(@RequestParam(defaultValue = "20") int limit,
+                                                    @RequestParam(required = false) String topic,
+                                                    HttpServletRequest request) {
+        return Result.ok(communityApplicationService.listPublishedPosts(limit, currentUserResolver.resolveOptional(request), topic));
     }
 
     @GetMapping("/{postId}")
     public Result<CommunityPostDetailResponse> detail(@PathVariable String postId, HttpServletRequest request) {
-        return Result.ok(communityApplicationService.detail(postId, currentUserResolver.resolve(request)));
+        return Result.ok(communityApplicationService.detail(postId, currentUserResolver.resolveOptional(request)));
     }
 
     @PostMapping

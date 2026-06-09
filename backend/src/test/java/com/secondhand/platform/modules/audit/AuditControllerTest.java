@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secondhand.platform.modules.audit.application.AuditApplicationService;
 import com.secondhand.platform.shared.web.CurrentUserResolver;
+import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.mock.env.MockEnvironment;
@@ -46,6 +47,7 @@ class AuditControllerTest {
         );
         MockMvc mvc = MockMvcBuilders.standaloneSetup(controller).build();
         createActiveUser(jdbcTemplate, 1L);
+        seedReportProduct(jdbcTemplate, "PRODUCT-100001");
         ReportRequest request = new ReportRequest();
         request.setTargetType("PRODUCT");
         request.setTargetId("PRODUCT-100001");
@@ -73,6 +75,7 @@ class AuditControllerTest {
         );
         MockMvc mvc = MockMvcBuilders.standaloneSetup(controller).build();
         createActiveUser(jdbcTemplate, 1L);
+        seedReportOrder(jdbcTemplate, "OD-100001");
         ReportRequest request = new ReportRequest();
         request.setTargetType("ORDER");
         request.setTargetId("OD-100001");
@@ -100,6 +103,8 @@ class AuditControllerTest {
         );
         MockMvc mvc = MockMvcBuilders.standaloneSetup(controller).build();
         createActiveUser(jdbcTemplate, 1L);
+        seedReportOrder(jdbcTemplate, "OD-100001");
+        seedReportAfterSales(jdbcTemplate, "AS-100001", "OD-100001");
         ReportRequest request = new ReportRequest();
         request.setTargetType("AFTER_SALES");
         request.setTargetId("AS-100001");
@@ -196,6 +201,36 @@ class AuditControllerTest {
                 INSERT INTO user_account (id, user_no, phone, password_hash, nickname, status)
                 VALUES (?, ?, ?, ?, ?, 'ACTIVE')
                 """, userId, "U-AUDIT-" + userId, "1393000" + userId, "hash", "审核用户" + userId);
+    }
+
+    private void seedReportProduct(JdbcTemplate jdbcTemplate, String productNo) {
+        jdbcTemplate.update("""
+                INSERT INTO user_account (id, user_no, phone, password_hash, nickname, status)
+                SELECT 21, 'U-AUDIT-SELLER-21', '13930000021', 'hash', '举报商品卖家', 'ACTIVE'
+                WHERE NOT EXISTS (SELECT 1 FROM user_account WHERE id = 21)
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO product_item (product_no,seller_id,title,category,price,product_status,audit_status,visible,trade_rule,created_at,updated_at)
+                SELECT ?, 21, '举报目标商品', '女装', ?, 'ACTIVE', 'APPROVED', TRUE, 'offline-face-to-face-after-platform-order', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                WHERE NOT EXISTS (SELECT 1 FROM product_item WHERE product_no = ?)
+                """, productNo, new BigDecimal("88.00"), productNo);
+    }
+
+    private void seedReportOrder(JdbcTemplate jdbcTemplate, String orderNo) {
+        seedReportProduct(jdbcTemplate, "PRODUCT-100001");
+        jdbcTemplate.update("""
+                INSERT INTO trade_order (order_no,product_id,goods_id,product_no,product_title,trade_rule_snapshot,buyer_id,seller_id,amount,order_status,accepted_trade_rule,created_at,updated_at)
+                SELECT ?, 100001, 100001, 'PRODUCT-100001', '举报目标订单商品', 'server-record', 1, 21, ?, 'PAID', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                WHERE NOT EXISTS (SELECT 1 FROM trade_order WHERE order_no = ?)
+                """, orderNo, new BigDecimal("88.00"), orderNo);
+    }
+
+    private void seedReportAfterSales(JdbcTemplate jdbcTemplate, String afterSalesNo, String orderNo) {
+        jdbcTemplate.update("""
+                INSERT INTO after_sales_record (after_sales_no,order_no,applicant_id,after_sales_type,refund_amount,reason,description,evidence_urls,after_sales_status,created_at,updated_at)
+                SELECT ?, ?, 1, 'REFUND_ONLY', ?, '售后纠纷', '售后举报目标描述', '', 'PENDING_REVIEW', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                WHERE NOT EXISTS (SELECT 1 FROM after_sales_record WHERE after_sales_no = ?)
+                """, afterSalesNo, orderNo, new BigDecimal("12.00"), afterSalesNo);
     }
 
     private CurrentUserResolver devCurrentUserResolver(JdbcTemplate jdbcTemplate) {

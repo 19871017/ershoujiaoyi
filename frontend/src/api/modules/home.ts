@@ -1,6 +1,6 @@
 import { get } from '../http'
 
-export type HomeBannerAction = 'closet' | 'ranking' | 'forum' | 'search' | 'none'
+export type HomeBannerAction = 'closet' | 'ranking' | 'community' | 'forum' | 'search' | 'none'
 export type HomeBannerPlacement = 'HOME' | 'MERCHANT_SHOWCASE'
 
 export interface HomeBannerResponse {

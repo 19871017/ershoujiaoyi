@@ -13,20 +13,20 @@
       <view class="section-head">
         <view>
           <view class="section-title">视频认证</view>
-          <view class="status-text">当前状态：{{ videoStatusText }}</view>
+          <view class="status-text">{{ videoStatusHint }}</view>
         </view>
         <view class="status-pill" :class="videoStatusClass">{{ videoStatusText }}</view>
       </view>
-      <view class="video-box tapable" :class="{ disabled: videoActionDisabled }" @click="chooseVideo">
+      <view class="video-box tapable" :class="{ disabled: videoActionDisabled, selected: hasSelectedVideo }" @click="chooseVideo">
         <view class="video-play">▶</view>
         <view>
-          <view class="upload-title">{{ videoUrl ? '视频认证资料已完成平台上传' : '录制/上传 10 秒真人认证视频' }}</view>
-          <view class="upload-desc">建议展示本人正脸并口播“小原圈视频认证”；仅后端审核通过后才对外显示认证卖家标识。</view>
-          <view v-if="videoUrl" class="video-url">{{ videoUrl }}</view>
+          <view class="upload-title">{{ videoUploadTitle }}</view>
+          <view class="upload-desc">建议展示本人正脸并口播“小原圈视频认证”；仅平台审核通过后才对外显示认证卖家标识。</view>
+          <view class="video-upload-state" :class="{ muted: !hasSelectedVideo }">{{ videoUploadStateText }}</view>
         </view>
       </view>
-      <view class="verify-note">提交后会重新读取服务端认证状态，本页不会本地改写通过标识。</view>
-      <button class="primary-btn" :disabled="videoSubmitDisabled" @click="submitVideo">
+      <view class="verify-note">提交后会重新读取平台认证记录，审核通过前不会展示认证卖家标识。</view>
+      <button class="primary-btn video-submit-btn" :class="{ disabled: videoSubmitDisabled }" :disabled="videoSubmitDisabled" @click="submitVideo">
         {{ videoSubmitButtonText }}
       </button>
     </view>
@@ -55,17 +55,19 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { createMediaUploadTicket, uploadMediaTicketFile } from '../../../api/modules/media'
+import { createMediaUploadTicket, uploadMediaTicketBlob, uploadMediaTicketFile } from '../../../api/modules/media'
 import { getMyProfile, submitRealNameIdentity, submitVideoIdentity, type UserProfileResponse } from '../../../api/modules/user'
 import {
   assertBackendProfile,
   checks,
-  fileNameFromPath,
   guessVideoContentType,
   hasApprovedVideoIdentity,
   hasInvalidTempVideoPath,
+  hasInvalidVideoIdentityDuration,
   isPickerCancel,
   validatedVideoIdentityUrl,
+  videoNameFromPickerResult,
+  videoTypeFromPickerResult,
   type ChooseVideoResult,
   type RealNameFieldKey
 } from './identity-helpers'
@@ -80,11 +82,15 @@ const profileUnavailable = ref(false)
 const profile = reactive<UserProfileResponse>({ userId: 0, nickname: '', mainRole: 'UNVERIFIED', identityStatus: 'UNVERIFIED', videoIdentityStatus: 'UNVERIFIED', videoVerified: false })
 const videoStatusText = computed(videoStatusLabel)
 const videoStatusClass = computed(videoStatusClassName)
+const videoStatusHint = computed(videoStatusDescription)
+const hasSelectedVideo = computed(() => Boolean(videoUrl.value))
+const videoUploadTitle = computed(videoUploadTitleLabel)
+const videoUploadStateText = computed(videoUploadStateLabel)
 const videoSubmitButtonText = computed(submitVideoButtonLabel)
 const realNameStatusText = computed(realNameStatusLabel)
 const realNameSubmitButtonText = computed(submitRealNameButtonLabel)
 const videoActionDisabled = computed(() => !profileReady.value || profileUnavailable.value || uploadingVideo.value || hasApprovedVideoIdentity(profile))
-const videoSubmitDisabled = computed(() => submittingVideo.value || uploadingVideo.value || !profileReady.value || profileUnavailable.value || hasApprovedVideoIdentity(profile))
+const videoSubmitDisabled = computed(() => submittingVideo.value || uploadingVideo.value || !videoUrl.value || !profileReady.value || profileUnavailable.value || hasApprovedVideoIdentity(profile))
 const realNameSubmitDisabled = computed(() => submittingRealName.value || !profileReady.value || profileUnavailable.value || profile.identityStatus === 'VERIFIED')
 
 function clearVideoTrustState(): void {
@@ -93,6 +99,11 @@ function clearVideoTrustState(): void {
   profile.videoVerified = false
   profile.videoIdentityUrl = ''
   videoUrl.value = ''
+}
+
+function syncSubmittedVideoUrlFromProfile(): void {
+  if (profile.videoIdentityStatus !== 'PENDING' && !hasApprovedVideoIdentity(profile)) return
+  videoUrl.value = validatedVideoIdentityUrl(profile.videoIdentityUrl)
 }
 
 function realNameStatusLabel(): string {
@@ -106,17 +117,52 @@ function realNameStatusLabel(): string {
 function videoStatusLabel(): string {
   if (!profileReady.value || profileUnavailable.value) return '状态不可用'
   if (hasApprovedVideoIdentity(profile)) return '已通过'
-  if (profile.videoIdentityStatus === 'PENDING') return '审核中'
-  if (profile.videoIdentityStatus === 'REJECTED') return '已拒绝'
-  return '未认证'
+  switch (profile.videoIdentityStatus) {
+    case 'PENDING':
+      return '审核中'
+    case 'REJECTED':
+      return '已拒绝'
+    default:
+      return '未认证'
+  }
 }
 
 function videoStatusClassName(): string {
   if (!profileReady.value || profileUnavailable.value) return 'unavailable'
   if (hasApprovedVideoIdentity(profile)) return 'approved'
-  if (profile.videoIdentityStatus === 'PENDING') return 'pending'
-  if (profile.videoIdentityStatus === 'REJECTED') return 'rejected'
-  return 'unverified'
+  switch (profile.videoIdentityStatus) {
+    case 'PENDING':
+      return 'pending'
+    case 'REJECTED':
+      return 'rejected'
+    default:
+      return 'unverified'
+  }
+}
+
+function videoStatusDescription(): string {
+  if (!profileReady.value || profileUnavailable.value) return '平台认证状态暂时不可用，请稍后重新进入页面查看。'
+  if (hasApprovedVideoIdentity(profile)) return '已通过视频认证，其他用户可在你的主页看到认证卖家标识。'
+  switch (profile.videoIdentityStatus) {
+    case 'PENDING':
+      return '资料已提交，平台正在审核；通过前不会对外展示。'
+    case 'REJECTED':
+      return '上次资料未通过，可以重新上传清晰的真人短片。'
+    default:
+      return '上传真人短片后提交审核，通过前不会对外展示。'
+  }
+}
+
+function videoUploadTitleLabel(): string {
+  if (uploadingVideo.value) return '视频上传中...'
+  if (videoUrl.value) return '认证视频已上传'
+  return '录制/上传 10 秒真人认证视频'
+}
+
+function videoUploadStateLabel(): string {
+  if (uploadingVideo.value) return '正在上传到平台，请稍候'
+  if (videoUrl.value) return '认证视频已选择/已上传，可重新选择'
+  return '未选择认证视频'
 }
 
 function submitVideoButtonLabel(): string {
@@ -124,6 +170,7 @@ function submitVideoButtonLabel(): string {
   if (uploadingVideo.value) return '上传中...'
   if (!profileReady.value || profileUnavailable.value) return '认证状态不可用'
   if (hasApprovedVideoIdentity(profile)) return '视频认证已通过'
+  if (!videoUrl.value) return '请先选择认证视频'
   return '提交视频认证'
 }
 
@@ -152,6 +199,14 @@ function updateRealNameField(field: RealNameFieldKey, event: unknown): void {
   form[field] = value
 }
 
+async function readH5TempVideoBlob(tempFilePath: string): Promise<Blob | undefined> {
+  if (!tempFilePath.toLowerCase().startsWith('blob:')) return undefined
+  if (typeof fetch !== 'function') throw new Error('当前环境不支持读取视频文件，请换用 MP4 文件或稍后重试')
+  const response = await fetch(tempFilePath)
+  if (!response.ok) throw new Error('视频文件读取失败，请重新选择')
+  return response.blob()
+}
+
 function chooseVideo(): void {
   if (!profileReady.value || profileUnavailable.value) return uni.showToast({ title: '认证状态暂时不可用，请稍后重新进入页面查看', icon: 'none' })
   if (hasApprovedVideoIdentity(profile)) return uni.showToast({ title: '视频认证已通过', icon: 'none' })
@@ -173,9 +228,16 @@ function chooseVideo(): void {
             uni.showToast({ title: '视频资料无效，请重新选择', icon: 'none' })
             return
           }
-          contentType = guessVideoContentType(res.tempFilePath)
-          fileSize = Math.max(1, res.size ?? 1)
-          filename = fileNameFromPath(res.tempFilePath)
+          if (hasInvalidVideoIdentityDuration(res.duration)) {
+            videoUrl.value = ''
+            console.warn('identity video picker returned invalid duration', { scene: 'VIDEO_IDENTITY', duration: res.duration })
+            uni.showToast({ title: '视频认证视频请控制在 10 秒以内', icon: 'none' })
+            return
+          }
+          const h5Blob = await readH5TempVideoBlob(res.tempFilePath)
+          contentType = guessVideoContentType(res.tempFilePath, videoTypeFromPickerResult(res, h5Blob))
+          fileSize = Math.max(1, h5Blob?.size ?? res.size ?? 1)
+          filename = videoNameFromPickerResult(res, contentType)
           uni.showLoading({ title: '上传视频中' })
           const ticket = await createMediaUploadTicket({
             scene: 'VIDEO_IDENTITY',
@@ -183,7 +245,9 @@ function chooseVideo(): void {
             fileSize,
             filename
           })
-          const uploaded = await uploadMediaTicketFile(ticket, res.tempFilePath)
+          const uploaded = h5Blob
+            ? await uploadMediaTicketBlob(ticket, new Blob([h5Blob], { type: contentType }), filename)
+            : await uploadMediaTicketFile(ticket, res.tempFilePath)
           videoUrl.value = validatedVideoIdentityUrl(uploaded.storageUrl)
           uni.showToast({ title: '已生成上传票据', icon: 'none' })
         } catch (error) {
@@ -214,6 +278,7 @@ async function loadProfile(): Promise<boolean> {
     const backendProfile = await getMyProfile()
     assertBackendProfile(backendProfile)
     Object.assign(profile, backendProfile)
+    syncSubmittedVideoUrlFromProfile()
     profileReady.value = true
     profileUnavailable.value = false
     return true
@@ -298,7 +363,7 @@ async function submit(): Promise<void> {
     if (!refreshed) return uni.showToast({ title: '实名提交结果暂时无法校验，请稍后重新进入页面确认后再操作', icon: 'none' })
     const modalOptions = {
       title: '实名认证已提交',
-      content: '资料已由平台接收，当前实名状态已重新读取服务端记录；后台审核后会同步用于提现和纠纷处理。',
+      content: '资料已由平台接收，当前实名状态已重新读取平台记录；审核通过后会同步用于提现和纠纷处理。',
       showCancel: false,
       fail(error: unknown) {
         console.warn('identity real-name submit success modal failed', { error })

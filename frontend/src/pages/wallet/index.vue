@@ -46,6 +46,8 @@
       <view class="section-desc">提交后立即冻结可提现余额；审核通过会从冻结资金出款，拒绝会原路解冻。</view>
       <view class="safe-guard">资金动作均以平台账本为准：冻结、出款、解冻都会写入幂等流水。</view>
       <view class="safe-guard danger">提现页不采集完整收款账号；仅使用后端返回的提现账户引用提交审核。</view>
+      <view class="safe-guard" :class="{ danger: !identityVerified }">{{ withdrawalIdentityText }}</view>
+      <button v-if="!identityVerified" class="secondary-btn" @click="openIdentity">去实名认证</button>
       <input v-model.trim="withdrawForm.amount" class="field" type="digit" placeholder="提现金额" />
       <button class="secondary-btn" @click="openPayoutAccount">管理提现账户</button>
       <view v-if="maskedAccountNo" class="result-box">
@@ -95,6 +97,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createRecharge, type RechargeResponse } from '../../api/modules/payment'
+import { getMyProfile, type UserProfileResponse } from '../../api/modules/user'
 import { createWithdrawal, getPayoutAccount, getWalletBalance, getWalletLedger, type PayoutAccountResponse, type WalletBalanceResponse, type WalletLedgerItemResponse } from '../../api/modules/wallet'
 import {
   balanceTypeLabel,
@@ -122,6 +125,7 @@ const lastRecharge = ref<RechargeResponse | null>(null)
 const withdrawForm = reactive({ amount: '', remark: '' })
 const maskedAccountNo = ref('')
 const activePayoutAccount = ref<PayoutAccountResponse | null>(null)
+const profile = ref<UserProfileResponse | null>(null)
 const withdrawing = ref(false)
 const withdrawMessage = ref('')
 const ledgerList = ref<WalletLedgerItemResponse[]>([])
@@ -130,8 +134,16 @@ const ledgerMessage = ref('')
 const recentLedgers = computed(() => ledgerList.value.slice(0, 8))
 const totalAvailable = computed(() => money(Number(balance.rechargeBalance || 0) + Number(balance.incomeBalance || 0)))
 const rechargeDesc = computed(() => '充值单创建后进入待支付，请等待正式支付通道回调入账。')
+const identityVerified = computed(() => profile.value?.identityStatus === 'VERIFIED')
+const withdrawalIdentityText = computed(() => {
+  const status = profile.value?.identityStatus || 'UNVERIFIED'
+  if (status === 'VERIFIED') return '实名认证已通过，可提交提现审核；后台仍会复核实名与收款账户一致性。'
+  if (status === 'PENDING') return '实名认证审核中，暂不能提交提现；平台不会冻结提现资金。'
+  if (status === 'REJECTED') return '实名认证未通过，提现前需重新提交并通过审核。'
+  return '提现前需先完成实名认证；未通过前不会冻结资金。'
+})
 
-async function refreshAll() { await Promise.all([loadBalance(), loadLedger(), loadPayoutAccount()]) }
+async function refreshAll() { await Promise.all([loadBalance(), loadLedger(), loadPayoutAccount(), loadProfile()]) }
 async function loadBalance() {
   loading.value = true
   statusText.value = ''
@@ -148,6 +160,7 @@ async function loadLedger() {
 }
 function openLedger() { uni.navigateTo({ url: '/pages/wallet/ledger/index' }) }
 function openPayoutAccount() { uni.navigateTo({ url: '/pages/wallet/accounts/index' }) }
+function openIdentity() { uni.navigateTo({ url: '/pages/user/identity/index' }) }
 async function loadPayoutAccount() {
   try {
     activePayoutAccount.value = await getPayoutAccount()
@@ -156,6 +169,10 @@ async function loadPayoutAccount() {
     activePayoutAccount.value = null
     maskedAccountNo.value = ''
   }
+}
+async function loadProfile() {
+  try { profile.value = await getMyProfile() }
+  catch { profile.value = null }
 }
 async function handleCreateRecharge() {
   const amount = normalizeAmount(rechargeForm.amount)
@@ -169,6 +186,7 @@ async function handleCreateRecharge() {
 async function handleCreateWithdrawal() {
   const amount = normalizeAmount(withdrawForm.amount)
   if (!isValidMoneyAmount(amount)) { withdrawMessage.value = '请输入有效提现金额'; return }
+  if (!identityVerified.value) { withdrawMessage.value = '提现前需先完成实名认证；未执行资金冻结'; return }
   if (!activePayoutAccount.value?.payoutAccountId) { withdrawMessage.value = '请先在账户管理页完成后端提现账户绑定；未执行资金冻结'; return }
   withdrawing.value = true
   withdrawMessage.value = ''

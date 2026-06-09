@@ -9,29 +9,53 @@ import com.secondhand.platform.modules.audit.application.AuditApplicationService
 import com.secondhand.platform.modules.audit.application.AdminAuditLogResponse;
 import com.secondhand.platform.modules.audit.application.AdminDashboardSummary;
 import com.secondhand.platform.modules.audit.application.AuditRecordResponse;
+import com.secondhand.platform.modules.community.application.CommunityApplicationService;
+import com.secondhand.platform.modules.community.application.CommunityPostDetailResponse;
+import com.secondhand.platform.modules.community.application.CommunityPostResponse;
 import com.secondhand.platform.modules.location.AdminUpdateLocationConfigRequest;
 import com.secondhand.platform.modules.location.LocationApplicationService;
 import com.secondhand.platform.modules.location.LocationConfigResponse;
+import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
+import com.secondhand.platform.modules.media.application.VideoIdentityMediaInspector;
 import com.secondhand.platform.modules.order.OrderDetailResponse;
 import com.secondhand.platform.modules.order.OrderListItemResponse;
 import com.secondhand.platform.modules.order.application.OrderApplicationService;
 import com.secondhand.platform.modules.product.CreateProductResponse;
+import com.secondhand.platform.modules.product.ProductDetailResponse;
+import com.secondhand.platform.modules.product.ProductListItemResponse;
 import com.secondhand.platform.modules.product.application.ProductApplicationService;
 import com.secondhand.platform.modules.user.AdminUserDetailResponse;
 import com.secondhand.platform.modules.user.application.UserApplicationService;
+import com.secondhand.platform.modules.wallet_ledger.AdminWithdrawalReviewDetailResponse;
 import com.secondhand.platform.modules.wallet_ledger.WithdrawalResponse;
 import com.secondhand.platform.modules.wallet_ledger.application.WalletLedgerService;
 import com.secondhand.platform.shared.kernel.Result;
 import com.secondhand.platform.shared.web.AdminAccessGuard;
+import com.secondhand.platform.shared.web.MediaPathGuard;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,6 +68,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
+    private static final double VIDEO_IDENTITY_WATCH_RATIO_THRESHOLD = 0.8;
+    private static final Set<String> ALLOWED_VIDEO_IDENTITY_CONTENT_TYPES = Set.of("video/mp4", "video/quicktime", "video/x-m4v");
+    private static final double VIDEO_IDENTITY_WATCH_PROGRESS_GRACE_SECONDS = 0.75;
+    private static final double VIDEO_IDENTITY_DURATION_MISMATCH_GRACE_SECONDS = 1.0;
     private static final Set<String> BLOCKED_ADMIN_SEARCH_KEYWORDS = Set.of(
             "preview",
             "demo",
@@ -51,10 +79,14 @@ public class AdminController {
             "sample",
             "placeholder"
     );
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final TypeReference<Map<String, Object>> STRING_OBJECT_MAP = new TypeReference<>() {
+    };
 
     private static final Set<String> ASSIGNABLE_OPERATOR_PERMISSIONS = Set.of(
             "audit:read",
             "audit:review",
+            "chat:trace",
             "finance:read",
             "finance:review",
             "user:read",
@@ -74,10 +106,44 @@ public class AdminController {
     private final AfterSalesApplicationService afterSalesApplicationService;
     private final OrderApplicationService orderApplicationService;
     private final ProductApplicationService productApplicationService;
+    private final CommunityApplicationService communityApplicationService;
     private final UserApplicationService userApplicationService;
     private final com.secondhand.platform.modules.home.HomeBannerApplicationService homeBannerApplicationService;
     private final AdminAccessGuard adminAccessGuard;
     private final JdbcTemplate jdbcTemplate;
+    private final MediaUploadTicketService mediaUploadTicketService;
+    private final Path mediaStorageRoot;
+
+    @Autowired
+    public AdminController(AuditApplicationService auditApplicationService,
+                           WalletLedgerService walletLedgerService,
+                           AnnouncementApplicationService announcementApplicationService,
+                           LocationApplicationService locationApplicationService,
+                           AfterSalesApplicationService afterSalesApplicationService,
+                           OrderApplicationService orderApplicationService,
+                           ProductApplicationService productApplicationService,
+                           CommunityApplicationService communityApplicationService,
+                           UserApplicationService userApplicationService,
+                           com.secondhand.platform.modules.home.HomeBannerApplicationService homeBannerApplicationService,
+                           AdminAccessGuard adminAccessGuard,
+                           JdbcTemplate jdbcTemplate,
+                           MediaUploadTicketService mediaUploadTicketService,
+                           @Value("${media.storage-root:${java.io.tmpdir}}") String mediaStorageRoot) {
+        this.auditApplicationService = auditApplicationService;
+        this.walletLedgerService = walletLedgerService;
+        this.announcementApplicationService = announcementApplicationService;
+        this.locationApplicationService = locationApplicationService;
+        this.afterSalesApplicationService = afterSalesApplicationService;
+        this.orderApplicationService = orderApplicationService;
+        this.productApplicationService = productApplicationService;
+        this.communityApplicationService = communityApplicationService;
+        this.userApplicationService = userApplicationService;
+        this.homeBannerApplicationService = homeBannerApplicationService;
+        this.adminAccessGuard = adminAccessGuard;
+        this.jdbcTemplate = jdbcTemplate;
+        this.mediaUploadTicketService = mediaUploadTicketService;
+        this.mediaStorageRoot = resolveMediaStorageRoot(mediaStorageRoot);
+    }
 
     public AdminController(AuditApplicationService auditApplicationService,
                            WalletLedgerService walletLedgerService,
@@ -86,21 +152,25 @@ public class AdminController {
                            AfterSalesApplicationService afterSalesApplicationService,
                            OrderApplicationService orderApplicationService,
                            ProductApplicationService productApplicationService,
+                           CommunityApplicationService communityApplicationService,
                            UserApplicationService userApplicationService,
                            com.secondhand.platform.modules.home.HomeBannerApplicationService homeBannerApplicationService,
                            AdminAccessGuard adminAccessGuard,
                            JdbcTemplate jdbcTemplate) {
-        this.auditApplicationService = auditApplicationService;
-        this.walletLedgerService = walletLedgerService;
-        this.announcementApplicationService = announcementApplicationService;
-        this.locationApplicationService = locationApplicationService;
-        this.afterSalesApplicationService = afterSalesApplicationService;
-        this.orderApplicationService = orderApplicationService;
-        this.productApplicationService = productApplicationService;
-        this.userApplicationService = userApplicationService;
-        this.homeBannerApplicationService = homeBannerApplicationService;
-        this.adminAccessGuard = adminAccessGuard;
-        this.jdbcTemplate = jdbcTemplate;
+        this(auditApplicationService,
+                walletLedgerService,
+                announcementApplicationService,
+                locationApplicationService,
+                afterSalesApplicationService,
+                orderApplicationService,
+                productApplicationService,
+                communityApplicationService,
+                userApplicationService,
+                homeBannerApplicationService,
+                adminAccessGuard,
+                jdbcTemplate,
+                new MediaUploadTicketService(jdbcTemplate),
+                System.getProperty("java.io.tmpdir"));
     }
 
     @GetMapping("/dashboard")
@@ -127,9 +197,68 @@ public class AdminController {
     @PostMapping("/products/{productId}/approve")
     public Result<CreateProductResponse> approveProduct(@PathVariable Long productId, HttpServletRequest request) {
         long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
+        String auditNo = productApplicationService.requirePendingProductAuditNo(productId);
         productApplicationService.approveForSale(productId);
-        auditApplicationService.approveLinkedPendingAudit("PRODUCT", String.valueOf(productId), "后台商品审核通过", adminUserId);
+        auditApplicationService.approve(auditNo, "后台商品审核通过", adminUserId);
         return Result.ok(productApplicationService.createResponse(productId));
+    }
+
+    @PostMapping("/products/{productId}/reject")
+    public Result<CreateProductResponse> rejectProduct(@PathVariable Long productId, HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
+        String auditNo = productApplicationService.requirePendingProductAuditNo(productId);
+        productApplicationService.rejectForSale(productId);
+        auditApplicationService.reject(auditNo, "后台商品审核拒绝", adminUserId);
+        return Result.ok(productApplicationService.createResponse(productId));
+    }
+
+    @GetMapping("/products")
+    public Result<List<ProductListItemResponse>> productList(@RequestParam(required = false) String status,
+                                                             @RequestParam(required = false) String auditStatus,
+                                                             @RequestParam(required = false) String keyword,
+                                                             @RequestParam(defaultValue = "20") Integer limit,
+                                                             HttpServletRequest request) {
+        adminAccessGuard.requireAdmin(request, "audit:read");
+        return Result.ok(productApplicationService.adminListProducts(status, auditStatus, keyword, limit));
+    }
+
+    @GetMapping("/products/{productId}")
+    public Result<ProductDetailResponse> productDetail(@PathVariable Long productId, HttpServletRequest request) {
+        adminAccessGuard.requireAdmin(request, "audit:read");
+        return Result.ok(productApplicationService.adminDetailProduct(productId));
+    }
+
+    @GetMapping("/community/posts")
+    public Result<List<CommunityPostResponse>> communityPostList(@RequestParam(required = false) String keyword,
+                                                                 @RequestParam(required = false) Long authorId,
+                                                                 @RequestParam(defaultValue = "20") Integer limit,
+                                                                 HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:read");
+        List<CommunityPostResponse> rows = communityApplicationService.adminListPosts(keyword, authorId, limit);
+        auditApplicationService.recordAdminOperation(
+                "COMMUNITY_TRACE_LIST",
+                adminUserId,
+                "COMMUNITY_POST_LIST",
+                communityTraceListTargetId(authorId, keyword, limit),
+                "SUCCESS",
+                "查询社区追溯列表 rows=" + rows.size()
+        );
+        return Result.ok(rows);
+    }
+
+    @GetMapping("/community/posts/{postId}")
+    public Result<CommunityPostDetailResponse> communityPostDetail(@PathVariable String postId, HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:read");
+        CommunityPostDetailResponse response = communityApplicationService.adminDetail(postId);
+        auditApplicationService.recordAdminOperation(
+                "COMMUNITY_TRACE_VIEW",
+                adminUserId,
+                "COMMUNITY_POST",
+                String.valueOf(response.getPostId()),
+                "SUCCESS",
+                "查看社区追溯 postNo=" + response.getPostNo() + " comments=" + response.getComments().size()
+        );
+        return Result.ok(response);
     }
 
     @GetMapping("/users/{userId}")
@@ -303,9 +432,9 @@ public class AdminController {
     }
 
     @GetMapping("/withdrawals/{withdrawalNo}")
-    public Result<WithdrawalResponse> withdrawalDetail(@PathVariable String withdrawalNo, HttpServletRequest request) {
+    public Result<AdminWithdrawalReviewDetailResponse> withdrawalDetail(@PathVariable String withdrawalNo, HttpServletRequest request) {
         adminAccessGuard.requireAdmin(request, "finance:read");
-        return Result.ok(walletLedgerService.getAdminWithdrawal(withdrawalNo));
+        return Result.ok(walletLedgerService.getAdminWithdrawalReviewDetail(withdrawalNo));
     }
 
     @GetMapping("/after-sales")
@@ -329,28 +458,39 @@ public class AdminController {
                                                                                 @RequestParam(required = false) String keyword,
                                                                                 @RequestParam(defaultValue = "20") Integer limit,
                                                                                 HttpServletRequest request) {
-        adminAccessGuard.requireAdmin(request, "audit:read");
+        adminAccessGuard.requireAdmin(request, "chat:trace");
         return Result.ok(queryAdminChatConversations(conversationId, userId, keyword, limit));
     }
 
     @GetMapping("/chat/conversations/{conversationId}/messages")
     public Result<AdminChatConversationMessageTraceResponse> chatConversationMessages(@PathVariable Long conversationId,
                                                                                      @RequestParam(defaultValue = "100") Integer limit,
+                                                                                     @RequestParam(required = false) Long beforeSeq,
                                                                                      HttpServletRequest request) {
-        adminAccessGuard.requireAdmin(request, "audit:read");
+        long adminUserId = adminAccessGuard.requireAdmin(request, "chat:trace");
         long safeConversationId = requirePositiveId(conversationId, "conversationId invalid");
+        Long safeBeforeSeq = beforeSeq == null ? null : requirePositiveId(beforeSeq, "beforeSeq invalid");
         int safeLimit = normalizeLimit(limit, 100, 200, "chat message limit invalid");
         List<AdminChatConversationTraceResponse> conversations = queryAdminChatConversations(safeConversationId, null, null, 1);
         if (conversations.isEmpty()) {
             throw new IllegalArgumentException("conversation not found");
         }
-        List<AdminChatMessageTraceResponse> messages = jdbcTemplate.query("""
+        List<Object> args = new ArrayList<>();
+        args.add(safeConversationId);
+        String beforeSeqFilter = "";
+        if (safeBeforeSeq != null) {
+            beforeSeqFilter = " AND server_seq < ?";
+            args.add(safeBeforeSeq);
+        }
+        args.add(safeLimit + 1);
+        List<AdminChatMessageTraceResponse> fetchedMessages = jdbcTemplate.query("""
                 SELECT *
                 FROM (
                     SELECT id, message_no, conversation_id, conversation_no, server_seq, client_msg_id,
-                           sender_id, receiver_id, message_type, content_json, created_at
+                           sender_id, receiver_id, message_type, content_json, revoked, revoked_at, created_at
                     FROM im_message
                     WHERE conversation_id = ?
+                    """ + beforeSeqFilter + """
                     ORDER BY server_seq DESC
                     LIMIT ?
                 ) recent_messages
@@ -366,9 +506,173 @@ public class AdminController {
                 rs.getLong("receiver_id"),
                 rs.getString("message_type"),
                 rs.getString("content_json"),
+                rs.getBoolean("revoked"),
+                toLocalDateTime(rs.getTimestamp("revoked_at")),
                 toLocalDateTime(rs.getTimestamp("created_at"))
-        ), safeConversationId, safeLimit);
-        return Result.ok(new AdminChatConversationMessageTraceResponse(conversations.get(0), messages));
+        ), args.toArray());
+        boolean hasMore = fetchedMessages.size() > safeLimit;
+        List<AdminChatMessageTraceResponse> messages = hasMore
+                ? List.copyOf(fetchedMessages.subList(1, fetchedMessages.size()))
+                : List.copyOf(fetchedMessages);
+        Long oldestSeq = messages.isEmpty() ? null : messages.get(0).serverSeq();
+        Long nextBeforeSeq = hasMore ? oldestSeq : null;
+        auditApplicationService.recordAdminOperation(
+                "CHAT_TRACE_VIEW",
+                adminUserId,
+                "CHAT_CONVERSATION",
+                String.valueOf(safeConversationId),
+                "SUCCESS",
+                "查看私聊追溯 limit=" + safeLimit + (safeBeforeSeq == null ? "" : " beforeSeq=" + safeBeforeSeq) + " messages=" + messages.size()
+        );
+        return Result.ok(new AdminChatConversationMessageTraceResponse(conversations.get(0), messages, hasMore, oldestSeq, nextBeforeSeq));
+    }
+
+    @GetMapping("/chat/media")
+    public ResponseEntity<Resource> chatTraceMedia(@RequestParam("conversationId") Long conversationId,
+                                                   @RequestParam("messageId") Long messageId,
+                                                   @RequestParam("messageNo") String messageNo,
+                                                   @RequestParam("url") String storageUrl,
+                                                   HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "chat:trace");
+        long safeConversationId = requirePositiveId(conversationId, "conversationId invalid");
+        long safeMessageId = requirePositiveId(messageId, "messageId invalid");
+        String safeMessageNo = requireText(messageNo, "messageNo required");
+        String safeStorageUrl = normalizeChatTraceMediaUrl(storageUrl);
+        ChatTraceMediaCandidate mediaCandidate = assertChatTraceMediaBoundToMessage(safeConversationId, safeMessageId, safeMessageNo, safeStorageUrl);
+        mediaUploadTicketService.requireUploadedStorageUrl(mediaCandidate.senderId(), sceneForChatTraceMedia(mediaCandidate.messageType()), safeStorageUrl);
+        Path mediaPath = verifiedChatTraceMediaPathFor(safeStorageUrl);
+        auditApplicationService.recordAdminOperation(
+                "CHAT_TRACE_MEDIA_VIEW",
+                adminUserId,
+                "CHAT_MEDIA",
+                safeConversationId + ":" + safeMessageId + ":" + safeMessageNo,
+                "SUCCESS",
+                "读取私聊追溯媒体 conversationId=" + safeConversationId + " messageId=" + safeMessageId + " messageNo=" + safeMessageNo
+        );
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header("X-Content-Type-Options", "nosniff")
+                .contentType(MediaType.parseMediaType(resolveChatTraceMediaContentType(safeStorageUrl)))
+                .contentLength(fileSize(mediaPath))
+                .body(new FileSystemResource(mediaPath));
+    }
+
+    @GetMapping("/audit/{auditNo}/video-evidence")
+    public ResponseEntity<Resource> auditVideoEvidence(@PathVariable String auditNo, HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:read");
+        AuditRecordResponse detail = auditApplicationService.getAdminDetail(auditNo);
+        if (!AuditApplicationService.AUDIT_TYPE_VIDEO_IDENTITY.equals(detail.auditType())
+                || detail.videoEvidenceVerified() != true
+                || detail.videoEvidenceUrl() == null) {
+            throw new IllegalArgumentException("video identity media not found");
+        }
+        String safeStorageUrl = normalizeVideoIdentityMediaUrl(detail.videoEvidenceUrl());
+        Path mediaPath = verifiedVideoIdentityMediaPathFor(safeStorageUrl);
+        auditApplicationService.recordAdminOperation(
+                "VIDEO_IDENTITY_MEDIA_VIEW",
+                adminUserId,
+                "AUDIT",
+                detail.auditNo(),
+                "SUCCESS",
+                "读取视频认证审核资料 auditNo=" + detail.auditNo()
+        );
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header("X-Content-Type-Options", "nosniff")
+                .contentType(MediaType.parseMediaType(resolveVideoIdentityMediaContentType(safeStorageUrl)))
+                .contentLength(fileSize(mediaPath))
+                .body(new FileSystemResource(mediaPath));
+    }
+
+    @PostMapping("/audit/{auditNo}/video-evidence/progress")
+    public Result<Void> auditVideoEvidenceProgress(@PathVariable String auditNo,
+                                                   @RequestBody(required = false) VideoIdentityWatchProgressRequest body,
+                                                   HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
+        adminAccessGuard.requireAdmin(request, "audit:read");
+        AuditRecordResponse detail = auditApplicationService.getAdminDetail(auditNo);
+        if (!AuditApplicationService.AUDIT_TYPE_VIDEO_IDENTITY.equals(detail.auditType())
+                || !AuditApplicationService.STATUS_PENDING.equals(detail.status())
+                || detail.videoEvidenceVerified() != true
+                || detail.videoEvidenceUrl() == null) {
+            throw new IllegalArgumentException("video identity media not found");
+        }
+        String safeStorageUrl = normalizeVideoIdentityMediaUrl(detail.videoEvidenceUrl());
+        Path mediaPath = verifiedVideoIdentityMediaPathFor(safeStorageUrl);
+        if (hasVideoIdentityEvidenceLog(detail, adminUserId, "VIDEO_IDENTITY_MEDIA_WATCHED")) {
+            return Result.ok(null);
+        }
+        LocalDateTime viewedAt = requireVideoIdentityEvidenceLogTime(detail, adminUserId, "VIDEO_IDENTITY_MEDIA_VIEW");
+        double serverDurationSeconds = VideoIdentityMediaInspector.readDurationSeconds(mediaPath);
+        VideoIdentityWatchProgress progress = normalizeVideoIdentityWatchProgress(body, serverDurationSeconds);
+        requireVideoIdentityWatchElapsed(viewedAt, progress.requiredElapsedSeconds());
+        auditApplicationService.recordAdminOperation(
+                "VIDEO_IDENTITY_MEDIA_WATCHED",
+                adminUserId,
+                "AUDIT",
+                detail.auditNo(),
+                "SUCCESS",
+                "视频认证资料观看进度已达标 progress=" + Math.round(progress.ratio() * 100) + "% elapsed>=" + Math.round(progress.requiredElapsedSeconds()) + "s"
+        );
+        return Result.ok(null);
+    }
+
+    @GetMapping("/audit/{auditNo}/report-evidence")
+    public ResponseEntity<Resource> auditReportEvidence(@PathVariable String auditNo,
+                                                        @RequestParam("url") String storageUrl,
+                                                        HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:read");
+        AuditRecordResponse detail = auditApplicationService.getAdminDetail(auditNo);
+        if (!AuditApplicationService.AUDIT_TYPE_REPORT.equals(detail.auditType())) {
+            throw new IllegalArgumentException("report evidence not found");
+        }
+        String safeStorageUrl = normalizeReportEvidenceMediaUrl(storageUrl);
+        assertEvidenceUrlBoundToReportAudit(detail, safeStorageUrl);
+        mediaUploadTicketService.requireUploadedStorageUrl(detail.userId(), "REPORT_EVIDENCE", safeStorageUrl);
+        Path mediaPath = verifiedSensitiveEvidenceMediaPathFor(safeStorageUrl, "report-evidence", "report evidence not found");
+        auditApplicationService.recordAdminOperation(
+                "REPORT_EVIDENCE_MEDIA_VIEW",
+                adminUserId,
+                "AUDIT",
+                detail.auditNo(),
+                "SUCCESS",
+                "读取举报凭证 index=" + evidenceIndex(reportEvidenceUrls(detail), safeStorageUrl)
+        );
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header("X-Content-Type-Options", "nosniff")
+                .contentType(MediaType.parseMediaType(evidenceMediaContentType(safeStorageUrl)))
+                .contentLength(fileSize(mediaPath))
+                .body(new FileSystemResource(mediaPath));
+    }
+
+    @GetMapping("/after-sales/{afterSalesNo}/evidence")
+    public ResponseEntity<Resource> afterSalesEvidence(@PathVariable String afterSalesNo,
+                                                       @RequestParam("url") String storageUrl,
+                                                       HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "after-sales:read");
+        AfterSalesResponse detail = afterSalesApplicationService.getAdminDetail(afterSalesNo);
+        String safeStorageUrl = normalizeAfterSalesEvidenceMediaUrl(storageUrl);
+        List<String> evidenceUrls = detail.getEvidenceUrls() == null ? List.of() : detail.getEvidenceUrls();
+        if (!evidenceUrls.contains(safeStorageUrl)) {
+            throw new IllegalArgumentException("after-sales evidence not found");
+        }
+        mediaUploadTicketService.requireUploadedStorageUrl(detail.getApplicantId(), "AFTER_SALES_EVIDENCE", safeStorageUrl);
+        Path mediaPath = verifiedSensitiveEvidenceMediaPathFor(safeStorageUrl, "evidence/after-sales", "after-sales evidence not found");
+        auditApplicationService.recordAdminOperation(
+                "AFTER_SALES_EVIDENCE_MEDIA_VIEW",
+                adminUserId,
+                "AFTER_SALES",
+                detail.getAfterSalesNo(),
+                "SUCCESS",
+                "读取售后凭证 index=" + evidenceIndex(evidenceUrls, safeStorageUrl)
+        );
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header("X-Content-Type-Options", "nosniff")
+                .contentType(MediaType.parseMediaType(evidenceMediaContentType(safeStorageUrl)))
+                .contentLength(fileSize(mediaPath))
+                .body(new FileSystemResource(mediaPath));
     }
 
     @PostMapping("/after-sales/{afterSalesNo}/approve")
@@ -392,7 +696,12 @@ public class AdminController {
                                                     @RequestBody(required = false) AuditReviewRequest body,
                                                     HttpServletRequest request) {
         long adminUserId = requireReviewPermissionForAudit(auditNo, request);
-        AuditRecordResponse response = auditApplicationService.approve(auditNo, body == null ? null : body.getRemark(), adminUserId);
+        AuditRecordResponse detail = auditApplicationService.getAdminDetail(auditNo);
+        requireVideoIdentityEvidenceViewedBeforeApproval(detail, adminUserId);
+        syncProductStatus(detail, "APPROVED");
+        AuditRecordResponse response = AuditApplicationService.AUDIT_TYPE_VIDEO_IDENTITY.equals(detail.auditType())
+                ? auditApplicationService.approveVideoIdentityAfterEvidenceReview(auditNo, body == null ? null : body.getRemark(), adminUserId)
+                : auditApplicationService.approve(auditNo, body == null ? null : body.getRemark(), adminUserId);
         syncWithdrawalStatus(response, "APPROVED", adminUserId);
         return Result.ok(response);
     }
@@ -402,17 +711,428 @@ public class AdminController {
                                                    @RequestBody(required = false) AuditReviewRequest body,
                                                    HttpServletRequest request) {
         long adminUserId = requireReviewPermissionForAudit(auditNo, request);
+        AuditRecordResponse detail = auditApplicationService.getAdminDetail(auditNo);
+        syncProductStatus(detail, "REJECTED");
         AuditRecordResponse response = auditApplicationService.reject(auditNo, body == null ? null : body.getRemark(), adminUserId);
         syncWithdrawalStatus(response, "REJECTED", adminUserId);
         return Result.ok(response);
     }
 
     private long requireReviewPermissionForAudit(String auditNo, HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
         AuditRecordResponse detail = auditApplicationService.getAdminDetail(auditNo);
         if (AuditApplicationService.AUDIT_TYPE_WITHDRAWAL.equals(detail.auditType())) {
-            return adminAccessGuard.requireAdmin(request, "finance:review");
+            adminAccessGuard.requireAdmin(request, "finance:review");
         }
-        return adminAccessGuard.requireAdmin(request, "audit:review");
+        return adminUserId;
+    }
+
+    private void requireVideoIdentityEvidenceViewedBeforeApproval(AuditRecordResponse detail, long adminUserId) {
+        if (detail == null
+                || !AuditApplicationService.AUDIT_TYPE_VIDEO_IDENTITY.equals(detail.auditType())
+                || !AuditApplicationService.STATUS_PENDING.equals(detail.status())) {
+            return;
+        }
+        requireVideoIdentityEvidenceLog(detail, adminUserId, "VIDEO_IDENTITY_MEDIA_WATCHED");
+    }
+
+    private void requireVideoIdentityEvidenceLog(AuditRecordResponse detail, long adminUserId, String action) {
+        requireVideoIdentityEvidenceLogTime(detail, adminUserId, action);
+    }
+
+    private boolean hasVideoIdentityEvidenceLog(AuditRecordResponse detail, long adminUserId, String action) {
+        Integer logCount = jdbcTemplate.queryForObject("""
+                select count(1)
+                from admin_audit_log
+                where action = ?
+                  and operator_id = ?
+                  and target_type = ?
+                  and target_id = ?
+                  and result = ?
+                """, Integer.class, action, adminUserId, "AUDIT", detail.auditNo(), "SUCCESS");
+        return logCount != null && logCount > 0;
+    }
+
+    private LocalDateTime requireVideoIdentityEvidenceLogTime(AuditRecordResponse detail, long adminUserId, String action) {
+        Timestamp latestLogAt = jdbcTemplate.queryForObject("""
+                select max(created_at)
+                from admin_audit_log
+                where action = ?
+                  and operator_id = ?
+                  and target_type = ?
+                  and target_id = ?
+                  and result = ?
+                """, Timestamp.class, action, adminUserId, "AUDIT", detail.auditNo(), "SUCCESS");
+        if (latestLogAt == null) {
+            throw new IllegalStateException("video identity evidence review required");
+        }
+        return latestLogAt.toLocalDateTime();
+    }
+
+    private VideoIdentityWatchProgress normalizeVideoIdentityWatchProgress(VideoIdentityWatchProgressRequest body, double serverDurationSeconds) {
+        if (body == null) {
+            throw new IllegalArgumentException("video watch progress invalid");
+        }
+        double safeServerDurationSeconds = finitePositive(serverDurationSeconds, "video identity duration unavailable");
+        double durationSeconds = finitePositive(body.durationSeconds(), "video watch progress invalid");
+        double currentTimeSeconds = finiteNonNegative(body.currentTimeSeconds(), "video watch progress invalid");
+        double durationMismatchGrace = Math.max(VIDEO_IDENTITY_DURATION_MISMATCH_GRACE_SECONDS, safeServerDurationSeconds * 0.05);
+        if (Math.abs(durationSeconds - safeServerDurationSeconds) > durationMismatchGrace) {
+            throw new IllegalArgumentException("video watch progress invalid");
+        }
+        if (currentTimeSeconds > safeServerDurationSeconds + VIDEO_IDENTITY_WATCH_PROGRESS_GRACE_SECONDS) {
+            throw new IllegalArgumentException("video watch progress invalid");
+        }
+        double actualRatio = Math.min(Math.max(currentTimeSeconds / safeServerDurationSeconds, 0), 1);
+        if (body.watchedRatio() != null) {
+            double reportedRatio = body.watchedRatio();
+            if (!Double.isFinite(reportedRatio) || reportedRatio < 0 || reportedRatio > 1.05 || reportedRatio > actualRatio + 0.05) {
+                throw new IllegalArgumentException("video watch progress invalid");
+            }
+        }
+        boolean ended = Boolean.TRUE.equals(body.ended()) && currentTimeSeconds + VIDEO_IDENTITY_WATCH_PROGRESS_GRACE_SECONDS >= safeServerDurationSeconds;
+        if (!ended && actualRatio < VIDEO_IDENTITY_WATCH_RATIO_THRESHOLD) {
+            throw new IllegalArgumentException("video watch progress insufficient");
+        }
+        double safeRatio = ended ? 1 : actualRatio;
+        double requiredElapsedSeconds = Math.max(1, safeServerDurationSeconds * VIDEO_IDENTITY_WATCH_RATIO_THRESHOLD - VIDEO_IDENTITY_WATCH_PROGRESS_GRACE_SECONDS);
+        return new VideoIdentityWatchProgress(Math.min(safeRatio, 1), requiredElapsedSeconds);
+    }
+
+    private void requireVideoIdentityWatchElapsed(LocalDateTime viewedAt, double requiredElapsedSeconds) {
+        double elapsedSeconds = Duration.between(viewedAt, LocalDateTime.now()).toMillis() / 1000.0;
+        if (!Double.isFinite(elapsedSeconds) || elapsedSeconds + VIDEO_IDENTITY_WATCH_PROGRESS_GRACE_SECONDS < requiredElapsedSeconds) {
+            throw new IllegalArgumentException("video watch progress not elapsed");
+        }
+    }
+
+    private double finitePositive(Double value, String message) {
+        if (value == null || !Double.isFinite(value) || value <= 0) {
+            throw new IllegalArgumentException(message);
+        }
+        return value;
+    }
+
+    private double finiteNonNegative(Double value, String message) {
+        if (value == null || !Double.isFinite(value) || value < 0) {
+            throw new IllegalArgumentException(message);
+        }
+        return value;
+    }
+
+    private String normalizeChatTraceMediaUrl(String storageUrl) {
+        String safeUrl = requireText(storageUrl, "chat media url required");
+        String lower = safeUrl.toLowerCase(Locale.ROOT);
+        if (!(safeUrl.startsWith("/uploads/chat-image/") || safeUrl.startsWith("/uploads/chat-voice/"))
+                || lower.startsWith("http:")
+                || lower.startsWith("https:")
+                || lower.startsWith("data:")
+                || lower.startsWith("blob:")
+                || lower.contains("preview")
+                || lower.contains("demo")
+                || lower.contains("mock")
+                || lower.contains("sample")
+                || lower.contains("placeholder")
+                || lower.contains("%2e")
+                || lower.contains("%2f")
+                || lower.contains("%5c")
+                || safeUrl.contains("\\")
+                || safeUrl.contains("..")
+                || safeUrl.contains("//")) {
+            throw new IllegalArgumentException("chat media url invalid");
+        }
+        return safeUrl;
+    }
+
+    private String normalizeVideoIdentityMediaUrl(String storageUrl) {
+        String safeUrl = requireText(storageUrl, "video identity media url required");
+        String lower = safeUrl.toLowerCase(Locale.ROOT);
+        if (!safeUrl.startsWith("/uploads/video-identity/")
+                || lower.startsWith("http:")
+                || lower.startsWith("https:")
+                || lower.startsWith("data:")
+                || lower.startsWith("blob:")
+                || lower.contains("preview")
+                || lower.contains("demo")
+                || lower.contains("mock")
+                || lower.contains("sample")
+                || lower.contains("placeholder")
+                || lower.contains("%2e")
+                || lower.contains("%2f")
+                || lower.contains("%5c")
+                || safeUrl.contains("\\")
+                || safeUrl.contains("..")
+                || safeUrl.contains("//")) {
+            throw new IllegalArgumentException("video identity media url invalid");
+        }
+        String relativePath = safeUrl.substring("/uploads/video-identity/".length());
+        if (relativePath.isBlank() || !relativePath.contains("/")) {
+            throw new IllegalArgumentException("video identity media url invalid");
+        }
+        for (String segment : relativePath.split("/")) {
+            if (segment.isBlank()) {
+                throw new IllegalArgumentException("video identity media url invalid");
+            }
+        }
+        return safeUrl;
+    }
+
+    private String normalizeReportEvidenceMediaUrl(String storageUrl) {
+        return normalizeSensitiveEvidenceMediaUrl(storageUrl, "/uploads/report-evidence/", "report evidence url invalid");
+    }
+
+    private String normalizeAfterSalesEvidenceMediaUrl(String storageUrl) {
+        return normalizeSensitiveEvidenceMediaUrl(storageUrl, "/uploads/evidence/after-sales/", "after-sales evidence url invalid");
+    }
+
+    private String normalizeSensitiveEvidenceMediaUrl(String storageUrl, String prefix, String message) {
+        String safeUrl = requireText(storageUrl, message);
+        String lower = safeUrl.toLowerCase(Locale.ROOT);
+        if (!safeUrl.startsWith(prefix)
+                || lower.startsWith("http:")
+                || lower.startsWith("https:")
+                || lower.startsWith("data:")
+                || lower.startsWith("blob:")
+                || lower.contains("preview")
+                || lower.contains("demo")
+                || lower.contains("mock")
+                || lower.contains("sample")
+                || lower.contains("placeholder")
+                || lower.contains("%2e")
+                || lower.contains("%2f")
+                || lower.contains("%5c")
+                || safeUrl.contains("\\")
+                || safeUrl.contains("..")
+                || safeUrl.contains("//")) {
+            throw new IllegalArgumentException(message);
+        }
+        String relativePath = safeUrl.substring(prefix.length());
+        if (relativePath.isBlank()) {
+            throw new IllegalArgumentException(message);
+        }
+        for (String segment : relativePath.split("/")) {
+            if (segment.isBlank()) {
+                throw new IllegalArgumentException(message);
+            }
+        }
+        return safeUrl;
+    }
+
+    private Path storagePathForChatTraceMedia(String storageUrl) {
+        Path uploadsRoot = mediaStorageRoot.resolve("uploads").normalize();
+        Path target = mediaStorageRoot.resolve(storageUrl.substring(1)).normalize();
+        if (!target.startsWith(uploadsRoot)) {
+            throw new IllegalArgumentException("chat media url invalid");
+        }
+        return target;
+    }
+
+    private Path storagePathForVideoIdentityMedia(String storageUrl) {
+        Path videoIdentityRoot = mediaStorageRoot.resolve("uploads/video-identity").normalize();
+        Path target = mediaStorageRoot.resolve(storageUrl.substring(1)).normalize();
+        if (!target.startsWith(videoIdentityRoot)) {
+            throw new IllegalArgumentException("video identity media url invalid");
+        }
+        return target;
+    }
+
+    private Path storagePathForSensitiveEvidenceMedia(String storageUrl, String relativeRoot) {
+        Path evidenceRoot = mediaStorageRoot.resolve("uploads").resolve(relativeRoot).normalize();
+        Path target = mediaStorageRoot.resolve(storageUrl.substring(1)).normalize();
+        if (!target.startsWith(evidenceRoot)) {
+            throw new IllegalArgumentException("evidence media url invalid");
+        }
+        return target;
+    }
+
+    private Path verifiedChatTraceMediaPathFor(String storageUrl) {
+        return MediaPathGuard.requireRegularFileInside(
+                storagePathForChatTraceMedia(storageUrl),
+                mediaStorageRoot.resolve("uploads"),
+                "chat media url invalid",
+                "chat media not found"
+        );
+    }
+
+    private Path verifiedVideoIdentityMediaPathFor(String storageUrl) {
+        return MediaPathGuard.requireRegularFileInside(
+                storagePathForVideoIdentityMedia(storageUrl),
+                mediaStorageRoot.resolve("uploads/video-identity"),
+                "video identity media url invalid",
+                "video identity media not found"
+        );
+    }
+
+    private Path verifiedSensitiveEvidenceMediaPathFor(String storageUrl, String relativeRoot, String notFoundMessage) {
+        return MediaPathGuard.requireRegularFileInside(
+                storagePathForSensitiveEvidenceMedia(storageUrl, relativeRoot),
+                mediaStorageRoot.resolve("uploads").resolve(relativeRoot),
+                "evidence media url invalid",
+                notFoundMessage
+        );
+    }
+
+    private String resolveChatTraceMediaContentType(String storageUrl) {
+        String expectedScene = storageUrl.startsWith("/uploads/chat-voice/") ? "CHAT_VOICE" : "CHAT_IMAGE";
+        List<String> rows = jdbcTemplate.query("""
+                SELECT content_type
+                FROM media_upload_ticket
+                WHERE storage_url = ?
+                  AND scene = ?
+                  AND status = 'UPLOADED'
+                LIMIT 1
+                """, (rs, rowNum) -> rs.getString("content_type"), storageUrl, expectedScene);
+        if (!rows.isEmpty() && rows.get(0) != null && !rows.get(0).isBlank()) {
+            return rows.get(0).trim().toLowerCase(Locale.ROOT);
+        }
+        return chatTraceMediaContentType(storageUrl);
+    }
+
+    private String chatTraceMediaContentType(String storageUrl) {
+        String lower = storageUrl.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".png")) {
+            return "image/png";
+        }
+        if (lower.endsWith(".webp")) {
+            return "image/webp";
+        }
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        if (lower.endsWith(".mp4") || lower.endsWith(".m4a")) {
+            return "audio/mp4";
+        }
+        if (lower.endsWith(".aac")) {
+            return "audio/aac";
+        }
+        if (lower.endsWith(".mp3") || lower.endsWith(".mpeg")) {
+            return "audio/mpeg";
+        }
+        if (lower.endsWith(".wav")) {
+            return "audio/wav";
+        }
+        return storageUrl.startsWith("/uploads/chat-voice/") ? "audio/webm" : "application/octet-stream";
+    }
+
+    private String resolveVideoIdentityMediaContentType(String storageUrl) {
+        List<String> rows = jdbcTemplate.query("""
+                SELECT content_type
+                FROM media_upload_ticket
+                WHERE storage_url = ?
+                  AND scene = 'VIDEO_IDENTITY'
+                  AND status = 'UPLOADED'
+                LIMIT 1
+                """, (rs, rowNum) -> rs.getString("content_type"), storageUrl);
+        if (!rows.isEmpty() && rows.get(0) != null && !rows.get(0).isBlank()) {
+            String contentType = rows.get(0).trim().toLowerCase(Locale.ROOT);
+            if (!ALLOWED_VIDEO_IDENTITY_CONTENT_TYPES.contains(contentType)) {
+                throw new IllegalArgumentException("video identity contentType unsupported");
+            }
+            return contentType;
+        }
+        return videoIdentityMediaContentType(storageUrl);
+    }
+
+    private String videoIdentityMediaContentType(String storageUrl) {
+        String lower = storageUrl.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".mov")) {
+            return "video/quicktime";
+        }
+        if (lower.endsWith(".m4v")) {
+            return "video/x-m4v";
+        }
+        return "video/mp4";
+    }
+
+    private String evidenceMediaContentType(String storageUrl) {
+        String lower = storageUrl.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".png")) {
+            return "image/png";
+        }
+        if (lower.endsWith(".webp")) {
+            return "image/webp";
+        }
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        if (lower.endsWith(".gif")) {
+            return "image/gif";
+        }
+        if (lower.endsWith(".pdf")) {
+            return "application/pdf";
+        }
+        return "application/octet-stream";
+    }
+
+    private void assertEvidenceUrlBoundToReportAudit(AuditRecordResponse detail, String storageUrl) {
+        if (!reportEvidenceUrls(detail).contains(storageUrl)) {
+            throw new IllegalArgumentException("report evidence not found");
+        }
+    }
+
+    private List<String> reportEvidenceUrls(AuditRecordResponse detail) {
+        if (detail == null) {
+            return List.of();
+        }
+        List<String> structured = detail.reportEvidenceUrls() == null ? List.of() : detail.reportEvidenceUrls();
+        if (!structured.isEmpty()) {
+            return structured;
+        }
+        return extractReportEvidenceUrls(detail.description());
+    }
+
+    private List<String> extractReportEvidenceUrls(String description) {
+        if (description == null || description.isBlank()) {
+            return List.of();
+        }
+        List<String> urls = new ArrayList<>();
+        String marker = "/uploads/report-evidence/";
+        int index = 0;
+        while (index >= 0 && index < description.length()) {
+            int start = description.indexOf(marker, index);
+            if (start < 0) {
+                break;
+            }
+            int end = start;
+            while (end < description.length()) {
+                char ch = description.charAt(end);
+                if (!(Character.isLetterOrDigit(ch) || ch == '/' || ch == '.' || ch == '_' || ch == '~' || ch == '%' || ch == '-')) {
+                    break;
+                }
+                end += 1;
+            }
+            String candidate = description.substring(start, end);
+            try {
+                String safeUrl = normalizeReportEvidenceMediaUrl(candidate);
+                if (!urls.contains(safeUrl)) {
+                    urls.add(safeUrl);
+                }
+            } catch (IllegalArgumentException ignored) {
+                // Ignore malformed evidence references in historical audit descriptions.
+            }
+            index = end + 1;
+        }
+        return urls;
+    }
+
+    private int evidenceIndex(List<String> urls, String storageUrl) {
+        int index = urls.indexOf(storageUrl);
+        return index < 0 ? -1 : index + 1;
+    }
+
+    private Path resolveMediaStorageRoot(String configuredRoot) {
+        if (configuredRoot == null || configuredRoot.isBlank()) {
+            throw new IllegalStateException("media.storage-root required");
+        }
+        return Path.of(configuredRoot).toAbsolutePath().normalize();
+    }
+
+    private long fileSize(Path path) {
+        try {
+            return Files.size(path);
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("chat media not found", exception);
+        }
     }
 
     private AdminOperatorPermissionResponse loadOperatorPermissions(Long userId) {
@@ -435,7 +1155,24 @@ public class AdminController {
                        owner_profile.gender AS owner_gender,
                        owner_profile.city AS owner_city,
                        COALESCE(owner_profile.main_role, 'BUYER') AS owner_main_role,
-                       COALESCE(owner_profile.video_verified, FALSE) AS owner_video_verified,
+                       CASE WHEN owner_profile.video_identity_status = 'APPROVED'
+                            AND COALESCE(owner_profile.video_verified, FALSE) = TRUE
+                            AND COALESCE(owner_profile.main_role, 'BUYER') IN ('SELLER', 'BOTH')
+                            AND EXISTS (
+                                SELECT 1
+                                FROM audit_record owner_video_audit
+                                JOIN media_upload_ticket owner_video_ticket
+                                  ON owner_video_ticket.owner_user_id = owner.id
+                                 AND owner_video_ticket.scene = 'VIDEO_IDENTITY'
+                                 AND owner_video_ticket.status = 'UPLOADED'
+                                 AND owner_video_ticket.storage_url = owner_video_audit.reason
+                                WHERE owner_video_audit.audit_type = 'VIDEO_IDENTITY'
+                                  AND owner_video_audit.user_id = owner.id
+                                  AND owner_video_audit.target_id = CONCAT('', owner.id)
+                                  AND owner_video_audit.status = 'APPROVED'
+                                  AND owner_video_audit.reason LIKE '/uploads/video-identity/%'
+                            )
+                            THEN TRUE ELSE FALSE END AS owner_video_verified,
                        peer.user_no AS peer_user_no,
                        peer.nickname AS peer_nickname,
                        peer.avatar_url AS peer_avatar_url,
@@ -443,7 +1180,24 @@ public class AdminController {
                        peer_profile.gender AS peer_gender,
                        peer_profile.city AS peer_city,
                        COALESCE(peer_profile.main_role, 'BUYER') AS peer_main_role,
-                       COALESCE(peer_profile.video_verified, FALSE) AS peer_video_verified
+                       CASE WHEN peer_profile.video_identity_status = 'APPROVED'
+                            AND COALESCE(peer_profile.video_verified, FALSE) = TRUE
+                            AND COALESCE(peer_profile.main_role, 'BUYER') IN ('SELLER', 'BOTH')
+                            AND EXISTS (
+                                SELECT 1
+                                FROM audit_record peer_video_audit
+                                JOIN media_upload_ticket peer_video_ticket
+                                  ON peer_video_ticket.owner_user_id = peer.id
+                                 AND peer_video_ticket.scene = 'VIDEO_IDENTITY'
+                                 AND peer_video_ticket.status = 'UPLOADED'
+                                 AND peer_video_ticket.storage_url = peer_video_audit.reason
+                                WHERE peer_video_audit.audit_type = 'VIDEO_IDENTITY'
+                                  AND peer_video_audit.user_id = peer.id
+                                  AND peer_video_audit.target_id = CONCAT('', peer.id)
+                                  AND peer_video_audit.status = 'APPROVED'
+                                  AND peer_video_audit.reason LIKE '/uploads/video-identity/%'
+                            )
+                            THEN TRUE ELSE FALSE END AS peer_video_verified
                 FROM im_conversation c
                 LEFT JOIN user_account owner ON owner.id = c.owner_user_id
                 LEFT JOIN user_profile owner_profile ON owner_profile.user_id = owner.id
@@ -524,6 +1278,116 @@ public class AdminController {
             throw new IllegalArgumentException(message);
         }
         return value;
+    }
+
+    private String requireText(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(message);
+        }
+        return value.trim();
+    }
+
+    private String communityTraceListTargetId(Long authorId, String keyword, Integer limit) {
+        String safeKeyword = keyword == null || keyword.isBlank() ? "-" : keyword.trim();
+        if (safeKeyword.length() > 24) {
+            safeKeyword = safeKeyword.substring(0, 24);
+        }
+        return "author=" + (authorId == null ? "-" : authorId) + ";keyword=" + safeKeyword + ";limit=" + (limit == null ? "-" : limit);
+    }
+
+    private ChatTraceMediaCandidate assertChatTraceMediaBoundToMessage(long conversationId, long messageId, String messageNo, String storageUrl) {
+        List<ChatTraceMediaCandidate> candidates = jdbcTemplate.query("""
+                        select id, message_no, conversation_id, sender_id, message_type, content_json
+                          from im_message
+                         where conversation_id = ?
+                           and id = ?
+                           and message_no = ?
+                           and message_type in ('IMAGE', 'VOICE')
+                         limit 1
+                        """,
+                (rs, rowNum) -> new ChatTraceMediaCandidate(
+                        rs.getLong("id"),
+                        rs.getString("message_no"),
+                        rs.getLong("conversation_id"),
+                        rs.getLong("sender_id"),
+                        rs.getString("message_type"),
+                        rs.getString("content_json")
+                ),
+                conversationId,
+                messageId,
+                messageNo
+        );
+        if (candidates.isEmpty()) {
+            throw new IllegalArgumentException("chat media message invalid");
+        }
+        ChatTraceMediaCandidate candidate = candidates.get(0);
+        String boundUrl = extractChatTraceMediaUrl(candidate.messageType(), candidate.contentJson());
+        if (!storageUrl.equals(boundUrl)) {
+            throw new IllegalArgumentException("chat media message invalid");
+        }
+        return candidate;
+    }
+
+    private String sceneForChatTraceMedia(String messageType) {
+        if ("VOICE".equals(messageType)) {
+            return "CHAT_VOICE";
+        }
+        if ("IMAGE".equals(messageType)) {
+            return "CHAT_IMAGE";
+        }
+        throw new IllegalArgumentException("chat media message invalid");
+    }
+
+    private String extractChatTraceMediaUrl(String messageType, String contentJson) {
+        Map<String, Object> payload = parseChatTraceMediaPayload(contentJson, 0);
+        String rawUrl = "";
+        if ("VOICE".equals(messageType)) {
+            rawUrl = firstText(payload.get("url"), payload.get("audioUrl"), payload.get("voiceUrl"));
+        } else if ("IMAGE".equals(messageType)) {
+            rawUrl = firstText(payload.get("url"));
+        }
+        if (rawUrl.isBlank()) {
+            throw new IllegalArgumentException("chat media message invalid");
+        }
+        String safeUrl = normalizeChatTraceMediaUrl(rawUrl);
+        if ("VOICE".equals(messageType) && !safeUrl.startsWith("/uploads/chat-voice/")) {
+            throw new IllegalArgumentException("chat media message invalid");
+        }
+        if ("IMAGE".equals(messageType) && !safeUrl.startsWith("/uploads/chat-image/")) {
+            throw new IllegalArgumentException("chat media message invalid");
+        }
+        return safeUrl;
+    }
+
+    private Map<String, Object> parseChatTraceMediaPayload(String contentJson, int depth) {
+        if (depth > 2) {
+            throw new IllegalArgumentException("chat media message invalid");
+        }
+        String content = requireText(contentJson, "chat media message invalid");
+        try {
+            Object value = OBJECT_MAPPER.readValue(content, Object.class);
+            if (value instanceof Map<?, ?> map) {
+                return OBJECT_MAPPER.convertValue(map, STRING_OBJECT_MAP);
+            }
+            if (value instanceof String nested) {
+                return parseChatTraceMediaPayload(nested, depth + 1);
+            }
+        } catch (IllegalArgumentException | JsonProcessingException ex) {
+            String legacy = content.replace("\\\"", "\"");
+            if (!legacy.equals(content)) {
+                return parseChatTraceMediaPayload(legacy, depth + 1);
+            }
+        }
+        throw new IllegalArgumentException("chat media message invalid");
+    }
+
+    private String firstText(Object... values) {
+        for (Object value : values) {
+            if (value instanceof String text && !text.trim().isBlank()) {
+                return text.trim();
+            }
+        }
+        return "";
     }
 
     private int normalizeLimit(Integer limit, int defaultLimit, int maxLimit, String message) {
@@ -624,6 +1488,7 @@ public class AdminController {
                 WHERE user_id = ? AND permission_code IN (
                     'audit:read',
                     'audit:review',
+                    'chat:trace',
                     'finance:read',
                     'finance:review',
                     'user:read',
@@ -686,11 +1551,33 @@ public class AdminController {
                                                 Long receiverId,
                                                 String messageType,
                                                 String contentJson,
+                                                Boolean revoked,
+                                                LocalDateTime revokedAt,
                                                 LocalDateTime createdAt) {
     }
 
     public record AdminChatConversationMessageTraceResponse(AdminChatConversationTraceResponse conversation,
-                                                            List<AdminChatMessageTraceResponse> messages) {
+                                                            List<AdminChatMessageTraceResponse> messages,
+                                                            Boolean hasMore,
+                                                            Long oldestSeq,
+                                                            Long nextBeforeSeq) {
+    }
+
+    public record VideoIdentityWatchProgressRequest(Double durationSeconds,
+                                                    Double currentTimeSeconds,
+                                                    Double watchedRatio,
+                                                    Boolean ended) {
+    }
+
+    private record VideoIdentityWatchProgress(double ratio, double requiredElapsedSeconds) {
+    }
+
+    private record ChatTraceMediaCandidate(Long messageId,
+                                           String messageNo,
+                                           Long conversationId,
+                                           Long senderId,
+                                           String messageType,
+                                           String contentJson) {
     }
 
     private void syncWithdrawalStatus(AuditRecordResponse response, String status, long adminUserId) {
@@ -704,6 +1591,34 @@ public class AdminController {
                     status,
                     "提现审核状态已更新：" + status
             );
+        }
+    }
+
+    private void syncProductStatus(AuditRecordResponse response, String status) {
+        if (response == null || !"PRODUCT".equals(response.auditType()) || !"PRODUCT".equals(response.targetType())) {
+            return;
+        }
+        if (!AuditApplicationService.STATUS_PENDING.equals(response.status())) {
+            throw new IllegalStateException("audit record already reviewed");
+        }
+        Long productId = requirePositiveId(parseLong(response.targetId()), "productId invalid");
+        if ("APPROVED".equals(status)) {
+            productApplicationService.approveForSale(productId);
+            return;
+        }
+        if ("REJECTED".equals(status)) {
+            productApplicationService.rejectForSale(productId);
+        }
+    }
+
+    private Long parseLong(String value) {
+        if (value == null || !value.matches("^[1-9]\\d{0,18}$")) {
+            throw new IllegalArgumentException("productId invalid");
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("productId invalid", ex);
         }
     }
 }

@@ -1,8 +1,10 @@
 package com.secondhand.platform.modules.user.application;
 
 import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
+import com.secondhand.platform.modules.notification.application.NotificationApplicationService;
 import com.secondhand.platform.modules.user.AccountSecurityResponse;
 import com.secondhand.platform.modules.user.AdminUserDetailResponse;
+import com.secondhand.platform.modules.user.AdminUserDetailResponse.AdminUserOpsSummary;
 import com.secondhand.platform.modules.user.UpdateUserNoRequest;
 import com.secondhand.platform.modules.user.UpdateUserProfileRequest;
 import com.secondhand.platform.modules.user.UserProfileResponse;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -30,10 +33,17 @@ public class UserApplicationService {
 
     private final JdbcTemplate jdbcTemplate;
     private final MediaUploadTicketService mediaUploadTicketService;
+    private final NotificationApplicationService notificationApplicationService;
 
     public UserApplicationService(JdbcTemplate jdbcTemplate, MediaUploadTicketService mediaUploadTicketService) {
+        this(jdbcTemplate, mediaUploadTicketService, new NotificationApplicationService(jdbcTemplate));
+    }
+
+    @Autowired
+    public UserApplicationService(JdbcTemplate jdbcTemplate, MediaUploadTicketService mediaUploadTicketService, NotificationApplicationService notificationApplicationService) {
         this.jdbcTemplate = jdbcTemplate;
         this.mediaUploadTicketService = mediaUploadTicketService;
+        this.notificationApplicationService = notificationApplicationService;
         ensureShowcasePhotoTable();
     }
 
@@ -143,15 +153,21 @@ public class UserApplicationService {
         return currentUserProfile(userId);
     }
 
+    @Transactional
     public UserProfileResponse followProfile(Long followerId, Long followedId) {
         validateFollowActors(followerId, followedId);
+        boolean inserted = false;
         try {
             jdbcTemplate.update("""
                     INSERT INTO user_follow (follower_id, followed_id)
                     VALUES (?, ?)
                     """, followerId, followedId);
+            inserted = true;
         } catch (DuplicateKeyException ignored) {
             // Idempotent follow: repeat requests keep the persisted relationship unchanged.
+        }
+        if (inserted) {
+            notifyFollowCreated(followerId, followedId);
         }
         return publicProfile(followedId, followerId);
     }
@@ -168,20 +184,30 @@ public class UserApplicationService {
         }
         List<AdminUserDetailResponse> rows = jdbcTemplate.query("""
                 SELECT a.id, a.user_no, a.phone, a.nickname, a.status, a.created_at, a.updated_at,
-                       p.main_role, p.city, p.bio, p.identity_status, p.video_identity_status, p.video_verified
+                       p.main_role, p.city, p.bio, p.identity_status, p.video_identity_status, p.video_verified,
+                       CASE WHEN video_identity.reason LIKE '/uploads/video-identity/%' THEN video_identity.reason ELSE NULL END AS video_identity_url
                 FROM user_account a
                 LEFT JOIN user_profile p ON p.user_id = a.id
+                LEFT JOIN audit_record video_identity ON video_identity.id = (
+                    SELECT MAX(ar.id)
+                    FROM audit_record ar
+                    WHERE ar.audit_type = 'VIDEO_IDENTITY'
+                      AND ar.user_id = a.id
+                      AND ar.target_id = CONCAT('', a.id)
+                      AND ar.status = 'APPROVED'
+                )
                 WHERE a.id = ? AND a.status = 'ACTIVE'
                 """, (rs, rowNum) -> {
                     String videoStatus = rs.getString("video_identity_status") == null ? "UNVERIFIED" : rs.getString("video_identity_status");
-                    boolean approvedVideo = "APPROVED".equals(videoStatus) && rs.getBoolean("video_verified");
+                    String mainRole = rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role");
+                    boolean approvedVideo = isPublicVideoVerified(rs.getLong("id"), mainRole, videoStatus, rs.getBoolean("video_verified"), rs.getString("video_identity_url"));
                     return new AdminUserDetailResponse(
                             rs.getLong("id"),
                             rs.getString("user_no"),
                             maskPhone(rs.getString("phone")),
                             rs.getString("nickname"),
                             rs.getString("status"),
-                            rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role"),
+                            mainRole,
                             rs.getString("city"),
                             rs.getString("bio"),
                             rs.getString("identity_status") == null ? "UNVERIFIED" : rs.getString("identity_status"),
@@ -194,7 +220,23 @@ public class UserApplicationService {
         if (rows.isEmpty()) {
             throw new IllegalArgumentException("user not found");
         }
-        return rows.get(0);
+        AdminUserDetailResponse row = rows.get(0);
+        return new AdminUserDetailResponse(
+                row.getUserId(),
+                row.getUserNo(),
+                row.getMaskedPhone(),
+                row.getNickname(),
+                row.getStatus(),
+                row.getMainRole(),
+                row.getCity(),
+                row.getBio(),
+                row.getIdentityStatus(),
+                row.getVideoIdentityStatus(),
+                row.isVideoVerified(),
+                row.getCreatedAt(),
+                row.getUpdatedAt(),
+                loadAdminUserOpsSummary(userId)
+        );
     }
 
     public List<AdminUserDetailResponse> searchAdminUsers(String keyword, int limit) {
@@ -205,23 +247,33 @@ public class UserApplicationService {
         String like = "%" + normalized + "%";
         List<AdminUserDetailResponse> rows = jdbcTemplate.query("""
                 SELECT a.id, a.user_no, a.phone, a.nickname, a.status, a.created_at, a.updated_at,
-                       p.main_role, p.city, p.bio, p.identity_status, p.video_identity_status, p.video_verified
+                       p.main_role, p.city, p.bio, p.identity_status, p.video_identity_status, p.video_verified,
+                       CASE WHEN video_identity.reason LIKE '/uploads/video-identity/%' THEN video_identity.reason ELSE NULL END AS video_identity_url
                 FROM user_account a
                 LEFT JOIN user_profile p ON p.user_id = a.id
+                LEFT JOIN audit_record video_identity ON video_identity.id = (
+                    SELECT MAX(ar.id)
+                    FROM audit_record ar
+                    WHERE ar.audit_type = 'VIDEO_IDENTITY'
+                      AND ar.user_id = a.id
+                      AND ar.target_id = CONCAT('', a.id)
+                      AND ar.status = 'APPROVED'
+                )
                 WHERE a.status = 'ACTIVE'
                   AND (LOWER(a.nickname) LIKE LOWER(?) OR LOWER(a.user_no) LIKE LOWER(?) OR a.phone LIKE ?)
                 ORDER BY a.id DESC
                 LIMIT ?
                 """, (rs, rowNum) -> {
                     String videoStatus = rs.getString("video_identity_status") == null ? "UNVERIFIED" : rs.getString("video_identity_status");
-                    boolean approvedVideo = "APPROVED".equals(videoStatus) && rs.getBoolean("video_verified");
+                    String mainRole = rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role");
+                    boolean approvedVideo = isPublicVideoVerified(rs.getLong("id"), mainRole, videoStatus, rs.getBoolean("video_verified"), rs.getString("video_identity_url"));
                     return new AdminUserDetailResponse(
                             rs.getLong("id"),
                             rs.getString("user_no"),
                             maskPhone(rs.getString("phone")),
                             rs.getString("nickname"),
                             rs.getString("status"),
-                            rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role"),
+                            mainRole,
                             rs.getString("city"),
                             rs.getString("bio"),
                             rs.getString("identity_status") == null ? "UNVERIFIED" : rs.getString("identity_status"),
@@ -232,6 +284,113 @@ public class UserApplicationService {
                     );
                 }, like, like, like, limit);
         return List.copyOf(rows);
+    }
+
+    private AdminUserOpsSummary loadAdminUserOpsSummary(Long userId) {
+        long orderCount = count("""
+                SELECT COUNT(*)
+                FROM trade_order
+                WHERE buyer_id = ? OR seller_id = ?
+                """, userId, userId);
+        long paidOrderCount = count("""
+                SELECT COUNT(*)
+                FROM trade_order
+                WHERE (buyer_id = ? OR seller_id = ?)
+                  AND order_status IN ('PAID', 'SHIPPED', 'COMPLETED', 'REFUNDING')
+                """, userId, userId);
+        long afterSalesCount = count("""
+                SELECT COUNT(DISTINCT ar.id)
+                FROM after_sales_record ar
+                LEFT JOIN trade_order o ON o.order_no = ar.order_no
+                WHERE ar.applicant_id = ? OR o.buyer_id = ? OR o.seller_id = ?
+                """, userId, userId, userId);
+        long pendingAfterSalesCount = count("""
+                SELECT COUNT(DISTINCT ar.id)
+                FROM after_sales_record ar
+                LEFT JOIN trade_order o ON o.order_no = ar.order_no
+                WHERE (ar.applicant_id = ? OR o.buyer_id = ? OR o.seller_id = ?)
+                  AND ar.after_sales_status = 'PENDING_REVIEW'
+                """, userId, userId, userId);
+        long reportCount = count("""
+                SELECT COUNT(*)
+                FROM report_record
+                WHERE reporter_id = ? OR (UPPER(target_type) = 'USER' AND target_id = ?)
+                """, userId, String.valueOf(userId));
+        long pendingReportCount = count("""
+                SELECT COUNT(*)
+                FROM report_record
+                WHERE (reporter_id = ? OR (UPPER(target_type) = 'USER' AND target_id = ?))
+                  AND report_status = 'PENDING'
+                """, userId, String.valueOf(userId));
+        long withdrawalCount = count("""
+                SELECT COUNT(*)
+                FROM withdrawal_record
+                WHERE user_id = ?
+                """, userId);
+        long pendingWithdrawalCount = count("""
+                SELECT COUNT(*)
+                FROM withdrawal_record
+                WHERE user_id = ? AND status = 'PENDING'
+                """, userId);
+        long chatConversationCount = count("""
+                SELECT COUNT(DISTINCT id)
+                FROM im_conversation
+                WHERE owner_user_id = ? OR peer_user_id = ?
+                """, userId, userId);
+        String lastOrderNo = findOne("""
+                SELECT order_no
+                FROM trade_order
+                WHERE buyer_id = ? OR seller_id = ?
+                ORDER BY updated_at DESC, id DESC
+                LIMIT 1
+                """, String.class, userId, userId);
+        String lastAfterSalesNo = findOne("""
+                SELECT ar.after_sales_no
+                FROM after_sales_record ar
+                LEFT JOIN trade_order o ON o.order_no = ar.order_no
+                WHERE ar.applicant_id = ? OR o.buyer_id = ? OR o.seller_id = ?
+                ORDER BY ar.updated_at DESC, ar.id DESC
+                LIMIT 1
+                """, String.class, userId, userId, userId);
+        String lastWithdrawalNo = findOne("""
+                SELECT withdrawal_no
+                FROM withdrawal_record
+                WHERE user_id = ?
+                ORDER BY updated_at DESC, id DESC
+                LIMIT 1
+                """, String.class, userId);
+        Long lastChatConversationId = findOne("""
+                SELECT id
+                FROM im_conversation
+                WHERE owner_user_id = ? OR peer_user_id = ?
+                ORDER BY updated_at DESC, id DESC
+                LIMIT 1
+                """, Long.class, userId, userId);
+        return new AdminUserOpsSummary(
+                orderCount,
+                paidOrderCount,
+                afterSalesCount,
+                pendingAfterSalesCount,
+                reportCount,
+                pendingReportCount,
+                withdrawalCount,
+                pendingWithdrawalCount,
+                chatConversationCount,
+                lastOrderNo,
+                lastAfterSalesNo,
+                lastWithdrawalNo,
+                lastChatConversationId
+        );
+    }
+
+    private long count(String sql, Object... args) {
+        Long count = jdbcTemplate.queryForObject(sql, Long.class, args);
+        return count == null ? 0L : count;
+    }
+
+    private <T> T findOne(String sql, Class<T> type, Object... args) {
+        List<T> rows = jdbcTemplate.queryForList(sql, type, args);
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     public List<UserRankingResponse> listRankings(String gender, String period, int limit, Long viewerId) {
@@ -297,6 +456,7 @@ public class UserApplicationService {
                     SELECT MAX(ar.id)
                     FROM audit_record ar
                     WHERE ar.audit_type = 'VIDEO_IDENTITY'
+                      AND ar.user_id = a.id
                       AND ar.target_id = CONCAT('', a.id)
                       AND ar.status = 'APPROVED'
                 )
@@ -324,7 +484,8 @@ public class UserApplicationService {
             boolean approvedVideo = "APPROVED".equalsIgnoreCase(videoStatus)
                     && rs.getBoolean("video_verified")
                     && VIDEO_IDENTITY_PUBLIC_ROLES.contains(mainRole.toUpperCase(Locale.ROOT))
-                    && isCanonicalVideoIdentityUrl(rawVideoIdentityUrl);
+                    && isCanonicalVideoIdentityUrl(rawVideoIdentityUrl)
+                    && isUploadedVideoIdentityUrl(rs.getLong("id"), rawVideoIdentityUrl);
             String responseVideoStatus = approvedVideo ? "APPROVED" : "UNVERIFIED";
             return new UserRankingResponse(
                     rs.getLong("id"),
@@ -401,6 +562,7 @@ public class UserApplicationService {
                     SELECT MAX(ar.id)
                     FROM audit_record ar
                     WHERE ar.audit_type = 'VIDEO_IDENTITY'
+                      AND ar.user_id = a.id
                       AND ar.target_id = CONCAT('', a.id)
                       AND ar.status = p.video_identity_status
                       AND ar.status IN ('APPROVED', 'PENDING')
@@ -410,11 +572,12 @@ public class UserApplicationService {
                     String videoStatus = rs.getString("video_identity_status") == null ? "UNVERIFIED" : rs.getString("video_identity_status");
                     String mainRole = rs.getString("main_role") == null ? "BUYER" : rs.getString("main_role");
                     String rawVideoIdentityUrl = rs.getString("video_identity_url");
-                    String storedVideoIdentityUrl = isCanonicalVideoIdentityUrl(rawVideoIdentityUrl) ? rawVideoIdentityUrl : null;
+                    String storedVideoIdentityUrl = isUploadedVideoIdentityUrl(rs.getLong("id"), rawVideoIdentityUrl) ? rawVideoIdentityUrl : null;
                     boolean approvedVideo = "APPROVED".equals(videoStatus) && rs.getBoolean("video_verified");
                     boolean sellerApprovedVideo = approvedVideo && VIDEO_IDENTITY_PUBLIC_ROLES.contains(mainRole.toUpperCase(Locale.ROOT)) && storedVideoIdentityUrl != null;
                     boolean pendingOwnVideo = exposePendingVideoIdentityUrl && "PENDING".equals(videoStatus) && storedVideoIdentityUrl != null;
-                    String responseVideoStatus = sellerApprovedVideo || pendingOwnVideo ? videoStatus : "UNVERIFIED";
+                    boolean rejectedOwnVideo = exposePendingVideoIdentityUrl && "REJECTED".equals(videoStatus);
+                    String responseVideoStatus = sellerApprovedVideo || pendingOwnVideo || rejectedOwnVideo ? videoStatus : "UNVERIFIED";
                     String videoIdentityUrl = sellerApprovedVideo || pendingOwnVideo ? storedVideoIdentityUrl : null;
                     return new UserProfileResponse(
                             rs.getLong("id"),
@@ -429,6 +592,7 @@ public class UserApplicationService {
                             responseVideoStatus,
                             sellerApprovedVideo,
                             videoIdentityUrl,
+                            pendingOwnVideo,
                             loadShowcasePhotos(rs.getLong("id"), sellerApprovedVideo),
                             viewerId != null && isFollowedBy(viewerId, rs.getLong("id")),
                             rs.getInt("follower_count"),
@@ -468,6 +632,26 @@ public class UserApplicationService {
             }
         }
         return true;
+    }
+
+    private boolean isUploadedVideoIdentityUrl(Long userId, String url) {
+        if (userId == null || !isCanonicalVideoIdentityUrl(url)) {
+            return false;
+        }
+        try {
+            mediaUploadTicketService.requireUploadedVideoIdentityMedia(userId, url);
+            return true;
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
+    private boolean isPublicVideoVerified(Long userId, String mainRole, String videoStatus, boolean rawVideoVerified, String rawVideoIdentityUrl) {
+        String role = mainRole == null ? "BUYER" : mainRole.toUpperCase(Locale.ROOT);
+        return "APPROVED".equals(videoStatus)
+                && rawVideoVerified
+                && VIDEO_IDENTITY_PUBLIC_ROLES.contains(role)
+                && isUploadedVideoIdentityUrl(userId, rawVideoIdentityUrl);
     }
 
     private void ensureShowcasePhotoTable() {
@@ -643,5 +827,24 @@ public class UserApplicationService {
                 followedId
         );
         return count != null && count > 0;
+    }
+
+    private void notifyFollowCreated(Long followerId, Long followedId) {
+        notificationApplicationService.createNotification(
+                followedId,
+                "FOLLOW",
+                "你有新的关注",
+                displayUserName(followerId) + " 关注了你",
+                "/pages/user/public-profile/index?userId=" + followerId
+        );
+    }
+
+    private String displayUserName(Long userId) {
+        List<String> rows = jdbcTemplate.query("""
+                SELECT COALESCE(NULLIF(nickname, ''), NULLIF(user_no, ''), CONCAT('用户', id)) AS display_name
+                FROM user_account
+                WHERE id = ? AND status = 'ACTIVE'
+                """, (rs, rowNum) -> rs.getString("display_name"), userId);
+        return rows.isEmpty() ? "用户" + userId : rows.get(0);
     }
 }

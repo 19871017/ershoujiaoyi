@@ -35,9 +35,11 @@ npm run build
 
 后端构建：
 cd /Users/wangyu/Projects/xiaoyuanquan/backend
-mvn -DskipTests package
+mvn package spring-boot:repackage -DskipTests
+unzip -p target/backend-0.1.0-SNAPSHOT.jar META-INF/MANIFEST.MF | grep -E 'Main-Class|Start-Class'
 
 注意：
 - 用户端开发预览/补页面时，按项目约定保留 mock/dev headers；生产检查走 build:h5:prod，不要为了本地预览随便关闭开发开关。
+- 后端发版必须使用 Spring Boot repackage 后的可执行 jar，并确认 manifest 中有 `JarLauncher` 和 `ApiApplication`。
 - 部署服务器需要 SSH 权限；当前本机还不能免密登录 root@23.138.12.9。
 - 服务器现有路径记录：current->{h5,admin,backend.jar}，服务文件 /etc/systemd/system/esxz-old.service，env/data/logs 在 /opt/esxz-old，nginx 配置 old.tiklxd09.club.conf，备份 /www/backup/esxz-old。

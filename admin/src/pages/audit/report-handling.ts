@@ -19,6 +19,10 @@ const reportTypeLabels: Record<string, string> = {
   AFTER_SALES: '售后举报',
   USER: '用户举报',
   CHAT: '私聊举报',
+  COMMUNITY_POST: '社区帖子举报',
+  COMMUNITY_COMMENT: '社区评论举报',
+  POST: '社区帖子举报',
+  COMMENT: '社区评论举报',
   REPORT: '举报复核'
 }
 
@@ -66,6 +70,14 @@ export function reportHandlingGuide(target: ReportHandlingTarget): ReportHandlin
       traceHint: '先打开私聊追溯，核对双方资料、文字消息、语音消息和举报凭证。',
       steps: ['核对举报凭证是否来自真实聊天场景', '通过私聊追溯查看双方用户资料、文字和语音消息', '处理后在审核备注中写明聊天编号、核查依据和是否需要账号风控'],
       remarkTemplates: ['私聊举报属实，聊天凭证存在违规内容，建议进入账号风控。', '私聊举报证据不足，暂不处理账号，保留记录待补充。']
+    }
+  }
+  if (targetType === 'COMMUNITY_POST' || targetType === 'COMMUNITY_COMMENT' || targetType === 'POST' || targetType === 'COMMENT') {
+    return {
+      targetLabel,
+      traceHint: '先打开社区追溯，核对帖子作者、正文、图片、评论和关联商品。',
+      steps: ['核对举报目标是否来自真实社区帖子或评论', '通过社区追溯查看帖子内容、评论上下文和上传图片', '处理后在审核备注中写明帖子编号、评论编号、违规点和是否需要账号风控'],
+      remarkTemplates: ['社区举报属实，已核对帖子/评论上下文，建议进入内容处置或账号风控。', '社区举报证据不足，暂不处理内容，保留记录待补充。']
     }
   }
   return {

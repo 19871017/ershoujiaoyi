@@ -192,10 +192,21 @@ describe('admin auth helpers', () => {
       sessionId: 'adm_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
       expiresAt: FUTURE_EXPIRES_AT
     })
+    const chatTraceOnly = normalizeAdminSession({
+      username: 'chat-trace',
+      userId: '18',
+      permissions: ['chat:trace'],
+      sessionId: 'adm_12121212121212121212121212121212',
+      expiresAt: FUTURE_EXPIRES_AT
+    })
 
     expect(shouldRedirectToLogin('/audit/AU-20260510-0001', auditOnly)).toBe(false)
-    expect(shouldRedirectToLogin('/chat-trace', auditOnly)).toBe(false)
-    expect(shouldRedirectToLogin('/chat-trace/12', auditOnly)).toBe(false)
+    expect(shouldRedirectToLogin('/chat-trace', auditOnly)).toBe(true)
+    expect(shouldRedirectToLogin('/chat-trace/12', auditOnly)).toBe(true)
+    expect(shouldRedirectToLogin('/chat-trace', chatTraceOnly)).toBe(false)
+    expect(shouldRedirectToLogin('/chat-trace/12', chatTraceOnly)).toBe(false)
+    expect(shouldRedirectToLogin('/products', auditOnly)).toBe(false)
+    expect(shouldRedirectToLogin('/products/88', auditOnly)).toBe(false)
     expect(shouldRedirectToLogin('/users', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/users/8331', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/users', normalizeAdminSession({ username: 'user-admin', userId: '9', permissions: ['user:read'], sessionId: 'adm_ffffffffffffffffffffffffffffffff', expiresAt: FUTURE_EXPIRES_AT }))).toBe(false)
@@ -269,13 +280,13 @@ describe('admin auth helpers', () => {
     const allAccess = normalizeAdminSession({
       username: 'ops',
       userId: '7',
-      permissions: ['audit:read', 'finance:read', 'order:read', 'after-sales:read', 'user:read', 'audit:log', 'operator:grant', 'system:config'],
+      permissions: ['audit:read', 'chat:trace', 'finance:read', 'order:read', 'after-sales:read', 'user:read', 'audit:log', 'operator:grant', 'system:config'],
       sessionId: 'adm_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       expiresAt: FUTURE_EXPIRES_AT
     })
 
     expect(dashboardActionsForSession(financeOnly).map((item) => item.path)).toEqual(['/finance/withdrawals'])
-    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/chat-trace', '/finance/withdrawals', '/after-sales', '/orders', '/users', '/audit-logs', '/operators', '/system/location', '/system/banners', '/system/announcements'])
+    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/chat-trace', '/community-trace', '/products', '/finance/withdrawals', '/after-sales', '/orders', '/users', '/audit-logs', '/operators', '/system/location', '/system/banners', '/system/announcements'])
     expect(dashboardActionsForSession(null)).toEqual([])
   })
 

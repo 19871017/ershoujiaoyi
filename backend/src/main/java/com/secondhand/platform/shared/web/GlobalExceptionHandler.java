@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -89,6 +90,13 @@ public class GlobalExceptionHandler {
             "identity fields must be server-derived",
             "daily registration limit exceeded",
             "mobile already registered",
+            "contact info is not allowed",
+            "message revoke window expired",
+            "video identity evidence review required",
+            "video identity media invalid",
+            "video watch progress invalid",
+            "video watch progress insufficient",
+            "video watch progress not elapsed",
             "location reverse geocode disabled",
             "location reverse geocode not configured"
     );
@@ -119,6 +127,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<Void> handleHttpMessageNotReadableException(HttpMessageNotReadableException exception) {
         return Result.fail("request body invalid");
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Result<Void> handleNoResourceFoundException(NoResourceFoundException exception) {
+        return Result.fail("not found");
     }
 
     @ExceptionHandler(IllegalStateException.class)

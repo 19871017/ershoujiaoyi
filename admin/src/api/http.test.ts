@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { request, setAdminHeaderProvider } from './http'
+import { request, requestBlob, setAdminHeaderProvider } from './http'
 
 describe('admin http client', () => {
   beforeEach(() => {
@@ -64,5 +64,31 @@ describe('admin http client', () => {
 
     await expect(request({ url: '/api/admin/audit' })).rejects.toThrow('管理员会话无效')
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('fetches protected blobs with resolved admin headers', async () => {
+    const blob = new Blob(['voice'], { type: 'audio/webm' })
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: async () => blob })
+    vi.stubGlobal('fetch', fetchMock)
+    setAdminHeaderProvider(() => ({ 'X-User-Id': '7', 'X-Admin-Session': 'adm_cccccccccccccccccccccccccccccccc' }))
+
+    const result = await requestBlob({
+      url: '/api/admin/chat/media?url=%2Fuploads%2Fchat-voice%2F7%2Fa.webm',
+      headers: {
+        'X-User-Id': '999'
+      }
+    })
+
+    expect(result).toBe(blob)
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init).toMatchObject({
+      method: 'GET',
+      credentials: 'include'
+    })
+    expect(init.headers).toMatchObject({
+      'X-User-Id': '7',
+      'X-Admin-Session': 'adm_cccccccccccccccccccccccccccccccc'
+    })
+    expect(init.headers).not.toHaveProperty('Content-Type')
   })
 })

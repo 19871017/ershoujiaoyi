@@ -1,6 +1,15 @@
 import type { UserProfileResponse } from '../../../api/modules/user'
 
-export type ChooseVideoResult = { tempFilePath?: string; size?: number }
+export type ChooseVideoFile = { name?: string; path?: string; tempFilePath?: string; type?: string; size?: number }
+export type ChooseVideoResult = {
+  tempFilePath?: string
+  duration?: number
+  size?: number
+  name?: string
+  type?: string
+  tempFile?: ChooseVideoFile
+  file?: ChooseVideoFile
+}
 export type RealNameFieldKey = 'name' | 'idTail'
 
 export const videoIdentityStoragePrefix = '/uploads/video-identity/'
@@ -15,7 +24,9 @@ export function isValidIdentityStatus(value: unknown): value is NonNullable<User
 }
 
 export function hasApprovedVideoIdentity(value: UserProfileResponse): boolean {
-  return value.videoVerified === true && value.videoIdentityStatus === 'APPROVED'
+  return value.videoVerified === true &&
+    value.videoIdentityStatus === 'APPROVED' &&
+    !!validatedVideoIdentityUrl(value.videoIdentityUrl)
 }
 
 export function assertBackendProfile(value: unknown): asserts value is UserProfileResponse {
@@ -32,9 +43,9 @@ export function assertBackendProfile(value: unknown): asserts value is UserProfi
 
 export function hasInvalidTempVideoPath(path: string): boolean {
   const lower = path.toLowerCase()
+  const isH5BlobPath = lower.startsWith('blob:')
   return !path ||
     lower.startsWith('local://') ||
-    lower.startsWith('blob:') ||
     lower.startsWith('data:') ||
     lower.includes('placeholder') ||
     lower.includes('%2e') ||
@@ -42,7 +53,7 @@ export function hasInvalidTempVideoPath(path: string): boolean {
     lower.includes('%5c') ||
     path.includes('\\') ||
     path.includes('..') ||
-    path.includes('//')
+    (!isH5BlobPath && path.includes('//'))
 }
 
 export function isPickerCancel(error: unknown): boolean {
@@ -76,15 +87,52 @@ export function validatedVideoIdentityUrl(storageUrl: unknown): string {
   return storageUrl
 }
 
-export function fileNameFromPath(path: string): string {
-  const clean = path.split('?')[0] || ''
-  const last = clean.split('/').pop() || 'video-identity.mp4'
-  return last.includes('.') ? last : `${last}.mp4`
+export function videoFallbackName(contentType: string): string {
+  if (contentType === 'video/quicktime') return 'video-identity.mov'
+  if (contentType === 'video/x-m4v') return 'video-identity.m4v'
+  return 'video-identity.mp4'
 }
 
-export function guessVideoContentType(path: string): string {
+export function fileNameFromPath(path: string, fallback = 'video-identity.mp4'): string {
+  const clean = path.split('?')[0] || ''
+  const last = clean.split('/').pop() || fallback
+  return last.includes('.') ? last : fallback
+}
+
+export function normalizedVideoContentType(contentType: unknown): string | undefined {
+  if (typeof contentType !== 'string') return undefined
+  const lower = contentType.trim().toLowerCase()
+  if (lower === 'video/mp4' || lower === 'video/mpeg4') return 'video/mp4'
+  if (lower === 'video/quicktime' || lower === 'video/mov') return 'video/quicktime'
+  if (lower === 'video/x-m4v' || lower === 'video/m4v') return 'video/x-m4v'
+  if (lower === 'video/webm') throw new Error('暂不支持 WebM 视频，请选择 MP4、MOV 或 M4V')
+  if (lower.startsWith('video/')) throw new Error('暂不支持该视频格式，请选择 MP4、MOV 或 M4V')
+  return undefined
+}
+
+export function guessVideoContentType(path: string, fallbackType?: unknown): string {
+  const normalized = normalizedVideoContentType(fallbackType)
+  if (normalized) return normalized
   const lower = path.toLowerCase()
+  if (lower.startsWith('blob:')) return 'video/mp4'
+  if (lower.endsWith('.mp4')) return 'video/mp4'
   if (lower.endsWith('.mov')) return 'video/quicktime'
   if (lower.endsWith('.m4v')) return 'video/x-m4v'
-  return 'video/mp4'
+  if (lower.endsWith('.webm')) throw new Error('暂不支持 WebM 视频，请选择 MP4、MOV 或 M4V')
+  throw new Error('暂不支持该视频格式，请选择 MP4、MOV 或 M4V')
+}
+
+export function hasInvalidVideoIdentityDuration(duration: unknown): boolean {
+  return typeof duration === 'number' && Number.isFinite(duration) && duration > 10
+}
+
+export function videoTypeFromPickerResult(result: ChooseVideoResult, blob?: Blob): unknown {
+  return blob?.type || result.type || result.tempFile?.type || result.file?.type
+}
+
+export function videoNameFromPickerResult(result: ChooseVideoResult, contentType: string): string {
+  const fallback = videoFallbackName(contentType)
+  const name = result.name || result.tempFile?.name || result.file?.name
+  if (name && name.includes('.')) return name
+  return fileNameFromPath(result.tempFilePath || result.tempFile?.path || result.file?.path || '', fallback)
 }

@@ -1,5 +1,6 @@
 package com.secondhand.platform.modules.media.application;
 
+import java.io.InputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -13,6 +14,9 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -79,11 +83,11 @@ public class MediaUploadTicketService {
     }
 
     public MediaUploadTicketResponse requireIssuedStorageUrl(Long userId, String scene, String storageUrl) {
-        return requireStorageUrl(userId, scene, storageUrl, List.of("ISSUED", "UPLOADED"));
+        return requireStorageUrl(userId, scene, storageUrl, List.of("ISSUED", "UPLOADED"), true);
     }
 
     public MediaUploadTicketResponse requireUploadedStorageUrl(Long userId, String scene, String storageUrl) {
-        return requireStorageUrl(userId, scene, storageUrl, List.of("UPLOADED"));
+        return requireStorageUrl(userId, scene, storageUrl, List.of("UPLOADED"), false);
     }
 
     @Transactional
@@ -111,8 +115,20 @@ public class MediaUploadTicketService {
         try {
             Files.createDirectories(target.getParent());
             file.transferTo(target);
+            if (SCENE_VIDEO_IDENTITY.equals(ticket.scene())) {
+                VideoIdentityMediaInspector.requireValidVideoIdentityMedia(target);
+            }
+            if (isImageScene(ticket.scene())) {
+                requireValidImageMedia(target, uploadedContentType);
+            }
+            if (SCENE_CHAT_VOICE.equals(ticket.scene())) {
+                requireValidVoiceMedia(target, uploadedContentType);
+            }
         } catch (IOException e) {
             throw new IllegalStateException("upload file save failed", e);
+        } catch (IllegalArgumentException e) {
+            deleteInvalidUpload(target);
+            throw e;
         }
         int changed = jdbcTemplate.update("update media_upload_ticket set status = ? where ticket_no = ? and owner_user_id = ? and status = ?", "UPLOADED", safeTicketNo, userId, "ISSUED");
         if (changed != 1) {
@@ -121,7 +137,12 @@ public class MediaUploadTicketService {
         return requireUploadedStorageUrl(userId, ticket.scene(), ticket.storageUrl());
     }
 
-    private MediaUploadTicketResponse requireStorageUrl(Long userId, String scene, String storageUrl, List<String> statuses) {
+    public double requireUploadedVideoIdentityMedia(Long userId, String storageUrl) {
+        requireUploadedStorageUrl(userId, SCENE_VIDEO_IDENTITY, storageUrl);
+        return VideoIdentityMediaInspector.requireValidVideoIdentityMedia(storagePathFor(storageUrl));
+    }
+
+    private MediaUploadTicketResponse requireStorageUrl(Long userId, String scene, String storageUrl, List<String> statuses, boolean requireUnexpiredIssuedTicket) {
         validateUserId(userId);
         String safeScene = requireText(scene, "upload scene required").toUpperCase(Locale.ROOT);
         String safeStorageUrl = requireText(storageUrl, "storageUrl required");
@@ -132,11 +153,12 @@ public class MediaUploadTicketService {
             String placeholders = String.join(",", statuses.stream().map(status -> "?").toList());
             List<Object> args = new ArrayList<>(List.of(userId, safeScene, safeStorageUrl));
             args.addAll(statuses);
+            String expiryClause = requireUnexpiredIssuedTicket ? "and (status <> 'ISSUED' or expires_at > CURRENT_TIMESTAMP)" : "";
             return jdbcTemplate.queryForObject("""
                     select ticket_no, owner_user_id, scene, content_type, file_size, storage_url, status, expires_at
                     from media_upload_ticket
-                    where owner_user_id = ? and scene = ? and storage_url = ? and status in (%s) and expires_at > CURRENT_TIMESTAMP
-                    """.formatted(placeholders), (rs, rowNum) -> new MediaUploadTicketResponse(
+                    where owner_user_id = ? and scene = ? and storage_url = ? and status in (%s) %s
+                    """.formatted(placeholders, expiryClause), (rs, rowNum) -> new MediaUploadTicketResponse(
                     rs.getString("ticket_no"),
                     rs.getLong("owner_user_id"),
                     rs.getString("scene"),
@@ -183,6 +205,14 @@ public class MediaUploadTicketService {
         return target;
     }
 
+    private void deleteInvalidUpload(Path target) {
+        try {
+            Files.deleteIfExists(target);
+        } catch (IOException ignored) {
+            // The ticket remains non-UPLOADED, so a leftover file cannot be used by business flows.
+        }
+    }
+
     private Path resolveStorageRoot(String configuredRoot) {
         if (configuredRoot == null || configuredRoot.isBlank()) {
             throw new IllegalStateException("media.storage-root required");
@@ -203,7 +233,7 @@ public class MediaUploadTicketService {
                 throw new IllegalArgumentException("video identity fileSize invalid");
             }
         }
-        if (List.of(SCENE_PRODUCT_IMAGE, SCENE_COMMUNITY_IMAGE, SCENE_AFTER_SALES_EVIDENCE, SCENE_REPORT_EVIDENCE, SCENE_CHAT_IMAGE).contains(scene)) {
+        if (isImageScene(scene)) {
             List<String> allowedTypes = List.of("image/jpeg", "image/png", "image/webp");
             if (!allowedTypes.contains(contentType)) {
                 throw new IllegalArgumentException("image content type invalid");
@@ -230,6 +260,124 @@ public class MediaUploadTicketService {
         if (lower.contains("..") || lower.contains("/") || lower.contains("\\") || lower.contains("placeholder") || lower.contains("preview")) {
             throw new IllegalArgumentException("filename invalid");
         }
+    }
+
+    private boolean isImageScene(String scene) {
+        return List.of(SCENE_PRODUCT_IMAGE, SCENE_COMMUNITY_IMAGE, SCENE_AFTER_SALES_EVIDENCE, SCENE_REPORT_EVIDENCE, SCENE_CHAT_IMAGE).contains(scene);
+    }
+
+    private void requireValidImageMedia(Path mediaPath, String contentType) {
+        try {
+            if ("image/webp".equals(contentType)) {
+                requireValidWebpMedia(mediaPath);
+                return;
+            }
+            try (ImageInputStream stream = ImageIO.createImageInputStream(mediaPath.toFile())) {
+                if (stream == null) {
+                    throw new IllegalArgumentException("image media invalid");
+                }
+                var readers = ImageIO.getImageReaders(stream);
+                if (!readers.hasNext()) {
+                    throw new IllegalArgumentException("image media invalid");
+                }
+                ImageReader reader = readers.next();
+                try {
+                    reader.setInput(stream, true, true);
+                    int width = reader.getWidth(0);
+                    int height = reader.getHeight(0);
+                    String formatName = reader.getFormatName().toLowerCase(Locale.ROOT);
+                    if (width <= 0 || height <= 0 || !imageFormatMatches(contentType, formatName)) {
+                        throw new IllegalArgumentException("image media invalid");
+                    }
+                } finally {
+                    reader.dispose();
+                }
+            }
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("image media invalid", exception);
+        }
+    }
+
+    private boolean imageFormatMatches(String contentType, String formatName) {
+        if ("image/jpeg".equals(contentType)) {
+            return "jpeg".equals(formatName) || "jpg".equals(formatName);
+        }
+        if ("image/png".equals(contentType)) {
+            return "png".equals(formatName);
+        }
+        return false;
+    }
+
+    private void requireValidWebpMedia(Path mediaPath) throws IOException {
+        byte[] header = new byte[30];
+        try (InputStream inputStream = Files.newInputStream(mediaPath)) {
+            int read = inputStream.readNBytes(header, 0, header.length);
+            if (read < 30
+                    || !ascii(header, 0, 4).equals("RIFF")
+                    || !ascii(header, 8, 4).equals("WEBP")
+                    || (!ascii(header, 12, 4).equals("VP8 ") && !ascii(header, 12, 4).equals("VP8L") && !ascii(header, 12, 4).equals("VP8X"))) {
+                throw new IllegalArgumentException("image media invalid");
+            }
+        }
+    }
+
+    private String ascii(byte[] bytes, int offset, int length) {
+        return new String(bytes, offset, length, StandardCharsets.US_ASCII);
+    }
+
+    private void requireValidVoiceMedia(Path mediaPath, String contentType) {
+        try (InputStream inputStream = Files.newInputStream(mediaPath)) {
+            byte[] header = inputStream.readNBytes(64);
+            if (!voiceHeaderMatches(contentType, header)) {
+                throw new IllegalArgumentException("voice media invalid");
+            }
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("voice media invalid", exception);
+        }
+    }
+
+    private boolean voiceHeaderMatches(String contentType, byte[] header) {
+        if (header == null || header.length < 4) {
+            return false;
+        }
+        return switch (contentType) {
+            case "audio/webm" -> isEbml(header);
+            case "audio/mp4", "audio/x-m4a", "audio/aac" -> isMp4LikeAudio(header) || isAdtsAac(header);
+            case "audio/mpeg" -> isMp3(header);
+            case "audio/wav" -> isWav(header);
+            default -> false;
+        };
+    }
+
+    private boolean isEbml(byte[] header) {
+        return header.length >= 4
+                && (header[0] & 0xFF) == 0x1A
+                && (header[1] & 0xFF) == 0x45
+                && (header[2] & 0xFF) == 0xDF
+                && (header[3] & 0xFF) == 0xA3;
+    }
+
+    private boolean isMp4LikeAudio(byte[] header) {
+        return header.length >= 12
+                && "ftyp".equals(ascii(header, 4, 4));
+    }
+
+    private boolean isAdtsAac(byte[] header) {
+        return header.length >= 2
+                && (header[0] & 0xFF) == 0xFF
+                && (header[1] & 0xF0) == 0xF0;
+    }
+
+    private boolean isMp3(byte[] header) {
+        return header.length >= 3
+                && (("ID3".equals(ascii(header, 0, 3)))
+                || ((header[0] & 0xFF) == 0xFF && (header[1] & 0xE0) == 0xE0));
+    }
+
+    private boolean isWav(byte[] header) {
+        return header.length >= 12
+                && "RIFF".equals(ascii(header, 0, 4))
+                && "WAVE".equals(ascii(header, 8, 4));
     }
 
     private String sanitizeFilename(String filename) {

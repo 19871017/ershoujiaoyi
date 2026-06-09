@@ -47,7 +47,7 @@ class PersistenceContextSmokeTest {
                     "select id from user_account where phone = '13800138000' and status = 'ACTIVE'",
                     Long.class
             );
-            assertEquals(11, jdbcTemplate.queryForObject(
+            assertEquals(12, jdbcTemplate.queryForObject(
                     "select count(1) from admin_user_permission where user_id = ? and enabled = TRUE",
                     Integer.class,
                     adminUserId

@@ -181,6 +181,7 @@ for (const { file, scene, prefix } of publicMediaPages) {
 }
 
 const identityPage = contents['src/pages/user/identity/index.vue']
+const identityHelpers = fs.readFileSync(path.join(root, 'src/pages/user/identity/identity-helpers.ts'), 'utf8')
 if (identityPage.includes("uni.navigateTo({ url: '/pages/upload/evidence/index?scene=IDENTITY' })")) {
   failures.push('identity real-name evidence must not route through legacy scene=IDENTITY; use canonical VIDEO_IDENTITY ticket wording or fail closed until a real-name evidence scene exists')
 }
@@ -199,7 +200,7 @@ if (identityPage.includes("uni.showToast({ title: '已生成上传凭证', icon:
 if (!identityPage.includes('已生成上传票据')) {
   failures.push('identity video picker should say only that a VIDEO_IDENTITY upload ticket was generated')
 }
-for (const marker of ['const videoIdentityStoragePrefix = \'/uploads/video-identity/\'', 'const profileReady = ref(false)', 'const profileUnavailable = ref(false)', 'function hasApprovedVideoIdentity(value: UserProfileResponse): boolean', 'function clearVideoTrustState(): void', 'function assertBackendProfile(value: unknown): asserts value is UserProfileResponse', 'function hasInvalidTempVideoPath(path: string): boolean', 'function validatedVideoIdentityUrl(storageUrl: unknown): string', 'validatedVideoIdentityUrl(uploaded.storageUrl)', 'const safeVideoUrl = validatedVideoIdentityUrl(videoUrl.value)', 'assertBackendProfile(backendProfile)', 'hasApprovedVideoIdentity(profile)', '视频上传中，请稍后提交', 'identity video invalid storageUrl', 'identity video upload failed', 'identity video picker failed', 'identity video picker returned invalid temp path', 'identity profile refresh failed; cleared video trust state', 'identity real-name submit ignored because submission is already in progress', 'identity real-name submit failed', 'identity real-name submit success modal failed', 'identity real-name input invalid', 'const refreshed = await loadProfile()', 'identity notification navigation failed', 'identity video submit failed', 'identity video submit success modal failed', '认证提交结果暂时无法校验', "lower.startsWith('blob:')", "lower.startsWith('data:')", "storageUrl.startsWith('local://')", "storageUrl.startsWith('blob:')", "storageUrl.startsWith('data:')", "lower.includes('placeholder')", "lower.includes('%2e')", "lower.includes('%2f')", "lower.includes('%5c')", "storageUrl.includes('\\\\')", "relativePath.split('/').some"] ) {
+for (const marker of ['const videoIdentityStoragePrefix = \'/uploads/video-identity/\'', 'const profileReady = ref(false)', 'const profileUnavailable = ref(false)', 'function hasApprovedVideoIdentity(value: UserProfileResponse): boolean', 'function clearVideoTrustState(): void', 'function syncSubmittedVideoUrlFromProfile(): void', 'function assertBackendProfile(value: unknown): asserts value is UserProfileResponse', 'function hasInvalidTempVideoPath(path: string): boolean', 'function validatedVideoIdentityUrl(storageUrl: unknown): string', 'validatedVideoIdentityUrl(uploaded.storageUrl)', 'const safeVideoUrl = validatedVideoIdentityUrl(videoUrl.value)', 'assertBackendProfile(backendProfile)', 'hasApprovedVideoIdentity(profile)', '视频上传中，请稍后提交', 'identity video invalid storageUrl', 'identity video upload failed', 'identity video picker failed', 'identity video picker returned invalid temp path', 'identity profile refresh failed; cleared video trust state', 'identity real-name submit ignored because submission is already in progress', 'identity real-name submit failed', 'identity real-name submit success modal failed', 'identity real-name input invalid', 'const refreshed = await loadProfile()', 'identity notification navigation failed', 'identity video submit failed', 'identity video submit success modal failed', '认证提交结果暂时无法校验', "lower.startsWith('data:')", "storageUrl.startsWith('local://')", "storageUrl.startsWith('blob:')", "storageUrl.startsWith('data:')", "lower.includes('placeholder')", "lower.includes('%2e')", "lower.includes('%2f')", "lower.includes('%5c')", "storageUrl.includes('\\\\')", "relativePath.split('/').some"] ) {
   if (!identityPage.includes(marker)) failures.push(`identity video flow must validate VIDEO_IDENTITY storage URL before state/submission and surface async failures: ${marker}`)
 }
 if (/v-model(?:\.trim)?=/.test(identityPage)) {
@@ -214,14 +215,25 @@ if (!/function assertBackendProfile\(value: unknown\): asserts value is UserProf
 if (identityPage.includes("backendProfile.videoIdentityStatus === 'APPROVED' || backendProfile.videoIdentityStatus === 'PENDING'")) {
   failures.push('identity own-profile validation must not require hidden non-seller APPROVED video URLs when videoVerified is false')
 }
-if (!/function hasInvalidTempVideoPath\(path: string\): boolean[\s\S]*lower\.startsWith\('local:\/\/'\)[\s\S]*lower\.startsWith\('blob:'\)[\s\S]*lower\.startsWith\('data:'\)[\s\S]*lower\.includes\('%2e'\)[\s\S]*lower\.includes\('%2f'\)[\s\S]*lower\.includes\('%5c'\)[\s\S]*path\.includes\('\\\\'\)[\s\S]*path\.includes\('\.\.'\)[\s\S]*path\.includes\('\/\/'\)/s.test(identityPage)) {
-  failures.push('identity video temp path must reject local/blob/data/placeholder/traversal values before VIDEO_IDENTITY ticket upload')
+if (!/function hasInvalidTempVideoPath\(path: string\): boolean[\s\S]*lower\.startsWith\('local:\/\/'\)[\s\S]*lower\.startsWith\('data:'\)[\s\S]*lower\.includes\('%2e'\)[\s\S]*lower\.includes\('%2f'\)[\s\S]*lower\.includes\('%5c'\)[\s\S]*path\.includes\('\\\\'\)[\s\S]*path\.includes\('\.\.'\)[\s\S]*path\.includes\('\/\/'\)/s.test(identityPage)) {
+  failures.push('identity video temp path must reject local/data/placeholder/traversal values before VIDEO_IDENTITY ticket upload while allowing H5 blob temp paths')
 }
 if (!/async function loadProfile\(\): Promise<boolean>\s*\{[\s\S]*const backendProfile = await getMyProfile\(\)[\s\S]*assertBackendProfile\(backendProfile\)[\s\S]*Object\.assign\(profile, backendProfile\)[\s\S]*profileReady\.value = true[\s\S]*catch \(error\)\s*\{[\s\S]*clearVideoTrustState\(\)[\s\S]*profileUnavailable\.value = true[\s\S]*console\.warn\('identity profile refresh failed; cleared video trust state'/s.test(identityPage)) {
   failures.push('identity profile refresh must validate backend audit state and clear stale trust state on failure')
 }
+if (!/function syncSubmittedVideoUrlFromProfile\(\): void\s*\{[\s\S]*profile\.videoIdentityStatus !== 'PENDING' && !hasApprovedVideoIdentity\(profile\)[\s\S]*videoUrl\.value = validatedVideoIdentityUrl\(profile\.videoIdentityUrl\)[\s\S]*\}/s.test(identityPage) || !/Object\.assign\(profile, backendProfile\)[\s\S]*syncSubmittedVideoUrlFromProfile\(\)[\s\S]*profileReady\.value = true/s.test(identityPage)) {
+  failures.push('identity page must show the current user pending or approved videoIdentityUrl only after backend profile validation and canonical URL checks')
+}
 if (!/function chooseVideo\(\): void\s*\{[\s\S]*uploadingVideo\.value = true[\s\S]*try\s*\{[\s\S]*uni\.chooseVideo[\s\S]*catch \(error\)\s*\{[\s\S]*uploadingVideo\.value = false[\s\S]*console\.warn\('identity video picker failed'/s.test(identityPage)) {
   failures.push('identity video picker must clear busy state and log synchronous chooser failures')
+}
+if (!/type ChooseVideoResult = \{[\s\S]*duration\?: number[\s\S]*\}/s.test(identityHelpers)
+    || !/function hasInvalidVideoIdentityDuration\(duration: unknown\): boolean\s*\{[\s\S]*Number\.isFinite\(duration\)[\s\S]*duration > 10[\s\S]*\}/s.test(identityHelpers)
+    || !/success\(res: ChooseVideoResult\)[\s\S]*hasInvalidVideoIdentityDuration\(res\.duration\)[\s\S]*console\.warn\('identity video picker returned invalid duration'[\s\S]*视频认证视频请控制在 10 秒以内[\s\S]*readH5TempVideoBlob\(res\.tempFilePath\)/s.test(identityPage)) {
+  failures.push('identity video picker must reject known over-10-second VIDEO_IDENTITY clips before upload while leaving backend validation authoritative')
+}
+if (!/if \(lower\.endsWith\('\.mp4'\)\) return 'video\/mp4'[\s\S]*throw new Error\('暂不支持该视频格式，请选择 MP4、MOV 或 M4V'\)/s.test(identityHelpers)) {
+  failures.push('identity video content type guessing must reject unknown video extensions instead of defaulting to video/mp4')
 }
 if (!/function navigateToNotificationAfterVideoSubmit\(\): void\s*\{[\s\S]*try\s*\{\s*uni\.navigateTo\(route\)[\s\S]*catch \(error\)\s*\{[\s\S]*console\.warn\('identity notification navigation failed'/s.test(identityPage)) {
   failures.push('identity video submit notification navigation must handle async and synchronous failures')
@@ -279,16 +291,25 @@ if (!/boolean sellerApprovedVideo = approvedVideo && VIDEO_IDENTITY_PUBLIC_ROLES
 if (!/boolean pendingOwnVideo = exposePendingVideoIdentityUrl && "PENDING"\.equals\(videoStatus\) && storedVideoIdentityUrl != null/.test(backendUserService)) {
   failures.push('backend self pending video URL exposure must require canonical videoIdentityUrl')
 }
-if (!/String responseVideoStatus = sellerApprovedVideo \|\| pendingOwnVideo \? videoStatus : "UNVERIFIED"/.test(backendUserService)) {
-  failures.push('backend public profile must hide pending/untrusted video audit status as UNVERIFIED')
+if (!/boolean rejectedOwnVideo = exposePendingVideoIdentityUrl && "REJECTED"\.equals\(videoStatus\)/.test(backendUserService)) {
+  failures.push('backend current-user profile may expose rejected VIDEO_IDENTITY status for self review, but only behind the explicit current-user service flag')
+}
+if (!/String responseVideoStatus = sellerApprovedVideo \|\| pendingOwnVideo \|\| rejectedOwnVideo \? videoStatus : "UNVERIFIED"/.test(backendUserService)) {
+  failures.push('backend public profile must hide pending/rejected/untrusted video audit status as UNVERIFIED while allowing current-user review state')
 }
 if (!/List<UserRankingResponse> rows = jdbcTemplate\.query[\s\S]*VIDEO_IDENTITY_PUBLIC_ROLES\.contains\(mainRole\.toUpperCase\(Locale\.ROOT\)\)[\s\S]*isCanonicalVideoIdentityUrl\(rawVideoIdentityUrl\)[\s\S]*String responseVideoStatus = approvedVideo \? "APPROVED" : "UNVERIFIED"[\s\S]*new UserRankingResponse/s.test(backendUserService)) {
   failures.push('backend public ranking must hide pending/untrusted video audit status and require canonical approved video URL')
 }
-if (!backendUserProfileResponse.includes('this.videoIdentityUrl = (videoVerified || "PENDING".equals(this.videoIdentityStatus)) ? videoIdentityUrl : null;')) {
-  failures.push('backend profile response must allow self PENDING video URL while hiding unverified non-pending video URLs')
+if (backendUserProfileResponse.includes('videoVerified || "PENDING".equals(this.videoIdentityStatus)')) {
+  failures.push('backend profile response default must not expose PENDING videoIdentityUrl without an explicit current-user service flag')
 }
-for (const marker of ['pendingSelf.getVideoIdentityUrl()', 'profileShouldHideNonCanonicalVideoIdentityAuditUrls', 'profileShouldHideMalformedCanonicalVideoIdentityAuditUrls', '/uploads/community-image/not-video.jpg', '/uploads/product-image/not-video.jpg', '/uploads/video-identity/../community-image/leak.mp4', '/uploads/video-identity/%2e%2e/secret.mp4', '/uploads/video-identity/placeholder.mp4', 'AUDIT-VIDEO-RANKING-APPROVED', 'assertEquals("UNVERIFIED", pendingRow.getVideoIdentityStatus())']) {
+if (!backendUserProfileResponse.includes('this.videoIdentityUrl = ((videoVerified && "APPROVED".equals(this.videoIdentityStatus)) || exposeVideoIdentityUrl) ? videoIdentityUrl : null;')) {
+  failures.push('backend profile response must require approved verification or explicit service opt-in for current-user PENDING videoIdentityUrl exposure')
+}
+if (!/new UserProfileResponse\([\s\S]*responseVideoStatus,[\s\S]*sellerApprovedVideo,[\s\S]*videoIdentityUrl,[\s\S]*pendingOwnVideo,[\s\S]*loadShowcasePhotos/s.test(backendUserService)) {
+  failures.push('backend current-user pending video URL exposure must be passed explicitly from service into UserProfileResponse; rejected status must not expose a media URL')
+}
+for (const marker of ['pendingSelf.getVideoIdentityUrl()', 'userProfileResponseShouldHidePendingVideoIdentityUrlByDefault', 'publicProfileShouldHideRejectedAndDefaultVideoIdentityUrls', 'profileShouldHideNonCanonicalVideoIdentityAuditUrls', 'profileShouldHideMalformedCanonicalVideoIdentityAuditUrls', '/uploads/community-image/not-video.jpg', '/uploads/product-image/not-video.jpg', '/uploads/video-identity/../community-image/leak.mp4', '/uploads/video-identity/%2e%2e/secret.mp4', '/uploads/video-identity/placeholder.mp4', 'AUDIT-VIDEO-RANKING-APPROVED', 'assertEquals("UNVERIFIED", pendingRow.getVideoIdentityStatus())']) {
   if (!backendUserServiceTest.includes(marker)) failures.push(`backend user profile tests must guard identity video URL contract: ${marker}`)
 }
 

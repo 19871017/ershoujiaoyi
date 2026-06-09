@@ -15,15 +15,30 @@ const requiredMarkers = [
   "getPublicProfile",
   "const authorId = ref<number | null>(null)",
   "const authorFollowed = ref(false)",
+  "const authorFollowLoaded = ref(false)",
+  "const authorFollowError = ref('')",
+  "const authorFollowSubmitting = ref(false)",
+  "const authorFollowButtonText = computed(() =>",
+  "const canMessageAuthor = computed(() => isValidBackendUserId(authorId.value))",
   "authorId.value = detail.authorId || null",
   "await getPublicProfile(safeAuthorId)",
   "async function toggleAuthorFollow()",
+  "if (authorFollowSubmitting.value) return",
+  "if (authorFollowError.value || !authorFollowLoaded.value)",
+  "authorFollowError.value = '作者关注状态暂时不可用，请稍后刷新'",
   "await unfollowPublicProfile(safeAuthorId)",
   "await followPublicProfile(safeAuthorId)",
   "authorFollowed.value = Boolean(profile.followedByMe)",
   "authorFollowed.value = Boolean(updated.followedByMe)",
+  "authorFollowSubmitting.value = true",
+  "authorFollowSubmitting.value = false",
   "缺少后端作者ID，未执行任何关注变更",
-  "关注状态没有提交成功，未执行本地关注变更"
+  "关注状态没有提交成功，未执行本地关注变更",
+  "function messageAuthor()",
+  "作者资料暂时不可用，未进入私信",
+  "`/pages/chat/conversation/index?receiverId=${encodeURIComponent(String(authorId.value))}`",
+  '<view class="message-author tapable" :class="{ disabled: !canMessageAuthor }" @click="messageAuthor">私信</view>',
+  '<view class="tapable" @click="messageAuthor">私信作者</view>'
 ]
 
 for (const marker of requiredMarkers) {

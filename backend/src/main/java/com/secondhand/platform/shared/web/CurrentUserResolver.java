@@ -47,6 +47,18 @@ public class CurrentUserResolver {
         return userIds.get(0);
     }
 
+    public Long resolveOptional(HttpServletRequest request) {
+        String authorization = request == null ? null : request.getHeader("Authorization");
+        String accessToken = extractBearerToken(authorization);
+        if (accessToken != null) {
+            return resolve(request);
+        }
+        if (isDevelopmentProfile() && isDevModeHeaderEnabled(request)) {
+            return resolveLegacyHeader(request);
+        }
+        return null;
+    }
+
     private String extractBearerToken(String authorization) {
         if (authorization == null || authorization.isBlank()) {
             return null;

@@ -14,12 +14,13 @@
 </template>
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { createMediaUploadTicket, uploadMediaTicketFile, type MediaUploadScene } from '../../../api/modules/media'
+import { createMediaUploadTicket, uploadMediaTicketBlob, uploadMediaTicketFile, type MediaUploadScene } from '../../../api/modules/media'
 
 type Scene = MediaUploadScene
 type ChooseImageFile = { name?: string; type?: string; size?: number }
 type ChooseImageResult = { tempFilePaths?: string[]; tempFiles?: ChooseImageFile[] }
-type ChooseVideoResult = { tempFilePath?: string; size?: number }
+type ChooseVideoFile = { name?: string; path?: string; tempFilePath?: string; type?: string; size?: number }
+type ChooseVideoResult = { tempFilePath?: string; size?: number; name?: string; type?: string; tempFile?: ChooseVideoFile; file?: ChooseVideoFile }
 const launchReadinessMarkers = [
   '媒体文件已完成平台上传',
   '上传媒体文件',
@@ -139,8 +140,13 @@ function chooseVideoIdentity(): void {
       try {
         const path = res.tempFilePath
         if (!path || hasInvalidTempMediaPath(path)) throw new Error('视频文件无效，请重新选择')
-        const ticket = await createMediaUploadTicket({ scene: 'VIDEO_IDENTITY', contentType: videoContentType(path), fileSize: Math.max(1, res.size ?? 1), filename: fileNameFromPath(path) })
-        const uploaded = await uploadMediaTicketFile(ticket, path)
+        const blob = await readH5TempVideoBlob(path)
+        const contentType = videoContentType(path, videoTypeFromPickerResult(res, blob))
+        const filename = videoFileNameFromPickerResult(res, contentType)
+        const ticket = await createMediaUploadTicket({ scene: 'VIDEO_IDENTITY', contentType, fileSize: Math.max(1, blob?.size ?? res.size ?? 1), filename })
+        const uploaded = blob
+          ? await uploadMediaTicketBlob(ticket, new Blob([blob], { type: contentType }), filename)
+          : await uploadMediaTicketFile(ticket, path)
         const storageUrl = validatedStorageUrl(sceneSnapshot, uploaded.storageUrl)
         if (scene.value !== sceneSnapshot) return uni.showToast({ title:'上传期间切换了场景，请在当前场景重新选择视频', icon:'none' })
         images.value = [storageUrl]
@@ -235,11 +241,45 @@ function imageContentType(path: string, fallbackType?: string): string {
 function imageFileSize(file?: ChooseImageFile): number {
   return Math.max(1, Math.min(Number(file?.size || 600_000), 10_000_000))
 }
-function videoContentType(path: string): string {
+function videoFallbackName(contentType: string): string {
+  if (contentType === 'video/quicktime') return 'video-identity.mov'
+  if (contentType === 'video/x-m4v') return 'video-identity.m4v'
+  return 'video-identity.mp4'
+}
+function normalizedVideoContentType(contentType: unknown): string | undefined {
+  if (typeof contentType !== 'string') return undefined
+  const lower = contentType.trim().toLowerCase()
+  if (lower === 'video/mp4' || lower === 'video/mpeg4') return 'video/mp4'
+  if (lower === 'video/quicktime' || lower === 'video/mov') return 'video/quicktime'
+  if (lower === 'video/x-m4v' || lower === 'video/m4v') return 'video/x-m4v'
+  if (lower === 'video/webm') throw new Error('暂不支持 WebM 视频，请选择 MP4、MOV 或 M4V')
+  if (lower.startsWith('video/')) throw new Error('暂不支持该视频格式，请选择 MP4、MOV 或 M4V')
+  return undefined
+}
+function videoContentType(path: string, fallbackType?: unknown): string {
+  const normalized = normalizedVideoContentType(fallbackType)
+  if (normalized) return normalized
   const lower = path.toLowerCase()
   if (lower.endsWith('.mov')) return 'video/quicktime'
   if (lower.endsWith('.m4v')) return 'video/x-m4v'
+  if (lower.endsWith('.webm')) throw new Error('暂不支持 WebM 视频，请选择 MP4、MOV 或 M4V')
   return 'video/mp4'
+}
+async function readH5TempVideoBlob(path: string): Promise<Blob | undefined> {
+  if (!path.toLowerCase().startsWith('blob:')) return undefined
+  if (typeof fetch !== 'function') throw new Error('当前环境不支持读取视频文件，请换用 MP4 文件或稍后重试')
+  const response = await fetch(path)
+  if (!response.ok) throw new Error('视频文件读取失败，请重新选择')
+  return response.blob()
+}
+function videoTypeFromPickerResult(result: ChooseVideoResult, blob?: Blob): unknown {
+  return blob?.type || result.type || result.tempFile?.type || result.file?.type
+}
+function videoFileNameFromPickerResult(result: ChooseVideoResult, contentType: string): string {
+  const fallback = videoFallbackName(contentType)
+  const name = result.name || result.tempFile?.name || result.file?.name
+  if (name && name.includes('.')) return name
+  return fileNameFromPath(result.tempFilePath || result.tempFile?.path || result.file?.path || fallback)
 }
 function submit(): void {
   if (saving.value) return

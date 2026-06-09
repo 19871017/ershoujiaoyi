@@ -29,3 +29,14 @@ export function extractReportEvidenceUrls(description?: string | null): string[]
   const matches = description.match(evidencePattern) || []
   return Array.from(new Set(matches.map((item) => item.trim()).filter(isValidReportEvidenceUrl))).slice(0, 6)
 }
+
+export function reportEvidenceMediaUrl(auditNo: string, evidenceUrl: string): string {
+  if (!/^AU-[A-Z0-9-]{6,128}$/.test(auditNo)) {
+    throw new Error('auditNo invalid')
+  }
+  if (!isValidReportEvidenceUrl(evidenceUrl)) {
+    throw new Error('report evidence url invalid')
+  }
+  const params = new URLSearchParams({ url: evidenceUrl })
+  return `/api/admin/audit/${encodeURIComponent(auditNo)}/report-evidence?${params.toString()}`
+}

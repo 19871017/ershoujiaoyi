@@ -14,7 +14,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class NotificationApplicationService {
     private static final int MAX_LIST_LIMIT = 50;
-    private static final Set<String> ALLOWED_TYPES = Set.of("ORDER", "CHAT", "AUDIT", "SYSTEM");
+    private static final Set<String> ALLOWED_TYPES = Set.of("ORDER", "CHAT", "AUDIT", "SYSTEM", "FOLLOW", "LIKE", "COMMENT", "GIFT");
+    private static final Set<String> ALLOWED_STATIC_TARGET_URLS = Set.of(
+            "/pages/notification/index",
+            "/pages/chat/session-list/index",
+            "/pages/user/identity/index",
+            "/pages/tabbar/home/index",
+            "/pages/tabbar/category/index",
+            "/pages/tabbar/publish/index",
+            "/pages/tabbar/message/index",
+            "/pages/tabbar/me/index"
+    );
     private final JdbcTemplate jdbcTemplate;
 
     public NotificationApplicationService(JdbcTemplate jdbcTemplate) {
@@ -144,19 +154,42 @@ public class NotificationApplicationService {
         if (trimmed.length() > 256 || !trimmed.matches("/pages/[A-Za-z0-9/_-]+/index(\\?[A-Za-z0-9%=&_.:-]+)?")) {
             throw new IllegalArgumentException("notification targetUrl invalid");
         }
+        if (ALLOWED_STATIC_TARGET_URLS.contains(trimmed)) {
+            return trimmed;
+        }
         if (trimmed.startsWith("/pages/after-sales/detail/index?")) {
             validateAfterSalesDetailTargetUrl(trimmed);
+            return trimmed;
         }
         if (trimmed.startsWith("/pages/order/detail/index?")) {
             validateOrderDetailTargetUrl(trimmed);
+            return trimmed;
         }
-        return trimmed;
+        if (trimmed.startsWith("/pages/community/detail/index?")) {
+            validateCommunityDetailTargetUrl(trimmed);
+            return trimmed;
+        }
+        if (trimmed.startsWith("/pages/user/public-profile/index?")) {
+            validatePublicProfileTargetUrl(trimmed);
+            return trimmed;
+        }
+        if (trimmed.startsWith("/pages/gift/index?")) {
+            validateGiftTargetUrl(trimmed);
+            return trimmed;
+        }
+        if (trimmed.startsWith("/pages/chat/conversation/index?")) {
+            validateChatConversationTargetUrl(trimmed);
+            return trimmed;
+        }
+        throw new IllegalArgumentException("notification targetUrl invalid");
     }
 
     private static void validateAfterSalesDetailTargetUrl(String targetUrl) {
         String query = targetUrl.substring("/pages/after-sales/detail/index?".length());
         String afterSalesNo = "";
         String orderNo = "";
+        int afterSalesNoCount = 0;
+        int orderNoCount = 0;
         for (String pair : query.split("&")) {
             String[] parts = pair.split("=", 2);
             if (parts.length != 2) {
@@ -164,10 +197,17 @@ public class NotificationApplicationService {
             }
             String key = decode(parts[0]);
             String value = decode(parts[1]);
-            if ("afterSalesNo".equals(key)) afterSalesNo = value;
-            else if ("orderNo".equals(key)) orderNo = value;
+            if ("afterSalesNo".equals(key)) {
+                afterSalesNo = value;
+                afterSalesNoCount += 1;
+            } else if ("orderNo".equals(key)) {
+                orderNo = value;
+                orderNoCount += 1;
+            }
+            else throw new IllegalArgumentException("notification targetUrl invalid");
         }
-        if (!afterSalesNo.matches("AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}") || !orderNo.matches("OD-[0-9]{1,10}")) {
+        if (afterSalesNoCount != 1 || orderNoCount != 1 ||
+                !afterSalesNo.matches("AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}") || !orderNo.matches("OD-[0-9]{1,10}")) {
             throw new IllegalArgumentException("notification targetUrl invalid");
         }
     }
@@ -175,6 +215,7 @@ public class NotificationApplicationService {
     private static void validateOrderDetailTargetUrl(String targetUrl) {
         String query = targetUrl.substring("/pages/order/detail/index?".length());
         String orderNo = "";
+        int orderNoCount = 0;
         for (String pair : query.split("&")) {
             String[] parts = pair.split("=", 2);
             if (parts.length != 2) {
@@ -184,11 +225,109 @@ public class NotificationApplicationService {
             String value = decode(parts[1]);
             if ("orderNo".equals(key)) {
                 orderNo = value;
+                orderNoCount += 1;
             } else {
                 throw new IllegalArgumentException("notification targetUrl invalid");
             }
         }
-        if (!orderNo.matches("OD-[0-9]{1,10}")) {
+        if (orderNoCount != 1 || !orderNo.matches("OD-[0-9]{1,10}")) {
+            throw new IllegalArgumentException("notification targetUrl invalid");
+        }
+    }
+
+    private static void validateCommunityDetailTargetUrl(String targetUrl) {
+        String query = targetUrl.substring("/pages/community/detail/index?".length());
+        String postId = "";
+        int postIdCount = 0;
+        for (String pair : query.split("&")) {
+            String[] parts = pair.split("=", 2);
+            if (parts.length != 2) {
+                throw new IllegalArgumentException("notification targetUrl invalid");
+            }
+            String key = decode(parts[0]);
+            String value = decode(parts[1]);
+            if ("postId".equals(key)) {
+                postId = value;
+                postIdCount += 1;
+            } else {
+                throw new IllegalArgumentException("notification targetUrl invalid");
+            }
+        }
+        if (postIdCount != 1 || !postId.matches("[1-9]\\d{0,18}")) {
+            throw new IllegalArgumentException("notification targetUrl invalid");
+        }
+    }
+
+    private static void validatePublicProfileTargetUrl(String targetUrl) {
+        String query = targetUrl.substring("/pages/user/public-profile/index?".length());
+        String userId = "";
+        int userIdCount = 0;
+        for (String pair : query.split("&")) {
+            String[] parts = pair.split("=", 2);
+            if (parts.length != 2) {
+                throw new IllegalArgumentException("notification targetUrl invalid");
+            }
+            String key = decode(parts[0]);
+            String value = decode(parts[1]);
+            if ("userId".equals(key)) {
+                userId = value;
+                userIdCount += 1;
+            } else {
+                throw new IllegalArgumentException("notification targetUrl invalid");
+            }
+        }
+        if (userIdCount != 1 || !userId.matches("[1-9]\\d{0,18}")) {
+            throw new IllegalArgumentException("notification targetUrl invalid");
+        }
+    }
+
+    private static void validateGiftTargetUrl(String targetUrl) {
+        String query = targetUrl.substring("/pages/gift/index?".length());
+        boolean hasModeReceived = false;
+        int modeCount = 0;
+        for (String pair : query.split("&")) {
+            String[] parts = pair.split("=", 2);
+            if (parts.length != 2) {
+                throw new IllegalArgumentException("notification targetUrl invalid");
+            }
+            String key = decode(parts[0]);
+            String value = decode(parts[1]);
+            if ("mode".equals(key) && "received".equals(value)) {
+                hasModeReceived = true;
+                modeCount += 1;
+            } else {
+                throw new IllegalArgumentException("notification targetUrl invalid");
+            }
+        }
+        if (!hasModeReceived || modeCount != 1) {
+            throw new IllegalArgumentException("notification targetUrl invalid");
+        }
+    }
+
+    private static void validateChatConversationTargetUrl(String targetUrl) {
+        String query = targetUrl.substring("/pages/chat/conversation/index?".length());
+        String conversationId = "";
+        String receiverId = "";
+        int conversationIdCount = 0;
+        int receiverIdCount = 0;
+        for (String pair : query.split("&")) {
+            String[] parts = pair.split("=", 2);
+            if (parts.length != 2) {
+                throw new IllegalArgumentException("notification targetUrl invalid");
+            }
+            String key = decode(parts[0]);
+            String value = decode(parts[1]);
+            if ("conversationId".equals(key)) {
+                conversationId = value;
+                conversationIdCount += 1;
+            } else if ("receiverId".equals(key)) {
+                receiverId = value;
+                receiverIdCount += 1;
+            }
+            else throw new IllegalArgumentException("notification targetUrl invalid");
+        }
+        if (conversationIdCount != 1 || receiverIdCount != 1 ||
+                !conversationId.matches("[1-9]\\d{0,18}") || !receiverId.matches("[1-9]\\d{0,18}")) {
             throw new IllegalArgumentException("notification targetUrl invalid");
         }
     }

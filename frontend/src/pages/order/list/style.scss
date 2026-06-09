@@ -169,11 +169,18 @@
   gap: 10rpx;
 }
 
+.order-head > view:first-child {
+  min-width: 0;
+}
+
 .order-no {
   color: #342116;
   font-size: 22rpx;
   font-weight: 950;
   letter-spacing: .12rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .order-time {
@@ -192,6 +199,7 @@
   color: #df6735;
   font-size: 21rpx;
   font-weight: 950;
+  white-space: nowrap;
 }
 
 .status-badge.PAID,

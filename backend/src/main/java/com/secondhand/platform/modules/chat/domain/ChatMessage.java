@@ -11,6 +11,7 @@ public class ChatMessage extends BaseEntity {
     private Long receiverId;
     private String msgType;
     private String contentJson;
+    private Boolean revoked;
 
     public Long getConversationId() { return conversationId; }
     public void setConversationId(Long conversationId) { this.conversationId = conversationId; }
@@ -28,4 +29,6 @@ public class ChatMessage extends BaseEntity {
     public void setMsgType(String msgType) { this.msgType = msgType; }
     public String getContentJson() { return contentJson; }
     public void setContentJson(String contentJson) { this.contentJson = contentJson; }
+    public Boolean getRevoked() { return revoked; }
+    public void setRevoked(Boolean revoked) { this.revoked = revoked; }
 }

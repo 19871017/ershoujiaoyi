@@ -5,34 +5,67 @@
         v-for="item in tabs"
         :key="item.path"
         class="bottom-nav-item tapable"
-        :class="{ active: activePath === item.path, publish: item.path === publishPath }"
+        :class="{ active: activePath === item.path, publish: item.path === publishPath, 'has-unread': item.path === communityPath && totalUnread > 0 }"
         @click="openTab(item.path)"
       >
-        <view class="bottom-nav-icon">{{ item.badge }}</view>
+        <view class="bottom-nav-icon">
+          <text>{{ item.badge }}</text>
+          <text v-if="item.path === communityPath && totalUnread > 0" class="bottom-nav-unread">{{ displayUnread }}</text>
+        </view>
         <text class="bottom-nav-text">{{ item.label }}</text>
+      </view>
+    </view>
+    <view v-if="communityMenuOpen" class="community-switcher ds-card">
+      <view class="community-switcher-item tapable" @click="openCommunityFeed">
+        <text class="switcher-icon">社</text>
+        <view class="switcher-copy">
+          <text class="switcher-title">社区动态</text>
+          <text class="switcher-subtitle">看看新帖子</text>
+        </view>
+      </view>
+      <view class="community-switcher-item private tapable" @click="openPrivateChat">
+        <text class="switcher-icon">信</text>
+        <view class="switcher-copy">
+          <text class="switcher-title">私聊</text>
+          <text class="switcher-subtitle">{{ privateSubtitle }}</text>
+        </view>
+        <text v-if="totalUnread > 0" class="switcher-unread">{{ displayUnread }}</text>
       </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { getChatConversations, type ChatConversationItem, type ChatConversationListResponse } from '../api/modules/chat'
+import { useUserStore } from '../store/modules/user'
 
 const homePath = '/pages/tabbar/home/index'
 const publishPath = '/pages/tabbar/publish/index'
+const communityPath = '/pages/tabbar/message/index'
+const unreadRefreshMs = 5000
+const communitySwitcherEventName = 'xiaoyuanquan:community-switcher'
 
 const tabs = [
   { path: homePath, label: '首页', badge: '首' },
   { path: '/pages/tabbar/category/index', label: '宝贝', badge: '宝' },
   { path: publishPath, label: '商家秀', badge: '秀' },
-  { path: '/pages/tabbar/message/index', label: '社区', badge: '社' },
+  { path: communityPath, label: '社区', badge: '社' },
   { path: '/pages/tabbar/me/index', label: '我的', badge: '我' }
 ] as const
 
 type TabPath = typeof tabs[number]['path']
+type NavigateToWithFailure = (options: { url: string; fail?: (error: unknown) => void }) => void
 
+const userStore = useUserStore()
 const activePath = ref<TabPath | ''>('')
+const communityMenuOpen = ref(false)
+const totalUnread = ref(0)
 const visible = computed(() => tabs.some((item) => item.path === activePath.value))
+const displayUnread = computed(() => totalUnread.value > 99 ? '99+' : String(totalUnread.value))
+const privateSubtitle = computed(() => totalUnread.value > 0 ? `${displayUnread.value} 条未读` : '进入会话列表')
+const navigateToWithFailure = uni.navigateTo as unknown as NavigateToWithFailure
+let unreadTimer: ReturnType<typeof setInterval> | null = null
 
 function normalizePath(path: string): string {
   const value = path.replace(/^#/, '').split('?')[0]
@@ -49,25 +82,141 @@ function syncActivePath(): void {
   const path = currentPath()
   const matched = tabs.find((item) => item.path === path)
   activePath.value = matched?.path ?? ''
+  if (activePath.value !== communityPath) communityMenuOpen.value = false
+}
+
+function publishCommunitySwitcherState(open = communityMenuOpen.value): void {
+  if (typeof window === 'undefined') return
+  document.documentElement.classList.toggle('community-switcher-open', open)
+  window.dispatchEvent(new CustomEvent(communitySwitcherEventName, { detail: { open } }))
 }
 
 function openTab(path: TabPath): void {
+  if (path === communityPath) {
+    communityMenuOpen.value = !communityMenuOpen.value
+    return
+  }
+  communityMenuOpen.value = false
   if (path === activePath.value) return
-  uni.switchTab({ url: path })
-  activePath.value = path
+  switchToTab(path)
+}
+
+function switchToTab(path: TabPath): void {
+  const switchTab = uni.switchTab as unknown as (options: {
+    url: string
+    success?: () => void
+    fail?: (error: unknown) => void
+  }) => void
+  try {
+    switchTab({
+      url: path,
+      success: () => {
+        activePath.value = path
+      },
+      fail: (error: unknown) => {
+        console.warn('global bottom nav switchTab failed', { path, error })
+        syncActivePath()
+        uni.showToast({ title: '暂时无法切换页面', icon: 'none' })
+      }
+    })
+  } catch (error) {
+    console.warn('global bottom nav switchTab failed', { path, error })
+    syncActivePath()
+    uni.showToast({ title: '暂时无法切换页面', icon: 'none' })
+  }
+}
+
+function openCommunityFeed(): void {
+  communityMenuOpen.value = false
+  if (activePath.value === communityPath) return
+  switchToTab(communityPath)
+}
+
+function openPrivateChat(): void {
+  communityMenuOpen.value = false
+  navigateToWithFailure({
+    url: '/pages/chat/session-list/index',
+    fail: (error: unknown) => {
+      console.warn('global bottom nav private chat navigation failed', { error })
+      uni.showToast({ title: '暂时无法打开私聊', icon: 'none' })
+    }
+  })
+}
+
+function isValidBackendId(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) > 0
+}
+
+function assertConversationListResponse(value: unknown): asserts value is ChatConversationListResponse {
+  if (!value || typeof value !== 'object') throw new Error('bottom nav chat unread invalid response')
+  if (!Array.isArray((value as ChatConversationListResponse).conversations)) throw new Error('bottom nav chat unread invalid conversations')
+}
+
+function validUnreadCount(item: unknown): number {
+  if (!item || typeof item !== 'object') return 0
+  const row = item as ChatConversationItem
+  if (!isValidBackendId(row.conversationId) || !isValidBackendId(row.peerUserId)) return 0
+  if (!Number.isSafeInteger(row.unreadCount) || row.unreadCount < 0) return 0
+  return row.unreadCount
+}
+
+async function refreshUnreadCount(preserveOnError = true): Promise<void> {
+  if (!userStore.token) {
+    totalUnread.value = 0
+    return
+  }
+  try {
+    const response = await getChatConversations()
+    assertConversationListResponse(response)
+    totalUnread.value = response.conversations.reduce((sum, item) => sum + validUnreadCount(item), 0)
+  } catch (error) {
+    console.warn('global bottom nav chat unread load failed', { error })
+    if (!preserveOnError) totalUnread.value = 0
+  }
+}
+
+function startUnreadRefresh(): void {
+  if (unreadTimer || !userStore.token) return
+  unreadTimer = setInterval(() => { void refreshUnreadCount(true) }, unreadRefreshMs)
+}
+
+function stopUnreadRefresh(): void {
+  if (!unreadTimer) return
+  clearInterval(unreadTimer)
+  unreadTimer = null
 }
 
 onMounted(() => {
   syncActivePath()
+  publishCommunitySwitcherState()
+  void refreshUnreadCount(false)
+  startUnreadRefresh()
   if (typeof window !== 'undefined') {
     window.addEventListener('hashchange', syncActivePath)
   }
 })
 
 onBeforeUnmount(() => {
+  publishCommunitySwitcherState(false)
+  stopUnreadRefresh()
   if (typeof window !== 'undefined') {
     window.removeEventListener('hashchange', syncActivePath)
   }
+})
+
+watch(() => userStore.token, (token) => {
+  if (!token) {
+    stopUnreadRefresh()
+    totalUnread.value = 0
+    communityMenuOpen.value = false
+    return
+  }
+  void refreshUnreadCount(false)
+  startUnreadRefresh()
+})
+
+watch(communityMenuOpen, (open) => {
+  publishCommunitySwitcherState(open)
 })
 </script>
 
@@ -112,6 +261,7 @@ onBeforeUnmount(() => {
   background: linear-gradient(180deg, rgba(255,244,232,.96), rgba(255,235,219,.92));
 }
 .bottom-nav-icon {
+  position: relative;
   width: 30rpx;
   height: 30rpx;
   border-radius: 999rpx;
@@ -123,6 +273,25 @@ onBeforeUnmount(() => {
   font-size: 17rpx;
   line-height: 1;
   box-shadow: inset 0 0 0 2rpx rgba(255,122,69,.08);
+}
+.bottom-nav-unread {
+  position: absolute;
+  top: -11rpx;
+  right: -16rpx;
+  min-width: 25rpx;
+  height: 25rpx;
+  padding: 0 6rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #ff3f8d, #ff6f3f);
+  color: #fff;
+  font-size: 15rpx;
+  line-height: 25rpx;
+  text-align: center;
+  box-shadow: 0 6rpx 16rpx rgba(255, 63, 141, .28), 0 0 0 3rpx rgba(255, 255, 255, .96);
+}
+.bottom-nav-item.has-unread .bottom-nav-icon {
+  background: #fff0f5;
+  color: #ff3f8d;
 }
 .bottom-nav-item.publish .bottom-nav-icon {
   background: radial-gradient(circle at 35% 28%, #fff6c7 0, #ffd36b 28%, #ff7a45 56%, #ff3f8d 100%);
@@ -136,6 +305,101 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   font-size: 18rpx;
   line-height: 1;
+}
+.community-switcher {
+  position: absolute;
+  right: 74rpx;
+  bottom: calc(100rpx + env(safe-area-inset-bottom));
+  width: min(430rpx, calc(100vw - 54rpx));
+  padding: 12rpx;
+  display: grid;
+  gap: 8rpx;
+  border-color: rgba(255, 217, 189, .88);
+  background: rgba(255, 251, 246, .98);
+  box-shadow: 0 18rpx 42rpx rgba(132, 70, 36, .16);
+  backdrop-filter: blur(18rpx);
+}
+.community-switcher::after {
+  content: '';
+  position: absolute;
+  right: 74rpx;
+  bottom: -10rpx;
+  width: 20rpx;
+  height: 20rpx;
+  transform: rotate(45deg);
+  background: rgba(255, 251, 246, .98);
+  border-right: 1rpx solid rgba(255, 217, 189, .88);
+  border-bottom: 1rpx solid rgba(255, 217, 189, .88);
+}
+.community-switcher-item {
+  position: relative;
+  z-index: 1;
+  min-height: 78rpx;
+  padding: 10rpx 12rpx;
+  border-radius: 22rpx;
+  display: grid;
+  grid-template-columns: 42rpx minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10rpx;
+  background: rgba(255, 255, 255, .78);
+  color: #4b2d20;
+  box-sizing: border-box;
+}
+.community-switcher-item.private {
+  background: linear-gradient(135deg, rgba(255, 243, 247, .98), rgba(255, 238, 226, .96));
+}
+.switcher-icon {
+  width: 42rpx;
+  height: 42rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff3e7;
+  color: #ff7a45;
+  font-size: 18rpx;
+  font-weight: 950;
+}
+.community-switcher-item.private .switcher-icon {
+  background: linear-gradient(135deg, #ff3f8d, #ff8b76);
+  color: #fff;
+}
+.switcher-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+.switcher-title,
+.switcher-subtitle {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.switcher-title {
+  color: #3f261a;
+  font-size: 22rpx;
+  font-weight: 950;
+  line-height: 1.1;
+}
+.switcher-subtitle {
+  color: #9b7560;
+  font-size: 17rpx;
+  font-weight: 780;
+  line-height: 1.1;
+}
+.switcher-unread {
+  min-width: 30rpx;
+  height: 30rpx;
+  padding: 0 8rpx;
+  border-radius: 999rpx;
+  background: #ff3f8d;
+  color: #fff;
+  font-size: 17rpx;
+  line-height: 30rpx;
+  text-align: center;
+  font-weight: 950;
 }
 @media (max-width: 360px) {
   .global-bottom-nav-wrap {
@@ -158,5 +422,9 @@ onBeforeUnmount(() => {
     font-size: 16rpx;
   }
   .bottom-nav-text { font-size: 17rpx; }
+  .community-switcher {
+    right: 56rpx;
+    width: min(390rpx, calc(100vw - 34rpx));
+  }
 }
 </style>

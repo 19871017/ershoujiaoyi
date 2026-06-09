@@ -45,6 +45,11 @@ const required = [
   'isSafeNotificationTargetUrl',
   'isSafeAfterSalesDetailTargetUrl',
   'isSafeOrderDetailTargetUrl',
+  'isSafeCommunityDetailTargetUrl',
+  'isSafePublicProfileTargetUrl',
+  'isSafeGiftTargetUrl',
+  'isSafeChatConversationTargetUrl',
+  'isAllowedStaticNotificationTargetUrl',
   'isTabBarNotificationTargetUrl',
   'isValidNotificationNo',
   'function assertNotificationItem(value: unknown): asserts value is NotificationItemResponse',
@@ -58,9 +63,27 @@ const required = [
   "item.targetUrl && isSafeNotificationTargetUrl(item.targetUrl)",
   "value.startsWith('/pages/after-sales/detail/index?')",
   "value.startsWith('/pages/order/detail/index?')",
+  "value.startsWith('/pages/community/detail/index?')",
+  "value.startsWith('/pages/user/public-profile/index?')",
+  "value.startsWith('/pages/gift/index?')",
+  "value.startsWith('/pages/chat/conversation/index?')",
+  'return false',
   "const afterSalesNo = params.get('afterSalesNo') || ''",
   "const orderNo = params.get('orderNo') || ''",
-  "/^AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(afterSalesNo) && /^OD-[0-9]{1,10}$/.test(orderNo)",
+  "const postId = params.get('postId') || ''",
+  "const userId = params.get('userId') || ''",
+  "params.get('mode') === 'received'",
+  "const conversationId = params.get('conversationId') || ''",
+  "const receiverId = params.get('receiverId') || ''",
+  "value === 'FOLLOW' || value === 'LIKE' || value === 'COMMENT' || value === 'GIFT'",
+  "{ label: '互动', value: 'FOLLOW' as const }",
+  "{ label: '点赞', value: 'LIKE' as const }",
+  "{ label: '评论', value: 'COMMENT' as const }",
+  "{ label: '礼物', value: 'GIFT' as const }",
+  "FOLLOW: '♡'",
+  "LIKE: '♥'",
+  "COMMENT: '💬'",
+  "GIFT: '🎁'",
   "params.forEach((_value, key) => { keys.push(key) })",
   "keys.length === 1 && keys[0] === 'orderNo' && /^OD-[0-9]{1,10}$/.test(orderNo)",
   'if (isTabBarNotificationTargetUrl(item.targetUrl)) uni.switchTab(route)',
@@ -79,17 +102,44 @@ for (const marker of required) {
 }
 
 if (!/function assertNotificationItem\(value: unknown\): asserts value is NotificationItemResponse[\s\S]*item\.targetUrl != null && \(typeof item\.targetUrl !== 'string' \|\| !isSafeNotificationTargetUrl\(item\.targetUrl\)\)[\s\S]*throw new Error\('notification invalid targetUrl'\)/s.test(content)) {
-  console.error(`${file}: invalid backend notification targetUrl must fail closed during response validation`)
+  if (!/function assertNotificationItem\(value: unknown\): asserts value is NotificationItemResponse[\s\S]*item\.targetUrl != null && item\.targetUrl !== '' && \(typeof item\.targetUrl !== 'string' \|\| !isSafeNotificationTargetUrl\(item\.targetUrl\)\)[\s\S]*throw new Error\('notification invalid targetUrl'\)/s.test(content)) {
+    console.error(`${file}: invalid backend notification targetUrl must fail closed during response validation while allowing empty no-navigation targetUrl`)
+    failed = true
+  }
+}
+
+if (!/export function isSafeNotificationTargetUrl\(value\?: string \| null\)[\s\S]*isAllowedStaticNotificationTargetUrl\(value\)[\s\S]*value\.startsWith\('\/pages\/gift\/index\?'\)[\s\S]*return false/s.test(content)) {
+  console.error(`${file}: notification target validation must fail closed for non-whitelisted pages instead of default-allowing any /pages route`)
   failed = true
 }
 
-if (!/export function isSafeAfterSalesDetailTargetUrl\(value: string\): boolean[\s\S]*const params = new URLSearchParams\(query\)[\s\S]*const afterSalesNo = params\.get\('afterSalesNo'\) \|\| ''[\s\S]*const orderNo = params\.get\('orderNo'\) \|\| ''[\s\S]*\^AS-\[A-Za-z0-9\]\[A-Za-z0-9_-\]\{5,63\}\$[\s\S]*\^OD-\[0-9\]\{1,10\}\$/s.test(content)) {
-  console.error(`${file}: after-sales notification target must require canonical afterSalesNo and orderNo before navigation`)
+if (!/export function isSafeAfterSalesDetailTargetUrl\(value: string\): boolean[\s\S]*const params = new URLSearchParams\(query\)[\s\S]*const keys: string\[\] = \[\][\s\S]*params\.forEach\(\(_value, key\) => \{ keys\.push\(key\) \}\)[\s\S]*const afterSalesNo = params\.get\('afterSalesNo'\) \|\| ''[\s\S]*const orderNo = params\.get\('orderNo'\) \|\| ''[\s\S]*keys\.length === 2[\s\S]*keys\.includes\('afterSalesNo'\)[\s\S]*keys\.includes\('orderNo'\)[\s\S]*\^AS-\[A-Za-z0-9\]\[A-Za-z0-9_-\]\{5,63\}\$[\s\S]*\^OD-\[0-9\]\{1,10\}\$/s.test(content)) {
+  console.error(`${file}: after-sales notification target must require canonical afterSalesNo/orderNo and reject extra query keys before navigation`)
   failed = true
 }
 
 if (!/export function isSafeOrderDetailTargetUrl\(value: string\): boolean[\s\S]*const params = new URLSearchParams\(query\)[\s\S]*const keys: string\[\] = \[\][\s\S]*params\.forEach\(\(_value, key\) => \{ keys\.push\(key\) \}\)[\s\S]*const orderNo = params\.get\('orderNo'\) \|\| ''[\s\S]*keys\.length === 1 && keys\[0\] === 'orderNo' && \/\^OD-\[0-9\]\{1,10\}\$\/\.test\(orderNo\)/s.test(content)) {
   console.error(`${file}: order notification target must require a canonical backend orderNo and no extra query before navigation`)
+  failed = true
+}
+
+if (!/export function isSafeCommunityDetailTargetUrl\(value: string\): boolean[\s\S]*const params = new URLSearchParams\(query\)[\s\S]*const keys: string\[\] = \[\][\s\S]*const postId = params\.get\('postId'\) \|\| ''[\s\S]*keys\.length === 1 && keys\[0\] === 'postId' && \/\^\[1-9\]\\d\{0,18\}\$\/\.test\(postId\)/s.test(content)) {
+  console.error(`${file}: community interaction notification target must require a single positive backend postId before navigation`)
+  failed = true
+}
+
+if (!/export function isSafePublicProfileTargetUrl\(value: string\): boolean[\s\S]*const params = new URLSearchParams\(query\)[\s\S]*const keys: string\[\] = \[\][\s\S]*const userId = params\.get\('userId'\) \|\| ''[\s\S]*keys\.length === 1 && keys\[0\] === 'userId' && \/\^\[1-9\]\\d\{0,18\}\$\/\.test\(userId\)/s.test(content)) {
+  console.error(`${file}: follow notification target must require a single positive backend userId before navigation`)
+  failed = true
+}
+
+if (!/export function isSafeGiftTargetUrl\(value: string\): boolean[\s\S]*const params = new URLSearchParams\(query\)[\s\S]*const keys: string\[\] = \[\][\s\S]*keys\.length === 1 && keys\[0\] === 'mode' && params\.get\('mode'\) === 'received'/s.test(content)) {
+  console.error(`${file}: gift notification target must only open the received gift ledger mode`)
+  failed = true
+}
+
+if (!/export function isSafeChatConversationTargetUrl\(value: string\): boolean[\s\S]*const params = new URLSearchParams\(query\)[\s\S]*const keys: string\[\] = \[\][\s\S]*const conversationId = params\.get\('conversationId'\) \|\| ''[\s\S]*const receiverId = params\.get\('receiverId'\) \|\| ''[\s\S]*keys\.length === 2[\s\S]*keys\.includes\('conversationId'\)[\s\S]*keys\.includes\('receiverId'\)[\s\S]*\^\[1-9\]\\d\{0,18\}\$[\s\S]*\^\[1-9\]\\d\{0,18\}\$/s.test(content)) {
+  console.error(`${file}: chat notification target must require positive conversationId and receiverId and reject extra query keys`)
   failed = true
 }
 

@@ -47,6 +47,10 @@ public class UserProfileResponse {
     }
 
     public UserProfileResponse(Long userId, String userNo, String nickname, String avatarUrl, String mainRole, String gender, String city, String bio, String identityStatus, String videoIdentityStatus, boolean videoVerified, String videoIdentityUrl, List<String> showcaseImageUrls, boolean followedByMe, int followerCount, int followingCount, int sellerCharmScore, int buyerPowerScore) {
+        this(userId, userNo, nickname, avatarUrl, mainRole, gender, city, bio, identityStatus, videoIdentityStatus, videoVerified, videoIdentityUrl, false, showcaseImageUrls, followedByMe, followerCount, followingCount, sellerCharmScore, buyerPowerScore);
+    }
+
+    public UserProfileResponse(Long userId, String userNo, String nickname, String avatarUrl, String mainRole, String gender, String city, String bio, String identityStatus, String videoIdentityStatus, boolean videoVerified, String videoIdentityUrl, boolean exposeVideoIdentityUrl, List<String> showcaseImageUrls, boolean followedByMe, int followerCount, int followingCount, int sellerCharmScore, int buyerPowerScore) {
         this.userId = userId;
         this.userNo = userNo;
         this.nickname = nickname;
@@ -58,7 +62,7 @@ public class UserProfileResponse {
         this.identityStatus = identityStatus == null ? "UNVERIFIED" : identityStatus;
         this.videoIdentityStatus = videoIdentityStatus == null ? "UNVERIFIED" : videoIdentityStatus;
         this.videoVerified = videoVerified;
-        this.videoIdentityUrl = (videoVerified || "PENDING".equals(this.videoIdentityStatus)) ? videoIdentityUrl : null;
+        this.videoIdentityUrl = ((videoVerified && "APPROVED".equals(this.videoIdentityStatus)) || exposeVideoIdentityUrl) ? videoIdentityUrl : null;
         this.showcaseImageUrls = videoVerified ? List.copyOf(showcaseImageUrls == null ? List.of() : showcaseImageUrls) : List.of();
         this.followedByMe = followedByMe;
         this.followerCount = followerCount;

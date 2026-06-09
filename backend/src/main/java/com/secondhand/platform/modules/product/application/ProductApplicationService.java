@@ -30,8 +30,10 @@ public class ProductApplicationService {
     private static final String STATUS_ACTIVE = "ACTIVE";
     private static final String STATUS_OFFLINE = "OFFLINE";
     private static final String STATUS_SOLD = "SOLD";
+    private static final String AUDIT_TYPE_PRODUCT = "PRODUCT";
     private static final String AUDIT_PENDING = "PENDING";
     private static final String AUDIT_APPROVED = "APPROVED";
+    private static final String AUDIT_REJECTED = "REJECTED";
     private static final String CERTIFIED_PRODUCT_SELLER_FILTER = """
             and exists (
                 select 1
@@ -42,7 +44,57 @@ public class ProductApplicationService {
                   and UPPER(COALESCE(up.main_role, 'BUYER')) IN ('SELLER', 'BOTH')
                   and up.video_identity_status = 'APPROVED'
                   and up.video_verified = TRUE
-            )
+                  and exists (
+                      select 1
+                      from media_upload_ticket t
+                      where t.owner_user_id = up.user_id
+	                        and t.scene = 'VIDEO_IDENTITY'
+	                        and t.status = 'UPLOADED'
+	                        and t.storage_url like '/uploads/video-identity/%'
+	                        and exists (
+	                            select 1
+	                            from audit_record ar
+	                            where ar.audit_type = 'VIDEO_IDENTITY'
+	                              and ar.user_id = up.user_id
+	                              and ar.target_id = concat('', up.user_id)
+	                              and ar.status = 'APPROVED'
+	                              and ar.reason = t.storage_url
+	                        )
+	                  )
+	            )
+            """;
+    private static final String CERTIFIED_SELLER_VERIFIED_SELECT = """
+            CASE WHEN ua.status = 'ACTIVE'
+                  AND UPPER(COALESCE(up.main_role, 'BUYER')) IN ('SELLER', 'BOTH')
+                  AND up.video_identity_status = 'APPROVED'
+                  AND up.video_verified = TRUE
+                  AND EXISTS (
+                      SELECT 1
+                      FROM media_upload_ticket t
+                      WHERE t.owner_user_id = up.user_id
+                        AND t.scene = 'VIDEO_IDENTITY'
+                        AND t.status = 'UPLOADED'
+                        AND t.storage_url LIKE '/uploads/video-identity/%'
+                        AND EXISTS (
+                            SELECT 1
+                            FROM audit_record ar
+                            WHERE ar.audit_type = 'VIDEO_IDENTITY'
+                              AND ar.user_id = up.user_id
+                              AND ar.target_id = CONCAT('', up.user_id)
+                              AND ar.status = 'APPROVED'
+                              AND ar.reason = t.storage_url
+                        )
+                  )
+            THEN TRUE ELSE FALSE END AS seller_video_verified
+            """;
+    private static final String PRODUCT_LIST_SELECT_PREFIX = """
+            select p.id,p.product_no,p.seller_id,ua.nickname as seller_nickname,ua.avatar_url as seller_avatar_url,up.gender as seller_gender,p.title,p.category,up.city as seller_city,
+            """;
+    private static final String PRODUCT_LIST_SELECT_SUFFIX = """
+            ,p.price,p.product_status,p.audit_status,p.visible,p.created_at,p.image_urls
+            from product_item p
+            join user_account ua on ua.id = p.seller_id
+            left join user_profile up on up.user_id = p.seller_id
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -80,16 +132,63 @@ public class ProductApplicationService {
                 safeText(request.getDescription()),
                 encodeImageUrls(safeImageUrls(sellerId, request.getImageUrls()))
         );
-        return toCreateResponse(findByProductNo(productNo));
+        ProductRecord product = findByProductNo(productNo);
+        ensurePendingProductAudit(product, "商品发布待审核");
+        return toCreateResponse(product);
+    }
+
+    public List<ProductListItemResponse> adminListProducts(String status, String auditStatus, String keyword, Integer limit) {
+        String safeStatus = normalizeAdminProductStatus(status);
+        String safeAuditStatus = normalizeAdminAuditStatus(auditStatus);
+        String safeKeyword = normalizeAdminSearchKeyword(keyword);
+        int safeLimit = normalizeAdminLimit(limit, 20, 100, "product list limit invalid");
+
+        StringBuilder sql = new StringBuilder(PRODUCT_LIST_SELECT_PREFIX + CERTIFIED_SELLER_VERIFIED_SELECT + PRODUCT_LIST_SELECT_SUFFIX + """
+                where 1 = 1
+                """);
+        List<Object> args = new ArrayList<>();
+        if (safeStatus != null) {
+            sql.append(" and p.product_status = ?");
+            args.add(safeStatus);
+        }
+        if (safeAuditStatus != null) {
+            sql.append(" and p.audit_status = ?");
+            args.add(safeAuditStatus);
+        }
+        if (safeKeyword != null) {
+            String likeKeyword = "%" + safeKeyword.toLowerCase(Locale.ROOT) + "%";
+            sql.append("""
+                     and (
+                        lower(p.product_no) like ?
+                        or lower(p.title) like ?
+                        or lower(coalesce(p.description, '')) like ?
+                        or lower(coalesce(ua.user_no, '')) like ?
+                        or lower(coalesce(ua.nickname, '')) like ?
+                """);
+            args.add(likeKeyword);
+            args.add(likeKeyword);
+            args.add(likeKeyword);
+            args.add(likeKeyword);
+            args.add(likeKeyword);
+            if (safeKeyword.matches("^[1-9]\\d{0,18}$")) {
+                long numericKeyword = Long.parseLong(safeKeyword);
+                sql.append("""
+                        or p.id = ?
+                        or p.seller_id = ?
+                """);
+                args.add(numericKeyword);
+                args.add(numericKeyword);
+            }
+            sql.append(")");
+        }
+        sql.append(" order by p.updated_at desc, p.id desc limit ?");
+        args.add(safeLimit);
+        return jdbcTemplate.query(sql.toString(), this::mapListItem, args.toArray());
     }
 
     public List<ProductListItemResponse> listProducts() {
         return jdbcTemplate.query(
-                """
-                        select p.id,p.product_no,p.seller_id,ua.nickname as seller_nickname,ua.avatar_url as seller_avatar_url,up.gender as seller_gender,p.title,p.category,up.city as seller_city,up.video_verified as seller_video_verified,p.price,p.product_status,p.audit_status,p.visible,p.created_at,p.image_urls
-                        from product_item p
-                        join user_account ua on ua.id = p.seller_id
-                        left join user_profile up on up.user_id = p.seller_id
+                PRODUCT_LIST_SELECT_PREFIX + CERTIFIED_SELLER_VERIFIED_SELECT + PRODUCT_LIST_SELECT_SUFFIX + """
                         where p.visible = true and p.product_status = ? and p.audit_status = ?
                         """ + CERTIFIED_PRODUCT_SELLER_FILTER + """
                         order by created_at desc, id desc
@@ -103,11 +202,7 @@ public class ProductApplicationService {
     public List<ProductListItemResponse> listProductsBySeller(Long sellerId) {
         requirePositiveId(sellerId, "valid sellerId required");
         return jdbcTemplate.query(
-                """
-                        select p.id,p.product_no,p.seller_id,ua.nickname as seller_nickname,ua.avatar_url as seller_avatar_url,up.gender as seller_gender,p.title,p.category,up.city as seller_city,up.video_verified as seller_video_verified,p.price,p.product_status,p.audit_status,p.visible,p.created_at,p.image_urls
-                        from product_item p
-                        join user_account ua on ua.id = p.seller_id
-                        left join user_profile up on up.user_id = p.seller_id
+                PRODUCT_LIST_SELECT_PREFIX + CERTIFIED_SELLER_VERIFIED_SELECT + PRODUCT_LIST_SELECT_SUFFIX + """
                         where p.seller_id = ? and p.visible = true and p.product_status = ? and p.audit_status = ?
                         """ + CERTIFIED_PRODUCT_SELLER_FILTER + """
                         order by created_at desc, id desc
@@ -122,11 +217,7 @@ public class ProductApplicationService {
     public List<ProductListItemResponse> listSoldProductsBySeller(Long sellerId) {
         requirePositiveId(sellerId, "valid sellerId required");
         return jdbcTemplate.query(
-                """
-                        select p.id,p.product_no,p.seller_id,ua.nickname as seller_nickname,ua.avatar_url as seller_avatar_url,up.gender as seller_gender,p.title,p.category,up.city as seller_city,up.video_verified as seller_video_verified,p.price,p.product_status,p.audit_status,p.visible,p.created_at,p.image_urls
-                        from product_item p
-                        join user_account ua on ua.id = p.seller_id
-                        left join user_profile up on up.user_id = p.seller_id
+                PRODUCT_LIST_SELECT_PREFIX + CERTIFIED_SELLER_VERIFIED_SELECT + PRODUCT_LIST_SELECT_SUFFIX + """
                         where p.seller_id = ? and p.product_status = ? and p.audit_status = ?
                         """ + CERTIFIED_PRODUCT_SELLER_FILTER + """
                         order by p.updated_at desc, p.id desc
@@ -142,11 +233,7 @@ public class ProductApplicationService {
     public List<ProductListItemResponse> listMyProducts(Long sellerId) {
         requirePositiveId(sellerId, "valid sellerId required");
         return jdbcTemplate.query(
-                """
-                        select p.id,p.product_no,p.seller_id,ua.nickname as seller_nickname,ua.avatar_url as seller_avatar_url,up.gender as seller_gender,p.title,p.category,up.city as seller_city,up.video_verified as seller_video_verified,p.price,p.product_status,p.audit_status,p.visible,p.created_at,p.image_urls
-                        from product_item p
-                        join user_account ua on ua.id = p.seller_id
-                        left join user_profile up on up.user_id = p.seller_id
+                PRODUCT_LIST_SELECT_PREFIX + CERTIFIED_SELLER_VERIFIED_SELECT + PRODUCT_LIST_SELECT_SUFFIX + """
                         where p.seller_id = ?
                         order by p.created_at desc, p.id desc
                         """,
@@ -159,7 +246,9 @@ public class ProductApplicationService {
         requirePositiveId(userId, "valid userId required");
         return jdbcTemplate.query(
                 """
-                        select p.id,p.product_no,p.seller_id,ua.nickname as seller_nickname,ua.avatar_url as seller_avatar_url,up.gender as seller_gender,p.title,p.category,up.city as seller_city,up.video_verified as seller_video_verified,p.price,p.product_status,p.audit_status,p.visible,p.created_at,p.image_urls
+                        select p.id,p.product_no,p.seller_id,ua.nickname as seller_nickname,ua.avatar_url as seller_avatar_url,up.gender as seller_gender,p.title,p.category,up.city as seller_city,
+                        """ + CERTIFIED_SELLER_VERIFIED_SELECT + """
+                        ,p.price,p.product_status,p.audit_status,p.visible,p.created_at,p.image_urls
                         from product_favorite f
                         join product_item p on p.id = f.product_id
                         join user_account ua on ua.id = p.seller_id
@@ -241,7 +330,9 @@ public class ProductApplicationService {
         if (changed == 0) {
             throw new IllegalArgumentException("product update failed");
         }
-        return toUpdateResponse(getExistingProduct(productId));
+        ProductRecord updated = getExistingProduct(productId);
+        ensurePendingProductAudit(updated, "商品编辑后重新审核");
+        return toUpdateResponse(updated);
     }
 
     @Transactional
@@ -317,6 +408,27 @@ public class ProductApplicationService {
     }
 
     @Transactional
+    public void releaseOrderLock(Long productId, String orderNo) {
+        requireOrderNo(orderNo);
+        ProductRecord product = getExistingProduct(productId);
+        if (!Objects.equals(product.lockedOrderNo(), orderNo)) {
+            throw new IllegalArgumentException("product-order-lock-mismatch");
+        }
+        if (!STATUS_ACTIVE.equals(product.status())) {
+            throw new IllegalArgumentException("product-not-releasable");
+        }
+        int changed = jdbcTemplate.update(
+                "update product_item set locked_order_no = null, updated_at = CURRENT_TIMESTAMP where id = ? and locked_order_no = ? and product_status = ?",
+                productId,
+                orderNo,
+                STATUS_ACTIVE
+        );
+        if (changed == 0) {
+            throw new IllegalArgumentException("product-order-lock-mismatch");
+        }
+    }
+
+    @Transactional
     public void markSold(Long productId, String orderNo) {
         requireOrderNo(orderNo);
         ProductRecord product = getExistingProduct(productId);
@@ -356,8 +468,47 @@ public class ProductApplicationService {
         );
     }
 
+    @Transactional
+    public void rejectForSale(Long productId) {
+        ProductRecord product = getExistingProduct(productId);
+        if (STATUS_SOLD.equals(product.status())) {
+            throw new IllegalArgumentException("product-already-sold");
+        }
+        if (product.lockedOrderNo() != null) {
+            throw new IllegalArgumentException("product-already-locked");
+        }
+        jdbcTemplate.update(
+                "update product_item set product_status = ?, audit_status = ?, visible = false, updated_at = CURRENT_TIMESTAMP where id = ?",
+                STATUS_OFFLINE,
+                AUDIT_REJECTED,
+                product.productId()
+        );
+    }
+
     public CreateProductResponse createResponse(Long productId) {
         return toCreateResponse(getExistingProduct(productId));
+    }
+
+    public ProductDetailResponse adminDetailProduct(Long productId) {
+        return toDetailResponse(getExistingProduct(productId));
+    }
+
+    public String requirePendingProductAuditNo(Long productId) {
+        ProductRecord product = getExistingProduct(productId);
+        try {
+            return jdbcTemplate.queryForObject("""
+                    select audit_no
+                    from audit_record
+                    where audit_type = ?
+                      and target_type = ?
+                      and target_id = ?
+                      and status = ?
+                    order by created_at desc, id desc
+                    limit 1
+                    """, String.class, AUDIT_TYPE_PRODUCT, AUDIT_TYPE_PRODUCT, String.valueOf(product.productId()), AUDIT_PENDING);
+        } catch (EmptyResultDataAccessException e) {
+            throw new IllegalArgumentException("product audit record not found");
+        }
     }
 
     private ProductRecord getVisibleProduct(Long productId) {
@@ -399,6 +550,103 @@ public class ProductApplicationService {
         return product;
     }
 
+    private void ensurePendingProductAudit(ProductRecord product, String reason) {
+        String targetId = String.valueOf(product.productId());
+        List<String> existingAuditNos = jdbcTemplate.query("""
+                select audit_no
+                from audit_record
+                where audit_type = ?
+                  and target_type = ?
+                  and target_id = ?
+                order by id desc
+                limit 1
+                """, (rs, rowNum) -> rs.getString("audit_no"), AUDIT_TYPE_PRODUCT, AUDIT_TYPE_PRODUCT, targetId);
+        String description = product.title();
+        if (existingAuditNos.isEmpty()) {
+            jdbcTemplate.update("""
+                    insert into audit_record (audit_no,audit_type,user_id,target_type,target_id,reason,description,status,created_at)
+                    values (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+                    """,
+                    generateNo("AU-PRODUCT", product.productId(), product.productNo(), product.title()),
+                    AUDIT_TYPE_PRODUCT,
+                    product.sellerId(),
+                    AUDIT_TYPE_PRODUCT,
+                    targetId,
+                    reason,
+                    description,
+                    AUDIT_PENDING
+            );
+            return;
+        }
+        jdbcTemplate.update("""
+                update audit_record
+                set user_id = ?,
+                    reason = ?,
+                    description = ?,
+                    status = ?,
+                    review_remark = null,
+                    reviewed_at = null,
+                    created_at = CURRENT_TIMESTAMP
+                where audit_no = ?
+                """,
+                product.sellerId(),
+                reason,
+                description,
+                AUDIT_PENDING,
+                existingAuditNos.get(0)
+        );
+    }
+
+    private String normalizeAdminProductStatus(String status) {
+        String safeStatus = safeText(status);
+        if (safeStatus == null || "ALL".equalsIgnoreCase(safeStatus)) {
+            return null;
+        }
+        String upper = safeStatus.toUpperCase(Locale.ROOT);
+        if (!List.of(STATUS_PENDING_AUDIT, STATUS_ACTIVE, STATUS_OFFLINE, STATUS_SOLD).contains(upper)) {
+            throw new IllegalArgumentException("product status invalid");
+        }
+        return upper;
+    }
+
+    private String normalizeAdminAuditStatus(String auditStatus) {
+        String safeStatus = safeText(auditStatus);
+        if (safeStatus == null || "ALL".equalsIgnoreCase(safeStatus)) {
+            return null;
+        }
+        String upper = safeStatus.toUpperCase(Locale.ROOT);
+        if (!List.of(AUDIT_PENDING, AUDIT_APPROVED, AUDIT_REJECTED).contains(upper)) {
+            throw new IllegalArgumentException("product audit status invalid");
+        }
+        return upper;
+    }
+
+    private int normalizeAdminLimit(Integer limit, int defaultLimit, int maxLimit, String message) {
+        int normalized = limit == null ? defaultLimit : limit;
+        if (normalized <= 0 || normalized > maxLimit) {
+            throw new IllegalArgumentException(message);
+        }
+        return normalized;
+    }
+
+    private String normalizeAdminSearchKeyword(String keyword) {
+        String normalized = safeText(keyword);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized.length() > 64) {
+            throw new IllegalArgumentException("keyword invalid");
+        }
+        String lower = normalized.toLowerCase(Locale.ROOT);
+        if (lower.contains("preview") || lower.contains("demo") || lower.contains("mock") || lower.contains("placeholder")) {
+            throw new IllegalArgumentException("keyword invalid");
+        }
+        if (normalized.matches("^\\d+$") && !normalized.matches("^[1-9]\\d{0,18}$")) {
+            throw new IllegalArgumentException("keyword invalid");
+        }
+        return normalized;
+    }
+
     private void requirePositiveId(Long value, String message) {
         if (value == null || value <= 0) {
             throw new IllegalArgumentException(message);
@@ -411,6 +659,23 @@ public class ProductApplicationService {
                          AND UPPER(COALESCE(p.main_role, 'BUYER')) IN ('SELLER', 'BOTH')
                          AND p.video_identity_status = 'APPROVED'
                          AND p.video_verified = TRUE
+                         AND EXISTS (
+                             SELECT 1
+                             FROM media_upload_ticket t
+                             WHERE t.owner_user_id = p.user_id
+	                               AND t.scene = 'VIDEO_IDENTITY'
+	                               AND t.status = 'UPLOADED'
+	                               AND t.storage_url LIKE '/uploads/video-identity/%'
+	                               AND EXISTS (
+	                                   SELECT 1
+	                                   FROM audit_record ar
+	                                   WHERE ar.audit_type = 'VIDEO_IDENTITY'
+	                                     AND ar.user_id = p.user_id
+	                                     AND ar.target_id = CONCAT('', p.user_id)
+	                                     AND ar.status = 'APPROVED'
+	                                     AND ar.reason = t.storage_url
+	                               )
+	                         )
                     THEN TRUE ELSE FALSE END AS can_publish
                 FROM user_account a
                 JOIN user_profile p ON p.user_id = a.id

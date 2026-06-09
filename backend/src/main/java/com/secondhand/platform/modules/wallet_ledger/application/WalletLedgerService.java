@@ -1,6 +1,7 @@
 package com.secondhand.platform.modules.wallet_ledger.application;
 
 import com.secondhand.platform.modules.wallet_ledger.CreateWithdrawalRequest;
+import com.secondhand.platform.modules.wallet_ledger.AdminWithdrawalReviewDetailResponse;
 import com.secondhand.platform.modules.wallet_ledger.PayoutAccountRequest;
 import com.secondhand.platform.modules.wallet_ledger.PayoutAccountResponse;
 import com.secondhand.platform.modules.wallet_ledger.WalletBalanceResponse;
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -216,13 +218,14 @@ public class WalletLedgerService {
         String paymentMethod = payoutAccount.paymentMethod();
         String accountName = payoutAccount.accountName();
         String accountNo = payoutAccount.accountNo();
+        requireVerifiedIdentityForWithdrawal(userId);
         ensureAccountExists(userId);
         if (!freezeWithdrawableIfEnough(userId, amount)) {
             throw new IllegalStateException("insufficient withdrawable balance");
         }
         BigDecimal withdrawableAfter = currentBalanceOf(userId, BALANCE_TYPE_WITHDRAWABLE);
         BigDecimal withdrawableBefore = withdrawableAfter.add(amount).setScale(MONEY_SCALE, RoundingMode.UNNECESSARY);
-        String withdrawalNo = "WD-" + System.currentTimeMillis() + '-' + Math.abs((int) (Math.random() * 100000));
+        String withdrawalNo = "WD-" + System.currentTimeMillis() + '-' + String.format(Locale.ROOT, "%05d", ThreadLocalRandom.current().nextInt(100000));
         jdbcTemplate.update(
                 "insert into withdrawal_record (withdrawal_no,audit_no,user_id,amount,payment_method,account_name,account_no,status,remark,created_at) values (?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
                 withdrawalNo,
@@ -485,6 +488,100 @@ public class WalletLedgerService {
         return getWithdrawal(withdrawalNo);
     }
 
+    public AdminWithdrawalReviewDetailResponse getAdminWithdrawalReviewDetail(String withdrawalNo) {
+        WithdrawalResponse withdrawal = getWithdrawal(withdrawalNo);
+        return new AdminWithdrawalReviewDetailResponse(
+                withdrawal,
+                adminUserSnapshot(withdrawal.userId()),
+                getBalance(withdrawal.userId()),
+                recentLedgerForAdmin(withdrawal.userId(), 8)
+        );
+    }
+
+    private AdminWithdrawalReviewDetailResponse.UserSnapshot adminUserSnapshot(Long userId) {
+        try {
+            return jdbcTemplate.queryForObject(
+                    """
+                    select a.id, a.user_no, a.nickname, a.status,
+                           coalesce(p.identity_status, 'UNVERIFIED') as identity_status,
+                           coalesce(p.main_role, 'BUYER') as main_role,
+                           p.city,
+                           coalesce(p.video_identity_status, 'UNVERIFIED') as video_identity_status,
+                           case when coalesce(p.video_identity_status, 'UNVERIFIED') = 'APPROVED'
+                                  and coalesce(p.video_verified, false) = true
+                                  and upper(coalesce(p.main_role, 'BUYER')) in ('SELLER', 'BOTH')
+                                  and exists (
+                                      select 1
+                                      from media_upload_ticket video_ticket
+                                      where video_ticket.owner_user_id = p.user_id
+                                        and video_ticket.scene = 'VIDEO_IDENTITY'
+                                        and video_ticket.status = 'UPLOADED'
+                                        and video_ticket.storage_url like '/uploads/video-identity/%'
+                                        and exists (
+                                            select 1
+                                            from audit_record audit
+                                            where audit.audit_type = 'VIDEO_IDENTITY'
+                                              and audit.user_id = p.user_id
+                                              and audit.target_id = concat('', p.user_id)
+                                              and audit.status = 'APPROVED'
+                                              and audit.reason = video_ticket.storage_url
+                                        )
+                                  )
+                                then true else false end as video_verified
+                    from user_account a
+                    left join user_profile p on p.user_id = a.id
+                    where a.id = ?
+                    """,
+                    (rs, rowNum) -> new AdminWithdrawalReviewDetailResponse.UserSnapshot(
+                            rs.getLong("id"),
+                            rs.getString("user_no"),
+                            rs.getString("nickname"),
+                            rs.getString("status"),
+                            rs.getString("identity_status"),
+                            rs.getString("main_role"),
+                            rs.getString("city"),
+                            rs.getString("video_identity_status"),
+                            rs.getBoolean("video_verified")
+                    ),
+                    userId
+            );
+        } catch (EmptyResultDataAccessException ex) {
+            return new AdminWithdrawalReviewDetailResponse.UserSnapshot(
+                    userId,
+                    null,
+                    "未知用户",
+                    "UNKNOWN",
+                    "UNVERIFIED",
+                    "BUYER",
+                    null,
+                    "UNVERIFIED",
+                    false
+            );
+        }
+    }
+
+    private List<WalletLedgerItemResponse> recentLedgerForAdmin(Long userId, int limit) {
+        return jdbcTemplate.query(
+                "select ledger_no,direction,amount,balance_type,biz_type,biz_no,balance_before,balance_after,status,remark,created_at "
+                        + "from wallet_ledger_entry where user_id = ? order by created_at desc, id desc limit ?",
+                (rs, rowNum) -> new WalletLedgerItemResponse(
+                        rs.getString("ledger_no"),
+                        rs.getString("direction"),
+                        rs.getBigDecimal("amount"),
+                        rs.getString("balance_type"),
+                        rs.getString("biz_type"),
+                        rs.getString("biz_no"),
+                        rs.getBigDecimal("balance_before"),
+                        rs.getBigDecimal("balance_after"),
+                        rs.getString("status"),
+                        rs.getString("remark"),
+                        toLocalDateTime(rs.getTimestamp("created_at"))
+                ),
+                userId,
+                limit
+        );
+    }
+
     private WithdrawalResponse getWithdrawal(String withdrawalNo) {
         WithdrawalResponse response = findWithdrawal(withdrawalNo);
         if (response == null) {
@@ -601,6 +698,21 @@ public class WalletLedgerService {
                 amount
         );
         return changed > 0;
+    }
+
+    private void requireVerifiedIdentityForWithdrawal(Long userId) {
+        try {
+            String identityStatus = jdbcTemplate.queryForObject(
+                    "select identity_status from user_profile where user_id = ?",
+                    String.class,
+                    userId
+            );
+            if (!"VERIFIED".equals(identityStatus)) {
+                throw new IllegalStateException("withdrawal identity verification required");
+            }
+        } catch (EmptyResultDataAccessException ex) {
+            throw new IllegalStateException("withdrawal identity verification required", ex);
+        }
     }
 
     private String balanceColumn(String balanceType) {

@@ -32,6 +32,7 @@ public class AdminSessionController {
     private static final Set<String> ALLOWED_PERMISSIONS = Set.of(
             "audit:read",
             "audit:review",
+            "chat:trace",
             "finance:read",
             "finance:review",
             "user:read",

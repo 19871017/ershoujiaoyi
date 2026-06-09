@@ -96,6 +96,10 @@ export function resolveBackendMediaUrl(url?: string | null) {
   return RESOLVED_API_BASE_URL ? `${RESOLVED_API_BASE_URL}${url}` : url
 }
 
+export function resolveApiUrl(url: string) {
+  return `${RESOLVED_API_BASE_URL}${url}`
+}
+
 function authHeaders(): Record<string, string> {
   const token = useUserStore().token
   return token ? { Authorization: `Bearer ${token}` } : {}
@@ -157,6 +161,11 @@ type UploadFileClient = {
 }
 
 export function upload<T = unknown>(options: UploadOptions): Promise<T> {
+  const mocked = ENABLE_MOCK_DATA ? mockResponse<T>(options.url, 'POST', options) : undefined
+  if (mocked !== undefined) {
+    return Promise.resolve(mocked)
+  }
+
   return new Promise((resolve, reject) => {
     ;(uni as unknown as UploadFileClient).uploadFile({
       url: `${RESOLVED_API_BASE_URL}${options.url}`,
@@ -191,8 +200,13 @@ export function upload<T = unknown>(options: UploadOptions): Promise<T> {
 }
 
 export async function uploadBlob<T = unknown>(options: UploadBlobOptions): Promise<T> {
+  const mocked = ENABLE_MOCK_DATA ? mockResponse<T>(options.url, 'POST', options) : undefined
+  if (mocked !== undefined) {
+    return mocked
+  }
+
   if (typeof fetch !== 'function' || typeof FormData === 'undefined') {
-    throw new Error('当前环境不支持语音文件上传')
+    throw new Error('当前环境不支持媒体文件上传')
   }
   const formData = new FormData()
   Object.entries(options.formData ?? {}).forEach(([key, value]) => formData.append(key, value))
@@ -215,9 +229,28 @@ export async function uploadBlob<T = unknown>(options: UploadBlobOptions): Promi
     throw toError(undefined, '上传响应格式异常，请稍后重试')
   }
   if (!result.success) {
-    throw toError(result.message, '上传失败，请重新录制语音后再试')
+    throw toError(result.message, '上传失败，请重新选择媒体文件后再试')
   }
   return result.data
+}
+
+export async function fetchAuthorizedBlobUrl(url: string): Promise<string> {
+  if (typeof fetch !== 'function' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+    throw new Error('当前环境不支持安全媒体读取')
+  }
+  const mocked = ENABLE_MOCK_DATA ? mockResponse<Blob>(url, 'GET') : undefined
+  if (mocked !== undefined) {
+    return URL.createObjectURL(mocked)
+  }
+
+  const response = await fetch(resolveApiUrl(url), {
+    method: 'GET',
+    headers: { ...DEV_HEADERS, ...authHeaders() }
+  })
+  if (!response.ok) {
+    throw toError(undefined, `媒体读取失败：HTTP ${response.status}`)
+  }
+  return URL.createObjectURL(await response.blob())
 }
 
 export function put<T = unknown>(url: string, data?: unknown, header?: Record<string, string>) {

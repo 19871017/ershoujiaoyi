@@ -18,6 +18,40 @@ export interface AdminWithdrawalDetail {
   reviewedAt?: string | null
 }
 
+export interface AdminWithdrawalReviewDetail {
+  withdrawal: AdminWithdrawalDetail
+  user: {
+    userId: number
+    userNo?: string | null
+    nickname: string
+    status: string
+    identityStatus: string
+    mainRole: string
+    city?: string | null
+    videoIdentityStatus: string
+    videoVerified: boolean
+  }
+  balance: {
+    rechargeBalance: number
+    incomeBalance: number
+    frozenBalance: number
+    withdrawableBalance: number
+  }
+  recentLedgers: Array<{
+    ledgerNo: string
+    direction: 'CREDIT' | 'DEBIT' | string
+    amount: number
+    balanceType: string
+    businessType: string
+    businessId?: string | null
+    balanceBefore: number
+    balanceAfter: number
+    status: string
+    remark?: string | null
+    createdAt?: string
+  }>
+}
+
 export interface AdminWithdrawalListQuery {
   status?: WithdrawalStatus | 'ALL'
   limit?: number
@@ -78,10 +112,47 @@ export interface AdminOrderListQuery {
 
 export interface AdminProductAuditResponse {
   productId: number
+  productNo?: string
   title: string
   description?: string
   price: number
   status: string
+  auditState?: string
+  auditStatus?: string
+  visible?: boolean
+  tradeRule?: string
+  createdAt?: string
+}
+
+export interface AdminProductListItem {
+  productId: number
+  productNo?: string | null
+  title: string
+  description?: string | null
+  price: number
+  status: string
+  auditStatus?: string | null
+  auditState?: string | null
+  sellerId: number
+  sellerNickname?: string | null
+  sellerName?: string | null
+  sellerUserNo?: string | null
+  category?: string | null
+  visible?: boolean | null
+  createdAt?: string | null
+}
+
+export interface AdminProductDetail extends AdminProductListItem {
+  imageUrls?: string[]
+  tradeRule?: string | null
+  updatedAt?: string | null
+}
+
+export interface AdminProductListQuery {
+  status?: 'ALL' | 'PENDING_AUDIT' | 'ACTIVE' | 'OFFLINE' | 'SOLD'
+  auditStatus?: 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'
+  keyword?: string
+  limit?: number
 }
 
 export interface AdminUserDetailResponse {
@@ -98,6 +169,21 @@ export interface AdminUserDetailResponse {
   videoVerified: boolean
   createdAt?: string
   updatedAt?: string
+  opsSummary?: {
+    orderCount: number
+    paidOrderCount: number
+    afterSalesCount: number
+    pendingAfterSalesCount: number
+    reportCount: number
+    pendingReportCount: number
+    withdrawalCount: number
+    pendingWithdrawalCount: number
+    chatConversationCount: number
+    lastOrderNo?: string | null
+    lastAfterSalesNo?: string | null
+    lastWithdrawalNo?: string | null
+    lastChatConversationId?: number | null
+  } | null
 }
 
 export interface AdminAuditLogEntry {
@@ -151,12 +237,50 @@ export interface AdminChatMessageTrace {
   receiverId: number
   messageType: 'TEXT' | 'IMAGE' | 'VOICE' | string
   contentJson: string
+  revoked?: boolean | null
+  revokedAt?: string | null
   createdAt?: string | null
 }
 
 export interface AdminChatConversationMessageTrace {
   conversation: AdminChatConversationTrace
   messages: AdminChatMessageTrace[]
+  hasMore?: boolean
+  oldestSeq?: number | null
+  nextBeforeSeq?: number | null
+}
+
+export interface AdminCommunityPostTrace {
+  postNo: string
+  postId: number
+  authorId: number
+  authorName?: string | null
+  authorAvatar?: string | null
+  city?: string | null
+  title: string
+  topic: string
+  content: string
+  imageUrls: string[]
+  status: string
+  likeCount: number
+  commentCount: number
+  createdAt?: string | null
+  relatedProductId?: number | null
+  relatedProductTitle?: string | null
+  relatedProductPrice?: number | string | null
+}
+
+export interface AdminCommunityCommentTrace {
+  commentNo: string
+  authorId: number
+  authorName?: string | null
+  authorAvatar?: string | null
+  content: string
+  createdAt?: string | null
+}
+
+export interface AdminCommunityPostDetailTrace extends AdminCommunityPostTrace {
+  comments: AdminCommunityCommentTrace[]
 }
 
 export interface AdminChatConversationTraceQuery {
@@ -166,8 +290,15 @@ export interface AdminChatConversationTraceQuery {
   limit?: number
 }
 
+export interface AdminCommunityPostTraceQuery {
+  keyword?: string
+  authorId?: string | number
+  limit?: number
+}
+
 export interface AdminChatMessageTraceQuery {
   limit?: number
+  beforeSeq?: number
 }
 
 export interface AdminAuditListQuery {
@@ -182,7 +313,7 @@ export interface AdminUserSearchQuery {
   limit?: number
 }
 
-export type AdminOperatorPermissionCode = 'audit:read' | 'audit:review' | 'finance:read' | 'finance:review' | 'user:read' | 'user:risk-control' | 'order:read' | 'after-sales:read' | 'after-sales:review' | 'system:config' | 'audit:log' | 'operator:grant'
+export type AdminOperatorPermissionCode = 'audit:read' | 'audit:review' | 'chat:trace' | 'finance:read' | 'finance:review' | 'user:read' | 'user:risk-control' | 'order:read' | 'after-sales:read' | 'after-sales:review' | 'system:config' | 'audit:log' | 'operator:grant'
 
 export interface AdminOperatorPermissionResponse {
   userId: number
@@ -207,6 +338,16 @@ export interface AuditRecordResponse {
   reviewRemark?: string
   createdAt?: string
   reviewedAt?: string | null
+  videoEvidenceUrl?: string | null
+  videoEvidenceVerified?: boolean
+  reportEvidenceUrls?: string[]
+}
+
+export interface AdminVideoEvidenceProgressRequest {
+  durationSeconds: number
+  currentTimeSeconds: number
+  watchedRatio?: number
+  ended?: boolean
 }
 
 export interface AdminDashboardSummary {
@@ -307,7 +448,7 @@ export function isValidAdminAuditKeyword(keyword: string) {
 }
 
 export function isValidAdminWithdrawalNo(withdrawalNo: string) {
-  return /^WD-\d{8}-\d{4,}$/.test(withdrawalNo)
+  return /^WD-(?:\d{8}-\d{4,}|\d{12,17}-\d{1,6})$/.test(withdrawalNo)
 }
 
 export function isValidAdminAfterSalesNo(afterSalesNo: string) {
@@ -336,12 +477,20 @@ export function isValidAdminProductId(productId: string | number) {
   return /^[1-9]\d*$/.test(String(productId))
 }
 
+export function isValidAdminProductKeyword(keyword: string) {
+  const normalized = keyword.trim()
+  if (!normalized || normalized.length > 64) return false
+  if (/(preview|demo|mock|sample|placeholder)/i.test(normalized)) return false
+  if (/^\d+$/.test(normalized) && !/^[1-9]\d{0,18}$/.test(normalized)) return false
+  return true
+}
+
 export function isValidAdminUserId(userId: string | number) {
   return /^[1-9]\d*$/.test(String(userId))
 }
 
 export function isValidAdminOperatorPermission(permission: string): permission is AdminOperatorPermissionCode {
-  return ['audit:read', 'audit:review', 'finance:read', 'finance:review', 'user:read', 'user:risk-control', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log', 'operator:grant'].includes(permission)
+  return ['audit:read', 'audit:review', 'chat:trace', 'finance:read', 'finance:review', 'user:read', 'user:risk-control', 'order:read', 'after-sales:read', 'after-sales:review', 'system:config', 'audit:log', 'operator:grant'].includes(permission)
 }
 
 export function isValidAdminUserSearchKeyword(keyword: string) {
@@ -355,10 +504,30 @@ export function isValidAdminAuditLogId(logId: string | number) {
 }
 
 export function isValidAdminChatTraceId(id: string | number) {
-  return /^[1-9]\d{0,18}$/.test(String(id))
+  if (typeof id === 'number') {
+    return Number.isSafeInteger(id) && id > 0
+  }
+  return /^[1-9]\d{0,18}$/.test(String(id).trim())
 }
 
 export function isValidAdminChatTraceKeyword(keyword: string) {
+  const normalized = keyword.trim()
+  if (!normalized || normalized.length > 64) return false
+  if (/(preview|demo|mock|sample|placeholder)/i.test(normalized)) return false
+  if (/^\d+$/.test(normalized) && !/^[1-9]\d{0,18}$/.test(normalized)) return false
+  return true
+}
+
+export function isValidAdminCommunityTraceId(id: string | number) {
+  if (typeof id === 'number') {
+    return Number.isSafeInteger(id) && id > 0
+  }
+  const normalized = String(id).trim()
+  if (/^[1-9]\d{0,18}$/.test(normalized)) return true
+  return /^POST-[1-9]\d*-[1-9]\d*$/.test(normalized)
+}
+
+export function isValidAdminCommunityTraceKeyword(keyword: string) {
   const normalized = keyword.trim()
   if (!normalized || normalized.length > 64) return false
   if (/(preview|demo|mock|sample|placeholder)/i.test(normalized)) return false
@@ -422,6 +591,37 @@ export async function rejectAdminAudit(auditNo: string, remark: string) {
   })
 }
 
+export async function recordAdminVideoEvidenceProgress(auditNo: string, progress: AdminVideoEvidenceProgressRequest) {
+  if (!isValidAdminAuditNo(auditNo)) {
+    throw new Error('审核编号无效')
+  }
+  const durationSeconds = Number(progress.durationSeconds)
+  const currentTimeSeconds = Number(progress.currentTimeSeconds)
+  const watchedRatio = progress.watchedRatio == null ? currentTimeSeconds / durationSeconds : Number(progress.watchedRatio)
+  const ended = progress.ended === true
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || !Number.isFinite(currentTimeSeconds) || currentTimeSeconds < 0) {
+    throw new Error('视频观看进度无效')
+  }
+  if (!Number.isFinite(watchedRatio) || watchedRatio < 0 || watchedRatio > 1.05) {
+    throw new Error('视频观看进度无效')
+  }
+  const actualRatio = Math.min(Math.max(currentTimeSeconds / durationSeconds, 0), 1)
+  const safeRatio = Math.max(actualRatio, Math.min(watchedRatio, 1))
+  if (!ended && safeRatio < 0.8) {
+    throw new Error('视频观看进度未达标')
+  }
+  return request<void>({
+    url: `/api/admin/audit/${encodeURIComponent(auditNo)}/video-evidence/progress`,
+    method: 'POST',
+    data: {
+      durationSeconds,
+      currentTimeSeconds,
+      watchedRatio: safeRatio,
+      ended
+    }
+  })
+}
+
 export async function approveAdminProduct(productId: string | number) {
   if (!isValidAdminProductId(productId)) {
     throw new Error('商品编号无效')
@@ -432,11 +632,55 @@ export async function approveAdminProduct(productId: string | number) {
   })
 }
 
+export async function rejectAdminProduct(productId: string | number) {
+  if (!isValidAdminProductId(productId)) {
+    throw new Error('商品编号无效')
+  }
+  return request<AdminProductAuditResponse>({
+    url: `/api/admin/products/${encodeURIComponent(String(productId))}/reject`,
+    method: 'POST'
+  })
+}
+
+export async function getAdminProductList(query: AdminProductListQuery = {}) {
+  const params = new URLSearchParams()
+  const status = query.status ?? 'ALL'
+  if (!['ALL', 'PENDING_AUDIT', 'ACTIVE', 'OFFLINE', 'SOLD'].includes(status)) {
+    throw new Error('商品状态筛选无效')
+  }
+  if (status !== 'ALL') params.set('status', status)
+  const auditStatus = query.auditStatus ?? 'ALL'
+  if (!['ALL', 'PENDING', 'APPROVED', 'REJECTED'].includes(auditStatus)) {
+    throw new Error('商品审核状态筛选无效')
+  }
+  if (auditStatus !== 'ALL') params.set('auditStatus', auditStatus)
+  const keyword = query.keyword?.trim() ?? ''
+  if (keyword) {
+    if (!isValidAdminProductKeyword(keyword)) {
+      throw new Error('商品关键词无效')
+    }
+    params.set('keyword', keyword)
+  }
+  const limit = query.limit ?? 20
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new Error('商品列表条数无效')
+  }
+  params.set('limit', String(limit))
+  return request<AdminProductListItem[]>({ url: `/api/admin/products?${params.toString()}` })
+}
+
+export async function getAdminProductDetail(productId: string | number) {
+  if (!isValidAdminProductId(productId)) {
+    throw new Error('商品编号无效')
+  }
+  return request<AdminProductDetail>({ url: `/api/admin/products/${encodeURIComponent(String(productId))}` })
+}
+
 export async function getAdminWithdrawalDetail(withdrawalNo: string) {
   if (!isValidAdminWithdrawalNo(withdrawalNo)) {
     throw new Error('提现编号无效')
   }
-  return request<AdminWithdrawalDetail>({ url: `/api/admin/withdrawals/${encodeURIComponent(withdrawalNo)}` })
+  return request<AdminWithdrawalReviewDetail>({ url: `/api/admin/withdrawals/${encodeURIComponent(withdrawalNo)}` })
 }
 
 export async function getAdminWithdrawalList(query: AdminWithdrawalListQuery = {}) {
@@ -619,13 +863,51 @@ export async function getAdminChatConversationMessages(conversationId: string | 
   if (!isValidAdminChatTraceId(conversationId)) {
     throw new Error('私聊会话编号无效')
   }
+  const params = new URLSearchParams()
   const limit = query.limit ?? 100
   if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
     throw new Error('私聊消息条数无效')
   }
+  params.set('limit', String(limit))
+  if (query.beforeSeq !== undefined) {
+    if (!isValidAdminChatTraceId(query.beforeSeq)) {
+      throw new Error('私聊消息游标无效')
+    }
+    params.set('beforeSeq', String(query.beforeSeq))
+  }
   return request<AdminChatConversationMessageTrace>({
-    url: `/api/admin/chat/conversations/${encodeURIComponent(String(conversationId))}/messages?limit=${encodeURIComponent(String(limit))}`
+    url: `/api/admin/chat/conversations/${encodeURIComponent(String(conversationId))}/messages?${params.toString()}`
   })
+}
+
+export async function getAdminCommunityPosts(query: AdminCommunityPostTraceQuery = {}) {
+  const params = new URLSearchParams()
+  if (query.authorId !== undefined && String(query.authorId).trim()) {
+    if (!isValidAdminUserId(query.authorId)) {
+      throw new Error('社区作者编号无效')
+    }
+    params.set('authorId', String(query.authorId))
+  }
+  const keyword = query.keyword?.trim() ?? ''
+  if (keyword) {
+    if (!isValidAdminCommunityTraceKeyword(keyword)) {
+      throw new Error('社区追溯关键词无效')
+    }
+    params.set('keyword', keyword)
+  }
+  const limit = query.limit ?? 20
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new Error('社区帖子条数无效')
+  }
+  params.set('limit', String(limit))
+  return request<AdminCommunityPostTrace[]>({ url: `/api/admin/community/posts?${params.toString()}` })
+}
+
+export async function getAdminCommunityPostDetail(postId: string | number) {
+  if (!isValidAdminCommunityTraceId(postId)) {
+    throw new Error('社区帖子编号无效')
+  }
+  return request<AdminCommunityPostDetailTrace>({ url: `/api/admin/community/posts/${encodeURIComponent(String(postId))}` })
 }
 
 export async function reviewAdminWithdrawal(
@@ -633,7 +915,7 @@ export async function reviewAdminWithdrawal(
   auditNo: string,
   action: 'approve' | 'reject',
   remark: string
-) {
+): Promise<AdminWithdrawalReviewDetail> {
   if (!isValidAdminWithdrawalNo(withdrawalNo)) {
     throw new Error('提现编号无效')
   }

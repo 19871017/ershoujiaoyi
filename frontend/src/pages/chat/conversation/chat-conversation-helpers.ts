@@ -8,7 +8,7 @@ import type {
 import { assertChatPeerIdentityFields } from '../chat-peer'
 
 export const launchReadinessMarkers = [
-  '聊天用户以平台会话为准',
+  '对方资料暂时不可用，仍可继续聊天',
   '聊天图片票据需使用有效选择文件',
   '如涉及交易，请以平台订单、支付和售后状态为准'
 ]
@@ -16,6 +16,8 @@ export const launchReadinessMarkers = [
 export const chatImageStoragePrefix = '/uploads/chat-image/'
 export const chatVoiceStoragePrefix = '/uploads/chat-voice/'
 export const communityImageStoragePrefix = '/uploads/community-image/'
+export const avatarImageStoragePrefix = '/uploads/avatar/'
+export const MAX_CHAT_IMAGE_UPLOAD_BYTES = 10_000_000
 
 export type ImageContentType = 'image/png' | 'image/webp' | 'image/jpeg'
 export type VoiceContentType = 'audio/webm' | 'audio/mp4' | 'audio/mpeg' | 'audio/wav' | 'audio/aac' | 'audio/x-m4a'
@@ -83,15 +85,29 @@ export function assertMessageSyncResponse(value: unknown): asserts value is Mess
   if (!Array.isArray(response.messages)) throw new ChatDataIntegrityError('chat sync invalid messages')
   if (!Number.isSafeInteger(response.nextAfterSeq) || response.nextAfterSeq < 0) throw new ChatDataIntegrityError('chat sync invalid nextAfterSeq')
   if (typeof response.hasMore !== 'boolean') throw new ChatDataIntegrityError('chat sync invalid hasMore')
-  for (const message of response.messages) assertChatMessage(message)
+  if (response.previousBeforeSeq != null && (!Number.isSafeInteger(response.previousBeforeSeq) || response.previousBeforeSeq < 0)) throw new ChatDataIntegrityError('chat sync invalid previousBeforeSeq')
+  if (response.hasEarlier != null && typeof response.hasEarlier !== 'boolean') throw new ChatDataIntegrityError('chat sync invalid hasEarlier')
 }
 
 export function parseMessageContentForValidation(message: ChatMessageItem): Record<string, unknown> {
+  const content = safeParsedMessageContent(message)
+  if (!content) {
+    throw new ChatDataIntegrityError('chat message contentJson malformed')
+  }
+  return content
+}
+
+export function safeParsedMessageContent(message: Pick<ChatMessageItem, 'contentJson'>): Record<string, unknown> | null {
   try {
     return parseChatContentObject(message.contentJson)
   } catch {
-    throw new ChatDataIntegrityError('chat message contentJson malformed')
+    return null
   }
+}
+
+export function assertParsableChatMessageContent(message: ChatMessageItem): void {
+  if (message.revoked === true) return
+  parseMessageContentForValidation(message)
 }
 
 export function parseChatContentObject(contentJson: string): Record<string, unknown> {
@@ -121,6 +137,7 @@ export function assertChatMessage(value: unknown): asserts value is ChatMessageI
   if (typeof message.msgType !== 'string' || !message.msgType.trim()) throw new ChatDataIntegrityError('chat message invalid msgType')
   if (typeof message.contentJson !== 'string' || !message.contentJson.trim()) throw new ChatDataIntegrityError('chat message invalid contentJson')
   if (typeof message.createdAt !== 'string' || !message.createdAt) throw new ChatDataIntegrityError('chat message invalid createdAt')
+  if (message.revoked != null && typeof message.revoked !== 'boolean') throw new ChatDataIntegrityError('chat message invalid revoked')
 }
 
 export function assertSendMessageResponse(value: unknown): asserts value is SendMessageResponse {
@@ -168,7 +185,9 @@ export function filenameFromPath(path: string, fallbackName = `chat-${Date.now()
 }
 
 export function imageFileSize(file?: ChooseImageFile): number {
-  return Math.max(1, Math.min(Number(file?.size || 600_000), 10_000_000))
+  const selectedSize = Number(file?.size)
+  const requestedSize = Number.isFinite(selectedSize) && selectedSize > 0 ? selectedSize : MAX_CHAT_IMAGE_UPLOAD_BYTES
+  return Math.max(1, Math.min(requestedSize, MAX_CHAT_IMAGE_UPLOAD_BYTES))
 }
 
 export function imageFallbackName(contentType: ImageContentType): string {
@@ -178,7 +197,7 @@ export function imageFallbackName(contentType: ImageContentType): string {
 }
 
 export function normalizedVoiceMimeType(mimeType?: string): VoiceContentType {
-  const normalized = mimeType?.toLowerCase()
+  const normalized = mimeType?.split(';')[0]?.trim().toLowerCase()
   if (normalized === 'audio/mp4' || normalized === 'audio/mpeg' || normalized === 'audio/wav' || normalized === 'audio/aac' || normalized === 'audio/x-m4a') return normalized
   return 'audio/webm'
 }
@@ -201,16 +220,17 @@ export function isPickerCancel(error: unknown): boolean {
 
 export function hasInvalidTempChatImagePath(path: string): boolean {
   const lower = path.toLowerCase()
+  const isH5BlobPath = lower.startsWith('blob:')
   return !path ||
     path.startsWith('local://') ||
-    path.startsWith('blob:') ||
     path.startsWith('data:') ||
     lower.includes('placeholder') ||
     lower.includes('%2e') ||
     lower.includes('%2f') ||
     lower.includes('%5c') ||
     path.includes('\\') ||
-    path.includes('..')
+    path.includes('..') ||
+    (!isH5BlobPath && path.includes('//'))
 }
 
 export function hasInvalidStoredImageUrl(url: unknown, storagePrefix: string): boolean {
@@ -242,6 +262,13 @@ export function isValidChatVoiceStorageUrl(url: string): boolean {
 export function validatedCommunityImageUrl(url: unknown): string {
   if (hasInvalidStoredImageUrl(url, communityImageStoragePrefix)) return ''
   return typeof url === 'string' ? url : ''
+}
+
+export function validatedChatAvatarUrl(url: unknown): string {
+  if (typeof url !== 'string') return ''
+  if (!hasInvalidStoredImageUrl(url, communityImageStoragePrefix)) return url
+  if (!hasInvalidStoredImageUrl(url, avatarImageStoragePrefix)) return url
+  return ''
 }
 
 export function formatTime(value: string): string {

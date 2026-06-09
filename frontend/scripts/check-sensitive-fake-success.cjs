@@ -71,9 +71,25 @@ const checks = [
 ]
 
 let failed = false
+
+function stripAllowedBackendConfirmedProductFavoriteCopy(content) {
+  return content
+    .replace(
+      /await\s+unfavoriteProduct\(detail\.value\.productId\)\s*[\r\n]+\s*favorited\.value\s*=\s*false\s*[\r\n]+\s*uni\.showToast\(\{\s*title:\s*'已取消收藏',\s*icon:\s*'none'\s*\}\)/g,
+      ''
+    )
+    .replace(
+      /await\s+favoriteProduct\(detail\.value\.productId\)\s*[\r\n]+\s*favorited\.value\s*=\s*true\s*[\r\n]+\s*uni\.showToast\(\{\s*title:\s*'已收藏',\s*icon:\s*'none'\s*\}\)/g,
+      ''
+    )
+}
+
 for (const check of checks) {
   const absolute = path.join(root, check.file)
-  const content = fs.readFileSync(absolute, 'utf8')
+  let content = fs.readFileSync(absolute, 'utf8')
+  if (check.file === 'src/pages/product/detail/index.vue') {
+    content = stripAllowedBackendConfirmedProductFavoriteCopy(content)
+  }
   for (const copy of check.forbidden) {
     if (content.includes(copy)) {
       console.error(`${check.file}: forbidden local-only sensitive success found: ${copy}`)

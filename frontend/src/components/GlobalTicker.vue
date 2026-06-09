@@ -28,6 +28,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getAnnouncementTicker } from '../api/modules/announcement'
 import { getRecentGiftFeed } from '../api/modules/gift'
 import { listNotifications } from '../api/modules/notification'
+import { isSafeNotificationTargetUrl, isTabBarNotificationTargetUrl } from '../pages/notification/notification-helpers'
 import { useUserStore } from '../store/modules/user'
 import { buildAnnouncementItems, buildGiftText, buildNoticeText, normalizeTargetUrl, type TickerItem } from './global-ticker-helpers'
 
@@ -130,16 +131,25 @@ async function loadTicker() {
         text: buildGiftText(item),
         targetUrl: item.receiverId ? `/pages/user/public-profile/index?userId=${item.receiverId}` : '/pages/gift/index'
       }))
-    const noticeItems: TickerItem[] = notifications
-      .filter((item) => (item.type === 'SYSTEM' || item.type === 'AUDIT') && !!buildNoticeText(item))
-      .slice(0, 4)
+    const chatNoticeItems: TickerItem[] = notifications
+      .filter((item) => item.type === 'CHAT' && !!buildNoticeText(item))
+      .slice(0, 2)
       .map((item) => ({
         id: `notice-${item.notificationNo}`,
         kind: 'notice',
         text: buildNoticeText(item),
-        targetUrl: normalizeTargetUrl(item.targetUrl) || '/pages/notification/index'
+        targetUrl: normalizeTickerTargetUrl(item.targetUrl)
       }))
-    items.value = [...giftItems, ...announcementItems, ...noticeItems].slice(0, 6)
+    const noticeItems: TickerItem[] = notifications
+      .filter((item) => (item.type === 'SYSTEM' || item.type === 'AUDIT') && !!buildNoticeText(item))
+      .slice(0, 3)
+      .map((item) => ({
+        id: `notice-${item.notificationNo}`,
+        kind: 'notice',
+        text: buildNoticeText(item),
+        targetUrl: normalizeTickerTargetUrl(item.targetUrl)
+      }))
+    items.value = [...chatNoticeItems, ...giftItems, ...announcementItems, ...noticeItems].slice(0, 6)
     currentIndex.value = 0
     applyOffset()
     startRotation()
@@ -154,8 +164,26 @@ async function loadTicker() {
 
 function openCurrentItem() {
   const targetUrl = currentItem.value?.targetUrl || '/pages/notification/index'
-  if (!targetUrl.startsWith('/')) return
-  uni.navigateTo({ url: targetUrl })
+  const safeTargetUrl = normalizeTickerTargetUrl(targetUrl)
+  const route = {
+    url: safeTargetUrl,
+    fail(error: unknown) {
+      console.warn('global ticker navigation failed', { targetUrl: safeTargetUrl, error })
+      uni.showToast({ title: '消息页面暂时无法打开，请稍后重试', icon: 'none' })
+    }
+  }
+  try {
+    if (isTabBarNotificationTargetUrl(safeTargetUrl)) uni.switchTab(route)
+    else uni.navigateTo(route)
+  } catch (error) {
+    console.warn('global ticker navigation failed', { targetUrl: safeTargetUrl, error })
+    uni.showToast({ title: '消息页面暂时无法打开，请稍后重试', icon: 'none' })
+  }
+}
+
+function normalizeTickerTargetUrl(value?: string | null): string {
+  const targetUrl = normalizeTargetUrl(value)
+  return isSafeNotificationTargetUrl(targetUrl) ? targetUrl : '/pages/notification/index'
 }
 
 onMounted(() => {

@@ -10,9 +10,14 @@ import {
   getAdminLocationConfig,
   getAdminOrderDetail,
   getAdminOrderList,
+  getAdminProductDetail,
+  getAdminProductList,
   approveAdminProduct,
+  rejectAdminProduct,
   getAdminChatConversationMessages,
   getAdminChatConversations,
+  getAdminCommunityPostDetail,
+  getAdminCommunityPosts,
   getAdminOperatorPermissions,
   updateAdminOperatorPermissions,
   getAdminUserDetail,
@@ -26,12 +31,16 @@ import {
   isValidAdminAuditNo,
   isValidAdminChatTraceId,
   isValidAdminChatTraceKeyword,
+  isValidAdminCommunityTraceId,
+  isValidAdminCommunityTraceKeyword,
   isValidAdminOrderKeyword,
   isValidAdminOrderNo,
   isValidAdminProductId,
+  isValidAdminProductKeyword,
   isValidAdminUserId,
   isValidAdminWithdrawalNo,
   rejectAdminAudit,
+  recordAdminVideoEvidenceProgress,
   reviewAdminAfterSales,
   reviewAdminWithdrawal,
   updateAdminLocationConfig
@@ -83,7 +92,7 @@ describe('admin finance api', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('approves product audit through backend product approval endpoint and rejects malformed product ids before fetch', async () => {
+  it('approves and rejects product audit through backend product endpoints and rejects malformed product ids before fetch', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -100,15 +109,87 @@ describe('admin finance api', () => {
 
     expect(isValidAdminProductId(88)).toBe(true)
     await expect(approveAdminProduct('preview-product')).rejects.toThrow('商品编号无效')
+    await expect(rejectAdminProduct('preview-product')).rejects.toThrow('商品编号无效')
     await expect(approveAdminProduct(0)).rejects.toThrow('商品编号无效')
+    await expect(rejectAdminProduct(0)).rejects.toThrow('商品编号无效')
     expect(fetchMock).not.toHaveBeenCalled()
 
     const product = await approveAdminProduct(88)
+    await rejectAdminProduct(88)
 
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/products/88/approve'), expect.objectContaining({
       method: 'POST'
     }))
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/products/88/reject'), expect.objectContaining({
+      method: 'POST'
+    }))
     expect(product.status).toBe('ON_SALE')
+  })
+
+  it('loads admin product list and detail through backend product endpoints with bounded filters', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              productId: 88,
+              productNo: 'PD-88',
+              title: '后台商品管理裙子',
+              price: 128.5,
+              status: 'PENDING_AUDIT',
+              auditStatus: 'PENDING',
+              sellerId: 8331,
+              sellerNickname: '真实卖家',
+              createdAt: '2026-05-10T12:00:00'
+            }
+          ]
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            productId: 88,
+            productNo: 'PD-88',
+            title: '后台商品管理裙子',
+            description: '后端商品详情',
+            price: 128.5,
+            status: 'PENDING_AUDIT',
+            auditStatus: 'PENDING',
+            sellerId: 8331,
+            sellerNickname: '真实卖家',
+            visible: false,
+            tradeRule: 'PLATFORM_ORDER',
+            imageUrls: ['/uploads/product-image/8331/a.jpg'],
+            createdAt: '2026-05-10T12:00:00'
+          }
+        })
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const rows = await getAdminProductList({ status: 'PENDING_AUDIT', auditStatus: 'PENDING', keyword: 'PD-88', limit: 20 })
+    const detail = await getAdminProductDetail(88)
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, expect.stringContaining('/api/admin/products?status=PENDING_AUDIT&auditStatus=PENDING&keyword=PD-88&limit=20'), expect.any(Object))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringContaining('/api/admin/products/88'), expect.any(Object))
+    expect(rows[0].sellerId).toBe(8331)
+    expect(detail.imageUrls?.[0]).toBe('/uploads/product-image/8331/a.jpg')
+    expect(isValidAdminProductKeyword('PD-88')).toBe(true)
+    expect(isValidAdminProductKeyword('8331')).toBe(true)
+    expect(isValidAdminProductKeyword('preview-product')).toBe(false)
+  })
+
+  it('fails closed before admin product requests with invalid ids filters or limits', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getAdminProductDetail('preview-product')).rejects.toThrow('商品编号无效')
+    await expect(getAdminProductList({ status: 'PREVIEW' as never, limit: 20 })).rejects.toThrow('商品状态筛选无效')
+    await expect(getAdminProductList({ auditStatus: 'PROCESSING' as never, limit: 20 })).rejects.toThrow('商品审核状态筛选无效')
+    await expect(getAdminProductList({ keyword: 'preview-product', limit: 20 })).rejects.toThrow('商品关键词无效')
+    await expect(getAdminProductList({ keyword: 'PD-88', limit: 101 })).rejects.toThrow('商品列表条数无效')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('loads withdrawal detail through the admin endpoint without exposing raw account numbers', async () => {
@@ -116,18 +197,50 @@ describe('admin finance api', () => {
       ok: true,
       json: async () => ({
         data: {
-          withdrawalNo: 'WD-20260510-0001',
-          auditNo: 'AU-20260510-0001',
-          userId: 12,
-          amount: 128.5,
-          paymentMethod: 'ALIPAY',
-          accountName: '王*',
-          maskedAccountNo: '138****0000',
-          accountVerifyStatus: 'MATCHED',
-          status: 'PENDING',
-          remark: '待审核',
-          createdAt: '2026-05-10T12:00:00',
-          reviewedAt: null
+          withdrawal: {
+            withdrawalNo: 'WD-20260510-0001',
+            auditNo: 'AU-20260510-0001',
+            userId: 12,
+            amount: 128.5,
+            paymentMethod: 'ALIPAY',
+            accountName: '王*',
+            maskedAccountNo: '138****0000',
+            accountVerifyStatus: 'MATCHED',
+            status: 'PENDING',
+            remark: '待审核',
+            createdAt: '2026-05-10T12:00:00',
+            reviewedAt: null
+          },
+          user: {
+            userId: 12,
+            userNo: 'U-12',
+            nickname: '提现用户',
+            status: 'ACTIVE',
+            identityStatus: 'VERIFIED',
+            mainRole: 'BUYER',
+            city: '杭州',
+            videoIdentityStatus: 'UNVERIFIED',
+            videoVerified: false
+          },
+          balance: {
+            rechargeBalance: 0,
+            incomeBalance: 0,
+            frozenBalance: 128.5,
+            withdrawableBalance: 20
+          },
+          recentLedgers: [
+            {
+              ledgerNo: 'WD-LEDGER-1',
+              direction: 'DEBIT',
+              amount: 128.5,
+              balanceType: 'WITHDRAWABLE',
+              businessType: 'WITHDRAW_FREEZE',
+              businessId: 'WD-20260510-0001',
+              balanceBefore: 148.5,
+              balanceAfter: 20,
+              status: 'SUCCESS'
+            }
+          ]
         }
       })
     })
@@ -136,8 +249,11 @@ describe('admin finance api', () => {
     const detail = await getAdminWithdrawalDetail('WD-20260510-0001')
 
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/withdrawals/WD-20260510-0001'), expect.any(Object))
-    expect(detail.maskedAccountNo).toBe('138****0000')
-    expect(Object.prototype.hasOwnProperty.call(detail, 'accountNo')).toBe(false)
+    expect(detail.withdrawal.maskedAccountNo).toBe('138****0000')
+    expect(detail.user.identityStatus).toBe('VERIFIED')
+    expect(detail.balance.frozenBalance).toBe(128.5)
+    expect(detail.recentLedgers[0].businessType).toBe('WITHDRAW_FREEZE')
+    expect(Object.prototype.hasOwnProperty.call(detail.withdrawal, 'accountNo')).toBe(false)
   })
 
   it('rejects preview or malformed withdrawal numbers before fetch', async () => {
@@ -145,6 +261,7 @@ describe('admin finance api', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     expect(isValidAdminWithdrawalNo('WD-20260510-0001')).toBe(true)
+    expect(isValidAdminWithdrawalNo('WD-1770000000000-12345')).toBe(true)
     expect(isValidAdminWithdrawalNo('preview-withdrawal')).toBe(false)
     expect(isValidAdminWithdrawalNo('WD-demo')).toBe(false)
 
@@ -201,16 +318,34 @@ describe('admin finance api', () => {
         ok: true,
         json: async () => ({
           data: {
-            withdrawalNo: 'WD-20260510-0001',
-            auditNo: 'AU-20260510-0001',
-            userId: 12,
-            amount: 128.5,
-            paymentMethod: 'ALIPAY',
-            accountName: '王*',
-            maskedAccountNo: '138****0000',
-            accountVerifyStatus: 'MATCHED',
-            status: 'APPROVED',
-            reviewedAt: '2026-05-10T12:30:00'
+            withdrawal: {
+              withdrawalNo: 'WD-20260510-0001',
+              auditNo: 'AU-20260510-0001',
+              userId: 12,
+              amount: 128.5,
+              paymentMethod: 'ALIPAY',
+              accountName: '王*',
+              maskedAccountNo: '138****0000',
+              accountVerifyStatus: 'MATCHED',
+              status: 'APPROVED',
+              reviewedAt: '2026-05-10T12:30:00'
+            },
+            user: {
+              userId: 12,
+              nickname: '提现用户',
+              status: 'ACTIVE',
+              identityStatus: 'VERIFIED',
+              mainRole: 'BUYER',
+              videoIdentityStatus: 'UNVERIFIED',
+              videoVerified: false
+            },
+            balance: {
+              rechargeBalance: 0,
+              incomeBalance: 0,
+              frozenBalance: 0,
+              withdrawableBalance: 20
+            },
+            recentLedgers: []
           }
         })
       })
@@ -223,8 +358,8 @@ describe('admin finance api', () => {
       body: JSON.stringify({ remark: '复核通过' })
     }))
     expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringContaining('/api/admin/withdrawals/WD-20260510-0001'), expect.any(Object))
-    expect(detail.status).toBe('APPROVED')
-    expect(Object.prototype.hasOwnProperty.call(detail, 'accountNo')).toBe(false)
+    expect(detail.withdrawal.status).toBe('APPROVED')
+    expect(Object.prototype.hasOwnProperty.call(detail.withdrawal, 'accountNo')).toBe(false)
   })
 
   it('fails closed before reviewing withdrawal without valid backend ids', async () => {
@@ -362,6 +497,46 @@ describe('admin finance api', () => {
     await expect(getAdminAuditList({ auditType: 'REPORT', status: 'PENDING', limit: 101 })).rejects.toThrow('审核列表条数无效')
   })
 
+  it('records video identity watch progress only after bounded sufficient progress', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: null })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(recordAdminVideoEvidenceProgress('preview-audit', {
+      durationSeconds: 10,
+      currentTimeSeconds: 9,
+      watchedRatio: 0.9
+    })).rejects.toThrow('审核编号无效')
+    await expect(recordAdminVideoEvidenceProgress('AU-VID-1770000000000-12345', {
+      durationSeconds: 10,
+      currentTimeSeconds: 7,
+      watchedRatio: 0.7
+    })).rejects.toThrow('视频观看进度未达标')
+    await expect(recordAdminVideoEvidenceProgress('AU-VID-1770000000000-12345', {
+      durationSeconds: 0,
+      currentTimeSeconds: 0
+    })).rejects.toThrow('视频观看进度无效')
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    await recordAdminVideoEvidenceProgress('AU-VID-1770000000000-12345', {
+      durationSeconds: 10,
+      currentTimeSeconds: 8.5,
+      watchedRatio: 0.85
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/audit/AU-VID-1770000000000-12345/video-evidence/progress'), expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        durationSeconds: 10,
+        currentTimeSeconds: 8.5,
+        watchedRatio: 0.85,
+        ended: false
+      })
+    }))
+  })
+
   it('loads after-sales detail only for positive backend numbers without fake success', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -458,6 +633,9 @@ describe('admin finance api', () => {
               owner: { userId: 101, nickname: '买家' },
               peer: { userId: 102, nickname: '卖家' }
             },
+            hasMore: false,
+            oldestSeq: 2,
+            nextBeforeSeq: null,
             messages: [
               {
                 messageId: 8,
@@ -469,7 +647,9 @@ describe('admin finance api', () => {
                 senderId: 101,
                 receiverId: 102,
                 messageType: 'VOICE',
-                contentJson: '{"url":"/uploads/chat-voice/101/voice.webm","durationMs":1800,"mimeType":"audio/webm"}'
+                contentJson: '{"url":"/uploads/chat-voice/101/voice.webm","durationMs":1800,"mimeType":"audio/webm"}',
+                revoked: true,
+                revokedAt: '2026-06-08T10:00:00'
               }
             ]
           }
@@ -478,12 +658,15 @@ describe('admin finance api', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const rows = await getAdminChatConversations({ keyword: 'CHAT-100088', userId: 101, limit: 20 })
-    const detail = await getAdminChatConversationMessages(12, { limit: 100 })
+    const detail = await getAdminChatConversationMessages(12, { limit: 100, beforeSeq: 20 })
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, expect.stringContaining('/api/admin/chat/conversations?userId=101&keyword=CHAT-100088&limit=20'), expect.any(Object))
-    expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringContaining('/api/admin/chat/conversations/12/messages?limit=100'), expect.any(Object))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringContaining('/api/admin/chat/conversations/12/messages?limit=100&beforeSeq=20'), expect.any(Object))
     expect(rows[0].conversationNo).toBe('CHAT-100088')
     expect(detail.messages[0].messageType).toBe('VOICE')
+    expect(detail.messages[0].revoked).toBe(true)
+    expect(detail.messages[0].revokedAt).toBe('2026-06-08T10:00:00')
+    expect(detail.hasMore).toBe(false)
     expect(isValidAdminChatTraceId('12')).toBe(true)
     expect(isValidAdminChatTraceKeyword('CHAT-100088')).toBe(true)
   })
@@ -500,6 +683,77 @@ describe('admin finance api', () => {
     await expect(getAdminChatConversations({ keyword: 'CHAT-100088', limit: 101 })).rejects.toThrow('私聊会话条数无效')
     await expect(getAdminChatConversationMessages('preview-conversation')).rejects.toThrow('私聊会话编号无效')
     await expect(getAdminChatConversationMessages(12, { limit: 201 })).rejects.toThrow('私聊消息条数无效')
+    await expect(getAdminChatConversationMessages(12, { limit: 100, beforeSeq: 0 })).rejects.toThrow('私聊消息游标无效')
+    await expect(getAdminChatConversationMessages(12, { limit: 100, beforeSeq: Number.MAX_SAFE_INTEGER + 1 })).rejects.toThrow('私聊消息游标无效')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('loads admin community trace posts and detail with bounded filters', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              postNo: 'POST-101-1770000000000',
+              postId: 18,
+              authorId: 101,
+              authorName: '社区作者',
+              title: '社区追溯标题',
+              topic: '生活日常',
+              content: '社区追溯内容',
+              imageUrls: ['/uploads/community-image/101/a.jpg'],
+              status: 'PUBLISHED',
+              likeCount: 2,
+              commentCount: 1
+            }
+          ]
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            postNo: 'POST-101-1770000000000',
+            postId: 18,
+            authorId: 101,
+            authorName: '社区作者',
+            title: '社区追溯标题',
+            topic: '生活日常',
+            content: '社区追溯内容',
+            imageUrls: ['/uploads/community-image/101/a.jpg'],
+            status: 'PUBLISHED',
+            likeCount: 2,
+            commentCount: 1,
+            comments: [
+              { commentNo: 'CMT-102-1770000000000', authorId: 102, authorName: '评论者', content: '真实评论' }
+            ]
+          }
+        })
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const rows = await getAdminCommunityPosts({ keyword: '社区追溯标题', authorId: 101, limit: 20 })
+    const detail = await getAdminCommunityPostDetail(18)
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, expect.stringContaining('/api/admin/community/posts?authorId=101&keyword=%E7%A4%BE%E5%8C%BA%E8%BF%BD%E6%BA%AF%E6%A0%87%E9%A2%98&limit=20'), expect.any(Object))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringContaining('/api/admin/community/posts/18'), expect.any(Object))
+    expect(rows[0].postNo).toBe('POST-101-1770000000000')
+    expect(detail.comments[0].commentNo).toBe('CMT-102-1770000000000')
+    expect(isValidAdminCommunityTraceId('POST-101-1770000000000')).toBe(true)
+    expect(isValidAdminCommunityTraceKeyword('社区追溯标题')).toBe(true)
+  })
+
+  it('fails closed before admin community trace requests with unsafe filters', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(isValidAdminCommunityTraceId('0')).toBe(false)
+    expect(isValidAdminCommunityTraceKeyword('preview-community')).toBe(false)
+    await expect(getAdminCommunityPosts({ authorId: 0, limit: 20 })).rejects.toThrow('社区作者编号无效')
+    await expect(getAdminCommunityPosts({ keyword: 'preview-community', limit: 20 })).rejects.toThrow('社区追溯关键词无效')
+    await expect(getAdminCommunityPosts({ keyword: '社区追溯标题', limit: 101 })).rejects.toThrow('社区帖子条数无效')
+    await expect(getAdminCommunityPostDetail('preview-post')).rejects.toThrow('社区帖子编号无效')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -651,20 +905,20 @@ describe('admin finance api', () => {
 
   it('loads and updates operator permissions through backend-only authorization endpoints', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: { userId: 8331, userNo: 'U-8331', nickname: '运营经理', status: 'ACTIVE', permissions: ['audit:read'] } }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: { userId: 8331, userNo: 'U-8331', nickname: '运营经理', status: 'ACTIVE', permissions: ['audit:read', 'finance:read'] } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: { userId: 8331, userNo: 'U-8331', nickname: '运营经理', status: 'ACTIVE', permissions: ['audit:read', 'chat:trace'] } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: { userId: 8331, userNo: 'U-8331', nickname: '运营经理', status: 'ACTIVE', permissions: ['audit:read', 'chat:trace', 'finance:read'] } }) })
     vi.stubGlobal('fetch', fetchMock)
 
     const current = await getAdminOperatorPermissions('8331')
-    const updated = await updateAdminOperatorPermissions('8331', { permissions: ['audit:read', 'finance:read', 'audit:read'] })
+    const updated = await updateAdminOperatorPermissions('8331', { permissions: ['audit:read', 'chat:trace', 'finance:read', 'audit:read'] })
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, expect.stringContaining('/api/admin/operators/8331/permissions'), expect.any(Object))
     expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringContaining('/api/admin/operators/8331/permissions'), expect.objectContaining({
       method: 'POST',
-      body: '{"permissions":["audit:read","finance:read"]}'
+      body: '{"permissions":["audit:read","chat:trace","finance:read"]}'
     }))
-    expect(current.permissions).toEqual(['audit:read'])
-    expect(updated.permissions).toEqual(['audit:read', 'finance:read'])
+    expect(current.permissions).toEqual(['audit:read', 'chat:trace'])
+    expect(updated.permissions).toEqual(['audit:read', 'chat:trace', 'finance:read'])
   })
 
   it('allows clearing operator permissions through backend endpoint while still rejecting malformed payloads before fetch', async () => {
@@ -704,7 +958,22 @@ describe('admin finance api', () => {
           city: '上海',
           videoIdentityStatus: 'APPROVED',
           videoVerified: true,
-          createdAt: '2026-05-10T12:00:00'
+          createdAt: '2026-05-10T12:00:00',
+          opsSummary: {
+            orderCount: 2,
+            paidOrderCount: 1,
+            afterSalesCount: 1,
+            pendingAfterSalesCount: 1,
+            reportCount: 1,
+            pendingReportCount: 1,
+            withdrawalCount: 1,
+            pendingWithdrawalCount: 1,
+            chatConversationCount: 1,
+            lastOrderNo: 'TO-ADMIN-USER-2',
+            lastAfterSalesNo: 'AS-ADMIN-USER-1',
+            lastWithdrawalNo: 'WD-1770000000000-12345',
+            lastChatConversationId: 6
+          }
         }
       })
     })
@@ -714,6 +983,9 @@ describe('admin finance api', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/users/8331'), expect.any(Object))
     expect(detail.maskedPhone).toBe('138****8331')
+    expect(detail.opsSummary?.pendingAfterSalesCount).toBe(1)
+    expect(detail.opsSummary?.lastWithdrawalNo).toBe('WD-1770000000000-12345')
+    expect(detail.opsSummary?.lastChatConversationId).toBe(6)
     expect(Object.prototype.hasOwnProperty.call(detail, 'phone')).toBe(false)
     expect(isValidAdminUserId('8331')).toBe(true)
     expect(isValidAdminUserId('0')).toBe(false)

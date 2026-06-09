@@ -62,6 +62,7 @@ const clearAllConfirmText = ref('')
 const permissionOptions: Array<{ code: AdminOperatorPermissionCode; label: string }> = [
   { code: 'audit:read', label: '审核查看' },
   { code: 'audit:review', label: '审核处理' },
+  { code: 'chat:trace', label: '私聊追溯' },
   { code: 'finance:read', label: '财务查看' },
   { code: 'finance:review', label: '提现复核' },
   { code: 'user:read', label: '用户查看' },

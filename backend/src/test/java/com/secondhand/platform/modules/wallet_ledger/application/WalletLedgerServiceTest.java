@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.secondhand.platform.modules.wallet_ledger.AdminWithdrawalReviewDetailResponse;
 import com.secondhand.platform.modules.wallet_ledger.CreateWithdrawalRequest;
 import com.secondhand.platform.modules.wallet_ledger.PayoutAccountRequest;
 import com.secondhand.platform.modules.wallet_ledger.PayoutAccountResponse;
@@ -106,6 +107,7 @@ class WalletLedgerServiceTest {
     @Test
     void createWithdrawalShouldFreezeWithdrawableBalanceAndRecordFreezeLedger() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        markIdentityStatus(1L, "VERIFIED");
 
         WithdrawalResponse withdrawal = service.createWithdrawal(1L, withdrawal("50.00"), "AU-WD-1");
 
@@ -124,6 +126,7 @@ class WalletLedgerServiceTest {
     void concurrentWithdrawalsShouldNotOverFreezeWithdrawableBalance() throws Exception {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "100.00"));
         Long accountId = service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "alice@example.com"));
+        markIdentityStatus(1L, "VERIFIED");
 
         ConcurrentOutcome outcome = runTwoConcurrentAttempts(
                 () -> service.createWithdrawal(1L, withdrawalWithAccount("80.00", accountId), "AU-WD-CONCURRENT-" + Thread.currentThread().getId()),
@@ -151,6 +154,7 @@ class WalletLedgerServiceTest {
     @Test
     void createWithdrawalShouldRequireBackendOwnedPayoutAccountBindingReference() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        markIdentityStatus(1L, "VERIFIED");
         CreateWithdrawalRequest request = withdrawal("50.00");
         request.setAccountNo("6222020202020208088");
         request.setPayoutAccountId(null);
@@ -168,6 +172,7 @@ class WalletLedgerServiceTest {
     void createWithdrawalShouldRejectClientSuppliedMaskedAccountNumberBeforeFreezingFunds() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
         Long accountId = service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "6222020202020208088"));
+        markIdentityStatus(1L, "VERIFIED");
         CreateWithdrawalRequest request = withdrawal("50.00");
         request.setPayoutAccountId(accountId);
         request.setAccountNo("6222 **** **** 8088");
@@ -185,6 +190,7 @@ class WalletLedgerServiceTest {
     void createWithdrawalShouldUseVerifiedOwnerPayoutAccountAndIgnoreClientRawAccountNumber() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
         Long accountId = service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "6222020202020208088"));
+        markIdentityStatus(1L, "VERIFIED");
         CreateWithdrawalRequest request = withdrawal("50.00");
         request.setPayoutAccountId(accountId);
         request.setAccountNo("client-supplied-raw-should-not-persist");
@@ -203,6 +209,7 @@ class WalletLedgerServiceTest {
     void createWithdrawalShouldRejectPayoutAccountOwnedByAnotherUser() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
         Long otherAccountId = service.bindPayoutAccount(2L, payoutAccount("ALIPAY", "Bob", "bob@example.com"));
+        markIdentityStatus(1L, "VERIFIED");
         CreateWithdrawalRequest request = withdrawal("50.00");
         request.setPayoutAccountId(otherAccountId);
 
@@ -230,6 +237,7 @@ class WalletLedgerServiceTest {
     void withdrawalResponsesShouldMaskAccountNumberForUserListsAndCreation() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
         Long accountId = service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "6222020202020208088"));
+        markIdentityStatus(1L, "VERIFIED");
         CreateWithdrawalRequest request = withdrawal("50.00");
         request.setPayoutAccountId(accountId);
 
@@ -247,6 +255,7 @@ class WalletLedgerServiceTest {
     void withdrawalResponsesShouldNotExposeRawAccountNumberField() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
         Long accountId = service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "6222020202020208088"));
+        markIdentityStatus(1L, "VERIFIED");
         CreateWithdrawalRequest request = withdrawal("50.00");
         request.setPayoutAccountId(accountId);
 
@@ -261,6 +270,7 @@ class WalletLedgerServiceTest {
     void adminWithdrawalDetailShouldExposeOnlyMaskedAccountNumberAndReviewHints() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
         Long accountId = service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "alice@example.com"));
+        markIdentityStatus(1L, "VERIFIED");
         CreateWithdrawalRequest request = withdrawal("50.00");
         request.setPayoutAccountId(accountId);
         WithdrawalResponse withdrawal = service.createWithdrawal(1L, request, "AU-WD-1");
@@ -273,9 +283,43 @@ class WalletLedgerServiceTest {
     }
 
     @Test
+    void adminWithdrawalReviewSnapshotShouldUseStrictVideoIdentityEvidence() {
+        insertUserAccount(1L, "U0001", "13900000001", "Alice");
+        service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        Long accountId = service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "alice@example.com"));
+        markIdentityStatus(1L, "VERIFIED");
+        markStrictVideoIdentityVerified(1L, "SELLER", "/uploads/video-identity/wallet-1.mp4");
+        CreateWithdrawalRequest request = withdrawalWithAccount("50.00", accountId);
+        WithdrawalResponse withdrawal = service.createWithdrawal(1L, request, "AU-WD-STRICT");
+
+        AdminWithdrawalReviewDetailResponse detail = service.getAdminWithdrawalReviewDetail(withdrawal.withdrawalNo());
+
+        assertEquals("APPROVED", detail.user().videoIdentityStatus());
+        assertTrue(detail.user().videoVerified());
+    }
+
+    @Test
+    void adminWithdrawalReviewSnapshotShouldNotExposeDirtyVideoIdentityAsVerified() {
+        insertUserAccount(1L, "U0001", "13900000001", "Alice");
+        service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        Long accountId = service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "alice@example.com"));
+        markIdentityStatus(1L, "VERIFIED");
+        markDirtyVideoIdentityVerified(1L);
+        CreateWithdrawalRequest request = withdrawalWithAccount("50.00", accountId);
+        WithdrawalResponse withdrawal = service.createWithdrawal(1L, request, "AU-WD-DIRTY");
+
+        AdminWithdrawalReviewDetailResponse detail = service.getAdminWithdrawalReviewDetail(withdrawal.withdrawalNo());
+
+        assertEquals("APPROVED", detail.user().videoIdentityStatus());
+        assertFalse(detail.user().videoVerified());
+    }
+
+    @Test
     void adminWithdrawalListShouldFilterByStatusLimitResultsAndMaskAccountNumbers() {
         service.credit(credit(1L, "income-1", "WITHDRAWABLE", "80.00"));
         service.credit(credit(2L, "income-2", "WITHDRAWABLE", "80.00"));
+        markIdentityStatus(1L, "VERIFIED");
+        markIdentityStatus(2L, "VERIFIED");
         WithdrawalResponse pending = service.createWithdrawal(1L, withdrawal("20.00"), "AU-WD-1");
         WithdrawalResponse approved = service.createWithdrawal(2L, withdrawal(2L, "30.00"), "AU-WD-2");
         service.markWithdrawalReviewed(approved.withdrawalNo(), "APPROVED");
@@ -295,6 +339,7 @@ class WalletLedgerServiceTest {
     @Test
     void approveWithdrawalShouldDeductFrozenAndRecordPayoutLedgerOnlyOnce() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        markIdentityStatus(1L, "VERIFIED");
         WithdrawalResponse withdrawal = service.createWithdrawal(1L, withdrawal("50.00"), "AU-WD-1");
 
         service.markWithdrawalReviewed(withdrawal.withdrawalNo(), "APPROVED");
@@ -312,6 +357,7 @@ class WalletLedgerServiceTest {
     @Test
     void rejectWithdrawalShouldReleaseFrozenAndRecordReleaseLedgerOnlyOnce() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        markIdentityStatus(1L, "VERIFIED");
         WithdrawalResponse withdrawal = service.createWithdrawal(1L, withdrawal("50.00"), "AU-WD-1");
 
         service.markWithdrawalReviewed(withdrawal.withdrawalNo(), "REJECTED");
@@ -329,6 +375,7 @@ class WalletLedgerServiceTest {
     @Test
     void repeatedWithdrawalReviewWithDifferentStatusShouldBeRejected() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        markIdentityStatus(1L, "VERIFIED");
         WithdrawalResponse withdrawal = service.createWithdrawal(1L, withdrawal("50.00"), "AU-WD-1");
         service.markWithdrawalReviewed(withdrawal.withdrawalNo(), "APPROVED");
 
@@ -338,6 +385,7 @@ class WalletLedgerServiceTest {
     @Test
     void concurrentCancelAndApproveShouldOnlyMoveFrozenFundsOnce() throws Exception {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        markIdentityStatus(1L, "VERIFIED");
         WithdrawalResponse withdrawal = service.createWithdrawal(1L, withdrawal("50.00"), "AU-WD-1");
 
         ConcurrentOutcome outcome = runTwoConcurrentAttempts(
@@ -365,6 +413,7 @@ class WalletLedgerServiceTest {
     @Test
     void walletDataShouldSurviveServiceRecreationWithSameDatabase() {
         service.credit(credit(7L, "income", "WITHDRAWABLE", "120.00"));
+        markIdentityStatus(7L, "VERIFIED");
         WithdrawalResponse withdrawal = service.createWithdrawal(7L, withdrawal(7L, "40.00"), "AU-WD-DB");
 
         WalletLedgerService reloaded = new WalletLedgerService(new JdbcTemplate(database));
@@ -375,6 +424,25 @@ class WalletLedgerServiceTest {
         assertEquals(withdrawal.withdrawalNo(), reloaded.listWithdrawals(7L).get(0).withdrawalNo());
         assertEquals(2, reloaded.listLedger(7L).size());
         assertEquals("WITHDRAW_FREEZE", reloaded.listLedger(7L).get(0).businessType());
+    }
+
+    @Test
+    void createWithdrawalShouldRequireVerifiedIdentityBeforeFreezingFunds() {
+        service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
+        Long accountId = service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "alice@example.com"));
+        markIdentityStatus(1L, "PENDING");
+
+        IllegalStateException error = assertThrows(
+                IllegalStateException.class,
+                () -> service.createWithdrawal(1L, withdrawalWithAccount("50.00", accountId), "AU-WD-ID")
+        );
+
+        assertEquals("withdrawal identity verification required", error.getMessage());
+        WalletBalanceResponse balance = service.getBalance(1L);
+        assertMoney("80.00", balance.getWithdrawableBalance());
+        assertMoney("0.00", balance.getFrozenBalance());
+        assertEquals(1, service.listLedger(1L).size());
+        assertTrue(service.listWithdrawals(1L).isEmpty());
     }
 
     private ConcurrentOutcome runTwoConcurrentAttempts(ConcurrentAttempt attempt, String expectedFailureMessage) throws Exception {
@@ -422,6 +490,69 @@ class WalletLedgerServiceTest {
                 .filter(item -> businessId.equals(item.businessId()))
                 .toList()
                 .size();
+    }
+
+    private void markIdentityStatus(Long userId, String identityStatus) {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        Integer rows = jdbcTemplate.queryForObject("select count(*) from user_profile where user_id = ?", Integer.class, userId);
+        if (rows == null || rows == 0) {
+            jdbcTemplate.update(
+                    "insert into user_profile (user_id, identity_status, main_role, video_identity_status, video_verified) values (?, ?, 'BUYER', 'UNVERIFIED', false)",
+                    userId,
+                    identityStatus
+            );
+            return;
+        }
+        jdbcTemplate.update("update user_profile set identity_status = ?, updated_at = CURRENT_TIMESTAMP where user_id = ?", identityStatus, userId);
+    }
+
+    private void insertUserAccount(Long userId, String userNo, String phone, String nickname) {
+        new JdbcTemplate(database).update(
+                "insert into user_account (id, user_no, phone, nickname, status) values (?, ?, ?, ?, 'ACTIVE')",
+                userId,
+                userNo,
+                phone,
+                nickname
+        );
+    }
+
+    private void markStrictVideoIdentityVerified(Long userId, String mainRole, String storageUrl) {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        jdbcTemplate.update(
+                "update user_profile set main_role = ?, video_identity_status = 'APPROVED', video_verified = true, updated_at = CURRENT_TIMESTAMP where user_id = ?",
+                mainRole,
+                userId
+        );
+        jdbcTemplate.update("""
+                insert into media_upload_ticket (
+                  ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
+                ) values (?, ?, 'VIDEO_IDENTITY', 'identity.mp4', 'video/mp4', 1024, ?, 'hash', 'UPLOADED', CURRENT_TIMESTAMP, DATEADD('HOUR', 1, CURRENT_TIMESTAMP))
+                """, "TICKET-VIDEO-" + userId, userId, storageUrl);
+        jdbcTemplate.update("""
+                insert into audit_record (
+                  audit_no, audit_type, user_id, target_type, target_id, reason, description, status, reviewed_at
+                ) values (?, 'VIDEO_IDENTITY', ?, 'USER', ?, ?, '视频认证通过', 'APPROVED', CURRENT_TIMESTAMP)
+                """, "AU-VIDEO-" + userId, userId, String.valueOf(userId), storageUrl);
+    }
+
+    private void markDirtyVideoIdentityVerified(Long userId) {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(database);
+        String ticketUrl = "/uploads/video-identity/wallet-dirty-ticket.mp4";
+        String auditUrl = "/uploads/video-identity/wallet-dirty-audit.mp4";
+        jdbcTemplate.update(
+                "update user_profile set main_role = 'SELLER', video_identity_status = 'APPROVED', video_verified = true, updated_at = CURRENT_TIMESTAMP where user_id = ?",
+                userId
+        );
+        jdbcTemplate.update("""
+                insert into media_upload_ticket (
+                  ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
+                ) values (?, ?, 'VIDEO_IDENTITY', 'identity.mp4', 'video/mp4', 1024, ?, 'hash', 'UPLOADED', CURRENT_TIMESTAMP, DATEADD('HOUR', 1, CURRENT_TIMESTAMP))
+                """, "TICKET-VIDEO-DIRTY-" + userId, userId, ticketUrl);
+        jdbcTemplate.update("""
+                insert into audit_record (
+                  audit_no, audit_type, user_id, target_type, target_id, reason, description, status, reviewed_at
+                ) values (?, 'VIDEO_IDENTITY', ?, 'USER', ?, ?, '视频认证通过', 'APPROVED', CURRENT_TIMESTAMP)
+                """, "AU-VIDEO-DIRTY-" + userId, userId, String.valueOf(userId), auditUrl);
     }
 
     private CreditCommand credit(Long userId, String key, String balanceType, String amount) {

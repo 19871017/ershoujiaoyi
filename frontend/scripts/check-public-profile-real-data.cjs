@@ -32,17 +32,16 @@ for (const marker of forbiddenMarkers) {
 
 const requiredMarkers = [
   "const userId = ref('')",
-  '卖家数据暂时不可用',
-  '未展示本地卖家样例',
-  "const unavailableProfileMessage = '卖家数据暂时不可用，未展示本地卖家样例'",
+  '卖家资料暂时不可用',
+  "const unavailableProfileMessage = '卖家资料暂时不可用，请稍后再看'",
+  "const noBackendProductsMessage = '这位卖家暂时没有公开在售宝贝'",
   'const sellerProducts = ref<ProductListItemResponse[]>([])',
   'listSellerProducts(userId.value)',
   "assertProductList(activeData, 'ACTIVE')",
   "assertProductList(soldData, 'SOLD')",
-  '卖家商品加载失败，未展示本地商品样例',
-  '暂无后端公开在售商品，未展示本地商品样例',
+  '卖家宝贝暂时加载失败，请稍后重试',
   'function openProduct(productId: number): void',
-  '缺少后端商品编号，未打开商品详情',
+  '商品资料暂时不可用，未打开详情',
   'isValidBackendUserId(userId.value)',
   'function isValidBackendUserId(value: string): boolean',
   'function navigateToUserRoute(missingUserIdTitle: string, buildUrl: (backendUserId: string) => string): void',
@@ -50,17 +49,18 @@ const requiredMarkers = [
   "followedByMe: false",
   'followPublicProfile(userId.value)',
   'unfollowPublicProfile(userId.value)',
-  '关注没有提交成功，未执行本地关注变更',
-  '取消关注没有提交成功，未执行本地关注变更',
-  '缺少真实用户ID，未执行任何关注变更',
-  '缺少真实用户ID，未进入私信',
-  '缺少真实用户ID，未进入送礼',
-  '缺少真实用户ID，未进入举报',
+  '关注没有提交成功，请稍后重试',
+  '取消关注没有提交成功，请稍后重试',
+  '用户资料暂时不可用，未完成关注',
+  '用户资料暂时不可用，未进入私信',
+  '用户资料暂时不可用，未进入送礼',
+  '用户资料暂时不可用，未进入举报',
   'v-if="hasIdentityVideo"',
   "const videoIdentityStoragePrefix = '/uploads/video-identity/'",
   "const showcaseImageStoragePrefix = '/uploads/community-image/'",
+  "const avatarImageStoragePrefix = '/uploads/avatar/'",
   "const productImageStoragePrefix = '/uploads/product-image/'",
-  'function validatedPublicMediaUrl(url: unknown, expectedPrefix: string): string',
+  'function validatedPublicMediaUrl(url: unknown, expectedPrefix: string | string[]): string',
   ':src="identityVideoUrl"',
   ':src="safeAvatarUrl"',
   'function decodeRouteValue(fieldName: string, value: string): string',
@@ -98,6 +98,11 @@ for (const { label, pattern } of forbiddenStaticTrustCopyPatterns) {
 
 for (const marker of requiredMarkers) {
   if (!source.includes(marker)) failures.push(`${file}: missing fail-closed public-profile marker: ${marker}`)
+}
+
+const publicProfileUserVisibleSource = fs.readFileSync(path.join(root, file), 'utf8')
+for (const marker of ['后端', '服务端', '本地', '样例', 'demo', 'mock']) {
+  if (publicProfileUserVisibleSource.includes(marker)) failures.push(`${file}: user-visible public profile copy must not expose technical/testing wording: ${marker}`)
 }
 
 const forbiddenFakeSuccessPatterns = [
@@ -145,7 +150,7 @@ if (!/const products = computed\(\(\) => sellerProducts\.value\.map[\s\S]*coverI
   failures.push(`${file}: public profile product computed state must validate coverImageUrl against PRODUCT_IMAGE media prefix`)
 }
 
-if (!/const hasApprovedSellerVideo = computed\(\(\) =>[\s\S]*profileLoaded\.value[\s\S]*isSellerProfile\.value[\s\S]*profile\.videoVerified === true[\s\S]*profile\.videoIdentityStatus === 'APPROVED'/s.test(source)) {
+if (!/const hasApprovedSellerVideo = computed\(\(\) =>[\s\S]*profileLoaded\.value[\s\S]*isSellerProfile\.value[\s\S]*profile\.videoVerified === true[\s\S]*profile\.videoIdentityStatus === 'APPROVED'[\s\S]*hasApprovedPublicSellerVideo\(profile\)/s.test(source)) {
   failures.push(`${file}: public profile video trust state must require loaded seller profile and APPROVED backend video identity`)
 }
 
@@ -153,8 +158,16 @@ if (!/const identityVideoUrl = computed\(\(\) => hasApprovedSellerVideo\.value \
   failures.push(`${file}: public profile approved video URL must be validated against VIDEO_IDENTITY prefix before display`)
 }
 
-if (!/const safeAvatarUrl = computed\(\(\) => resolveBackendMediaUrl\(validatedPublicMediaUrl\(profile\.avatarUrl \|\| '', showcaseImageStoragePrefix\)\)\)/s.test(source)) {
-  failures.push(`${file}: public profile avatar URL must be validated against COMMUNITY_IMAGE prefix before display`)
+if (!source.includes("export const avatarImageStoragePrefix = '/uploads/avatar/'")) {
+  failures.push(`${file}: public profile must define canonical AVATAR media prefix for real user avatars`)
+}
+
+if (!/function validatedPublicMediaUrl\(url: unknown, expectedPrefix: string \| string\[\]\): string[\s\S]*const prefixes = Array\.isArray\(expectedPrefix\) \? expectedPrefix : \[expectedPrefix\][\s\S]*const matchedPrefix = prefixes\.find\(\(prefix\) => url\.startsWith\(prefix\)\)[\s\S]*!matchedPrefix/s.test(source)) {
+  failures.push(`${file}: public profile media URL validator must support explicit multi-prefix validation without weakening video/showcase prefixes`)
+}
+
+if (!/const safeAvatarUrl = computed\(\(\) => resolveBackendMediaUrl\(validatedPublicMediaUrl\(profile\.avatarUrl \|\| '', \[avatarImageStoragePrefix, showcaseImageStoragePrefix\]\)\)\)/s.test(source)) {
+  failures.push(`${file}: public profile avatar URL must be validated against AVATAR or legacy COMMUNITY_IMAGE prefix before display`)
 }
 
 if (!/function assertProductList\(value: unknown, expectedStatus: 'ACTIVE' \| 'SOLD' = 'ACTIVE'\): asserts value is ProductListItemResponse\[\][\s\S]*Number\.isSafeInteger\(product\.productId\)[\s\S]*typeof product\.title !== 'string'[\s\S]*typeof product\.price !== 'string'[\s\S]*expectedStatus === 'ACTIVE' && product\.visible !== true[\s\S]*product\.status !== expectedStatus[\s\S]*product\.auditState !== 'APPROVED'[\s\S]*assertProductList\(activeData, 'ACTIVE'\)[\s\S]*sellerProducts\.value = data/s.test(source)) {
@@ -169,7 +182,7 @@ if (!/async function initializePublicProfile\(\): Promise<void>\s*\{[\s\S]*try\s
   failures.push(`${file}: public profile must load seller products only after profile id validation succeeds and fail closed on initialization errors`)
 }
 
-if (!source.includes("url.startsWith('local://')") || !source.includes("url.startsWith('blob:')") || !source.includes("url.startsWith('data:')") || !source.includes('url.startsWith(expectedPrefix) ? url.slice(expectedPrefix.length)') || !source.includes("lower.includes('%2e')") || !source.includes("url.includes('\\\\')") || !source.includes("console.warn('public profile rejected media url'")) {
+if (!source.includes("url.startsWith('local://')") || !source.includes("url.startsWith('blob:')") || !source.includes("url.startsWith('data:')") || !source.includes('const matchedPrefix = prefixes.find((prefix) => url.startsWith(prefix))') || !source.includes('const relativePath = matchedPrefix ? url.slice(matchedPrefix.length) :') || !source.includes('!matchedPrefix') || !source.includes("lower.includes('%2e')") || !source.includes("url.includes('\\\\')") || !source.includes("console.warn('public profile rejected media url'")) {
   failures.push(`${file}: public profile must reject local/blob/data/placeholder/traversal media and enforce backend media prefixes before public display with diagnostics`)
 }
 

@@ -85,6 +85,7 @@
           </view>
           <view class="metric-row">
             <text>{{ rankMetricLabel }} {{ item.giftScore }}</text>
+            <text v-if="item.videoVerified" class="verify">视频认证</text>
           </view>
         </view>
         <view class="user-actions">

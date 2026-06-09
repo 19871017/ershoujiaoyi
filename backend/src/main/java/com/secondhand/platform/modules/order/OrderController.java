@@ -54,6 +54,12 @@ public class OrderController {
         return Result.ok(orderApplicationService.payOrder(orderNo, userId));
     }
 
+    @PostMapping("/{orderNo}/cancel")
+    public Result<OrderDetailResponse> cancelPendingOrder(@PathVariable String orderNo, HttpServletRequest request) {
+        long buyerId = currentUserResolver.resolve(request);
+        return Result.ok(orderApplicationService.cancelPendingOrder(orderNo, buyerId));
+    }
+
     @PostMapping("/{orderNo}/ship")
     public Result<ShipOrderResponse> shipOrder(@PathVariable String orderNo, @RequestBody ShipOrderRequest body, HttpServletRequest request) {
         long sellerId = currentUserResolver.resolve(request);

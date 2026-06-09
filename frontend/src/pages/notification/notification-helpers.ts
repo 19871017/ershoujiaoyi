@@ -13,6 +13,10 @@ export const tabs = [
   { label: '全部', value: 'ALL' as const },
   { label: '订单', value: 'ORDER' as const },
   { label: '私信', value: 'CHAT' as const },
+  { label: '互动', value: 'FOLLOW' as const },
+  { label: '点赞', value: 'LIKE' as const },
+  { label: '评论', value: 'COMMENT' as const },
+  { label: '礼物', value: 'GIFT' as const },
   { label: '审核', value: 'AUDIT' as const },
   { label: '系统', value: 'SYSTEM' as const }
 ]
@@ -22,7 +26,7 @@ export function filterNotifications(notices: NotificationItemResponse[], active:
 }
 
 export function isValidNotificationType(value: unknown): value is NotificationType {
-  return value === 'ORDER' || value === 'CHAT' || value === 'AUDIT' || value === 'SYSTEM'
+  return value === 'ORDER' || value === 'CHAT' || value === 'AUDIT' || value === 'SYSTEM' || value === 'FOLLOW' || value === 'LIKE' || value === 'COMMENT' || value === 'GIFT'
 }
 
 export function isValidNotificationNo(value?: string | null) {
@@ -39,7 +43,7 @@ export function assertNotificationItem(value: unknown): asserts value is Notific
   if (typeof item.description !== 'string') throw new Error('notification invalid description')
   if (typeof item.read !== 'boolean') throw new Error('notification invalid read state')
   if (typeof item.createdAt !== 'string' || !item.createdAt) throw new Error('notification invalid createdAt')
-  if (item.targetUrl != null && (typeof item.targetUrl !== 'string' || !isSafeNotificationTargetUrl(item.targetUrl))) throw new Error('notification invalid targetUrl')
+  if (item.targetUrl != null && item.targetUrl !== '' && (typeof item.targetUrl !== 'string' || !isSafeNotificationTargetUrl(item.targetUrl))) throw new Error('notification invalid targetUrl')
 }
 
 export function assertNotificationList(value: unknown): asserts value is NotificationItemResponse[] {
@@ -48,7 +52,7 @@ export function assertNotificationList(value: unknown): asserts value is Notific
 }
 
 export function iconFor(type: NotificationType) {
-  return ({ ORDER: '📦', CHAT: '💬', AUDIT: '🛡️', SYSTEM: '🔔' } as Record<NotificationType, string>)[type] ?? '🔔'
+  return ({ ORDER: '📦', CHAT: '💬', FOLLOW: '♡', LIKE: '♥', COMMENT: '💬', GIFT: '🎁', AUDIT: '🛡️', SYSTEM: '🔔' } as Record<NotificationType, string>)[type] ?? '🔔'
 }
 
 export function formatTime(value: string) {
@@ -59,21 +63,39 @@ export function formatTime(value: string) {
 export function isSafeNotificationTargetUrl(value?: string | null) {
   if (!value) return false
   if (!/^\/pages\/[A-Za-z0-9/_-]+\/index(?:\?[A-Za-z0-9%=&_.:-]+)?$/.test(value)) return false
+  if (isAllowedStaticNotificationTargetUrl(value)) return true
   if (value.startsWith('/pages/after-sales/detail/index?')) return isSafeAfterSalesDetailTargetUrl(value)
   if (value.startsWith('/pages/order/detail/index?')) return isSafeOrderDetailTargetUrl(value)
-  return true
+  if (value.startsWith('/pages/community/detail/index?')) return isSafeCommunityDetailTargetUrl(value)
+  if (value.startsWith('/pages/user/public-profile/index?')) return isSafePublicProfileTargetUrl(value)
+  if (value.startsWith('/pages/gift/index?')) return isSafeGiftTargetUrl(value)
+  if (value.startsWith('/pages/chat/conversation/index?')) return isSafeChatConversationTargetUrl(value)
+  return false
 }
 
 export function isSafeAfterSalesDetailTargetUrl(value: string): boolean {
   try {
     const query = value.split('?')[1] || ''
     const params = new URLSearchParams(query)
+    const keys: string[] = []
+    params.forEach((_value, key) => { keys.push(key) })
     const afterSalesNo = params.get('afterSalesNo') || ''
     const orderNo = params.get('orderNo') || ''
-    return /^AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(afterSalesNo) && /^OD-[0-9]{1,10}$/.test(orderNo)
+    return keys.length === 2 &&
+      keys.includes('afterSalesNo') &&
+      keys.includes('orderNo') &&
+      /^AS-[A-Za-z0-9][A-Za-z0-9_-]{5,63}$/.test(afterSalesNo) &&
+      /^OD-[0-9]{1,10}$/.test(orderNo)
   } catch {
     return false
   }
+}
+
+export function isAllowedStaticNotificationTargetUrl(value: string): boolean {
+  return value === '/pages/notification/index' ||
+    value === '/pages/chat/session-list/index' ||
+    value === '/pages/user/identity/index' ||
+    isTabBarNotificationTargetUrl(value)
 }
 
 export function isSafeOrderDetailTargetUrl(value: string): boolean {
@@ -84,6 +106,62 @@ export function isSafeOrderDetailTargetUrl(value: string): boolean {
     params.forEach((_value, key) => { keys.push(key) })
     const orderNo = params.get('orderNo') || ''
     return keys.length === 1 && keys[0] === 'orderNo' && /^OD-[0-9]{1,10}$/.test(orderNo)
+  } catch {
+    return false
+  }
+}
+
+export function isSafeCommunityDetailTargetUrl(value: string): boolean {
+  try {
+    const query = value.split('?')[1] || ''
+    const params = new URLSearchParams(query)
+    const keys: string[] = []
+    params.forEach((_value, key) => { keys.push(key) })
+    const postId = params.get('postId') || ''
+    return keys.length === 1 && keys[0] === 'postId' && /^[1-9]\d{0,18}$/.test(postId)
+  } catch {
+    return false
+  }
+}
+
+export function isSafePublicProfileTargetUrl(value: string): boolean {
+  try {
+    const query = value.split('?')[1] || ''
+    const params = new URLSearchParams(query)
+    const keys: string[] = []
+    params.forEach((_value, key) => { keys.push(key) })
+    const userId = params.get('userId') || ''
+    return keys.length === 1 && keys[0] === 'userId' && /^[1-9]\d{0,18}$/.test(userId)
+  } catch {
+    return false
+  }
+}
+
+export function isSafeGiftTargetUrl(value: string): boolean {
+  try {
+    const query = value.split('?')[1] || ''
+    const params = new URLSearchParams(query)
+    const keys: string[] = []
+    params.forEach((_value, key) => { keys.push(key) })
+    return keys.length === 1 && keys[0] === 'mode' && params.get('mode') === 'received'
+  } catch {
+    return false
+  }
+}
+
+export function isSafeChatConversationTargetUrl(value: string): boolean {
+  try {
+    const query = value.split('?')[1] || ''
+    const params = new URLSearchParams(query)
+    const keys: string[] = []
+    params.forEach((_value, key) => { keys.push(key) })
+    const conversationId = params.get('conversationId') || ''
+    const receiverId = params.get('receiverId') || ''
+    return keys.length === 2 &&
+      keys.includes('conversationId') &&
+      keys.includes('receiverId') &&
+      /^[1-9]\d{0,18}$/.test(conversationId) &&
+      /^[1-9]\d{0,18}$/.test(receiverId)
   } catch {
     return false
   }

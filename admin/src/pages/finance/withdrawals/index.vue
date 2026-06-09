@@ -46,26 +46,53 @@
     <div v-if="loading" class="empty">提现记录加载中...</div>
     <div v-else-if="!detail" class="empty">请输入提现编号查询详情；服务不可用时不会展示提现详情。</div>
 
-    <article v-else class="detail-card">
+    <article v-else-if="currentWithdrawal" class="detail-card">
       <div class="detail-head">
         <div>
-          <strong>{{ detail.withdrawalNo }}</strong>
-          <span>关联审核：{{ detail.auditNo || '暂无' }}</span>
+          <strong>{{ currentWithdrawal.withdrawalNo }}</strong>
+          <span>关联审核：{{ currentWithdrawal.auditNo || '暂无' }}</span>
         </div>
-        <b :class="['status', detail.status.toLowerCase()]">{{ detail.status }}</b>
+        <b :class="['status', currentWithdrawal.status.toLowerCase()]">{{ currentWithdrawal.status }}</b>
       </div>
       <dl class="detail-grid">
-        <div><dt>用户 ID</dt><dd>{{ detail.userId }}</dd></div>
-        <div><dt>提现金额</dt><dd>¥{{ detail.amount }}</dd></div>
-        <div><dt>收款方式</dt><dd>{{ detail.paymentMethod }}</dd></div>
-        <div><dt>户名</dt><dd>{{ detail.accountName }}</dd></div>
-        <div><dt>脱敏账号</dt><dd>{{ detail.maskedAccountNo }}</dd></div>
-        <div><dt>实名一致性</dt><dd>{{ detail.accountVerifyStatus || '以平台记录为准' }}</dd></div>
-        <div><dt>创建时间</dt><dd>{{ detail.createdAt || '暂无' }}</dd></div>
-        <div><dt>复核时间</dt><dd>{{ detail.reviewedAt || '未复核' }}</dd></div>
+        <div><dt>用户 ID</dt><dd>{{ currentWithdrawal.userId }}</dd></div>
+        <div><dt>提现金额</dt><dd>¥{{ currentWithdrawal.amount }}</dd></div>
+        <div><dt>收款方式</dt><dd>{{ currentWithdrawal.paymentMethod }}</dd></div>
+        <div><dt>户名</dt><dd>{{ currentWithdrawal.accountName }}</dd></div>
+        <div><dt>脱敏账号</dt><dd>{{ currentWithdrawal.maskedAccountNo }}</dd></div>
+        <div><dt>实名一致性</dt><dd>{{ currentWithdrawal.accountVerifyStatus || '以平台记录为准' }}</dd></div>
+        <div><dt>创建时间</dt><dd>{{ currentWithdrawal.createdAt || '暂无' }}</dd></div>
+        <div><dt>复核时间</dt><dd>{{ currentWithdrawal.reviewedAt || '未复核' }}</dd></div>
       </dl>
+      <section class="review-context">
+        <div class="context-card">
+          <h3>用户与实名</h3>
+          <p>{{ detail.user.nickname }} / {{ detail.user.userNo || '无用户号' }} / {{ detail.user.status }}</p>
+          <p>实名：{{ detail.user.identityStatus }}；角色：{{ detail.user.mainRole }}；城市：{{ detail.user.city || '未填写' }}</p>
+          <p>视频认证：{{ detail.user.videoIdentityStatus }} / {{ detail.user.videoVerified ? '已通过' : '未通过' }}</p>
+        </div>
+        <div class="context-card">
+          <h3>钱包余额</h3>
+          <p>可提现 ¥{{ detail.balance.withdrawableBalance }} / 冻结 ¥{{ detail.balance.frozenBalance }}</p>
+          <p>充值 ¥{{ detail.balance.rechargeBalance }} / 收入 ¥{{ detail.balance.incomeBalance }}</p>
+        </div>
+      </section>
+      <section class="ledger-context">
+        <div class="section-title">最近钱包流水</div>
+        <div v-if="detail.recentLedgers.length === 0" class="empty small">暂无钱包流水。</div>
+        <div v-for="ledger in detail.recentLedgers" :key="ledger.ledgerNo" class="ledger-row">
+          <div>
+            <strong>{{ ledger.businessType }}</strong>
+            <span>{{ ledger.ledgerNo }}</span>
+          </div>
+          <div class="ledger-side">
+            <b>{{ ledger.direction === 'CREDIT' ? '+' : '-' }}{{ ledger.amount }}</b>
+            <span>{{ ledger.balanceType }} / {{ ledger.status }}</span>
+          </div>
+        </div>
+      </section>
       <p class="safe-note">本页不接收或展示完整收款账号；审核提交必须依赖关联审核编号。</p>
-      <form v-if="detail.auditNo && detail.status === 'PENDING' && canReviewFinance(auth.session)" class="review-card" @submit.prevent>
+      <form v-if="currentWithdrawal.auditNo && currentWithdrawal.status === 'PENDING' && canReviewFinance(auth.session)" class="review-card" @submit.prevent>
         <label>
           <span>审核备注</span>
           <input v-model.trim="reviewRemark" placeholder="请填写本次提现复核备注" />
@@ -81,8 +108,8 @@
         </div>
         <p class="safe-note">审核动作提交后会重新读取提现详情；状态以平台返回为准。</p>
       </form>
-      <div v-else-if="detail.status === 'PENDING' && !canReviewFinance(auth.session)" class="alert">当前管理员缺少 finance:review 权限，已阻止提现审核操作。</div>
-      <div v-else-if="detail.status === 'PENDING'" class="alert">该提现记录缺少审核编号，已阻止本页审核操作。</div>
+      <div v-else-if="currentWithdrawal.status === 'PENDING' && !canReviewFinance(auth.session)" class="alert">当前管理员缺少 finance:review 权限，已阻止提现审核操作。</div>
+      <div v-else-if="currentWithdrawal.status === 'PENDING'" class="alert">该提现记录缺少审核编号，已阻止本页审核操作。</div>
     </article>
   </section>
 </template>
@@ -90,7 +117,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { getAdminWithdrawalDetail, getAdminWithdrawalList, isValidAdminWithdrawalNo, reviewAdminWithdrawal, type AdminWithdrawalDetail, type WithdrawalStatus } from '../../../api'
+import { getAdminWithdrawalDetail, getAdminWithdrawalList, isValidAdminWithdrawalNo, reviewAdminWithdrawal, type AdminWithdrawalDetail, type AdminWithdrawalReviewDetail, type WithdrawalStatus } from '../../../api'
 import { canReviewFinance, useAuthStore } from '../../../store/modules/auth'
 
 const auth = useAuthStore()
@@ -100,13 +127,14 @@ const loading = ref(false)
 const listLoading = ref(false)
 const reviewing = ref(false)
 const error = ref('')
-const detail = ref<AdminWithdrawalDetail | null>(null)
+const detail = ref<AdminWithdrawalReviewDetail | null>(null)
 const withdrawals = ref<AdminWithdrawalDetail[]>([])
 const statusFilter = ref<WithdrawalStatus | 'ALL'>('PENDING')
 const listLimit = ref(20)
 const reviewRemark = ref('')
 const reviewConfirmText = ref('')
-const expectedReviewConfirmText = computed(() => `提现审核${detail.value?.withdrawalNo || ''}`)
+const currentWithdrawal = computed(() => detail.value?.withdrawal)
+const expectedReviewConfirmText = computed(() => `提现审核${currentWithdrawal.value?.withdrawalNo || ''}`)
 
 async function loadDetail() {
   const safeNo = withdrawalNo.value.trim()
@@ -120,7 +148,7 @@ async function loadDetail() {
   }
   try {
     detail.value = await getAdminWithdrawalDetail(safeNo)
-    reviewRemark.value = detail.value.remark || ''
+    reviewRemark.value = detail.value.withdrawal.remark || ''
     reviewConfirmText.value = ''
   } catch {
     error.value = '提现详情加载失败，请确认管理员权限与提现编号。'
@@ -144,13 +172,13 @@ async function loadList() {
 
 function selectWithdrawal(item: AdminWithdrawalDetail) {
   withdrawalNo.value = item.withdrawalNo
-  detail.value = item
+  void loadDetail()
   reviewRemark.value = item.remark || ''
   reviewConfirmText.value = ''
 }
 
 async function submitReview(action: 'approve' | 'reject') {
-  const current = detail.value
+  const current = detail.value?.withdrawal
   if (!current) return
   error.value = ''
   if (!canReviewFinance(auth.session)) {
