@@ -23,6 +23,7 @@ import com.secondhand.platform.modules.order.application.OrderApplicationService
 import com.secondhand.platform.modules.product.CreateProductResponse;
 import com.secondhand.platform.modules.product.ProductDetailResponse;
 import com.secondhand.platform.modules.product.ProductListItemResponse;
+import com.secondhand.platform.modules.product.UpdateProductResponse;
 import com.secondhand.platform.modules.product.application.ProductApplicationService;
 import com.secondhand.platform.modules.user.AdminUserDetailResponse;
 import com.secondhand.platform.modules.user.application.UserApplicationService;
@@ -210,6 +211,24 @@ public class AdminController {
         productApplicationService.rejectForSale(productId);
         auditApplicationService.reject(auditNo, "后台商品审核拒绝", adminUserId);
         return Result.ok(productApplicationService.createResponse(productId));
+    }
+
+    @PostMapping("/products/{productId}/offline")
+    public Result<UpdateProductResponse> offlineProduct(@PathVariable Long productId,
+                                                        @RequestBody AdminProductOfflineRequest body,
+                                                        HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
+        String reason = body == null || body.getReason() == null ? null : body.getReason().trim();
+        UpdateProductResponse response = productApplicationService.adminOfflineProduct(productId, reason);
+        auditApplicationService.recordAdminOperation(
+                "PRODUCT_OFFLINE",
+                adminUserId,
+                "PRODUCT",
+                String.valueOf(productId),
+                "SUCCESS",
+                reason
+        );
+        return Result.ok(response);
     }
 
     @GetMapping("/products")

@@ -155,6 +155,10 @@ export interface AdminProductListQuery {
   limit?: number
 }
 
+export interface AdminProductOfflineRequest {
+  reason: string
+}
+
 export interface AdminUserDetailResponse {
   userId: number
   userNo: string
@@ -485,6 +489,12 @@ export function isValidAdminProductKeyword(keyword: string) {
   return true
 }
 
+export function isValidAdminProductOfflineReason(reason: string) {
+  const normalized = reason.trim()
+  if (!normalized || normalized.length > 128) return false
+  return !/(preview|demo|mock|sample|placeholder)/i.test(normalized)
+}
+
 export function isValidAdminUserId(userId: string | number) {
   return /^[1-9]\d*$/.test(String(userId))
 }
@@ -639,6 +649,21 @@ export async function rejectAdminProduct(productId: string | number) {
   return request<AdminProductAuditResponse>({
     url: `/api/admin/products/${encodeURIComponent(String(productId))}/reject`,
     method: 'POST'
+  })
+}
+
+export async function offlineAdminProduct(productId: string | number, payload: AdminProductOfflineRequest) {
+  if (!isValidAdminProductId(productId)) {
+    throw new Error('商品编号无效')
+  }
+  const reason = payload?.reason?.trim() ?? ''
+  if (!isValidAdminProductOfflineReason(reason)) {
+    throw new Error('商品下架原因无效')
+  }
+  return request<AdminProductAuditResponse>({
+    url: `/api/admin/products/${encodeURIComponent(String(productId))}/offline`,
+    method: 'POST',
+    data: { reason }
   })
 }
 

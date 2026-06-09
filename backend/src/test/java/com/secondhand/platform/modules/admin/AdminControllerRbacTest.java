@@ -528,6 +528,49 @@ class AdminControllerRbacTest {
     }
 
     @Test
+    void adminProductOfflineRequiresAuditReviewAndPersistsOperationLog() throws Exception {
+        CreateProductResponse product = productApplicationService.createProduct(171L, productRequest(171L, "运营下架在售商品", "56.78"));
+        productApplicationService.approveForSale(product.getProductId());
+        createActiveUser(172L);
+
+        mvc.perform(post("/api/admin/products/" + product.getProductId() + "/offline")
+                        .header("X-User-Id", "172")
+                        .header("X-Admin-Session", issueAdminSession(172L))
+                        .contentType("application/json")
+                        .content("{\"reason\":\"商品图片违规\"}"))
+                .andExpect(status().isForbidden());
+
+        grantPermission(172L, "audit:review");
+
+        mvc.perform(post("/api/admin/products/" + product.getProductId() + "/offline")
+                        .header("X-User-Id", "172")
+                        .header("X-Admin-Session", issueAdminSession(172L))
+                        .contentType("application/json")
+                        .content("{\"reason\":\"商品图片违规\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.productId").value(product.getProductId()))
+                .andExpect(jsonPath("$.data.status").value("OFFLINE"))
+                .andExpect(jsonPath("$.data.auditState").value("REJECTED"))
+                .andExpect(jsonPath("$.data.visible").value(false));
+
+        org.junit.jupiter.api.Assertions.assertEquals("OFFLINE",
+                jdbcTemplate.queryForObject("select product_status from product_item where id = ?", String.class, product.getProductId()));
+        org.junit.jupiter.api.Assertions.assertEquals("REJECTED",
+                jdbcTemplate.queryForObject("select audit_status from product_item where id = ?", String.class, product.getProductId()));
+        org.junit.jupiter.api.Assertions.assertEquals(172L,
+                jdbcTemplate.queryForObject("select operator_id from admin_audit_log where action = ? and target_id = ?", Long.class, "PRODUCT_OFFLINE", String.valueOf(product.getProductId())));
+        org.junit.jupiter.api.Assertions.assertEquals("商品图片违规",
+                jdbcTemplate.queryForObject("select summary from admin_audit_log where action = ? and target_id = ?", String.class, "PRODUCT_OFFLINE", String.valueOf(product.getProductId())));
+
+        mvc.perform(post("/api/admin/products/" + product.getProductId() + "/offline")
+                        .header("X-User-Id", "172")
+                        .header("X-Admin-Session", issueAdminSession(172L))
+                        .contentType("application/json")
+                        .content("{\"reason\":\"preview offline\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void adminAuditListMasksSensitiveDescriptionBeforeDtoResponse() throws Exception {
         createActiveUser(72L);
         grantPermission(72L, "audit:read");

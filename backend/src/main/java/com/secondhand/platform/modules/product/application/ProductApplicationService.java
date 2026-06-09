@@ -367,6 +367,30 @@ public class ProductApplicationService {
         return toUpdateResponse(getExistingProduct(productId));
     }
 
+    @Transactional
+    public UpdateProductResponse adminOfflineProduct(Long productId, String reason) {
+        ProductRecord existing = getExistingProduct(productId);
+        normalizeAdminOfflineReason(reason);
+        if (!STATUS_ACTIVE.equals(existing.status()) || !AUDIT_APPROVED.equals(existing.auditState()) || !existing.visible()) {
+            throw new IllegalArgumentException("product-not-active");
+        }
+        if (STATUS_SOLD.equals(existing.status()) || existing.lockedOrderNo() != null) {
+            throw new IllegalArgumentException("product cannot be offlined after locked or sold");
+        }
+        int changed = jdbcTemplate.update(
+                "update product_item set product_status = ?, audit_status = ?, visible = false, updated_at = CURRENT_TIMESTAMP where id = ? and product_status = ? and audit_status = ? and visible = true and locked_order_no is null",
+                STATUS_OFFLINE,
+                AUDIT_REJECTED,
+                existing.productId(),
+                STATUS_ACTIVE,
+                AUDIT_APPROVED
+        );
+        if (changed == 0) {
+            throw new IllegalArgumentException("product offline failed");
+        }
+        return toUpdateResponse(getExistingProduct(productId));
+    }
+
     public ProductSnapshot snapshotForOrder(Long productId) {
         ProductRecord product = getVisibleProduct(productId);
         if (product.lockedOrderNo() != null) {
@@ -643,6 +667,18 @@ public class ProductApplicationService {
         }
         if (normalized.matches("^\\d+$") && !normalized.matches("^[1-9]\\d{0,18}$")) {
             throw new IllegalArgumentException("keyword invalid");
+        }
+        return normalized;
+    }
+
+    private String normalizeAdminOfflineReason(String reason) {
+        String normalized = safeText(reason);
+        if (normalized == null || normalized.length() > 128) {
+            throw new IllegalArgumentException("product offline reason invalid");
+        }
+        String lower = normalized.toLowerCase(Locale.ROOT);
+        if (lower.contains("preview") || lower.contains("demo") || lower.contains("mock") || lower.contains("sample") || lower.contains("placeholder")) {
+            throw new IllegalArgumentException("product offline reason invalid");
         }
         return normalized;
     }

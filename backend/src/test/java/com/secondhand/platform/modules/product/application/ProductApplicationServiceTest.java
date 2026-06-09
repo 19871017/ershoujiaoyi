@@ -211,6 +211,36 @@ class ProductApplicationServiceTest {
     }
 
     @Test
+    void adminOfflineProductShouldHideActiveProductAndRequireFreshReviewBeforeOnlineAgain() {
+        CreateProductResponse response = service.createProduct(1L, product("运营下架商品", "88.00"));
+        service.approveForSale(response.getProductId());
+
+        var offline = service.adminOfflineProduct(response.getProductId(), "违规内容运营下架");
+
+        assertEquals("OFFLINE", offline.getStatus());
+        assertEquals("REJECTED", offline.getAuditState());
+        assertFalse(offline.getVisible());
+        assertTrue(service.listProducts().isEmpty());
+        assertEquals("OFFLINE", service.listMyProducts(1L).get(0).getStatus());
+        assertThrows(IllegalArgumentException.class, () -> service.detailProduct(response.getProductId()));
+        IllegalArgumentException restoreError = assertThrows(IllegalArgumentException.class, () -> service.updateVisibility(1L, response.getProductId(), true));
+        assertEquals("product not approved", restoreError.getMessage());
+    }
+
+    @Test
+    void adminOfflineProductShouldRejectLockedInactiveAndUnsafeReasons() {
+        CreateProductResponse active = service.createProduct(1L, product("运营下架锁定商品", "88.00"));
+        service.approveForSale(active.getProductId());
+        service.reserveForOrder(active.getProductId(), "OD-ADMIN-OFFLINE");
+
+        assertThrows(IllegalArgumentException.class, () -> service.adminOfflineProduct(active.getProductId(), "订单锁定后不可运营下架"));
+
+        CreateProductResponse pending = service.createProduct(1L, product("待审不可运营下架", "66.00"));
+        assertThrows(IllegalArgumentException.class, () -> service.adminOfflineProduct(pending.getProductId(), "待审商品不允许运营下架"));
+        assertThrows(IllegalArgumentException.class, () -> service.adminOfflineProduct(active.getProductId(), "preview offline"));
+    }
+
+    @Test
     void approveForSaleShouldRejectProductWhenSellerCertificationWasRevoked() {
         CreateProductResponse response = service.createProduct(1L, product("认证后撤销商品", "88.00"));
         upsertProfile(1L, "BUYER", "REJECTED", false);

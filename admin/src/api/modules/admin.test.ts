@@ -14,6 +14,7 @@ import {
   getAdminProductList,
   approveAdminProduct,
   rejectAdminProduct,
+  offlineAdminProduct,
   getAdminChatConversationMessages,
   getAdminChatConversations,
   getAdminCommunityPostDetail,
@@ -37,6 +38,7 @@ import {
   isValidAdminOrderNo,
   isValidAdminProductId,
   isValidAdminProductKeyword,
+  isValidAdminProductOfflineReason,
   isValidAdminUserId,
   isValidAdminWithdrawalNo,
   rejectAdminAudit,
@@ -110,12 +112,15 @@ describe('admin finance api', () => {
     expect(isValidAdminProductId(88)).toBe(true)
     await expect(approveAdminProduct('preview-product')).rejects.toThrow('商品编号无效')
     await expect(rejectAdminProduct('preview-product')).rejects.toThrow('商品编号无效')
+    await expect(offlineAdminProduct('preview-product', { reason: '违规图片' })).rejects.toThrow('商品编号无效')
     await expect(approveAdminProduct(0)).rejects.toThrow('商品编号无效')
     await expect(rejectAdminProduct(0)).rejects.toThrow('商品编号无效')
+    await expect(offlineAdminProduct(88, { reason: 'preview offline' })).rejects.toThrow('商品下架原因无效')
     expect(fetchMock).not.toHaveBeenCalled()
 
     const product = await approveAdminProduct(88)
     await rejectAdminProduct(88)
+    await offlineAdminProduct(88, { reason: '商品图片违规' })
 
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/products/88/approve'), expect.objectContaining({
       method: 'POST'
@@ -123,7 +128,13 @@ describe('admin finance api', () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/products/88/reject'), expect.objectContaining({
       method: 'POST'
     }))
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/products/88/offline'), expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ reason: '商品图片违规' })
+    }))
     expect(product.status).toBe('ON_SALE')
+    expect(isValidAdminProductOfflineReason('商品图片违规')).toBe(true)
+    expect(isValidAdminProductOfflineReason('preview offline')).toBe(false)
   })
 
   it('loads admin product list and detail through backend product endpoints with bounded filters', async () => {

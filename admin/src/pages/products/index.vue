@@ -105,6 +105,7 @@
           {{ reviewing ? '提交中...' : '通过商品审核' }}
         </button>
         <button class="danger-btn" :disabled="reviewing || !canReviewDetail" @click="reviewProduct('reject')">拒绝商品审核</button>
+        <button class="danger-btn" :disabled="reviewing || !canOfflineDetail" @click="offlineProduct">运营下架</button>
         <button class="secondary-btn" :disabled="reviewing" @click="openSeller">查看卖家</button>
       </div>
       <p class="safe-note">商品状态以后台接口返回为准；审核动作只提交真实 /api/admin/products* 请求，不在本地伪造成功状态。</p>
@@ -121,6 +122,8 @@ import {
   getAdminProductList,
   isValidAdminProductId,
   isValidAdminProductKeyword,
+  isValidAdminProductOfflineReason,
+  offlineAdminProduct,
   rejectAdminProduct,
   type AdminProductDetail,
   type AdminProductListItem,
@@ -147,6 +150,13 @@ const statusValues: NonNullable<AdminProductListQuery['status']>[] = ['ALL', 'PE
 const auditStatusValues: NonNullable<AdminProductListQuery['auditStatus']>[] = ['ALL', 'PENDING', 'APPROVED', 'REJECTED']
 const detailAuditStatus = computed(() => detail.value ? productAuditStatus(detail.value) : 'PENDING')
 const canReviewDetail = computed(() => Boolean(detail.value && canReviewAudit(auth.session) && isPendingProduct(detail.value)))
+const canOfflineDetail = computed(() => Boolean(
+  detail.value &&
+  canReviewAudit(auth.session) &&
+  detail.value.status === 'ACTIVE' &&
+  detailAuditStatus.value === 'APPROVED' &&
+  detail.value.visible === true
+))
 
 function productAuditStatus(item: AdminProductListItem | AdminProductDetail) {
   return item.auditStatus || item.auditState || 'PENDING'
@@ -241,6 +251,34 @@ async function reviewProduct(action: 'approve' | 'reject') {
     await loadList(true)
   } catch {
     error.value = '商品审核提交失败，请确认审核权限与商品待审状态。'
+  } finally {
+    reviewing.value = false
+  }
+}
+
+async function offlineProduct() {
+  if (!detail.value || !canOfflineDetail.value) return
+  const safeId = detail.value.productId
+  if (!isValidAdminProductId(safeId)) {
+    error.value = '商品编号无效，未提交下架。'
+    return
+  }
+  const reason = window.prompt('请输入运营下架原因，便于后续追溯。', '')
+  if (reason === null) return
+  const safeReason = reason.trim()
+  if (!isValidAdminProductOfflineReason(safeReason)) {
+    error.value = '商品下架原因无效：不能为空、最多 128 字，不能包含测试占位语义。'
+    return
+  }
+  if (!window.confirm('确认将该在售商品运营下架？')) return
+  reviewing.value = true
+  error.value = ''
+  try {
+    await offlineAdminProduct(safeId, { reason: safeReason })
+    await loadDetail()
+    await loadList(true)
+  } catch {
+    error.value = '商品下架失败，请确认审核权限、商品状态和订单锁定状态。'
   } finally {
     reviewing.value = false
   }
