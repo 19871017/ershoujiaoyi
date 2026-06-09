@@ -10,11 +10,19 @@
       <view class="ticker-marquee">
         <view class="ticker-track" :style="trackStyle">
           <view
-            v-for="item in renderedItems"
-            :key="item.id"
-            class="ticker-line"
+            v-for="groupIndex in marqueeGroups"
+            :key="`ticker-group-${groupIndex}`"
+            class="ticker-group"
           >
-            <text class="ticker-text">{{ item.text }}</text>
+            <view
+              v-for="item in items"
+              :key="`${groupIndex}-${item.id}`"
+              class="ticker-line"
+              :class="item.kind"
+            >
+              <text class="ticker-kind">{{ tickerKindLabel(item.kind) }}</text>
+              <text class="ticker-text">{{ item.text }}</text>
+            </view>
           </view>
         </view>
       </view>
@@ -34,7 +42,6 @@ import { buildAnnouncementItems, buildGiftText, buildNoticeText, normalizeTarget
 
 const userStore = useUserStore()
 const items = ref<TickerItem[]>([])
-const currentIndex = ref(0)
 const OPTIONAL_SOURCE_COOLDOWN_MS = 5 * 60_000
 type OptionalTickerSource = 'announcement' | 'gift' | 'notice'
 const sourceCooldownUntil: Record<OptionalTickerSource, number> = {
@@ -43,22 +50,18 @@ const sourceCooldownUntil: Record<OptionalTickerSource, number> = {
   notice: 0
 }
 const visible = computed(() => items.value.length > 0)
-const renderedItems = computed(() => {
-  if (!items.value.length) return []
-  if (items.value.length === 1) return items.value
-  return [...items.value, items.value[0]!]
-})
 const currentItem = computed(() => {
-  if (!items.value.length) return null
-  return items.value[currentIndex.value % items.value.length] ?? items.value[0]!
+  return items.value[0] ?? null
+})
+const marqueeGroups = computed(() => (items.value.length ? [0, 1] : []))
+const marqueeDurationSeconds = computed(() => {
+  const textLength = items.value.reduce((sum, item) => sum + item.text.length, 0)
+  return Math.max(24, Math.min(54, Math.round(textLength * 0.62)))
 })
 const trackStyle = computed(() => ({
-  transform: `translateY(-${currentIndex.value * 32}rpx)`,
-  transition: items.value.length > 1 ? 'transform .42s ease' : 'none'
-}))
+  '--ticker-duration': `${marqueeDurationSeconds.value}s`
+}) as Record<string, string>)
 
-let rotateTimer: ReturnType<typeof setInterval> | null = null
-let resetTimer: ReturnType<typeof setTimeout> | null = null
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 function applyOffset() {
@@ -66,30 +69,9 @@ function applyOffset() {
   document.documentElement.style.setProperty('--global-ticker-offset', visible.value ? '76rpx' : '0rpx')
 }
 
-function clearRotationTimers() {
-  if (rotateTimer) clearInterval(rotateTimer)
-  if (resetTimer) clearTimeout(resetTimer)
-  rotateTimer = null
-  resetTimer = null
-}
-
 function clearTimers() {
-  clearRotationTimers()
   if (refreshTimer) clearInterval(refreshTimer)
   refreshTimer = null
-}
-
-function startRotation() {
-  clearRotationTimers()
-  if (items.value.length <= 1) return
-  rotateTimer = setInterval(() => {
-    currentIndex.value += 1
-    if (currentIndex.value >= items.value.length) {
-      resetTimer = setTimeout(() => {
-        currentIndex.value = 0
-      }, 450)
-    }
-  }, 3200)
 }
 
 function sourceInCooldown(source: OptionalTickerSource) {
@@ -150,16 +132,18 @@ async function loadTicker() {
         targetUrl: normalizeTickerTargetUrl(item.targetUrl)
       }))
     items.value = [...chatNoticeItems, ...giftItems, ...announcementItems, ...noticeItems].slice(0, 6)
-    currentIndex.value = 0
     applyOffset()
-    startRotation()
   } catch (error) {
     console.warn('global ticker refresh failed', error)
     items.value = []
-    currentIndex.value = 0
     applyOffset()
-    clearRotationTimers()
   }
+}
+
+function tickerKindLabel(kind: TickerItem['kind']): string {
+  if (kind === 'gift') return '礼物'
+  if (kind === 'announcement') return '公告'
+  return '通知'
 }
 
 function openCurrentItem() {

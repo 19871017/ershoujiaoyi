@@ -41,6 +41,10 @@ public class GiftApplicationService {
             "STAR", new GiftConfig(3L, "STAR", "星光应援", "⭐", new BigDecimal("18.00"), new BigDecimal("0.25")),
             "CROWN", new GiftConfig(4L, "CROWN", "小原皇冠", "👑", new BigDecimal("68.00"), new BigDecimal("0.30"))
     );
+    private static final Map<String, GiftDisplay> LEGACY_GIFT_DISPLAY_BY_CODE = Map.of(
+            "CANDY", new GiftDisplay("糖果", "🍬"),
+            "RIBBON", new GiftDisplay("丝带礼盒", "🎀")
+    );
     private static final Map<Long, GiftConfig> GIFTS_BY_ID = giftById();
 
     private final WalletLedgerService walletLedgerService;
@@ -185,14 +189,14 @@ public class GiftApplicationService {
 
     private ReceivedGiftItemResponse mapReceivedGift(ResultSet rs) throws SQLException {
         String giftCode = rs.getString("gift_code");
-        GiftConfig gift = GIFTS_BY_CODE.get(giftCode);
+        GiftConfig gift = configuredGift(giftCode);
         return new ReceivedGiftItemResponse(
                 rs.getString("gift_order_no"),
                 rs.getLong("sender_id"),
                 rs.getLong("gift_id"),
                 giftCode,
                 giftName(gift, giftCode),
-                giftIcon(gift),
+                giftIcon(gift, giftCode),
                 rs.getInt("quantity"),
                 rs.getBigDecimal("total_amount").setScale(MONEY_SCALE, RoundingMode.UNNECESSARY),
                 rs.getBigDecimal("platform_share").setScale(MONEY_SCALE, RoundingMode.UNNECESSARY),
@@ -205,7 +209,7 @@ public class GiftApplicationService {
 
     private RecentGiftFeedItemResponse mapRecentGiftFeedItem(ResultSet rs) throws SQLException {
         String giftCode = rs.getString("gift_code");
-        GiftConfig gift = GIFTS_BY_CODE.get(giftCode);
+        GiftConfig gift = configuredGift(giftCode);
         return new RecentGiftFeedItemResponse(
                 rs.getString("gift_order_no"),
                 rs.getLong("sender_id"),
@@ -214,7 +218,7 @@ public class GiftApplicationService {
                 rs.getString("receiver_name"),
                 rs.getLong("gift_id"),
                 giftName(gift, giftCode),
-                giftIcon(gift),
+                giftIcon(gift, giftCode),
                 rs.getInt("quantity"),
                 rs.getBigDecimal("total_amount").setScale(MONEY_SCALE, RoundingMode.UNNECESSARY),
                 rs.getTimestamp("created_at").toLocalDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
@@ -222,11 +226,29 @@ public class GiftApplicationService {
     }
 
     private String giftName(GiftConfig gift, String giftCode) {
-        return gift == null ? giftCode : gift.name();
+        if (gift != null) {
+            return gift.name();
+        }
+        GiftDisplay legacyGift = legacyGiftDisplay(giftCode);
+        return legacyGift == null ? giftCode : legacyGift.name();
     }
 
-    private String giftIcon(GiftConfig gift) {
-        return gift == null ? "🎁" : gift.icon();
+    private String giftIcon(GiftConfig gift, String giftCode) {
+        if (gift != null) {
+            return gift.icon();
+        }
+        GiftDisplay legacyGift = legacyGiftDisplay(giftCode);
+        return legacyGift == null ? "🎁" : legacyGift.icon();
+    }
+
+    private GiftConfig configuredGift(String giftCode) {
+        String normalizedGiftCode = safeText(giftCode);
+        return normalizedGiftCode == null ? null : GIFTS_BY_CODE.get(normalizedGiftCode.toUpperCase(Locale.ROOT));
+    }
+
+    private GiftDisplay legacyGiftDisplay(String giftCode) {
+        String normalizedGiftCode = safeText(giftCode);
+        return normalizedGiftCode == null ? null : LEGACY_GIFT_DISPLAY_BY_CODE.get(normalizedGiftCode.toUpperCase(Locale.ROOT));
     }
 
     private void insertGiftOrder(Long senderId, SendGiftRequest request, int quantity, SendGiftResponse response, String idempotencyKey) {
@@ -358,5 +380,8 @@ public class GiftApplicationService {
                 throw new IllegalArgumentException("invalid platform rate");
             }
         }
+    }
+
+    private record GiftDisplay(String name, String icon) {
     }
 }

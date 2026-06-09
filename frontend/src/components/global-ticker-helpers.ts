@@ -10,9 +10,11 @@ export type TickerItem = {
 
 export const DEFAULT_ANNOUNCEMENT_TARGET_URL = '/pages/notification/index'
 
-export function buildGiftText(item: { senderName: string; receiverName: string; giftName: string; quantity?: number }) {
+export function buildGiftText(item: { senderName: string; receiverName: string; giftName: string; giftIcon?: string; quantity?: number }) {
   const quantity = Math.max(1, Number(item.quantity || 1))
-  return `${item.senderName} 送给 ${item.receiverName} ${item.giftName}${quantity > 1 ? ` ×${quantity}` : ''}`
+  const giftIcon = item.giftIcon?.trim()
+  const giftLabel = `${giftIcon ? `${giftIcon} ` : ''}${item.giftName}`.trim()
+  return `${item.senderName} 送给 ${item.receiverName} ${giftLabel}${quantity > 1 ? ` ×${quantity}` : ''}`
 }
 
 export function buildNoticeText(item: NotificationItemResponse) {

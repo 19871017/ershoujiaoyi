@@ -144,6 +144,24 @@ class GiftApplicationServiceTest {
         assertEquals(first.getGiftOrderNo(), feed.get(1).getGiftOrderNo());
     }
 
+    @Test
+    void recentGiftFeedShouldDisplayLegacyGiftCodeNames() {
+        seedUser(1L, "大王", "U-GIFT-1");
+        seedUser(2L, "暖暖", "U-GIFT-2");
+        insertLegacyGiftOrder("GF-LEGACY-CANDY", 1L, 2L, 1001L, "CANDY");
+        insertLegacyGiftOrder("GF-LEGACY-RIBBON", 1L, 2L, 1002L, "RIBBON");
+
+        var feed = service.listRecentGiftFeed();
+
+        assertEquals(2, feed.size());
+        assertEquals("GF-LEGACY-RIBBON", feed.get(0).getGiftOrderNo());
+        assertEquals("丝带礼盒", feed.get(0).getGiftName());
+        assertEquals("🎀", feed.get(0).getGiftIcon());
+        assertEquals("GF-LEGACY-CANDY", feed.get(1).getGiftOrderNo());
+        assertEquals("糖果", feed.get(1).getGiftName());
+        assertEquals("🍬", feed.get(1).getGiftIcon());
+    }
+
     private int orderCount(String giftOrderNo) {
         Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM gift_order WHERE gift_order_no = ?", Integer.class, giftOrderNo);
         return count == null ? 0 : count;
@@ -163,6 +181,27 @@ class GiftApplicationServiceTest {
     private void seedUser(Long userId, String nickname, String userNo) {
         jdbcTemplate.update("INSERT INTO user_account (id, user_no, phone, password_hash, nickname, status) VALUES (?, ?, ?, ?, ?, ?)",
                 userId, userNo, "1380014" + String.format("%04d", userId), "hash", nickname, "ACTIVE");
+    }
+
+    private void insertLegacyGiftOrder(String giftOrderNo, Long senderId, Long receiverId, Long giftId, String giftCode) {
+        jdbcTemplate.update("""
+                INSERT INTO gift_order (
+                  gift_order_no, idempotency_key, sender_id, receiver_id, gift_id, gift_code, quantity,
+                  total_amount, platform_share, receiver_amount, debit_ledger_no, receiver_credit_ledger_no,
+                  status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, 'SUCCESS', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """,
+                giftOrderNo,
+                "legacy-" + giftOrderNo,
+                senderId,
+                receiverId,
+                giftId,
+                giftCode,
+                new BigDecimal("1.00"),
+                new BigDecimal("0.20"),
+                new BigDecimal("0.80"),
+                "DEBIT-" + giftOrderNo,
+                "CREDIT-" + giftOrderNo);
     }
 
     private SendGiftRequest giftRequest(Long receiverId, String giftCode, Integer quantity, String requestNo, String clientGiftId) {

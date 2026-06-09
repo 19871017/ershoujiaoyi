@@ -60,7 +60,18 @@ const giftFeedIsLoginGated = [
   '(userStore.token || ENABLE_MOCK_DATA) ? getRecentGiftFeed()',
   'userStore.token ? getRecentGiftFeed()'
 ].some((gatedGiftFeedCall) => tickerSource.includes(gatedGiftFeedCall))
-const tickerTextScrolls = tickerSource.includes('<text class="ticker-text">{{ item.text }}</text>') && tickerSource.includes('@keyframes ticker-scroll')
+const tickerTextScrolls = [
+  'const marqueeGroups = computed(() => (items.value.length ? [0, 1] : []))',
+  "v-for=\"groupIndex in marqueeGroups\"",
+  'class="ticker-group"',
+  "'--ticker-duration'",
+  '<text class="ticker-kind">{{ tickerKindLabel(item.kind) }}</text>',
+  '<text class="ticker-text">{{ item.text }}</text>',
+  '.ticker-track',
+  'animation: ticker-scroll var(--ticker-duration) linear infinite',
+  '@keyframes ticker-scroll',
+  'translate3d(-50%, 0, 0)'
+].every((requiredSnippet) => tickerSource.includes(requiredSnippet))
 const optionalSourcesAreCooledDown = [
   'OPTIONAL_SOURCE_COOLDOWN_MS',
   'sourceCooldownUntil',
@@ -79,7 +90,7 @@ if (giftFeedIsLoginGated) {
 }
 
 if (!tickerTextScrolls) {
-  failures.push(`${tickerFile}: ticker text must scroll horizontally so a single pinned announcement still visibly rotates`)
+  failures.push(`${tickerFile}: ticker must use a continuous horizontal marquee with duplicated groups and kind labels`)
 }
 
 if (!optionalSourcesAreCooledDown) {
