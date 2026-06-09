@@ -35,20 +35,30 @@ const httpMockSource = [
 ].join('\n')
 const failures = []
 
-const forbiddenOrder = 'items.value = [...announcementItems, ...giftItems, ...noticeItems].slice(0, 6)'
-const previousGiftFirstOrder = 'items.value = [...giftItems, ...announcementItems, ...noticeItems].slice(0, 6)'
-const requiredOrder = 'items.value = [...chatNoticeItems, ...giftItems, ...announcementItems, ...noticeItems].slice(0, 6)'
+const requiredGiftOnlyOrder = 'items.value = giftItems'
+const forbiddenTickerSources = [
+  'getAnnouncementTicker',
+  'listNotifications',
+  'buildAnnouncementItems',
+  'buildNoticeText',
+  'chatNoticeItems',
+  'announcementItems',
+  'noticeItems',
+  "item.type === 'CHAT'",
+  "item.type === 'SYSTEM'",
+  "item.type === 'AUDIT'",
+  '/api/announcements/ticker',
+  'ticker notifications'
+]
 
-if (tickerSource.includes(forbiddenOrder)) {
-  failures.push(`${tickerFile}: global ticker must not place announcements before gift feed`)
+if (!tickerSource.includes(requiredGiftOnlyOrder)) {
+  failures.push(`${tickerFile}: global ticker must render only the latest recent gift feed items`)
 }
 
-if (tickerSource.includes(previousGiftFirstOrder)) {
-  failures.push(`${tickerFile}: global ticker must put CHAT notices before gift feed so private-message prompts are not crowded out`)
-}
-
-if (!tickerSource.includes(requiredOrder)) {
-  failures.push(`${tickerFile}: global ticker must prioritize CHAT notices, then gift feed, then announcements and operational notices`)
+for (const forbiddenSource of forbiddenTickerSources) {
+  if (tickerSource.includes(forbiddenSource)) {
+    failures.push(`${tickerFile}: global ticker must not mix announcement, system, audit, or private chat notifications: ${forbiddenSource}`)
+  }
 }
 
 if (!tickerSource.includes('getRecentGiftFeed')) {
@@ -77,7 +87,6 @@ const optionalSourcesAreCooledDown = [
   'sourceCooldownUntil',
   'sourceInCooldown',
   'loadOptionalTickerSource',
-  "loadOptionalTickerSource('announcement', 'announcement ticker', getAnnouncementTicker, null)",
   "loadOptionalTickerSource('gift', 'recent gift feed', getRecentGiftFeed, [])"
 ].every((requiredSnippet) => tickerSource.includes(requiredSnippet))
 
@@ -94,42 +103,15 @@ if (!tickerTextScrolls) {
 }
 
 if (!optionalSourcesAreCooledDown) {
-  failures.push(`${tickerFile}: non-critical ticker sources must use cooldown after failures to avoid repeated 404 polling`)
-}
-
-if (
-  !tickerSource.includes("const chatNoticeItems: TickerItem[] = notifications") ||
-  !tickerSource.includes("item.type === 'CHAT' && !!buildNoticeText(item)") ||
-  !tickerSource.includes('.slice(0, 2)') ||
-  !tickerSource.includes("item.type === 'SYSTEM' || item.type === 'AUDIT'")
-) {
-  failures.push(`${tickerFile}: global ticker must include CHAT notifications so private-message prompts appear outside the community page`)
-}
-
-if (
-  !tickerSource.includes("import { isSafeNotificationTargetUrl, isTabBarNotificationTargetUrl } from '../pages/notification/notification-helpers'") ||
-  !tickerSource.includes('function normalizeTickerTargetUrl(value?: string | null): string') ||
-  !tickerSource.includes('return isSafeNotificationTargetUrl(targetUrl) ? targetUrl : \'/pages/notification/index\'') ||
-  !tickerSource.includes('if (isTabBarNotificationTargetUrl(safeTargetUrl)) uni.switchTab(route)') ||
-  !tickerSource.includes('else uni.navigateTo(route)')
-) {
-  failures.push(`${tickerFile}: global ticker notification navigation must reuse the notification target whitelist and switch tabbar routes safely`)
-}
-
-if (!httpMockSource.includes("url === '/api/announcements/ticker'")) {
-  failures.push(`${httpFile}: local preview mode must include announcement ticker data`)
-}
-
-if (!httpMockSource.includes('enabled: true') || !httpMockSource.includes('欢迎来到小原圈，请通过平台订单流程完成交易')) {
-  failures.push(`${httpFile}: local preview announcement ticker must be enabled and use product copy`)
-}
-
-if (httpMockSource.includes('演示公告')) {
-  failures.push(`${httpFile}: local preview announcement ticker must not expose demo copy to users`)
+  failures.push(`${tickerFile}: gift ticker source must use cooldown after failures to avoid repeated 404 polling`)
 }
 
 if (!httpMockSource.includes("url === '/api/gifts/recent'") || !httpMockSource.includes('mockRecentGiftFeed()')) {
   failures.push(`${httpFile}: local preview mode must include recent gift feed data for ticker testing`)
+}
+
+if (/giftItems[\s\S]*\.(sort|reverse)\(/.test(tickerSource)) {
+  failures.push(`${tickerFile}: recent gift feed order must stay backend latest-first and must not be resorted in the ticker`)
 }
 
 if (appSource.includes(globalTickerTag) || appSource.includes(appGlobalTickerImport)) {
@@ -152,4 +134,4 @@ if (failures.length) {
   process.exit(1)
 }
 
-console.log('global ticker prioritizes chat notices before gift feed, announcements and operational notices')
+console.log('global ticker renders latest gift feed only')
