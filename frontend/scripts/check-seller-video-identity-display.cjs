@@ -1,5 +1,7 @@
 const fs = require('fs')
 const path = require('path')
+const vm = require('vm')
+const ts = require('typescript')
 
 const root = path.resolve(__dirname, '..')
 const files = {
@@ -19,6 +21,27 @@ function read(file) {
 const sources = Object.fromEntries(Object.entries(files).map(([key, file]) => [key, read(file)]))
 const failures = []
 
+function loadIdentityHelpersForFixture() {
+  const helperFile = path.join(root, files.identityHelpers)
+  const helperSource = fs.readFileSync(helperFile, 'utf8')
+    .replace(/import\s+type\s+\{[\s\S]*?\}\s+from\s+['"][^'"]+['"]\s*/g, '')
+  const compiled = ts.transpileModule(helperSource, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2020
+    }
+  }).outputText
+  const sandbox = {
+    exports: {},
+    console: { ...console, warn: () => {} },
+    require,
+    module: { exports: {} }
+  }
+  sandbox.module.exports = sandbox.exports
+  vm.runInNewContext(compiled, sandbox, { filename: helperFile })
+  return sandbox.module.exports
+}
+
 function expectSource(label, source, pattern, message) {
   const matched = pattern instanceof RegExp ? pattern.test(source) : source.includes(pattern)
   if (!matched) failures.push(`${label}: ${message}`)
@@ -28,6 +51,77 @@ function rejectSource(label, source, pattern, message) {
   const matched = pattern instanceof RegExp ? pattern.test(source) : source.includes(pattern)
   if (matched) failures.push(`${label}: ${message}`)
 }
+
+function expectThrows(label, fn, message) {
+  try {
+    fn()
+    failures.push(`${label}: ${message}`)
+  } catch {
+    // expected
+  }
+}
+
+function assertIdentityHelperBehavior() {
+  const label = files.identityHelpers
+  const helpers = loadIdentityHelpersForFixture()
+  const {
+    assertBackendProfile,
+    guessVideoContentType,
+    hasApprovedVideoIdentity,
+    hasInvalidTempVideoPath,
+    validatedVideoIdentityUrl,
+    videoIdentityStoragePrefix
+  } = helpers
+  if (
+    typeof assertBackendProfile !== 'function' ||
+    typeof guessVideoContentType !== 'function' ||
+    typeof hasApprovedVideoIdentity !== 'function' ||
+    typeof hasInvalidTempVideoPath !== 'function' ||
+    typeof validatedVideoIdentityUrl !== 'function' ||
+    videoIdentityStoragePrefix !== '/uploads/video-identity/'
+  ) {
+    failures.push(`${label}: missing executable identity video helper exports`)
+    return
+  }
+
+  const baseProfile = {
+    userId: 8187306280,
+    nickname: '视频认证测试',
+    mainRole: 'SELLER',
+    identityStatus: 'UNVERIFIED',
+    videoIdentityStatus: 'UNVERIFIED',
+    videoVerified: false
+  }
+  const canonicalUrl = '/uploads/video-identity/8187306280/identity.mp4'
+  const approvedProfile = { ...baseProfile, videoIdentityStatus: 'APPROVED', videoVerified: true, videoIdentityUrl: canonicalUrl }
+  const pendingProfile = { ...baseProfile, videoIdentityStatus: 'PENDING', videoVerified: false, videoIdentityUrl: canonicalUrl }
+  const rejectedProfile = { ...baseProfile, videoIdentityStatus: 'REJECTED', videoVerified: false, videoIdentityUrl: canonicalUrl }
+
+  try {
+    assertBackendProfile(approvedProfile)
+    assertBackendProfile(pendingProfile)
+    assertBackendProfile(rejectedProfile)
+    if (hasApprovedVideoIdentity(approvedProfile) !== true) failures.push(`${label}: approved profile should expose approved video identity`)
+    if (hasApprovedVideoIdentity(pendingProfile) !== false) failures.push(`${label}: pending profile must not expose approved video identity`)
+    if (hasApprovedVideoIdentity(rejectedProfile) !== false) failures.push(`${label}: rejected profile must not expose approved video identity`)
+    if (hasApprovedVideoIdentity({ ...approvedProfile, videoVerified: false }) !== false) failures.push(`${label}: APPROVED status without videoVerified must not expose video identity`)
+    if (hasApprovedVideoIdentity({ ...approvedProfile, videoIdentityUrl: '/uploads/avatar/8187306280/avatar.png' }) !== false) failures.push(`${label}: non VIDEO_IDENTITY URL must not expose approved video identity`)
+    if (validatedVideoIdentityUrl(canonicalUrl) !== canonicalUrl) failures.push(`${label}: canonical VIDEO_IDENTITY URL should be accepted`)
+    if (hasInvalidTempVideoPath('blob:https://old.tiklxd09.club/video') !== false) failures.push(`${label}: H5 blob picker path should remain usable before ticket upload`)
+    if (hasInvalidTempVideoPath('local://video.mp4') !== true) failures.push(`${label}: local placeholder video path must be rejected`)
+    if (guessVideoContentType('blob:https://old.tiklxd09.club/video') !== 'video/mp4') failures.push(`${label}: H5 blob video without MIME should default to MP4`)
+  } catch (error) {
+    failures.push(`${label}: executable helper fixture failed: ${error instanceof Error ? error.message : String(error)}`)
+  }
+
+  expectThrows(label, () => assertBackendProfile({ ...baseProfile, videoIdentityStatus: 'PENDING', videoIdentityUrl: '' }), 'pending profile without video URL must fail closed')
+  expectThrows(label, () => assertBackendProfile({ ...baseProfile, videoIdentityStatus: 'PENDING', videoVerified: true, videoIdentityUrl: canonicalUrl }), 'videoVerified true with non-approved status must fail closed')
+  expectThrows(label, () => validatedVideoIdentityUrl('blob:https://old.tiklxd09.club/video'), 'blob video URL must not be treated as uploaded VIDEO_IDENTITY media')
+  expectThrows(label, () => validatedVideoIdentityUrl('/uploads/video-identity/%2e%2e/evil.mp4'), 'encoded traversal VIDEO_IDENTITY URL must fail closed')
+  expectThrows(label, () => guessVideoContentType('identity.webm'), 'WebM video identity upload should remain unsupported')
+}
+
+assertIdentityHelperBehavior()
 
 expectSource(
   files.publicProfileIntegrity,
@@ -67,8 +161,8 @@ expectSource(files.productDetail, sources.productDetail, "sellerHasVerifiedVideo
 expectSource(
   files.identityHelpers,
   sources.identityHelpers,
-  /export function hasApprovedVideoIdentity\(value: UserProfileResponse\): boolean\s*\{[\s\S]*value\.videoVerified === true[\s\S]*value\.videoIdentityStatus === 'APPROVED'[\s\S]*!!validatedVideoIdentityUrl\(value\.videoIdentityUrl\)/,
-  'identity approved helper must require videoVerified, APPROVED status, and canonical VIDEO_IDENTITY URL'
+  /export function hasApprovedVideoIdentity\(value: UserProfileResponse\): boolean\s*\{[\s\S]*value\.videoVerified !== true \|\| value\.videoIdentityStatus !== 'APPROVED'[\s\S]*return false[\s\S]*try[\s\S]*!!validatedVideoIdentityUrl\(value\.videoIdentityUrl\)[\s\S]*catch[\s\S]*return false/,
+  'identity approved helper must require videoVerified, APPROVED status, and fail closed on non-canonical VIDEO_IDENTITY URL'
 )
 expectSource(
   files.identityHelpers,

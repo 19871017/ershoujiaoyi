@@ -40,9 +40,14 @@ const requiredMarkers = [
   'const followedAuthorIds = ref<Set<number>>(new Set())',
   'const hasMoreFeeds = ref(false)',
   'const nextFeedCursor = ref<string | null>(null)',
-  'await listCommunityPostPage({ limit: COMMUNITY_FEED_PAGE_SIZE, topic: activeTopic.value })',
+  'let feedRequestSeq = 0',
+  'const requestSeq = ++feedRequestSeq',
+  'const requestedTopic = activeTopic.value',
+  'await listCommunityPostPage({ limit: COMMUNITY_FEED_PAGE_SIZE, topic: requestedTopic })',
+  'if (!isActiveFeedRequest(requestSeq, requestedTopic)) return',
+  'function isActiveFeedRequest(requestSeq: number, requestedTopic: CommunityTopic): boolean',
   'async function loadMoreFeeds()',
-  'await listCommunityPostPage({ limit: COMMUNITY_FEED_PAGE_SIZE, topic: activeTopic.value, cursor })',
+  'await listCommunityPostPage({ limit: COMMUNITY_FEED_PAGE_SIZE, topic: requestedTopic, cursor })',
   'if (loading.value || loadingMore.value || !hasMoreFeeds.value) return',
   'appendValidCommunityPostList(page.posts)',
   "console.warn('community feed duplicate post isolated'",
@@ -55,6 +60,7 @@ const requiredMarkers = [
   'syncFollowedAuthorIds(feeds.value)',
   "console.warn('community feed load failed'",
   'function syncFollowedAuthorIds(rows: CommunityPostResponse[])',
+  'const next = new Set<number>(followedAuthorIds.value)',
   'if (item.followedByMe === true && isValidBackendUserId(item.authorId))',
   'await getChatConversations()',
   'function assertConversationListResponse(value: unknown): asserts value is ChatConversationListResponse',
@@ -192,6 +198,10 @@ if (!/function selectTopic\(title: string\)[\s\S]*activeTopic\.value = title[\s\
   failures.push(`${file}: changing community topic must clear old posts and reset pagination before loading the new backend-filtered topic`)
 }
 
+if (!/function selectTopic\(title: string\)[\s\S]*activeTopic\.value = title[\s\S]*feedRequestSeq \+= 1[\s\S]*loading\.value = false[\s\S]*loadingMore\.value = false[\s\S]*void loadFeeds\(\)/s.test(source)) {
+  failures.push(`${file}: changing community topic must cancel stale feed requests and reset loading state before reloading`)
+}
+
 if (/function avatarOf\(item: CommunityPostResponse\)[\s\S]*item\.title/.test(source)) {
   failures.push(`${file}: feed avatar must use authorName/authorAvatar, not title`)
 }
@@ -214,16 +224,20 @@ if (!/async function loadPrivateSummary\(preserveOnError = true\)[\s\S]*assertCo
   failures.push(`${file}: community private summary must isolate malformed conversation rows and only clear the summary on foreground hard failures`)
 }
 
-if (!/async function loadFeeds\(\)[\s\S]*listCommunityPostPage\(\{ limit: COMMUNITY_FEED_PAGE_SIZE, topic: activeTopic\.value \}\)[\s\S]*assertCommunityPostPageResponse\(page\)[\s\S]*assertCommunityPostList\(rows\)[\s\S]*feeds\.value = validCommunityPostList\(rows\)[\s\S]*hasMoreFeeds\.value = page\.hasMore[\s\S]*nextFeedCursor\.value = page\.nextCursor[\s\S]*syncFollowedAuthorIds\(feeds\.value\)/s.test(source)) {
-  failures.push(`${file}: community feed must isolate malformed post rows while preserving valid backend posts`)
+if (!/async function loadFeeds\(\)[\s\S]*const requestSeq = \+\+feedRequestSeq[\s\S]*const requestedTopic = activeTopic\.value[\s\S]*listCommunityPostPage\(\{ limit: COMMUNITY_FEED_PAGE_SIZE, topic: requestedTopic \}\)[\s\S]*if \(!isActiveFeedRequest\(requestSeq, requestedTopic\)\) return[\s\S]*assertCommunityPostPageResponse\(page\)[\s\S]*assertCommunityPostList\(rows\)[\s\S]*feeds\.value = validCommunityPostList\(rows\)[\s\S]*hasMoreFeeds\.value = page\.hasMore[\s\S]*nextFeedCursor\.value = page\.nextCursor[\s\S]*syncFollowedAuthorIds\(feeds\.value\)[\s\S]*if \(feedRequestSeq === requestSeq\) loading\.value = false/s.test(source)) {
+  failures.push(`${file}: community feed must ignore stale topic responses while preserving valid backend posts`)
 }
 
 if (!/function assertCommunityPostList\(value: unknown\): asserts value is CommunityPostResponse\[\]\s*\{[\s\S]*Array\.isArray\(value\)[\s\S]*\}\s*function validCommunityPostList\(value: unknown\[\]\): CommunityPostResponse\[\][\s\S]*assertCommunityPostItem\(item, seenPostNos\)[\s\S]*validItems\.push\(item\)[\s\S]*console\.warn\('community feed invalid post isolated'/s.test(source)) {
   failures.push(`${file}: community feed list validation must fail closed only for non-array responses and isolate malformed post rows`)
 }
 
-if (!/async function loadMoreFeeds\(\)[\s\S]*if \(loading\.value \|\| loadingMore\.value \|\| !hasMoreFeeds\.value\) return[\s\S]*const cursor = nextFeedCursor\.value[\s\S]*listCommunityPostPage\(\{ limit: COMMUNITY_FEED_PAGE_SIZE, topic: activeTopic\.value, cursor \}\)[\s\S]*appendValidCommunityPostList\(page\.posts\)[\s\S]*feeds\.value = \[\.\.\.feeds\.value, \.\.\.nextRows\][\s\S]*loadMoreError\.value = '继续加载失败，点我重试'/s.test(source)) {
-  failures.push(`${file}: community feed load more must use backend cursor, append valid rows, dedupe, and preserve existing posts on failure`)
+if (!/async function loadMoreFeeds\(\)[\s\S]*if \(loading\.value \|\| loadingMore\.value \|\| !hasMoreFeeds\.value\) return[\s\S]*const requestSeq = feedRequestSeq[\s\S]*const requestedTopic = activeTopic\.value[\s\S]*const cursor = nextFeedCursor\.value[\s\S]*listCommunityPostPage\(\{ limit: COMMUNITY_FEED_PAGE_SIZE, topic: requestedTopic, cursor \}\)[\s\S]*if \(!isActiveFeedRequest\(requestSeq, requestedTopic\)\) return[\s\S]*appendValidCommunityPostList\(page\.posts\)[\s\S]*feeds\.value = \[\.\.\.feeds\.value, \.\.\.nextRows\][\s\S]*loadMoreError\.value = '继续加载失败，点我重试'/s.test(source)) {
+  failures.push(`${file}: community feed load more must use backend cursor, ignore stale responses, append valid rows, dedupe, and preserve existing posts on failure`)
+}
+
+if (!/function syncFollowedAuthorIds\(rows: CommunityPostResponse\[\]\)[\s\S]*const next = new Set<number>\(followedAuthorIds\.value\)[\s\S]*item\.followedByMe === true[\s\S]*followedAuthorIds\.value = next/s.test(source)) {
+  failures.push(`${file}: community feed follow state must preserve locally confirmed follows across pagination refreshes`)
 }
 
 if (!/function appendValidCommunityPostList\(value: unknown\[\]\): CommunityPostResponse\[\][\s\S]*existingPostNos[\s\S]*existingPostIds[\s\S]*validCommunityPostList\(value\)[\s\S]*console\.warn\('community feed duplicate post isolated'/s.test(source)) {

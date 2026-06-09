@@ -24,9 +24,14 @@ export function isValidIdentityStatus(value: unknown): value is NonNullable<User
 }
 
 export function hasApprovedVideoIdentity(value: UserProfileResponse): boolean {
-  return value.videoVerified === true &&
-    value.videoIdentityStatus === 'APPROVED' &&
-    !!validatedVideoIdentityUrl(value.videoIdentityUrl)
+  if (value.videoVerified !== true || value.videoIdentityStatus !== 'APPROVED') {
+    return false
+  }
+  try {
+    return !!validatedVideoIdentityUrl(value.videoIdentityUrl)
+  } catch {
+    return false
+  }
 }
 
 export function assertBackendProfile(value: unknown): asserts value is UserProfileResponse {

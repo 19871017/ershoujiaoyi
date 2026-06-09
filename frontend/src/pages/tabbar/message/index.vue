@@ -131,6 +131,7 @@ const communityImageStoragePrefix = '/uploads/community-image/'
 const avatarImageStoragePrefix = '/uploads/avatar/'
 type NavigateToWithFailure = (options: { url: string; fail?: (error: unknown) => void }) => void
 const navigateToWithFailure = uni.navigateTo as unknown as NavigateToWithFailure
+let feedRequestSeq = 0
 const totalUnread = computed(() => conversations.value.reduce((sum, item) => sum + Math.max(0, item.unreadCount), 0))
 const displayUnread = computed(() => totalUnread.value > 99 ? '99+' : String(totalUnread.value))
 const latestUnreadConversation = computed(() => conversations.value.find((item) => item.unreadCount > 0))
@@ -144,13 +145,16 @@ const privateSummaryText = computed(() => {
 const emptyTopicTitle = computed(() => `${activeTopic.value}还没有新动态`)
 
 async function loadFeeds() {
+  const requestSeq = ++feedRequestSeq
+  const requestedTopic = activeTopic.value
   loading.value = true
   loadError.value = ''
   loadMoreError.value = ''
   hasMoreFeeds.value = false
   nextFeedCursor.value = null
   try {
-    const page = await listCommunityPostPage({ limit: COMMUNITY_FEED_PAGE_SIZE, topic: activeTopic.value })
+    const page = await listCommunityPostPage({ limit: COMMUNITY_FEED_PAGE_SIZE, topic: requestedTopic })
+    if (!isActiveFeedRequest(requestSeq, requestedTopic)) return
     assertCommunityPostPageResponse(page)
     const rows = page.posts
     assertCommunityPostList(rows)
@@ -159,17 +163,20 @@ async function loadFeeds() {
     nextFeedCursor.value = page.nextCursor
     syncFollowedAuthorIds(feeds.value)
   } catch (error) {
-    console.warn('community feed load failed', { topic: activeTopic.value, error })
+    if (!isActiveFeedRequest(requestSeq, requestedTopic)) return
+    console.warn('community feed load failed', { topic: requestedTopic, error })
     feeds.value = []
     hasMoreFeeds.value = false
     nextFeedCursor.value = null
     loadError.value = '社区内容暂时不可用，请稍后再来看看'
   } finally {
-    loading.value = false
+    if (feedRequestSeq === requestSeq) loading.value = false
   }
 }
 async function loadMoreFeeds() {
   if (loading.value || loadingMore.value || !hasMoreFeeds.value) return
+  const requestSeq = feedRequestSeq
+  const requestedTopic = activeTopic.value
   const cursor = nextFeedCursor.value
   if (!cursor) {
     hasMoreFeeds.value = false
@@ -178,7 +185,8 @@ async function loadMoreFeeds() {
   loadingMore.value = true
   loadMoreError.value = ''
   try {
-    const page = await listCommunityPostPage({ limit: COMMUNITY_FEED_PAGE_SIZE, topic: activeTopic.value, cursor })
+    const page = await listCommunityPostPage({ limit: COMMUNITY_FEED_PAGE_SIZE, topic: requestedTopic, cursor })
+    if (!isActiveFeedRequest(requestSeq, requestedTopic)) return
     assertCommunityPostPageResponse(page)
     assertCommunityPostList(page.posts)
     const nextRows = appendValidCommunityPostList(page.posts)
@@ -187,14 +195,18 @@ async function loadMoreFeeds() {
     nextFeedCursor.value = page.nextCursor
     syncFollowedAuthorIds(feeds.value)
   } catch (error) {
-    console.warn('community feed load more failed', { topic: activeTopic.value, cursor, error })
+    if (!isActiveFeedRequest(requestSeq, requestedTopic)) return
+    console.warn('community feed load more failed', { topic: requestedTopic, cursor, error })
     loadMoreError.value = '继续加载失败，点我重试'
   } finally {
-    loadingMore.value = false
+    if (isActiveFeedRequest(requestSeq, requestedTopic)) loadingMore.value = false
   }
 }
+function isActiveFeedRequest(requestSeq: number, requestedTopic: CommunityTopic): boolean {
+  return feedRequestSeq === requestSeq && activeTopic.value === requestedTopic
+}
 function syncFollowedAuthorIds(rows: CommunityPostResponse[]) {
-  const next = new Set<number>()
+  const next = new Set<number>(followedAuthorIds.value)
   for (const item of rows) {
     if (item.followedByMe === true && isValidBackendUserId(item.authorId)) {
       next.add(item.authorId)
@@ -241,9 +253,12 @@ function selectTopic(title: string) {
   }
   if (activeTopic.value === title) return
   activeTopic.value = title
+  feedRequestSeq += 1
   feeds.value = []
   hasMoreFeeds.value = false
   nextFeedCursor.value = null
+  loading.value = false
+  loadingMore.value = false
   loadMoreError.value = ''
   void loadFeeds()
 }
