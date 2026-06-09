@@ -352,6 +352,53 @@ class UserApplicationServiceTest {
     }
 
     @Test
+    void profileResponseShouldHideShowcasePhotosUnlessVideoIdentityApproved() {
+        UserProfileResponse pending = new UserProfileResponse(
+                8811L,
+                "U8811",
+                "待审卖家",
+                null,
+                "SELLER",
+                null,
+                null,
+                null,
+                "PENDING",
+                true,
+                "/uploads/video-identity/pending.mp4",
+                java.util.List.of("/uploads/community-image/8811/showcase.jpg"),
+                false,
+                0,
+                0,
+                0,
+                0
+        );
+        UserProfileResponse approved = new UserProfileResponse(
+                8812L,
+                "U8812",
+                "认证卖家",
+                null,
+                "SELLER",
+                null,
+                null,
+                null,
+                "APPROVED",
+                true,
+                "/uploads/video-identity/approved.mp4",
+                java.util.List.of("/uploads/community-image/8812/showcase.jpg"),
+                false,
+                0,
+                0,
+                0,
+                0
+        );
+
+        assertNull(pending.getVideoIdentityUrl());
+        assertEquals(java.util.List.of(), pending.getShowcaseImageUrls());
+        assertEquals("/uploads/video-identity/approved.mp4", approved.getVideoIdentityUrl());
+        assertEquals(java.util.List.of("/uploads/community-image/8812/showcase.jpg"), approved.getShowcaseImageUrls());
+    }
+
+    @Test
     void updateProfileShouldPersistShowcasePhotosFromUploadedCommunityImagesOnly() throws Exception {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
         auth.register(login("13800138114", "pass-123456"), "test-13800138114");

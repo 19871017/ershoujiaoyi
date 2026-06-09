@@ -66,6 +66,8 @@ const requiredMarkers = [
   "function clearRelatedProduct(): void",
   "import { getProductDetail, listMyProducts } from '../../../api/modules/product'",
   "function assertRelatedProductForCompose(value: unknown, expectedProductId: number)",
+  "if (value.status !== 'PUBLISHED')",
+  "动态尚未进入社区，请刷新社区后确认",
   "function normalizeComposeProductPrice(value: unknown): string | null",
   "if (typeof value === 'number')",
   "if (typeof value !== 'string') return null",

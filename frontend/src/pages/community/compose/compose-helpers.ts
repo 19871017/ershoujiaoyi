@@ -146,8 +146,8 @@ export function assertCreatedCommunityPost(value: CommunityCreateResultLike, exp
   if (value.topic !== expectedTopic) {
     throw new Error('发布响应话题异常，请刷新社区后确认')
   }
-  if (typeof value.status !== 'string' || !value.status.trim()) {
-    throw new Error('发布状态异常，请刷新社区后确认')
+  if (value.status !== 'PUBLISHED') {
+    throw new Error('动态尚未进入社区，请刷新社区后确认')
   }
 }
 

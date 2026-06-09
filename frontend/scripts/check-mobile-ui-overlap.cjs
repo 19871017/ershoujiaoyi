@@ -5,6 +5,8 @@ const https = require('https')
 
 const root = path.resolve(__dirname, '..')
 const outputDir = path.resolve(root, '..', 'output', 'playwright', 'mobile-ui')
+const h5DistDir = path.join(root, 'dist/build/h5')
+let ownedPreviewServer = null
 const viewports = [
   { name: '360x740', width: 360, height: 740 },
   { name: '390x844', width: 390, height: 844 }
@@ -167,6 +169,10 @@ async function main() {
     }
   } finally {
     await browser.close()
+    if (ownedPreviewServer) {
+      await new Promise((resolve) => ownedPreviewServer.close(resolve))
+      ownedPreviewServer = null
+    }
   }
   if (failures.length) {
     console.error(failures.join('\n'))
@@ -195,6 +201,11 @@ async function resolveBaseUrl() {
     await assertReachable(explicit)
     return explicit
   }
+  if (fs.existsSync(path.join(h5DistDir, 'index.html'))) {
+    const preview = await startCurrentDistPreview()
+    ownedPreviewServer = preview.server
+    return preview.baseUrl
+  }
   const candidates = ['http://127.0.0.1:4187', 'http://localhost:4187', 'http://127.0.0.1:4173', 'http://localhost:4173', 'http://127.0.0.1:5173', 'http://localhost:5173']
   for (const candidate of candidates) {
     try {
@@ -205,6 +216,58 @@ async function resolveBaseUrl() {
     }
   }
   throw new Error('No reachable H5 server found. Start frontend dev server or set MOBILE_UI_BASE_URL.')
+}
+
+function startCurrentDistPreview() {
+  const server = http.createServer((request, response) => {
+    const rawUrl = request.url || '/'
+    const urlPath = decodeURIComponent(rawUrl.split('?')[0] || '/')
+    if (urlPath === '/api' || urlPath.startsWith('/api/')) {
+      response.writeHead(404)
+      response.end('Not found')
+      return
+    }
+    const relativePath = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '')
+    const requestedPath = path.resolve(h5DistDir, relativePath)
+    const safePath = requestedPath.startsWith(h5DistDir + path.sep) || requestedPath === h5DistDir
+      ? requestedPath
+      : path.join(h5DistDir, 'index.html')
+    const filePath = fs.existsSync(safePath) && fs.statSync(safePath).isFile()
+      ? safePath
+      : path.join(h5DistDir, 'index.html')
+    if (!fs.existsSync(filePath)) {
+      response.writeHead(404)
+      response.end('Not found')
+      return
+    }
+    response.writeHead(200, { 'Content-Type': contentType(filePath) })
+    fs.createReadStream(filePath).pipe(response)
+  })
+  return new Promise((resolve, reject) => {
+    server.on('error', reject)
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address()
+      if (!address || typeof address === 'string') {
+        server.close()
+        reject(new Error('failed to start current H5 dist preview'))
+        return
+      }
+      resolve({ server, baseUrl: `http://127.0.0.1:${address.port}` })
+    })
+  })
+}
+
+function contentType(filePath) {
+  const extension = path.extname(filePath).toLowerCase()
+  if (extension === '.html') return 'text/html; charset=utf-8'
+  if (extension === '.js') return 'text/javascript; charset=utf-8'
+  if (extension === '.css') return 'text/css; charset=utf-8'
+  if (extension === '.json') return 'application/json; charset=utf-8'
+  if (extension === '.png') return 'image/png'
+  if (extension === '.jpg' || extension === '.jpeg') return 'image/jpeg'
+  if (extension === '.webp') return 'image/webp'
+  if (extension === '.svg') return 'image/svg+xml'
+  return 'application/octet-stream'
 }
 
 function normalizeBaseUrl(value) {
