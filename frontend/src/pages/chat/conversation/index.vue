@@ -542,7 +542,7 @@ async function initializeChatPage(options: Record<string, string | undefined> | 
       startMessageSync()
     } catch (error) {
       console.warn('chat route conversation verification failed', { routeConversationId, receiverId: receiverId.value, error })
-      blockChat('聊天对象不匹配，暂时无法进入聊天')
+      await recoverFromRouteConversationMismatch(routeConversationId, receiverId.value)
     }
   } else if (routeConversationId) {
     try {
@@ -565,6 +565,22 @@ async function initializeChatPage(options: Record<string, string | undefined> | 
   } else {
     blockChat('暂时无法进入聊天')
   }
+}
+
+async function recoverFromRouteConversationMismatch(routeConversationId: number, routeReceiverId: number): Promise<void> {
+  conversationId.value = undefined
+  messages.value = []
+  releaseChatMediaBlobs()
+  nextAfterSeq.value = 0
+  previousBeforeSeq.value = 0
+  hasMore.value = false
+  hasEarlierMessages.value = false
+  chatBlocked.value = false
+  clearStatusText()
+  console.warn('chat route conversation mismatch recovered by receiver discovery', { routeConversationId, routeReceiverId })
+  const discovered = await discoverConversationWithPeer(true)
+  if (!discovered) showTransientStatus('已按目标用户打开私聊，可直接发送第一条消息', 1500)
+  startMessageSync()
 }
 
 async function verifyRouteConversation(routeConversationId: number, routeReceiverId: number): Promise<ChatConversationItem> {

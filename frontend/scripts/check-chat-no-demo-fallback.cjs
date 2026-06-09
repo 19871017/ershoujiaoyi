@@ -214,8 +214,10 @@ const requiredConversationMarkers = [
   'function clearStatusText(): void',
   'function assertActiveConversationMessage(message: ChatMessageItem, activeConversationId: number, activeCurrentUserId: number, activeReceiverId: number): void',
   'function initializeChatPage(options: Record<string, string | undefined> | undefined): Promise<void>',
+  'async function recoverFromRouteConversationMismatch(routeConversationId: number, routeReceiverId: number): Promise<void>',
   'function verifyRouteConversation(routeConversationId: number, routeReceiverId: number): Promise<ChatConversationItem>',
   "console.warn('chat route conversation verification failed'",
+  "console.warn('chat route conversation mismatch recovered by receiver discovery'",
   'let discoveryFailureCount = 0',
   'discoveryFailureCount += 1',
   "const peerProfileUnavailableText = '对方资料暂时不可用，仍可继续聊天'",
@@ -372,6 +374,8 @@ if (
   !style.includes('.message-bottom-spacer') ||
   !/height:var\(--chat-bottom-reserve\)/.test(style) ||
   !/--chat-keyboard-inset:0px/.test(style) ||
+  !/--chat-mobile-bottom-clearance:12rpx/.test(style) ||
+  !/--chat-composer-bottom-offset:max\(var\(--chat-keyboard-inset\), calc\(var\(--chat-mobile-bottom-clearance\) \+ env\(safe-area-inset-bottom\)\)\)/.test(style) ||
   !/--chat-status-height:92rpx/.test(style) ||
   !/--chat-status-gap:12rpx/.test(style) ||
   !/--chat-composer-reserve:calc\(/.test(style) ||
@@ -380,7 +384,7 @@ if (
   !/padding:calc\(16rpx \+ var\(--global-ticker-offset, 0rpx\)\) 18rpx 0/.test(style) ||
   !/\.chat-page\.has-status\s*\{[^}]*--chat-status-reserve:calc\(var\(--chat-status-height\) \+ var\(--chat-status-gap\)\)/.test(style) ||
   !/\.status-bar\s*\{[^}]*bottom:calc\(var\(--chat-composer-reserve\) \+ var\(--chat-status-gap\)\)/.test(style) ||
-  !/\.composer\s*\{[^}]*bottom:var\(--chat-keyboard-inset\)/.test(style)
+  !/\.composer\s*\{[^}]*bottom:var\(--chat-composer-bottom-offset\)/.test(style)
 ) {
   console.error(`${styleFile}: chat message list must reserve composer/status/keyboard height through shared CSS variables`)
   failed = true
@@ -473,6 +477,11 @@ if (!/async function discoverConversationWithPeer\(showStatus: boolean\): Promis
 
 if (!/async function verifyRouteConversation\(routeConversationId: number, routeReceiverId: number\): Promise<ChatConversationItem>[\s\S]*getChatConversation\(routeConversationId\)[\s\S]*assertConversationItem\(matched\)[\s\S]*matched\.conversationId !== routeConversationId \|\| matched\.peerUserId !== routeReceiverId[\s\S]*return matched/s.test(conversation)) {
   console.error(`${conversationFile}: route conversationId must be verified against backend conversation detail and receiverId before binding active chat state, so cleared conversations are not rejected by list filtering`)
+  failed = true
+}
+
+if (!/async function recoverFromRouteConversationMismatch\(routeConversationId: number, routeReceiverId: number\): Promise<void>[\s\S]*conversationId\.value = undefined[\s\S]*messages\.value = \[\][\s\S]*releaseChatMediaBlobs\(\)[\s\S]*chatBlocked\.value = false[\s\S]*const discovered = await discoverConversationWithPeer\(true\)[\s\S]*if \(!discovered\) showTransientStatus\('已按目标用户打开私聊，可直接发送第一条消息'[\s\S]*startMessageSync\(\)/s.test(conversation)) {
+  console.error(`${conversationFile}: mismatched route conversationId with a valid receiverId must recover into receiver discovery instead of locking the composer`)
   failed = true
 }
 
