@@ -63,7 +63,7 @@ public class UserProfileResponse {
         this.videoIdentityStatus = videoIdentityStatus == null ? "UNVERIFIED" : videoIdentityStatus;
         this.videoVerified = videoVerified;
         boolean approvedVideoIdentity = videoVerified && "APPROVED".equals(this.videoIdentityStatus);
-        this.videoIdentityUrl = (approvedVideoIdentity || exposeVideoIdentityUrl) ? videoIdentityUrl : null;
+        this.videoIdentityUrl = ((videoVerified && "APPROVED".equals(this.videoIdentityStatus)) || exposeVideoIdentityUrl) ? videoIdentityUrl : null;
         this.showcaseImageUrls = approvedVideoIdentity ? List.copyOf(showcaseImageUrls == null ? List.of() : showcaseImageUrls) : List.of();
         this.followedByMe = followedByMe;
         this.followerCount = followerCount;

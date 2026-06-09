@@ -2,6 +2,7 @@ package com.secondhand.platform.modules.community.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -233,6 +234,46 @@ class CommunityApplicationServiceTest {
         assertEquals(life.getPostNo(), rows.get(0).getPostNo());
         assertEquals("生活日常", rows.get(0).getTopic());
         assertTrue(rows.get(0).getLikedByMe());
+    }
+
+    @Test
+    void listPublishedPostPageShouldUseStableCursorAndKeepTopicFilter() {
+        CommunityPostResponse older = createPost(60L, post("旧帖可继续翻页", "生活日常", "社区不能只展示最新一屏，旧帖也要能继续触达。", List.of()));
+        CommunityPostResponse sameTimeLowId = createPost(61L, post("同秒低编号动态", "生活日常", "同一时间发帖时，翻页不能漏掉低编号动态。", List.of()));
+        CommunityPostResponse sameTimeHighId = createPost(62L, post("同秒高编号动态", "生活日常", "同一时间发帖时，翻页要按编号稳定排序。", List.of()));
+        createPost(63L, post("其他话题不混入", "闲置避坑", "话题筛选必须在后端分页查询中继续生效。", List.of()));
+        JdbcTemplate jdbc = new JdbcTemplate(database);
+        jdbc.update("UPDATE community_post SET created_at = TIMESTAMP '2026-06-01 10:00:00' WHERE id IN (?, ?)", sameTimeLowId.getPostId(), sameTimeHighId.getPostId());
+        jdbc.update("UPDATE community_post SET created_at = TIMESTAMP '2026-05-31 10:00:00' WHERE id = ?", older.getPostId());
+        jdbc.update("UPDATE community_post SET created_at = TIMESTAMP '2026-06-02 10:00:00' WHERE topic = '闲置避坑'");
+        likePost(31L, sameTimeHighId.getPostId());
+
+        CommunityPostPageResponse first = service.listPublishedPostPage(2, 31L, "生活日常", null);
+
+        assertEquals(2, first.getPosts().size());
+        assertTrue(first.getHasMore());
+        assertNotNull(first.getNextCursor());
+        assertEquals(sameTimeHighId.getPostId(), first.getPosts().get(0).getPostId());
+        assertEquals(sameTimeLowId.getPostId(), first.getPosts().get(1).getPostId());
+        assertTrue(first.getPosts().get(0).getLikedByMe());
+
+        CommunityPostPageResponse second = service.listPublishedPostPage(2, 31L, "生活日常", first.getNextCursor());
+
+        assertEquals(1, second.getPosts().size());
+        assertFalse(second.getHasMore());
+        assertNull(second.getNextCursor());
+        assertEquals(older.getPostId(), second.getPosts().get(0).getPostId());
+        assertEquals("生活日常", second.getPosts().get(0).getTopic());
+    }
+
+    @Test
+    void listPublishedPostPageShouldRejectInvalidCursor() {
+        createPost(64L, post("非法游标拦截", "生活日常", "社区翻页不能遇到非法游标后静默回到第一页。", List.of()));
+
+        assertEquals("community feed cursor invalid", assertThrows(IllegalArgumentException.class,
+                () -> service.listPublishedPostPage(20, 31L, "生活日常", "preview-cursor")).getMessage());
+        assertEquals("community feed cursor invalid", assertThrows(IllegalArgumentException.class,
+                () -> service.listPublishedPostPage(20, 31L, "生活日常", "not-a-valid-cursor")).getMessage());
     }
 
     @Test

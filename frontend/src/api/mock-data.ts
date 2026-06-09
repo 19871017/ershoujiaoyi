@@ -1,6 +1,6 @@
 import type { AnnouncementTickerResponse } from './modules/announcement'
 import type { ChatConversationItem, ChatConversationListResponse, MessageSyncResponse } from './modules/chat'
-import type { CommunityPostResponse } from './modules/community'
+import type { CommunityPostPageResponse, CommunityPostResponse } from './modules/community'
 import type { GiftCatalogItemResponse, RecentGiftFeedItemResponse, ReceivedGiftItemResponse } from './modules/gift'
 import type { MediaUploadTicketResponse } from './modules/media'
 import type { NotificationItemResponse } from './modules/notification'
@@ -245,6 +245,20 @@ export function mockResponse<T>(url: string, method: string, data?: unknown): T 
   if (url === '/api/gifts/received') return mockReceivedGifts() as T
   if (url === '/api/gifts/recent') return mockRecentGiftFeed() as T
   if (url.startsWith('/api/notifications')) return mockNotifications() as T
+  if (url.startsWith('/api/community/posts/page')) {
+    const query = new URLSearchParams(url.split('?')[1] || '')
+    const topic = query.get('topic')?.trim()
+    const limit = Math.max(1, Math.min(Number(query.get('limit') || 20), 50))
+    const offset = Math.max(0, Number(query.get('cursor') || 0))
+    const posts = topic ? mockCommunityPosts().filter((item) => item.topic === topic) : mockCommunityPosts()
+    const pagePosts = posts.slice(offset, offset + limit)
+    const nextOffset = offset + pagePosts.length
+    return ({
+      posts: pagePosts,
+      nextCursor: nextOffset < posts.length ? String(nextOffset) : null,
+      hasMore: nextOffset < posts.length
+    } satisfies CommunityPostPageResponse) as T
+  }
   if (url.startsWith('/api/community/posts')) {
     const query = new URLSearchParams(url.split('?')[1] || '')
     const topic = query.get('topic')?.trim()

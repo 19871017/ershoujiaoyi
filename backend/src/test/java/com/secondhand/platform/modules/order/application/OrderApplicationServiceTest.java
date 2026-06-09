@@ -380,9 +380,25 @@ class OrderApplicationServiceTest {
         Integer profileRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM user_profile WHERE user_id = ?", Integer.class, userId);
         if (profileRows == null || profileRows == 0) {
             jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, main_role, video_identity_status, video_verified) VALUES (?, ?, ?, ?, ?)", userId, "VERIFIED", "SELLER", "APPROVED", true);
+            ensureSellerVideoCertification(userId);
             return;
         }
         jdbcTemplate.update("UPDATE user_profile SET identity_status = ?, main_role = ?, video_identity_status = ?, video_verified = ? WHERE user_id = ?", "VERIFIED", "SELLER", "APPROVED", true, userId);
+        ensureSellerVideoCertification(userId);
+    }
+
+    private void ensureSellerVideoCertification(Long userId) {
+        String videoUrl = "/uploads/video-identity/" + userId + "/order-service-test.mp4";
+        jdbcTemplate.update("""
+                INSERT INTO media_upload_ticket (ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at)
+                SELECT ?, ?, 'VIDEO_IDENTITY', 'order-service-test.mp4', 'video/mp4', 1024, ?, 'hash', 'UPLOADED', CURRENT_TIMESTAMP, DATEADD('HOUR', 1, CURRENT_TIMESTAMP)
+                WHERE NOT EXISTS (SELECT 1 FROM media_upload_ticket WHERE storage_url = ?)
+                """, "VIDEO-ORDER-" + userId, userId, videoUrl, videoUrl);
+        jdbcTemplate.update("""
+                INSERT INTO audit_record (audit_no, audit_type, user_id, target_type, target_id, reason, description, status, reviewed_at)
+                SELECT ?, 'VIDEO_IDENTITY', ?, 'USER', ?, ?, '测试卖家视频认证通过', 'APPROVED', CURRENT_TIMESTAMP
+                WHERE NOT EXISTS (SELECT 1 FROM audit_record WHERE audit_no = ?)
+                """, "AUDIT-VIDEO-ORDER-" + userId, userId, String.valueOf(userId), videoUrl, "AUDIT-VIDEO-ORDER-" + userId);
     }
 
     private OrderReviewRequest reviewRequest(int descriptionScore, int serviceScore, int shippingScore, String content) {

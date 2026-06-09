@@ -2,15 +2,18 @@ package com.secondhand.platform.modules.community.application;
 
 import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
 import com.secondhand.platform.modules.notification.application.NotificationApplicationService;
+import java.nio.charset.StandardCharsets;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -105,10 +108,24 @@ public class CommunityApplicationService {
     }
 
     public List<CommunityPostResponse> listPublishedPosts(int limit, Long currentUserId, String topic) {
-        int capped = Math.max(1, Math.min(limit <= 0 ? 20 : limit, MAX_LIST_LIMIT));
+        return queryPublishedPosts(normalizeFeedLimit(limit), currentUserId, topic, null);
+    }
+
+    public CommunityPostPageResponse listPublishedPostPage(int limit, Long currentUserId, String topic, String cursor) {
+        int capped = normalizeFeedLimit(limit);
+        FeedCursor feedCursor = decodeFeedCursor(cursor);
+        List<CommunityPostResponse> rows = queryPublishedPosts(capped + 1, currentUserId, topic, feedCursor);
+        boolean hasMore = rows.size() > capped;
+        List<CommunityPostResponse> posts = hasMore ? rows.subList(0, capped) : rows;
+        String nextCursor = hasMore && !posts.isEmpty() ? encodeFeedCursor(posts.get(posts.size() - 1)) : null;
+        return new CommunityPostPageResponse(posts, nextCursor, hasMore);
+    }
+
+    private List<CommunityPostResponse> queryPublishedPosts(int limit, Long currentUserId, String topic, FeedCursor cursor) {
+        int capped = Math.max(1, Math.min(limit <= 0 ? 20 : limit, MAX_LIST_LIMIT + 1));
         String normalizedTopic = normalizeOptionalCommunityTopic(topic);
         boolean hasViewer = currentUserId != null && currentUserId > 0;
-        return jdbcTemplate.query("""
+        StringBuilder sql = new StringBuilder("""
                         SELECT p.*,
                                COALESCE(NULLIF(a.nickname, ''), NULLIF(a.user_no, ''), CONCAT('用户', p.author_id)) AS author_name,
                                a.avatar_url AS author_avatar,
@@ -131,12 +148,31 @@ public class CommunityApplicationService {
                          AND rp.audit_status = 'APPROVED'
                         """ + CERTIFIED_SELLER_RELATED_PRODUCT_FILTER + """
                         WHERE p.status = 'PUBLISHED'
-                          AND (? IS NULL OR p.topic = ?)
+                        """);
+        List<Object> args = new ArrayList<>();
+        args.add(hasViewer);
+        args.add(currentUserId);
+        args.add(hasViewer);
+        args.add(currentUserId);
+        args.add(currentUserId);
+        if (normalizedTopic != null) {
+            sql.append(" AND p.topic = ?");
+            args.add(normalizedTopic);
+        }
+        if (cursor != null) {
+            sql.append(" AND (p.created_at < ? OR (p.created_at = ? AND p.id < ?))");
+            args.add(cursor.createdAt);
+            args.add(cursor.createdAt);
+            args.add(cursor.postId);
+        }
+        sql.append("""
                         ORDER BY p.created_at DESC, p.id DESC
                         LIMIT ?
-                        """,
+                        """);
+        args.add(capped);
+        return jdbcTemplate.query(sql.toString(),
                 (rs, rowNum) -> mapPost(rs.getString("post_no"), rs.getLong("id"), rs.getLong("author_id"), rs.getString("author_name"), rs.getString("author_avatar"), rs.getString("author_city"), rs.getString("title"), rs.getString("topic"), rs.getString("content"), rs.getString("image_urls"), rs.getString("status"), rs.getInt("like_count"), rs.getInt("comment_count"), rs.getTimestamp("created_at"), rs.getBoolean("liked_by_me"), rs.getBoolean("followed_by_me"), nullableLong(rs, "related_product_id"), rs.getString("related_product_title"), rs.getBigDecimal("related_product_price")),
-                hasViewer, currentUserId, hasViewer, currentUserId, currentUserId, normalizedTopic, normalizedTopic, capped);
+                args.toArray());
     }
 
     public CommunityPostDetailResponse detail(String postIdOrNo, Long currentUserId) {
@@ -494,6 +530,59 @@ public class CommunityApplicationService {
             throw new IllegalArgumentException("invalid limit");
         }
         return normalized;
+    }
+
+    private static int normalizeFeedLimit(int limit) {
+        return Math.max(1, Math.min(limit <= 0 ? 20 : limit, MAX_LIST_LIMIT));
+    }
+
+    private static String encodeFeedCursor(CommunityPostResponse post) {
+        if (post == null || post.getCreatedAt() == null || post.getPostId() == null || post.getPostId() <= 0) {
+            throw new IllegalArgumentException("community feed cursor invalid");
+        }
+        String raw = post.getCreatedAt() + ":" + post.getPostId();
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static FeedCursor decodeFeedCursor(String cursor) {
+        if (cursor == null || cursor.trim().isBlank()) {
+            return null;
+        }
+        String normalized = cursor.trim();
+        String lower = normalized.toLowerCase();
+        if (normalized.length() > 160
+                || lower.contains("preview")
+                || lower.contains("demo")
+                || lower.contains("mock")
+                || lower.contains("sample")
+                || lower.contains("placeholder")) {
+            throw new IllegalArgumentException("community feed cursor invalid");
+        }
+        try {
+            String decoded = new String(Base64.getUrlDecoder().decode(normalized), StandardCharsets.UTF_8);
+            int split = decoded.lastIndexOf(':');
+            if (split <= 0 || split >= decoded.length() - 1) {
+                throw new IllegalArgumentException("community feed cursor invalid");
+            }
+            Instant createdAt = Instant.parse(decoded.substring(0, split));
+            long postId = Long.parseLong(decoded.substring(split + 1));
+            if (postId <= 0) {
+                throw new IllegalArgumentException("community feed cursor invalid");
+            }
+            return new FeedCursor(Timestamp.from(createdAt), postId);
+        } catch (RuntimeException ex) {
+            throw new IllegalArgumentException("community feed cursor invalid");
+        }
+    }
+
+    private static final class FeedCursor {
+        private final Timestamp createdAt;
+        private final long postId;
+
+        private FeedCursor(Timestamp createdAt, long postId) {
+            this.createdAt = createdAt;
+            this.postId = postId;
+        }
     }
 
     private static String normalizeAdminKeyword(String keyword) {

@@ -3,6 +3,7 @@ package com.secondhand.platform.modules.community;
 import com.secondhand.platform.modules.community.application.CommunityApplicationService;
 import com.secondhand.platform.modules.community.application.CommunityCommentResponse;
 import com.secondhand.platform.modules.community.application.CommunityPostDetailResponse;
+import com.secondhand.platform.modules.community.application.CommunityPostPageResponse;
 import com.secondhand.platform.modules.community.application.CommunityPostResponse;
 import com.secondhand.platform.modules.community.application.CreateCommunityCommentRequest;
 import com.secondhand.platform.modules.community.application.CreateCommunityPostRequest;
@@ -35,6 +36,14 @@ public class CommunityController {
                                                     @RequestParam(required = false) String topic,
                                                     HttpServletRequest request) {
         return Result.ok(communityApplicationService.listPublishedPosts(limit, currentUserResolver.resolveOptional(request), topic));
+    }
+
+    @GetMapping("/page")
+    public Result<CommunityPostPageResponse> page(@RequestParam(defaultValue = "20") int limit,
+                                                  @RequestParam(required = false) String topic,
+                                                  @RequestParam(required = false) String cursor,
+                                                  HttpServletRequest request) {
+        return Result.ok(communityApplicationService.listPublishedPostPage(limit, currentUserResolver.resolveOptional(request), topic, cursor));
     }
 
     @GetMapping("/{postId}")

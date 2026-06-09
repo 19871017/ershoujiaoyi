@@ -63,6 +63,30 @@ class CommunityControllerTest {
     }
 
     @Test
+    void publicCommunityPageEndpointKeepsOldListContractCompatible() throws Exception {
+        seedActiveUser(12L, "公开作者");
+        CommunityPostResponse first = service.createPost(12L, postRequest());
+        CreateCommunityPostRequest secondRequest = postRequest();
+        secondRequest.setTitle("第二条公开动态");
+        secondRequest.setContent("分页接口应该返回 posts、hasMore 和 nextCursor。");
+        CommunityPostResponse second = service.createPost(12L, secondRequest);
+
+        mvc.perform(get("/api/community/posts").param("limit", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].postId").exists());
+
+        mvc.perform(get("/api/community/posts/page").param("limit", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.posts[0].postId", is(second.getPostId().intValue())))
+                .andExpect(jsonPath("$.data.posts[0].likedByMe", is(false)))
+                .andExpect(jsonPath("$.data.hasMore", is(true)))
+                .andExpect(jsonPath("$.data.nextCursor").exists());
+
+        mvc.perform(get("/api/community/posts/page").param("limit", "1").param("cursor", "preview-cursor"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void communityMutationsStillRequireSession() throws Exception {
         seedActiveUser(12L, "公开作者");
         CommunityPostResponse post = service.createPost(12L, postRequest());

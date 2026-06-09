@@ -76,6 +76,13 @@
       </view>
     </view>
 
+    <view v-if="!loading && !loadError && feeds.length > 0" class="feed-page-state">
+      <view v-if="loadingMore" class="feed-page-pill">加载中…</view>
+      <view v-else-if="loadMoreError" class="feed-page-pill retry tapable" @click="loadMoreFeeds">{{ loadMoreError }}</view>
+      <view v-else-if="hasMoreFeeds" class="feed-page-pill more tapable" @click="loadMoreFeeds">加载更多</view>
+      <view v-else class="feed-page-pill done">已经到底了</view>
+    </view>
+
     <view v-if="!loading && !loadError && feeds.length === 0" class="empty-card ds-card community-empty">
       <view class="empty-title">{{ emptyTopicTitle }}</view>
       <view class="empty-copy">还没有社区动态，可以先发一条真实经验，或切换其他话题看看。</view>
@@ -91,14 +98,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { onHide, onShow, onUnload } from '@dcloudio/uni-app'
+import { onHide, onReachBottom, onShow, onUnload } from '@dcloudio/uni-app'
 import { resolveBackendMediaUrl } from '../../../api/http'
 import { getChatConversations, type ChatConversationItem, type ChatConversationListResponse } from '../../../api/modules/chat'
-import { COMMUNITY_TOPICS, isCommunityTopic, likeCommunityPost, listCommunityPosts, unlikeCommunityPost, type CommunityPostResponse, type CommunityTopic } from '../../../api/modules/community'
+import { COMMUNITY_TOPICS, isCommunityTopic, likeCommunityPost, listCommunityPostPage, unlikeCommunityPost, type CommunityPostPageResponse, type CommunityPostResponse, type CommunityTopic } from '../../../api/modules/community'
 import { followPublicProfile } from '../../../api/modules/user'
 import communityHeroBanner from '../../../assets/community/community-hero-banner.png'
 
 const communitySwitcherEventName = 'xiaoyuanquan:community-switcher'
+const COMMUNITY_FEED_PAGE_SIZE = 20
 const topicIcons: Record<CommunityTopic, string> = {
   生活日常: '🌷',
   闲置避坑: '🛡️',
@@ -110,7 +118,11 @@ const topics = COMMUNITY_TOPICS.map((title) => ({ icon: topicIcons[title], title
 const feeds = ref<CommunityPostResponse[]>([])
 const conversations = ref<ChatConversationItem[]>([])
 const loading = ref(false)
+const loadingMore = ref(false)
 const loadError = ref('')
+const loadMoreError = ref('')
+const hasMoreFeeds = ref(false)
+const nextFeedCursor = ref<string | null>(null)
 const followingAuthorId = ref<number | null>(null)
 const followedAuthorIds = ref<Set<number>>(new Set())
 const communitySwitcherOpen = ref(false)
@@ -134,17 +146,51 @@ const emptyTopicTitle = computed(() => `${activeTopic.value}还没有新动态`)
 async function loadFeeds() {
   loading.value = true
   loadError.value = ''
+  loadMoreError.value = ''
+  hasMoreFeeds.value = false
+  nextFeedCursor.value = null
   try {
-    const rows = await listCommunityPosts(20, activeTopic.value)
+    const page = await listCommunityPostPage({ limit: COMMUNITY_FEED_PAGE_SIZE, topic: activeTopic.value })
+    assertCommunityPostPageResponse(page)
+    const rows = page.posts
     assertCommunityPostList(rows)
     feeds.value = validCommunityPostList(rows)
+    hasMoreFeeds.value = page.hasMore
+    nextFeedCursor.value = page.nextCursor
     syncFollowedAuthorIds(feeds.value)
   } catch (error) {
     console.warn('community feed load failed', { topic: activeTopic.value, error })
     feeds.value = []
+    hasMoreFeeds.value = false
+    nextFeedCursor.value = null
     loadError.value = '社区内容暂时不可用，请稍后再来看看'
   } finally {
     loading.value = false
+  }
+}
+async function loadMoreFeeds() {
+  if (loading.value || loadingMore.value || !hasMoreFeeds.value) return
+  const cursor = nextFeedCursor.value
+  if (!cursor) {
+    hasMoreFeeds.value = false
+    return
+  }
+  loadingMore.value = true
+  loadMoreError.value = ''
+  try {
+    const page = await listCommunityPostPage({ limit: COMMUNITY_FEED_PAGE_SIZE, topic: activeTopic.value, cursor })
+    assertCommunityPostPageResponse(page)
+    assertCommunityPostList(page.posts)
+    const nextRows = appendValidCommunityPostList(page.posts)
+    feeds.value = [...feeds.value, ...nextRows]
+    hasMoreFeeds.value = page.hasMore
+    nextFeedCursor.value = page.nextCursor
+    syncFollowedAuthorIds(feeds.value)
+  } catch (error) {
+    console.warn('community feed load more failed', { topic: activeTopic.value, cursor, error })
+    loadMoreError.value = '继续加载失败，点我重试'
+  } finally {
+    loadingMore.value = false
   }
 }
 function syncFollowedAuthorIds(rows: CommunityPostResponse[]) {
@@ -196,6 +242,9 @@ function selectTopic(title: string) {
   if (activeTopic.value === title) return
   activeTopic.value = title
   feeds.value = []
+  hasMoreFeeds.value = false
+  nextFeedCursor.value = null
+  loadMoreError.value = ''
   void loadFeeds()
 }
 function isValidCommunityPostId(value: number | string | null | undefined) { return /^[1-9]\d{0,18}$/.test(String(value || '')) }
@@ -204,6 +253,15 @@ function isSafeBackendId(value: unknown): value is number {
 }
 function assertCommunityPostList(value: unknown): asserts value is CommunityPostResponse[] {
   if (!Array.isArray(value)) throw new Error('community feed invalid list response')
+}
+function assertCommunityPostPageResponse(value: unknown): asserts value is CommunityPostPageResponse {
+  if (!value || typeof value !== 'object') throw new Error('community feed invalid page response')
+  const page = value as CommunityPostPageResponse
+  if (!Array.isArray(page.posts)) throw new Error('community feed invalid page posts')
+  if (typeof page.hasMore !== 'boolean') throw new Error('community feed invalid hasMore')
+  if (page.nextCursor !== null && page.nextCursor !== undefined && typeof page.nextCursor !== 'string') throw new Error('community feed invalid nextCursor')
+  if (page.hasMore && !String(page.nextCursor || '').trim()) throw new Error('community feed missing nextCursor')
+  if (!page.hasMore) page.nextCursor = null
 }
 function validCommunityPostList(value: unknown[]): CommunityPostResponse[] {
   const seenPostNos = new Set<string>()
@@ -217,6 +275,20 @@ function validCommunityPostList(value: unknown[]): CommunityPostResponse[] {
     }
   }
   return validItems
+}
+function appendValidCommunityPostList(value: unknown[]): CommunityPostResponse[] {
+  const existingPostNos = new Set(feeds.value.map((item) => item.postNo))
+  const existingPostIds = new Set(feeds.value.map((item) => item.postId))
+  const incoming = validCommunityPostList(value)
+  return incoming.filter((item) => {
+    if (existingPostNos.has(item.postNo) || existingPostIds.has(item.postId)) {
+      console.warn('community feed duplicate post isolated', { postNo: item.postNo, postId: item.postId })
+      return false
+    }
+    existingPostNos.add(item.postNo)
+    existingPostIds.add(item.postId)
+    return true
+  })
 }
 function assertCommunityPostItem(value: unknown, seenPostNos: Set<string>): asserts value is CommunityPostResponse {
   if (!value || typeof value !== 'object') throw new Error('community feed invalid post response')
@@ -478,6 +550,9 @@ onUnload(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener(communitySwitcherEventName, syncCommunitySwitcherState)
   }
+})
+onReachBottom(() => {
+  void loadMoreFeeds()
 })
 </script>
 
@@ -936,6 +1011,40 @@ onUnload(() => {
   color: #9c5e43;
   background: rgba(255, 255, 255, .7);
   border: 1rpx solid rgba(255, 217, 189, .62);
+}
+
+.feed-page-state {
+  margin: 18rpx 0 6rpx;
+  display: flex;
+  justify-content: center;
+  padding-bottom: 28rpx;
+}
+
+.feed-page-pill {
+  min-height: 54rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8f6b57;
+  background: rgba(255, 255, 255, .82);
+  border: 1rpx solid rgba(255, 217, 189, .68);
+  box-shadow: 0 10rpx 22rpx rgba(132, 70, 36, .07);
+  font-size: 21rpx;
+  font-weight: 860;
+  box-sizing: border-box;
+}
+
+.feed-page-pill.more,
+.feed-page-pill.retry {
+  color: #df6735;
+  background: rgba(255, 243, 231, .92);
+  border-color: rgba(255, 195, 150, .56);
+}
+
+.feed-page-pill.done {
+  opacity: .76;
 }
 
 .empty-card {
