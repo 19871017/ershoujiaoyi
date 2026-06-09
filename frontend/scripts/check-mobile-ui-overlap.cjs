@@ -58,7 +58,8 @@ const pages = [
     selectors: {
       page: '.session-page',
       sessionList: '.session-list',
-      cards: '.session-card'
+      cards: '.session-card',
+      absentTicker: '.global-ticker-wrap'
     }
   },
   {
@@ -76,7 +77,8 @@ const pages = [
       focusSelector: '.composer .field',
       statusBar: '.status-bar',
       spacer: '.message-bottom-spacer',
-      absentBottomNav: '.global-bottom-nav-wrap'
+      absentBottomNav: '.global-bottom-nav-wrap',
+      absentTicker: '.global-ticker-wrap'
     }
   },
   {
@@ -391,6 +393,10 @@ async function inspectPage(page, selectors) {
     const absentBottomNavRect = pageSelectors.absentBottomNav ? rect(pageSelectors.absentBottomNav) : null
     if (absentBottomNavRect) {
       return { ok: false, message: 'global bottom nav is visible on chat conversation page' }
+    }
+    const absentTickerRect = pageSelectors.absentTicker ? rect(pageSelectors.absentTicker) : null
+    if (absentTickerRect) {
+      return { ok: false, message: 'global ticker is visible on private chat page' }
     }
 
     const bottomNavRect = pageSelectors.bottomNav ? rect(pageSelectors.bottomNav) : null

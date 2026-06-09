@@ -114,6 +114,17 @@ if (/giftItems[\s\S]*\.(sort|reverse)\(/.test(tickerSource)) {
   failures.push(`${tickerFile}: recent gift feed order must stay backend latest-first and must not be resorted in the ticker`)
 }
 
+if (
+  !tickerSource.includes("'/pages/chat/conversation/index'") ||
+  !tickerSource.includes("'/pages/chat/session-list/index'") ||
+  !tickerSource.includes('const tickerHiddenOnRoute = computed(() => isTickerHiddenRoute(routePath.value))') ||
+  !tickerSource.includes('const visible = computed(() => items.value.length > 0 && !tickerHiddenOnRoute.value)') ||
+  !tickerSource.includes("window.addEventListener('hashchange', syncRoutePath)") ||
+  !tickerSource.includes("window.removeEventListener('hashchange', syncRoutePath)")
+) {
+  failures.push(`${tickerFile}: global gift ticker must be hidden on private chat pages so it cannot cover the chat header`)
+}
+
 if (appSource.includes(globalTickerTag) || appSource.includes(appGlobalTickerImport)) {
   failures.push('src/App.vue: GlobalTicker must not rely on App.vue template rendering in uni-app H5')
 }

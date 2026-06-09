@@ -36,13 +36,19 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getRecentGiftFeed } from '../api/modules/gift'
 import { buildGiftText, normalizeTargetUrl, type TickerItem } from './global-ticker-helpers'
 
+const TICKER_HIDDEN_ROUTE_PREFIXES = [
+  '/pages/chat/conversation/index',
+  '/pages/chat/session-list/index'
+] as const
 const items = ref<TickerItem[]>([])
+const routePath = ref('')
 const OPTIONAL_SOURCE_COOLDOWN_MS = 5 * 60_000
 type OptionalTickerSource = 'gift'
 const sourceCooldownUntil: Record<OptionalTickerSource, number> = {
   gift: 0
 }
-const visible = computed(() => items.value.length > 0)
+const tickerHiddenOnRoute = computed(() => isTickerHiddenRoute(routePath.value))
+const visible = computed(() => items.value.length > 0 && !tickerHiddenOnRoute.value)
 const currentItem = computed(() => {
   return items.value[0] ?? null
 })
@@ -56,6 +62,20 @@ const trackStyle = computed(() => ({
 }) as Record<string, string>)
 
 let refreshTimer: ReturnType<typeof setInterval> | null = null
+
+function isTickerHiddenRoute(path: string): boolean {
+  return TICKER_HIDDEN_ROUTE_PREFIXES.some((prefix) => path.startsWith(prefix))
+}
+
+function currentRoutePath(): string {
+  if (typeof window === 'undefined') return ''
+  const hashRoute = normalizeTargetUrl(window.location.hash.replace(/^#/, ''))
+  return hashRoute.split('?')[0] || ''
+}
+
+function syncRoutePath() {
+  routePath.value = currentRoutePath()
+}
 
 function applyOffset() {
   if (typeof document === 'undefined') return
@@ -140,16 +160,23 @@ function normalizeTickerTargetUrl(value?: string | null): string {
 }
 
 onMounted(() => {
+  syncRoutePath()
   applyOffset()
   void loadTicker()
   refreshTimer = setInterval(() => {
     void loadTicker()
   }, 60_000)
+  if (typeof window !== 'undefined') {
+    window.addEventListener('hashchange', syncRoutePath)
+  }
 })
 
 watch(visible, applyOffset)
 onBeforeUnmount(() => {
   clearTimers()
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('hashchange', syncRoutePath)
+  }
   if (typeof document !== 'undefined') {
     document.documentElement.style.setProperty('--global-ticker-offset', '0rpx')
   }
