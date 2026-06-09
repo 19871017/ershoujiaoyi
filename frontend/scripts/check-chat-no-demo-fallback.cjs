@@ -430,6 +430,17 @@ if (!conversation.includes('class="voice-control"') || !conversation.includes('c
   failed = true
 }
 
+if (
+  !conversation.includes('class="voice-mic-icon"') ||
+  !conversation.includes('class="voice-stop-icon"') ||
+  !style.includes('.voice-mic-icon') ||
+  !style.includes('.voice-stop-icon') ||
+  /{{\s*recording\s*\?\s*'停'\s*:\s*'语'\s*}}/.test(conversation)
+) {
+  console.error(`${conversationFile}: voice recorder composer button must use icon-only microphone/stop states instead of text labels`)
+  failed = true
+}
+
 if (!conversation.includes('@click.stop="handleRevokeMessage(message)"') || !conversation.includes("if (recording.value) { statusText.value = '请先结束或取消录音，再清空聊天记录'; return }")) {
   console.error(`${conversationFile}: revoke/clear actions must avoid mobile mis-taps and block destructive clear while a voice recording is active`)
   failed = true

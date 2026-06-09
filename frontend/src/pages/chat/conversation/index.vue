@@ -57,7 +57,18 @@
 
     <view class="composer">
       <view class="voice-control">
-        <view class="tool voice-tool tapable" :class="{ disabled: composerBlocked, recording }" @click="toggleVoiceRecording">{{ recording ? '停' : '语' }}</view>
+        <view
+          class="tool voice-tool tapable"
+          :class="{ disabled: composerBlocked, recording }"
+          :aria-label="recording ? '结束并发送语音' : '语音录制'"
+          @click="toggleVoiceRecording"
+        >
+          <view v-if="recording" class="voice-stop-icon" aria-hidden="true" />
+          <view v-else class="voice-mic-icon" aria-hidden="true">
+            <view class="voice-mic-head" />
+            <view class="voice-mic-stem" />
+          </view>
+        </view>
         <view v-if="recording" class="voice-cancel-pill tapable" @click.stop="cancelVoiceRecording">取消</view>
       </view>
       <view class="tool tapable" :class="{ disabled: textComposerBlocked }" @click="sendImagePlaceholder">＋</view>
@@ -994,7 +1005,7 @@ async function startBrowserVoiceRecording(): Promise<void> {
     }
     voiceRecorder.start()
     recording.value = true
-    showTransientStatus('正在录音，点击“停”发送', 1200)
+    showTransientStatus('正在录音，再点麦克风发送', 1200)
     voiceStopTimer = setTimeout(() => stopVoiceRecording(false), MAX_VOICE_RECORD_MS)
   } catch (error) {
     console.warn('chat voice record start failed', { error })
@@ -1019,7 +1030,7 @@ function startUniVoiceRecording(): boolean {
       format: 'mp3'
     })
     recording.value = true
-    showTransientStatus('正在录音，点击“停”发送', 1200)
+    showTransientStatus('正在录音，再点麦克风发送', 1200)
     voiceStopTimer = setTimeout(() => stopVoiceRecording(false), MAX_VOICE_RECORD_MS)
     return true
   } catch (error) {

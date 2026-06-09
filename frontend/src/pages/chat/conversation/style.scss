@@ -52,8 +52,15 @@
 .composer { position:fixed; left:0; right:0; bottom:var(--chat-composer-bottom-offset); min-height:var(--chat-composer-height); padding:12rpx 18rpx calc(18rpx + env(safe-area-inset-bottom)); box-sizing:border-box; display:flex; align-items:center; gap:8rpx; background:rgba(255,250,246,.98); border-top:1rpx solid #ffd9bd; box-shadow:0 -10rpx 30rpx rgba(255,122,69,.12); z-index:20; backdrop-filter:blur(14rpx); transition:bottom .16s ease; }
 .voice-control { position:relative; flex:0 0 56rpx; width:56rpx; height:56rpx; display:flex; align-items:center; justify-content:center; }
 .tool { flex:0 0 56rpx; width:56rpx; height:56rpx; border-radius:50%; background:#fff3e7; color:#ff7a45; display:flex; align-items:center; justify-content:center; font-size:28rpx; font-weight:900; }
-.voice-tool { background:#fff; border:1rpx solid #ffd9bd; font-size:22rpx; }
+.voice-tool { background:#fff; border:1rpx solid #ffd9bd; font-size:22rpx; box-shadow:0 6rpx 16rpx rgba(132,70,36,.07); transition:background .16s ease,color .16s ease,transform .16s ease,box-shadow .16s ease; }
 .voice-tool.recording { background:#ff7a45; color:#fff; border-color:#ff7a45; box-shadow:0 8rpx 18rpx rgba(255,122,69,.22); }
+.voice-tool:active { transform:scale(.94); }
+.voice-mic-icon { position:relative; width:31rpx; height:34rpx; color:currentColor; display:block; }
+.voice-mic-icon::before { content:''; position:absolute; left:50%; top:14rpx; width:28rpx; height:16rpx; border:4rpx solid currentColor; border-top:0; border-radius:0 0 18rpx 18rpx; transform:translateX(-50%); box-sizing:border-box; }
+.voice-mic-head { position:absolute; left:50%; top:0; width:16rpx; height:23rpx; border:4rpx solid currentColor; border-radius:999rpx; transform:translateX(-50%); box-sizing:border-box; background:transparent; }
+.voice-mic-stem { position:absolute; left:50%; bottom:2rpx; width:4rpx; height:12rpx; border-radius:999rpx; background:currentColor; transform:translateX(-50%); }
+.voice-mic-stem::after { content:''; position:absolute; left:50%; bottom:0; width:18rpx; height:4rpx; border-radius:999rpx; background:currentColor; transform:translateX(-50%); }
+.voice-stop-icon { width:22rpx; height:22rpx; border-radius:7rpx; background:currentColor; box-shadow:0 0 0 5rpx rgba(255,255,255,.18); }
 .voice-cancel-pill { position:absolute; left:50%; bottom:72rpx; transform:translateX(-50%); height:38rpx; line-height:38rpx; padding:0 16rpx; border-radius:999rpx; background:#fff1f1; color:#e5484d; border:1rpx solid #ffd0d0; font-size:18rpx; font-weight:950; white-space:nowrap; box-shadow:0 8rpx 18rpx rgba(229,72,77,.12); }
 .tool.disabled { opacity:.45; }
 .field { flex:1; min-width:0; height:58rpx; padding:0 18rpx; border-radius:999rpx; background:#fff; color:#3a2a1f; font-size:23rpx; box-shadow:0 4rpx 14rpx rgba(132,70,36,.06) inset; }
