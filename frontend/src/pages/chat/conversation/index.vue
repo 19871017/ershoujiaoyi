@@ -1,6 +1,9 @@
 <template>
   <view class="chat-page" :class="{ 'has-status': !!statusText }" :style="chatPageStyle">
     <view class="chat-header">
+      <view class="back-action tapable" aria-label="返回私聊列表" @click="goBackToSessions">
+        <text aria-hidden="true">‹</text>
+      </view>
       <view class="peer-avatar" :class="{ image: !!peerAvatarUrl }">
         <image v-if="peerAvatarUrl" class="peer-avatar-img" :src="peerAvatarUrl" mode="aspectFill" />
         <text v-else>{{ peerAvatar }}</text>
@@ -281,6 +284,10 @@ type UniInnerAudioContext = {
   offEnded?: (callback?: () => void) => void
   offError?: (callback?: (error: unknown) => void) => void
 }
+type ChatNavigateFail = (error: unknown) => void
+type ChatNavigateBack = (options: { delta?: number; fail?: ChatNavigateFail }) => void
+type ChatRedirectTo = (options: { url: string; fail?: ChatNavigateFail }) => void
+type ChatSwitchTab = (options: { url: string; fail?: ChatNavigateFail }) => void
 
 const currentUserId = ref<number | null>(null)
 const draft = ref('')
@@ -417,6 +424,27 @@ function showTransientStatus(message: string, duration = 1800): void {
         statusClearTimer = null
       }, duration)
     }
+  }
+}
+
+function goBackToSessions(): void {
+  const fallbackToSessionList = () => {
+    ;(uni.redirectTo as unknown as ChatRedirectTo)({
+      url: '/pages/chat/session-list/index',
+      fail: (error: unknown) => {
+        console.warn('chat back navigation failed', { error })
+        ;(uni.switchTab as unknown as ChatSwitchTab)({ url: '/pages/tabbar/message/index' })
+      }
+    })
+  }
+  try {
+    ;(uni.navigateBack as unknown as ChatNavigateBack)({
+      delta: 1,
+      fail: fallbackToSessionList
+    })
+  } catch (error) {
+    console.warn('chat back navigation failed', { error })
+    fallbackToSessionList()
   }
 }
 

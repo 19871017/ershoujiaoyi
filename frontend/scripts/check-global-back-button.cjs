@@ -29,6 +29,7 @@ const requiredComponentSnippets = [
   "'/pages/tabbar/publish/index'",
   "'/pages/tabbar/message/index'",
   "'/pages/tabbar/me/index'",
+  "'/pages/chat/conversation/index'",
   "aria-label=\"返回上一页\"",
   'function fallbackTarget()',
   "if (path.startsWith('/pages/chat/conversation/index')) return '/pages/chat/session-list/index'",
@@ -57,12 +58,12 @@ if (!appSource.includes('--global-back-page-offset: 0rpx') ||
   failures.push(`${appFile}: page-shell must reserve top space when global back is visible`)
 }
 
-if (chatPageSource.includes('class="back-action') || chatPageSource.includes('goBackToSessions')) {
-  failures.push(`${chatPageFile}: chat conversation must use the unified global back button, not a local back-action`)
+if (!chatPageSource.includes('class="back-action tapable"') || !chatPageSource.includes('function goBackToSessions(): void')) {
+  failures.push(`${chatPageFile}: chat conversation must use an in-flow back-action because the fixed global back button overlaps peer identity on mobile H5`)
 }
 
-if (!chatStyleSource.includes('var(--global-back-page-offset, 0rpx)')) {
-  failures.push(`${chatStyleFile}: fixed-height chat page must reserve space for the global back button`)
+if (chatStyleSource.includes('var(--global-back-page-offset, 0rpx)')) {
+  failures.push(`${chatStyleFile}: chat conversation must not reserve the global fixed back offset when it uses an in-flow header back action`)
 }
 
 if (!sessionPageSource.includes('var(--global-back-page-offset, 0rpx)')) {

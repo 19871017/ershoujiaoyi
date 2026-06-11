@@ -17,7 +17,8 @@ const tabPaths = [
 ] as const
 const hiddenRoutes = [
   '/pages/auth/login/index',
-  '/pages/system/empty/index'
+  '/pages/system/empty/index',
+  '/pages/chat/conversation/index'
 ] as const
 
 const routePath = ref('')
