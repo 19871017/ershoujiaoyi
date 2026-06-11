@@ -389,6 +389,41 @@ export interface AdminAnnouncementTicker {
   updatedAt?: string
 }
 
+export type AdminPaymentChannel = 'ALIPAY' | 'WECHAT'
+
+export interface AdminPaymentChannelConfig {
+  channel: AdminPaymentChannel
+  enabled: boolean
+  sandbox: boolean
+  configured: boolean
+  appId?: string | null
+  merchantId?: string | null
+  gatewayUrl?: string | null
+  notifyUrl?: string | null
+  returnUrl?: string | null
+  merchantPrivateKeyConfigured: boolean
+  alipayPublicKeyConfigured: boolean
+  merchantSerialNo?: string | null
+  apiV3KeyConfigured: boolean
+  wechatPayPublicKeyConfigured: boolean
+  updatedAt?: string | null
+}
+
+export interface AdminPaymentChannelConfigRequest {
+  enabled?: boolean
+  sandbox?: boolean
+  appId?: string
+  merchantId?: string
+  gatewayUrl?: string
+  notifyUrl?: string
+  returnUrl?: string
+  merchantPrivateKey?: string
+  alipayPublicKey?: string
+  merchantSerialNo?: string
+  apiV3Key?: string
+  wechatPayPublicKey?: string
+}
+
 const adminHomeBannerActions = ['closet', 'ranking', 'forum', 'search', 'none'] as const
 const adminHomeBannerPlacements = ['HOME', 'MERCHANT_SHOWCASE'] as const
 
@@ -1046,6 +1081,22 @@ export function getAdminAnnouncementTicker() {
   return request<AdminAnnouncementTicker>({ url: '/api/admin/announcements/ticker' })
 }
 
+export function getAdminPaymentConfig() {
+  return request<AdminPaymentChannelConfig[]>({ url: '/api/admin/payment/config' })
+}
+
+export function updateAdminPaymentConfig(channel: AdminPaymentChannel, data: AdminPaymentChannelConfigRequest) {
+  if (!['ALIPAY', 'WECHAT'].includes(channel)) {
+    throw new Error('支付通道无效')
+  }
+  validateAdminPaymentConfigRequest(data)
+  return request<AdminPaymentChannelConfig>({
+    url: `/api/admin/payment/config/${channel}`,
+    method: 'POST',
+    data
+  })
+}
+
 export function updateAdminAnnouncementTicker(data: AdminUpdateAnnouncementTickerRequest) {
   validateAdminAnnouncementTickerRequest(data)
   return request<AdminAnnouncementTicker>({
@@ -1096,6 +1147,31 @@ function validateAdminAnnouncementTickerRequest(data: AdminUpdateAnnouncementTic
   if (/preview|demo|mock|sample|placeholder/i.test(data.text)) throw new Error('公告文案无效')
   if (!data.icon || data.icon.trim().length > 8) throw new Error('公告图标无效')
   if (!data.targetUrl || data.targetUrl.trim().length > 256 || !data.targetUrl.startsWith('/pages/')) throw new Error('公告跳转路径无效')
+}
+
+function validateAdminPaymentConfigRequest(data: AdminPaymentChannelConfigRequest) {
+  if (!data || typeof data !== 'object') throw new Error('支付配置无效')
+  const urlFields = [data.gatewayUrl, data.notifyUrl, data.returnUrl].filter(Boolean) as string[]
+  for (const value of urlFields) {
+    if (value.length > 512 || !value.startsWith('https://') || /preview|demo|mock|sample|placeholder/i.test(value)) {
+      throw new Error('支付地址无效')
+    }
+  }
+  const publicFields = [data.appId, data.merchantId, data.merchantSerialNo].filter(Boolean) as string[]
+  for (const value of publicFields) {
+    if (value.trim().length > 128 || /preview|demo|mock|sample|placeholder/i.test(value)) {
+      throw new Error('支付公开参数无效')
+    }
+  }
+  const secretFields = [data.merchantPrivateKey, data.alipayPublicKey, data.apiV3Key, data.wechatPayPublicKey].filter(Boolean) as string[]
+  for (const value of secretFields) {
+    if (value.trim().length > 12000) {
+      throw new Error('支付密钥长度无效')
+    }
+  }
+  if (data.apiV3Key && new TextEncoder().encode(data.apiV3Key.trim()).length !== 32) {
+    throw new Error('微信 APIv3 密钥必须为 32 字节')
+  }
 }
 
 function validateAdminHomeBannerRequest(data: AdminHomeBannerRequest) {

@@ -180,7 +180,7 @@ class AuditControllerTest {
                         .header("X-User-Id", String.valueOf(userId))
                         .header("X-Dev-Mode", "enabled")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"realName\":\"周小原\",\"idTail\":\"5678\"}"))
+                        .content("{\"realName\":\"周小原\",\"idNumber\":\"11010519491231002X\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.auditType").value(AuditApplicationService.AUDIT_TYPE_REAL_NAME_IDENTITY))
                 .andExpect(jsonPath("$.data.status").value(AuditApplicationService.STATUS_PENDING));
@@ -191,7 +191,7 @@ class AuditControllerTest {
                         .header("X-User-Id", String.valueOf(userId))
                         .header("X-Dev-Mode", "enabled")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"realName\":\"周小原\",\"idTail\":\"5678\",\"userId\":999,\"identityStatus\":\"VERIFIED\",\"admin\":true}"))
+                        .content("{\"realName\":\"周小原\",\"idNumber\":\"11010519491231002X\",\"userId\":999,\"identityStatus\":\"VERIFIED\",\"admin\":true}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("identity fields must be server-derived"));
     }

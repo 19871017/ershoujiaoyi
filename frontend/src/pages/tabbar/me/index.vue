@@ -6,7 +6,7 @@
       <text>›</text>
     </view>
 
-    <view class="profile-card ds-card tapable" :class="{ loading: profileLoading && !profileLoaded }" @click="goProfile">
+    <view class="profile-card tapable" :class="{ loading: profileLoading && !profileLoaded }" @click="goProfile">
       <view class="avatar" :class="{ image: !!profile.avatarUrl }">
         <image v-if="profile.avatarUrl" class="avatar-image" :src="profile.avatarUrl" mode="aspectFill" />
         <text v-else>{{ avatarText }}</text>

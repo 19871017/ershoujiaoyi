@@ -153,6 +153,46 @@ public class OrderApplicationService {
     }
 
     @Transactional
+    public PayOrderResponse markOrderPaidByExternal(String orderNo, Long userId, String paymentNo, String channel) {
+        if (orderNo == null || orderNo.isBlank()) {
+            throw new IllegalArgumentException("orderNo required");
+        }
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("userId required");
+        }
+        String safePaymentNo = requireText(paymentNo, "paymentNo required");
+        String safeChannel = requireText(channel, "payment channel required").toUpperCase(Locale.ROOT);
+        if (!"ALIPAY".equals(safeChannel) && !"WECHAT".equals(safeChannel)) {
+            throw new IllegalArgumentException("payment channel invalid");
+        }
+        OrderRecord order = findByOrderNoRequired(orderNo.trim());
+        assertBuyer(order, userId);
+        if (STATUS_PAID.equals(order.status())) {
+            return toPayResponse(order, true);
+        }
+        if (!STATUS_PENDING_PAY.equals(order.status())) {
+            throw new IllegalStateException("order-not-payable");
+        }
+        productApplicationService.assertSaleableForOrder(order.productId(), order.orderNo());
+        productApplicationService.markSold(order.productId(), order.orderNo());
+        int changed = jdbcTemplate.update(
+                "update trade_order set order_status = ?, paid_user_id = ?, ledger_no = ?, balance_type = ?, balance_before = null, balance_after = null, paid_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP where order_no = ? and order_status = ?",
+                STATUS_PAID,
+                userId,
+                safePaymentNo,
+                "EXTERNAL_" + safeChannel,
+                order.orderNo(),
+                STATUS_PENDING_PAY
+        );
+        if (changed == 0) {
+            throw new IllegalStateException("order-payment-state-update-failed");
+        }
+        OrderRecord paid = findByOrderNoRequired(order.orderNo());
+        notifyOrderPaid(paid);
+        return toPayResponse(paid, false);
+    }
+
+    @Transactional
     public OrderDetailResponse cancelPendingOrder(String orderNo, Long buyerId) {
         if (buyerId == null || buyerId <= 0) throw new IllegalArgumentException("buyerId required");
         String safeOrderNo = requireText(orderNo, "orderNo required");

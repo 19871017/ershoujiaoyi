@@ -6,6 +6,16 @@ import type { MediaUploadTicketResponse } from './modules/media'
 import type { NotificationItemResponse } from './modules/notification'
 import type { ProductDetailResponse, ProductListItemResponse } from './modules/product'
 import type { UserProfileResponse } from './modules/user'
+import giftCoffeeAsset from '../assets/gifts/gift-coffee.png'
+import giftCrownAsset from '../assets/gifts/gift-crown.png'
+import giftCrystalShoeAsset from '../assets/gifts/gift-crystal-shoe.png'
+import giftGalaxyAsset from '../assets/gifts/gift-galaxy.png'
+import giftHeartAsset from '../assets/gifts/gift-heart.png'
+import giftLoveCastleAsset from '../assets/gifts/gift-love-castle.png'
+import giftPerfumeAsset from '../assets/gifts/gift-perfume.png'
+import giftRibbonBoxAsset from '../assets/gifts/gift-ribbon-box.png'
+import giftRoseAsset from '../assets/gifts/gift-rose.png'
+import giftStarAsset from '../assets/gifts/gift-star.png'
 
 type MockConversation = {
   conversationId: number
@@ -18,7 +28,7 @@ type MockConversation = {
     serverSeq: number
     senderId: number
     receiverId: number
-    msgType: 'TEXT' | 'IMAGE' | 'VOICE'
+    msgType: 'TEXT' | 'IMAGE' | 'VOICE' | 'VIDEO'
     contentJson: string
     createdAt: string
     deliveredToReceiver?: boolean
@@ -29,6 +39,18 @@ type MockConversation = {
 
 const MOCK_SELLER_IDS = [8, 12, 18] as const
 const MOCK_ASSET_BASE = '/assets/mock'
+const giftAssets = {
+  coffee: giftCoffeeAsset,
+  crown: giftCrownAsset,
+  crystalShoe: giftCrystalShoeAsset,
+  galaxy: giftGalaxyAsset,
+  heart: giftHeartAsset,
+  loveCastle: giftLoveCastleAsset,
+  perfume: giftPerfumeAsset,
+  ribbonBox: giftRibbonBoxAsset,
+  rose: giftRoseAsset,
+  star: giftStarAsset
+} as const
 
 function mockAsset(name: string) {
   return `${MOCK_ASSET_BASE}/${name}`
@@ -86,26 +108,32 @@ function mockProfiles(): Record<number, UserProfileResponse> {
 
 function mockGiftCatalog(): GiftCatalogItemResponse[] {
   return [
-    { giftId: 1, giftCode: 'rose', name: '玫瑰', icon: '🌹', price: '19.90', platformRate: '0.10' },
-    { giftId: 2, giftCode: 'starlight-box', name: '星光礼盒', icon: '🎁', price: '99.00', platformRate: '0.12' },
-    { giftId: 3, giftCode: 'crown', name: '女神皇冠', icon: '👑', price: '199.00', platformRate: '0.15' },
-    { giftId: 4, giftCode: 'spark-heart', name: '心动烟花', icon: '💖', price: '299.00', platformRate: '0.15' }
+    { giftId: 1, giftCode: 'ROSE', name: '玫瑰花', icon: giftAssets.rose, price: '1.00', platformRate: '0.20' },
+    { giftId: 2, giftCode: 'COFFEE', name: '暖心咖啡', icon: giftAssets.coffee, price: '6.00', platformRate: '0.20' },
+    { giftId: 3, giftCode: 'STAR', name: '星光应援', icon: giftAssets.star, price: '18.00', platformRate: '0.25' },
+    { giftId: 4, giftCode: 'HEART', name: '心动告白', icon: giftAssets.heart, price: '32.00', platformRate: '0.25' },
+    { giftId: 5, giftCode: 'RIBBON_BOX', name: '丝带礼盒', icon: giftAssets.ribbonBox, price: '52.00', platformRate: '0.25' },
+    { giftId: 6, giftCode: 'PERFUME', name: '香氛礼赞', icon: giftAssets.perfume, price: '88.00', platformRate: '0.28' },
+    { giftId: 7, giftCode: 'CRYSTAL_SHOE', name: '水晶鞋', icon: giftAssets.crystalShoe, price: '131.00', platformRate: '0.28' },
+    { giftId: 8, giftCode: 'CROWN', name: '小原皇冠', icon: giftAssets.crown, price: '188.00', platformRate: '0.30' },
+    { giftId: 9, giftCode: 'GALAXY', name: '银河之约', icon: giftAssets.galaxy, price: '299.00', platformRate: '0.30' },
+    { giftId: 10, giftCode: 'LOVE_CASTLE', name: '心愿城堡', icon: giftAssets.loveCastle, price: '520.00', platformRate: '0.30' }
   ]
 }
 
 function mockReceivedGifts(): ReceivedGiftItemResponse[] {
   return [
-    { giftOrderNo: 'GIFT-20260516008', senderId: 21, giftId: 1, giftCode: 'rose', giftName: '玫瑰', giftIcon: '🌹', quantity: 2, totalAmount: '39.80', platformShare: '3.98', receiverAmount: '35.82', receiverCreditLedgerNo: 'LEDGER-90001', status: 'SUCCESS', createdAt: '2026-05-16T21:20:00' },
-    { giftOrderNo: 'GIFT-20260516012', senderId: 16, giftId: 2, giftCode: 'starlight-box', giftName: '星光礼盒', giftIcon: '🎁', quantity: 1, totalAmount: '99.00', platformShare: '11.88', receiverAmount: '87.12', receiverCreditLedgerNo: 'LEDGER-90002', status: 'SUCCESS', createdAt: '2026-05-16T20:32:00' },
-    { giftOrderNo: 'GIFT-20260516021', senderId: 7, giftId: 3, giftCode: 'crown', giftName: '女神皇冠', giftIcon: '👑', quantity: 1, totalAmount: '199.00', platformShare: '29.85', receiverAmount: '169.15', receiverCreditLedgerNo: 'LEDGER-90003', status: 'SUCCESS', createdAt: '2026-05-16T19:08:00' }
+    { giftOrderNo: 'GIFT-20260516008', senderId: 21, giftId: 1, giftCode: 'ROSE', giftName: '玫瑰花', giftIcon: giftAssets.rose, quantity: 2, totalAmount: '2.00', platformShare: '0.40', receiverAmount: '1.60', receiverCreditLedgerNo: 'LEDGER-90001', status: 'SUCCESS', createdAt: '2026-05-16T21:20:00' },
+    { giftOrderNo: 'GIFT-20260516012', senderId: 16, giftId: 6, giftCode: 'PERFUME', giftName: '香氛礼赞', giftIcon: giftAssets.perfume, quantity: 1, totalAmount: '88.00', platformShare: '24.64', receiverAmount: '63.36', receiverCreditLedgerNo: 'LEDGER-90002', status: 'SUCCESS', createdAt: '2026-05-16T20:32:00' },
+    { giftOrderNo: 'GIFT-20260516021', senderId: 7, giftId: 10, giftCode: 'LOVE_CASTLE', giftName: '心愿城堡', giftIcon: giftAssets.loveCastle, quantity: 1, totalAmount: '520.00', platformShare: '156.00', receiverAmount: '364.00', receiverCreditLedgerNo: 'LEDGER-90003', status: 'SUCCESS', createdAt: '2026-05-16T19:08:00' }
   ]
 }
 
 export function mockRecentGiftFeed(): RecentGiftFeedItemResponse[] {
   return [
-    { giftOrderNo: 'GIFT-20260516001', senderId: 21, senderName: '阿澈', receiverId: 8, receiverName: '桃桃', giftId: 1, giftName: '玫瑰', giftIcon: '🌹', quantity: 1, totalAmount: '19.90', createdAt: '2026-05-16T21:20:00' },
-    { giftOrderNo: 'GIFT-20260516002', senderId: 16, senderName: '阿宇', receiverId: 12, receiverName: '可心', giftId: 2, giftName: '星光礼盒', giftIcon: '🎁', quantity: 1, totalAmount: '99.00', createdAt: '2026-05-16T21:12:00' },
-    { giftOrderNo: 'GIFT-20260516003', senderId: 7, senderName: '小北', receiverId: 18, receiverName: '晚晚', giftId: 3, giftName: '女神皇冠', giftIcon: '👑', quantity: 1, totalAmount: '199.00', createdAt: '2026-05-16T20:48:00' }
+    { giftOrderNo: 'GIFT-20260516001', senderId: 21, senderName: '阿澈', receiverId: 8, receiverName: '桃桃', giftId: 1, giftName: '玫瑰花', giftIcon: giftAssets.rose, quantity: 1, totalAmount: '1.00', createdAt: '2026-05-16T21:20:00' },
+    { giftOrderNo: 'GIFT-20260516002', senderId: 16, senderName: '阿宇', receiverId: 12, receiverName: '可心', giftId: 8, giftName: '小原皇冠', giftIcon: giftAssets.crown, quantity: 1, totalAmount: '188.00', createdAt: '2026-05-16T21:12:00' },
+    { giftOrderNo: 'GIFT-20260516003', senderId: 7, senderName: '小北', receiverId: 18, receiverName: '晚晚', giftId: 10, giftName: '心愿城堡', giftIcon: giftAssets.loveCastle, quantity: 1, totalAmount: '520.00', createdAt: '2026-05-16T20:48:00' }
   ]
 }
 
@@ -377,13 +405,13 @@ export function mockResponse<T>(url: string, method: string, data?: unknown): T 
   if (url === '/api/media/upload-tickets' && method === 'POST') {
     const payload = (data || {}) as { scene?: string; contentType?: string; fileSize?: number; filename?: string }
     const scene = payload.scene || 'CHAT_IMAGE'
-    const extension = scene === 'CHAT_VOICE' ? 'webm' : 'png'
+    const extension = scene === 'CHAT_VIDEO' ? 'mp4' : scene === 'CHAT_VOICE' ? 'webm' : 'png'
     const storageUrl = mockUpload(scene, `local-${Date.now()}.${extension}`)
     return {
       ticketNo: `UT-${scene}-${Date.now()}`,
       ownerUserId: 1,
       scene,
-      contentType: payload.contentType || (scene === 'CHAT_VOICE' ? 'audio/webm' : 'image/png'),
+      contentType: payload.contentType || (scene === 'CHAT_VIDEO' ? 'video/mp4' : scene === 'CHAT_VOICE' ? 'audio/webm' : 'image/png'),
       fileSize: Number(payload.fileSize || 1024),
       storageUrl,
       uploadToken: `mock-token-${Date.now()}`,
@@ -395,15 +423,16 @@ export function mockResponse<T>(url: string, method: string, data?: unknown): T 
   const uploadTicketFileMatch = url.match(/^\/api\/media\/upload-tickets\/([^/]+)\/file$/)
   if (uploadTicketFileMatch && method === 'POST') {
     const ticketNo = decodeURIComponent(uploadTicketFileMatch[1])
+    const isVideo = ticketNo.includes('CHAT_VIDEO')
     const isVoice = ticketNo.includes('CHAT_VOICE')
-    const scene = isVoice ? 'CHAT_VOICE' : 'CHAT_IMAGE'
+    const scene = isVideo ? 'CHAT_VIDEO' : isVoice ? 'CHAT_VOICE' : 'CHAT_IMAGE'
     return {
       ticketNo,
       ownerUserId: 1,
       scene,
-      contentType: isVoice ? 'audio/webm' : 'image/png',
+      contentType: isVideo ? 'video/mp4' : isVoice ? 'audio/webm' : 'image/png',
       fileSize: 1024,
-      storageUrl: mockUpload(scene, `local-uploaded-${Date.now()}.${isVoice ? 'webm' : 'png'}`),
+      storageUrl: mockUpload(scene, `local-uploaded-${Date.now()}.${isVideo ? 'mp4' : isVoice ? 'webm' : 'png'}`),
       uploadToken: `mock-token-${Date.now()}`,
       status: 'UPLOADED',
       expiresAt: mockNow(-30)
@@ -411,7 +440,7 @@ export function mockResponse<T>(url: string, method: string, data?: unknown): T 
   }
 
   if (url === '/api/chat/messages' && method === 'POST') {
-    const payload = (data || {}) as { conversationId?: number; receiverId?: number; clientMsgId?: string; msgType?: 'TEXT' | 'IMAGE' | 'VOICE'; contentJson?: string }
+    const payload = (data || {}) as { conversationId?: number; receiverId?: number; clientMsgId?: string; msgType?: 'TEXT' | 'IMAGE' | 'VOICE' | 'VIDEO'; contentJson?: string }
     const conversationId = payload.conversationId || 5009
     const serverSeq = Math.floor(Date.now() / 1000)
     return {

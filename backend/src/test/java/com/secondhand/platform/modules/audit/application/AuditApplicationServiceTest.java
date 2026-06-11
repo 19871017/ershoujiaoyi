@@ -228,13 +228,13 @@ class AuditApplicationServiceTest {
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138881");
         jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, video_identity_status, video_verified) VALUES (?,?,?,?)", userId, "UNVERIFIED", "UNVERIFIED", false);
 
-        AuditRecordResponse created = service.submitRealNameIdentity(userId, "王小原", "6789");
+        AuditRecordResponse created = service.submitRealNameIdentity(userId, "王小原", "11010519491231002X");
 
         assertEquals(AuditApplicationService.AUDIT_TYPE_REAL_NAME_IDENTITY, created.auditType());
         assertEquals("REAL_NAME_IDENTITY", created.targetType());
         assertEquals(String.valueOf(userId), created.targetId());
         assertTrue(created.reason().contains("王**"));
-        assertTrue(created.reason().contains("6789"));
+        assertTrue(created.reason().contains("110105********002X"));
         assertEquals("PENDING", jdbcTemplate.queryForObject("SELECT identity_status FROM user_profile WHERE user_id = ?", String.class, userId));
 
         service.approve(created.auditNo(), "实名资料一致");
@@ -249,7 +249,7 @@ class AuditApplicationServiceTest {
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138882");
         jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, video_identity_status, video_verified) VALUES (?,?,?,?)", userId, "UNVERIFIED", "UNVERIFIED", false);
 
-        AuditRecordResponse created = service.submitRealNameIdentity(userId, "李小原", "1234");
+        AuditRecordResponse created = service.submitRealNameIdentity(userId, "李小原", "110105199001010010");
         service.reject(created.auditNo(), "姓名不一致");
 
         assertEquals("REJECTED", jdbcTemplate.queryForObject("SELECT identity_status FROM user_profile WHERE user_id = ?", String.class, userId));
@@ -262,8 +262,8 @@ class AuditApplicationServiceTest {
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138883");
         jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, video_identity_status, video_verified) VALUES (?,?,?,?)", userId, "UNVERIFIED", "UNVERIFIED", false);
 
-        AuditRecordResponse older = service.submitRealNameIdentity(userId, "赵小原", "1111");
-        AuditRecordResponse latest = service.submitRealNameIdentity(userId, "赵小原", "2222");
+        AuditRecordResponse older = service.submitRealNameIdentity(userId, "赵小原", "110105199001010029");
+        AuditRecordResponse latest = service.submitRealNameIdentity(userId, "赵小原", "110105199001010037");
         service.approve(latest.auditNo(), "最新实名通过");
         service.reject(older.auditNo(), "旧实名驳回");
 
@@ -334,13 +334,15 @@ class AuditApplicationServiceTest {
 
     @Test
     void realNameIdentityAuditShouldRejectInvalidInputAndMissingUser() {
-        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(404L, "王小原", "1234"));
-        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "测", "1234"));
-        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "preview-user", "1234"));
-        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "测试用户", "1234"));
-        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "王小原1", "1234"));
+        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(404L, "王小原", "11010519491231002X"));
+        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "测", "11010519491231002X"));
+        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "preview-user", "11010519491231002X"));
+        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "测试用户", "11010519491231002X"));
+        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "王小原1", "11010519491231002X"));
         assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "王小原", "123"));
         assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "王小原", "abcd"));
+        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "王小原", "11010519490231002X"));
+        assertThrows(IllegalArgumentException.class, () -> service.submitRealNameIdentity(1L, "王小原", "110105194912310021"));
     }
 
     @Test
@@ -679,7 +681,7 @@ class AuditApplicationServiceTest {
         jdbcTemplate.update("INSERT INTO user_account (user_no, phone, password_hash, nickname, status) VALUES (?,?,?,?,?)", "U-REAL-LIST", "13800138884", "hash", "实名列表用户", "ACTIVE");
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138884");
         jdbcTemplate.update("INSERT INTO user_profile (user_id, identity_status, video_identity_status, video_verified) VALUES (?,?,?,?)", userId, "UNVERIFIED", "UNVERIFIED", false);
-        AuditRecordResponse realName = service.submitRealNameIdentity(userId, "钱小原", "9988");
+        AuditRecordResponse realName = service.submitRealNameIdentity(userId, "钱小原", "110105198001079988");
         seedReportProduct(jdbcTemplate, "PRODUCT-100901");
         service.submitReport(778L, "product", "PRODUCT-100901", "SPAM", "商品举报内容");
 

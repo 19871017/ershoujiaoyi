@@ -39,10 +39,28 @@ const requiredGiftPage = [
   'giftTone(item.giftCode)',
   'gift-orb',
   'gift-shine',
+  'isGiftImage(item.icon)',
+  'isGiftImage(item.giftIcon)',
+  'resolveGiftImage(item.icon)',
+  'giftImageMap',
+  'class="gift-img"',
+  'gift-love-castle.png',
+  'visibleCatalogList',
+  'DEFAULT_VISIBLE_GIFT_COUNT = 3',
+  'toggleGiftFold',
   'effect-burst'
 ]
 for (const marker of requiredGiftPage) {
   if (!giftPage.includes(marker)) failures.push(`gift page missing real-flow marker: ${marker}`)
+}
+
+const forbiddenGiftPage = [
+  'brandLogoUrl',
+  "assets/brand/xiaoyuanquan-logo-mark.png",
+  "'/assets/brand/xiaoyuanquan-logo-mark.png'"
+]
+for (const marker of forbiddenGiftPage) {
+  if (giftPage.includes(marker)) failures.push(`gift page should not render brand logo: ${marker}`)
 }
 
 const requiredApi = [
@@ -61,6 +79,51 @@ if (!publicProfile.includes('/pages/gift/index?mode=send&receiverId=')) {
 }
 if (!publicProfile.includes('送礼物')) failures.push('public profile missing visible gift action')
 if (!pkg.includes('check:gift-module')) failures.push('package.json missing check:gift-module script')
+
+const giftAssets = [
+  'src/assets/brand/xiaoyuanquan-logo-mark.png',
+  'src/assets/gifts/gift-rose.png',
+  'src/assets/gifts/gift-coffee.png',
+  'src/assets/gifts/gift-star.png',
+  'src/assets/gifts/gift-heart.png',
+  'src/assets/gifts/gift-ribbon-box.png',
+  'src/assets/gifts/gift-perfume.png',
+  'src/assets/gifts/gift-crystal-shoe.png',
+  'src/assets/gifts/gift-crown.png',
+  'src/assets/gifts/gift-galaxy.png',
+  'src/assets/gifts/gift-love-castle.png',
+  'src/static/brand/xiaoyuanquan-logo-mark.png',
+  'public/assets/brand/xiaoyuanquan-logo-mark.png',
+  'public/assets/gifts/gift-rose.png',
+  'public/assets/gifts/gift-coffee.png',
+  'public/assets/gifts/gift-star.png',
+  'public/assets/gifts/gift-heart.png',
+  'public/assets/gifts/gift-ribbon-box.png',
+  'public/assets/gifts/gift-perfume.png',
+  'public/assets/gifts/gift-crystal-shoe.png',
+  'public/assets/gifts/gift-crown.png',
+  'public/assets/gifts/gift-galaxy.png',
+  'public/assets/gifts/gift-love-castle.png'
+]
+for (const asset of giftAssets) {
+  if (!fs.existsSync(path.join(root, asset))) failures.push(`gift visual asset missing: ${asset}`)
+}
+
+const requiredGiftImagePaths = [
+  '/assets/gifts/gift-rose.png',
+  '/assets/gifts/gift-coffee.png',
+  '/assets/gifts/gift-star.png',
+  '/assets/gifts/gift-heart.png',
+  '/assets/gifts/gift-ribbon-box.png',
+  '/assets/gifts/gift-perfume.png',
+  '/assets/gifts/gift-crystal-shoe.png',
+  '/assets/gifts/gift-crown.png',
+  '/assets/gifts/gift-galaxy.png',
+  '/assets/gifts/gift-love-castle.png'
+]
+for (const imagePath of requiredGiftImagePaths) {
+  if (!giftPage.includes(imagePath)) failures.push(`gift page missing image mapping: ${imagePath}`)
+}
 
 if (failures.length) {
   console.error('gift module real-flow check failed:')

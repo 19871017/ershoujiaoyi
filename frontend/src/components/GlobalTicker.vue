@@ -40,6 +40,7 @@ const TICKER_HIDDEN_ROUTE_PREFIXES = [
   '/pages/chat/conversation/index',
   '/pages/chat/session-list/index'
 ] as const
+const routeChangeEventName = 'xiaoyuanquan:routechange'
 const items = ref<TickerItem[]>([])
 const routePath = ref('')
 const OPTIONAL_SOURCE_COOLDOWN_MS = 5 * 60_000
@@ -67,14 +68,99 @@ function isTickerHiddenRoute(path: string): boolean {
   return TICKER_HIDDEN_ROUTE_PREFIXES.some((prefix) => path.startsWith(prefix))
 }
 
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+function decodeRouteVariants(value: string): string[] {
+  const variants = new Set<string>()
+  let current = value
+  for (let index = 0; index < 3; index += 1) {
+    if (!current || variants.has(current)) break
+    variants.add(current)
+    const decoded = safeDecode(current)
+    if (decoded === current) break
+    current = decoded
+  }
+  return Array.from(variants)
+}
+
+function extractRoutePath(value: string): string {
+  const decoded = safeDecode(value.trim())
+  const hashIndex = decoded.indexOf('#')
+  const routedValue = hashIndex >= 0 ? decoded.slice(hashIndex + 1) : decoded
+  const normalized = normalizeTargetUrl(routedValue.replace(/^#/, ''))
+  return normalized.split('?')[0] || ''
+}
+
+function currentRouteCandidates(): string[] {
+  if (typeof window === 'undefined') return []
+  const candidates = new Set<string>()
+  const rawValues = [
+    window.location.hash.replace(/^#/, ''),
+    window.location.pathname,
+    `${window.location.pathname}${window.location.search}${window.location.hash}`
+  ]
+  const params = new URLSearchParams(window.location.search)
+  const hashQuery = window.location.hash.split('?')[1]
+  if (hashQuery) {
+    new URLSearchParams(hashQuery).forEach((value, key) => {
+      if (key.toLowerCase().includes('redirect')) rawValues.push(value)
+    })
+  }
+  params.forEach((value, key) => {
+    if (key.toLowerCase().includes('redirect')) rawValues.push(value)
+  })
+  rawValues.forEach((rawValue) => {
+    decodeRouteVariants(rawValue).forEach((variant) => {
+      const routePath = extractRoutePath(variant)
+      if (routePath) candidates.add(routePath)
+    })
+  })
+  return Array.from(candidates)
+}
+
 function currentRoutePath(): string {
-  if (typeof window === 'undefined') return ''
-  const hashRoute = normalizeTargetUrl(window.location.hash.replace(/^#/, ''))
-  return hashRoute.split('?')[0] || ''
+  const candidates = currentRouteCandidates()
+  return candidates.find(isTickerHiddenRoute) || candidates[0] || ''
 }
 
 function syncRoutePath() {
   routePath.value = currentRoutePath()
+  applyOffset()
+}
+
+function currentRouteIsTickerHidden(): boolean {
+  return currentRouteCandidates().some(isTickerHiddenRoute)
+}
+
+function notifyRouteChanged() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(routeChangeEventName))
+}
+
+function installRouteChangeHooks() {
+  if (typeof window === 'undefined') return
+  const historyApi = window.history as History & {
+    __xiaoyuanquanTickerHooked?: boolean
+  }
+  if (historyApi.__xiaoyuanquanTickerHooked) return
+  const originalPushState = historyApi.pushState
+  const originalReplaceState = historyApi.replaceState
+  historyApi.pushState = function patchedPushState(...args) {
+    const result = originalPushState.apply(this, args)
+    notifyRouteChanged()
+    return result
+  }
+  historyApi.replaceState = function patchedReplaceState(...args) {
+    const result = originalReplaceState.apply(this, args)
+    notifyRouteChanged()
+    return result
+  }
+  historyApi.__xiaoyuanquanTickerHooked = true
 }
 
 function applyOffset() {
@@ -110,6 +196,12 @@ async function loadOptionalTickerSource<T>(
 }
 
 async function loadTicker() {
+  syncRoutePath()
+  if (currentRouteIsTickerHidden()) {
+    items.value = []
+    applyOffset()
+    return
+  }
   try {
     const gifts = await loadOptionalTickerSource('gift', 'recent gift feed', getRecentGiftFeed, [])
     const giftItems: TickerItem[] = gifts
@@ -160,6 +252,7 @@ function normalizeTickerTargetUrl(value?: string | null): string {
 }
 
 onMounted(() => {
+  installRouteChangeHooks()
   syncRoutePath()
   applyOffset()
   void loadTicker()
@@ -168,6 +261,8 @@ onMounted(() => {
   }, 60_000)
   if (typeof window !== 'undefined') {
     window.addEventListener('hashchange', syncRoutePath)
+    window.addEventListener('popstate', syncRoutePath)
+    window.addEventListener(routeChangeEventName, syncRoutePath)
   }
 })
 
@@ -176,6 +271,8 @@ onBeforeUnmount(() => {
   clearTimers()
   if (typeof window !== 'undefined') {
     window.removeEventListener('hashchange', syncRoutePath)
+    window.removeEventListener('popstate', syncRoutePath)
+    window.removeEventListener(routeChangeEventName, syncRoutePath)
   }
   if (typeof document !== 'undefined') {
     document.documentElement.style.setProperty('--global-ticker-offset', '0rpx')

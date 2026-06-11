@@ -1,6 +1,6 @@
 <template>
   <view class="page-shell community-page">
-    <view class="community-top ds-card">
+    <view class="community-top">
       <image class="community-top-art" :src="communityHeroBanner" mode="aspectFill" />
       <view class="community-top-mask"></view>
       <view class="community-top-content">
@@ -34,7 +34,7 @@
     <view v-if="loadError" class="empty-card ds-card">{{ loadError }}</view>
     <view v-else-if="loading" class="empty-card ds-card">加载中…</view>
 
-    <view v-for="item in feeds" :key="item.postId" class="feed-card ds-card">
+    <view v-for="item in feeds" :key="item.postId" class="feed-card">
       <view class="feed-head">
         <view class="feed-author tapable" @click.stop="openAuthorProfile(item)">
           <view class="avatar pink" :class="{ image: !!feedAvatarUrl(item) }">
@@ -584,7 +584,6 @@ onReachBottom(() => {
 }
 
 .community-top,
-.feed-card,
 .empty-card {
   border-color: rgba(255, 217, 189, .78);
   box-shadow: 0 16rpx 32rpx rgba(132, 70, 36, .085);
@@ -595,7 +594,10 @@ onReachBottom(() => {
   min-height: 274rpx;
   padding: 18rpx;
   overflow: hidden;
+  border-radius: 32rpx;
   background: linear-gradient(135deg, #fff8f0 0%, #fff1e3 100%);
+  border: 1rpx solid rgba(255, 217, 189, .58);
+  box-shadow: none;
 }
 
 .community-top-art,
@@ -797,9 +799,12 @@ onReachBottom(() => {
 }
 
 .feed-card {
-  margin-top: 14rpx;
-  padding: 18rpx;
-  background: linear-gradient(180deg, rgba(255, 255, 255, .98), rgba(255, 248, 242, .97));
+  margin-top: 0;
+  padding: 24rpx 2rpx 22rpx;
+  background: transparent;
+  border: 0;
+  border-bottom: 1rpx solid rgba(255, 217, 189, .64);
+  box-shadow: none;
 }
 
 .feed-head {
@@ -923,7 +928,7 @@ onReachBottom(() => {
   border-radius: 18rpx;
   overflow: hidden;
   background: #fff3e7;
-  box-shadow: inset 0 0 0 1rpx rgba(255, 255, 255, .72);
+  box-shadow: 0 10rpx 20rpx rgba(132, 70, 36, .075), inset 0 0 0 1rpx rgba(255, 255, 255, .72);
 }
 
 .feed-image-grid.single .feed-image-cell {
@@ -953,9 +958,10 @@ onReachBottom(() => {
   display: flex;
   align-items: center;
   gap: 12rpx;
-  border-radius: 22rpx;
-  background: linear-gradient(135deg, rgba(255, 246, 238, .96), rgba(255, 238, 228, .92));
-  border: 1rpx solid rgba(255, 195, 150, .46);
+  border-radius: 0;
+  background: rgba(255, 243, 231, .54);
+  border: 0;
+  border-left: 4rpx solid rgba(239, 111, 63, .58);
 }
 
 .feed-product-icon {
@@ -1127,7 +1133,7 @@ onReachBottom(() => {
 .compose-fab {
   position: fixed;
   right: 32rpx;
-  bottom: calc(128rpx + env(safe-area-inset-bottom));
+  bottom: calc(176rpx + env(safe-area-inset-bottom));
   z-index: 30;
   width: 92rpx;
   height: 92rpx;

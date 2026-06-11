@@ -56,7 +56,7 @@ public class AuditController {
         return Result.ok(auditApplicationService.submitRealNameIdentity(
                 userId,
                 body == null ? null : body.getRealName(),
-                body == null ? null : body.getIdTail()
+                body == null ? null : body.getIdNumber()
         ));
     }
 }

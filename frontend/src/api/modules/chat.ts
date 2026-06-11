@@ -1,7 +1,7 @@
 import { get, post } from '../http'
 
-export type MessageType = 'TEXT' | 'IMAGE' | 'VOICE'
-export type SendableMessageType = 'TEXT' | 'IMAGE' | 'VOICE'
+export type MessageType = 'TEXT' | 'IMAGE' | 'VOICE' | 'VIDEO'
+export type SendableMessageType = 'TEXT' | 'IMAGE' | 'VOICE' | 'VIDEO'
 export type SendState = 'sent'
 
 export interface SendMessageRequest {

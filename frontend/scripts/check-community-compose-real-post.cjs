@@ -18,6 +18,7 @@ const forbiddenMarkers = [
   "发布中...",
   "发布动态'",
   "cancelText: '继续编辑'",
+  "showModalWithFailure",
   "form.images.push(ticket.storageUrl)",
   "form.images = form.images.slice(0, 9)",
   "form.images.splice(index, 1)",
@@ -41,12 +42,18 @@ const requiredMarkers = [
   "form.images = [...form.images, ...issuedUrls].slice(0, 9)",
   "function removeImage(index: number) { form.images = form.images.filter((_, current) => current !== index) }",
   "submitMessage.value = `已提交发布：${created.postNo || created.postId}`",
-  "title: '发布成功'",
-  "content: '动态已进入社区，评论、点赞和私信都会以平台记录为准。'",
-  "confirmText: '查看动态'",
-  "cancelText: '回社区'",
-  "success: (res) => redirectAfterPostCreated(res.confirm, created.postId)",
-  "console.warn('community compose success modal failed'",
+  "const postSuccessDialog = ref<{ visible: boolean; postId: number }>({ visible: false, postId: 0 })",
+  'v-if="postSuccessDialog.visible"',
+  'class="post-success-overlay"',
+  'class="post-success-panel"',
+  'class="post-success-title">发布成功',
+  '动态已进入社区，评论、点赞和私信都会以平台记录为准。',
+  'class="post-success-btn ghost"',
+  'class="post-success-btn primary"',
+  "function openPostSuccessDialog(postId: number): void",
+  "function handlePostSuccessBack(): void",
+  "function handlePostSuccessView(): void",
+  "openPostSuccessDialog(created.postId)",
   "function redirectAfterPostCreated(stayOnPost: boolean, postId: number): void",
   "url: `/pages/community/detail/index?postId=${postId}`",
   "url: '/pages/tabbar/message/index'",
@@ -129,8 +136,12 @@ if (!/createCommunityPost\(\{[\s\S]*relatedProductId: relatedProductId\.value[\s
   failures.push(`${file}: compose submit must send only relatedProductId for backend related-product validation`)
 }
 
-if (!/showModalWithFailure\(\{[\s\S]*success: \(res\) => redirectAfterPostCreated\(res\.confirm, created\.postId\),[\s\S]*fail: \(error: unknown\) => \{[\s\S]*showPostCreatedNavigationFallback\(created\.postId\)/s.test(source)) {
-  failures.push(`${file}: compose success modal must have a fail callback that preserves the backend-created post state`)
+if (!/const created = await createCommunityPost\(\{[\s\S]*assertCreatedCommunityPost\(created, form\.topic\)[\s\S]*submitMessage\.value = `已提交发布：\$\{created\.postNo \|\| created\.postId\}`[\s\S]*openPostSuccessDialog\(created\.postId\)/s.test(source)) {
+  failures.push(`${file}: compose success dialog must open only after backend createPost response is validated`)
+}
+
+if (!/function handlePostSuccessBack\(\): void[\s\S]*const postId = closePostSuccessDialog\(\)[\s\S]*redirectAfterPostCreated\(false, postId\)[\s\S]*function handlePostSuccessView\(\): void[\s\S]*const postId = closePostSuccessDialog\(\)[\s\S]*redirectAfterPostCreated\(true, postId\)/s.test(source)) {
+  failures.push(`${file}: compose success dialog actions must preserve the backend-created post state for community/detail navigation`)
 }
 
 if (!/function redirectAfterPostCreated\(stayOnPost: boolean, postId: number\): void[\s\S]*redirectToWithFailure\(\{[\s\S]*fail: \(error: unknown\) => \{[\s\S]*showPostCreatedNavigationFallback\(postId\)[\s\S]*switchTabWithFailure\(\{[\s\S]*fail: \(error: unknown\) => \{[\s\S]*showPostCreatedNavigationFallback\(postId\)[\s\S]*catch \(error\)[\s\S]*showPostCreatedNavigationFallback\(postId\)/s.test(source)) {

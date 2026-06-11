@@ -11,7 +11,7 @@ export interface ApiEnvelope<T> {
   data?: T
 }
 
-const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
+const API_BASE = (import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE || '')).replace(/\/$/, '')
 type AdminHeaderProvider = () => Record<string, string>
 let adminHeaderProvider: AdminHeaderProvider | null = null
 

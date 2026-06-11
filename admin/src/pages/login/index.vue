@@ -36,8 +36,8 @@ async function submit() {
   }
   try {
     await auth.login(username.value, accessKey.value)
-  } catch {
-    error.value = '登录失败：未生成有效管理员会话，请检查账号、口令和服务状态。'
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '登录失败：未生成有效管理员会话，请检查账号、口令和服务状态。'
     return
   }
   router.replace('/dashboard')

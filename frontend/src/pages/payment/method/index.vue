@@ -4,22 +4,22 @@
       <view>
         <view class="kicker">♡ 支付方式</view>
         <view class="page-title">{{ title }}</view>
-        <view class="page-desc">当前通道尚未完成商户接入，不会在前端伪造支付成功。</view>
+        <view class="page-desc">正在通过平台后端创建正式支付单，前端不会接触商户密钥。</view>
       </view>
       <view class="hero-icon">{{ icon }}</view>
     </view>
 
-    <view class="status-card ds-card danger">
+    <view class="status-card ds-card" :class="{ danger: isError }">
       <view class="section-head">
         <view>
-          <view class="section-title">通道未开通</view>
-          <view class="status-line">{{ title }}暂不可用于当前订单支付</view>
+          <view class="section-title">{{ statusTitle }}</view>
+          <view class="status-line">{{ statusLine }}</view>
         </view>
-        <view class="method-chip">未接入</view>
+        <view class="method-chip">{{ statusChip }}</view>
       </view>
-      <view class="desc">正式接入前必须由平台创建支付单、完成回调验签、订单状态机、退款和对账任务；前端不得保存商户号、密钥或伪造成功状态。</view>
+      <view class="desc">支付单号：{{ paymentNo || '等待后端返回' }}</view>
       <view v-if="routeErrorText" class="warning-line">{{ routeErrorText }}</view>
-      <view class="warning-line">当前页面只做说明与安全返回，不会发起第三方扣款。</view>
+      <view v-if="message" class="warning-line">{{ message }}</view>
     </view>
 
     <view class="order-card ds-card">
@@ -29,26 +29,38 @@
     </view>
 
     <view class="steps-card ds-card">
-      <view class="section-title">正式接入检查</view>
+      <view class="section-title">正式支付链路</view>
       <view v-for="item in steps" :key="item" class="step">{{ item }}</view>
     </view>
 
-    <button class="primary-btn" :disabled="returning" @click="backToCheckout">{{ returning ? '读取订单中...' : '返回收银台' }}</button>
+    <button class="primary-btn" :disabled="starting || returning || Boolean(routeErrorText)" @click="startGatewayPay">
+      {{ starting ? '正在拉起...' : `继续${title}` }}
+    </button>
+    <button class="ghost-action" :disabled="returning" @click="backToCheckout">{{ returning ? '读取订单中...' : '返回收银台' }}</button>
   </view>
 </template>
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { getOrderDetail } from '../../../api/modules/order'
+import { createPaymentIntent, type PaymentIntentResponse } from '../../../api/modules/payment'
 
 type Method = 'WECHAT' | 'ALIPAY' | 'UNKNOWN'
 
 const method = ref<Method>('UNKNOWN')
 const orderNo = ref('')
 const returning = ref(false)
+const starting = ref(false)
 const routeErrorText = ref('')
+const message = ref('')
+const paymentNo = ref('')
+const intent = ref<PaymentIntentResponse | null>(null)
 const title = computed(() => method.value === 'WECHAT' ? '微信支付' : method.value === 'ALIPAY' ? '支付宝' : '支付方式异常')
 const icon = computed(() => method.value === 'WECHAT' ? '💚' : method.value === 'ALIPAY' ? '💙' : '!')
-const steps = ['平台创建支付单并保存幂等号', '前端只拉起官方收银台，不接触密钥', '支付平台回调必须验签并防重放', '订单、钱包、账本状态统一事务更新', '退款、提现和对账单独审计']
+const isError = computed(() => Boolean(routeErrorText.value || message.value))
+const statusTitle = computed(() => intent.value ? '支付单已创建' : isError.value ? '暂时无法支付' : '等待创建支付单')
+const statusLine = computed(() => intent.value ? '请继续前往官方收银台完成付款' : isError.value ? '支付通道配置或订单状态未通过校验' : '平台正在校验订单与支付通道')
+const statusChip = computed(() => intent.value ? '可拉起' : isError.value ? '已阻止' : '校验中')
+const steps = ['平台创建支付单并保存业务绑定', '前端只拉起微信/支付宝官方收银台', '支付平台异步通知必须验签并防重放', '后端回调确认金额后更新订单状态', '退款、提现和对账保留独立审计']
 
 function decodeRouteValue(fieldName: string, value: string): string {
   try {
@@ -126,6 +138,65 @@ async function backToCheckout(): Promise<void> {
 }
 
 onMounted(readQuery)
+
+async function startGatewayPay(): Promise<void> {
+  if (starting.value) return
+  if (method.value !== 'WECHAT' && method.value !== 'ALIPAY') {
+    routeErrorText.value = '支付方式参数异常，未进入任何第三方支付通道。'
+    return
+  }
+  if (!isValidBackendOrderNo(orderNo.value)) {
+    routeErrorText.value = '订单号无效，请返回订单详情重新进入支付。'
+    return
+  }
+  starting.value = true
+  message.value = ''
+  try {
+    const detail = await getOrderDetail(orderNo.value)
+    if (detail.orderNo !== orderNo.value || detail.status !== 'PENDING_PAY') {
+      throw new Error('订单当前状态不可支付，请返回订单详情刷新。')
+    }
+    const next = await createPaymentIntent({
+      bizType: 'ORDER',
+      bizNo: detail.orderNo,
+      channel: method.value,
+      clientType: 'H5'
+    })
+    intent.value = next
+    paymentNo.value = next.paymentNo
+    if (next.actionType === 'REDIRECT' && next.payUrl) {
+      if (typeof window !== 'undefined') window.location.href = next.payUrl
+      return
+    }
+    if (next.actionType === 'FORM' && next.formHtml) {
+      submitGatewayForm(next.formHtml)
+      return
+    }
+    throw new Error('支付平台返回异常，已阻止继续支付。')
+  } catch (error) {
+    console.warn('payment method gateway start failed', { method: method.value, orderNo: orderNo.value, error })
+    message.value = error instanceof Error ? error.message : '支付通道暂不可用，请稍后重试。'
+  } finally {
+    starting.value = false
+  }
+}
+
+function submitGatewayForm(formHtml: string) {
+  if (typeof document === 'undefined') {
+    message.value = '当前环境无法拉起支付宝表单，请在浏览器中打开。'
+    return
+  }
+  const container = document.createElement('div')
+  container.style.display = 'none'
+  container.innerHTML = formHtml
+  document.body.appendChild(container)
+  const form = container.querySelector('form') as HTMLFormElement | null
+  if (!form) {
+    message.value = '支付宝表单解析失败，已阻止继续支付。'
+    return
+  }
+  form.submit()
+}
 </script>
 <style scoped>
 .method-page{min-height:100vh;padding-top:18rpx;padding-bottom:44rpx;background:radial-gradient(circle at 12% 0%,rgba(255,202,150,.30),transparent 28%),radial-gradient(circle at 88% 16%,rgba(255,226,214,.46),transparent 24%),linear-gradient(180deg,#fff8f0 0%,#fffdfa 48%,#fff5ee 100%)}
@@ -148,4 +219,6 @@ onMounted(readQuery)
 .info-row text:last-child{color:#342116;font-weight:900;text-align:right}
 .primary-btn{margin-top:16rpx;background:linear-gradient(135deg,#ef6f3f,#ff8b76);color:#fffaf4;box-shadow:0 12rpx 26rpx rgba(255,122,69,.18)}
 .primary-btn[disabled]{opacity:.65}
+.ghost-action{margin-top:12rpx;background:#fff3e7;color:#df6735;border:1rpx solid rgba(239,111,63,.16);font-weight:950}
+.ghost-action[disabled]{opacity:.65}
 </style>

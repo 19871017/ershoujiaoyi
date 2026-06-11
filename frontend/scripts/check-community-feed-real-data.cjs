@@ -178,8 +178,8 @@ if (source.includes('await listCommunityPosts(20, activeTopic.value)')) {
   failures.push(`${file}: community tab must use the paginated backend feed endpoint, not fixed first-page listCommunityPosts`)
 }
 
-if (!source.includes('class="feed-card ds-card"') || !source.includes('<view class="feed-actions" @click.stop>') || !source.includes('class="feed-action tapable"')) {
-  failures.push(`${file}: feed card must avoid whole-card action misclicks by scoping detail navigation and styling explicit action pills`)
+if (!source.includes('class="feed-card"') || !source.includes('class="feed-content tapable" @click="openPost(item)"') || !source.includes('<view class="feed-actions" @click.stop>') || !source.includes('class="feed-action tapable"')) {
+  failures.push(`${file}: feed item must avoid whole-item action misclicks by scoping detail navigation and styling explicit action pills`)
 }
 
 if (!/function reportFeedPost\(item: CommunityPostResponse\)[\s\S]*if \(!isValidCommunityPostId\(item\.postId\)\)[\s\S]*targetType=COMMUNITY_POST&targetId=\$\{encodeURIComponent\(String\(item\.postId\)\)\}/s.test(source)) {

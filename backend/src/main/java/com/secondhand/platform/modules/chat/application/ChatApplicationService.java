@@ -49,6 +49,10 @@ public class ChatApplicationService {
     private static final int MAX_VOICE_MIME_TYPE_LENGTH = 64;
     private static final long MAX_VOICE_SIZE_BYTES = 10L * 1024L * 1024L;
     private static final long MAX_VOICE_DURATION_MS = 600L * 1000L;
+    private static final int MAX_VIDEO_URL_LENGTH = 1024;
+    private static final int MAX_VIDEO_MIME_TYPE_LENGTH = 64;
+    private static final long MAX_VIDEO_SIZE_BYTES = 80L * 1024L * 1024L;
+    private static final long MAX_VIDEO_DURATION_MS = 300L * 1000L;
     private static final int DEFAULT_SYNC_LIMIT = 50;
     private static final int MAX_SYNC_LIMIT = 200;
     private static final int MESSAGE_REVOKE_WINDOW_MINUTES = 2;
@@ -444,7 +448,7 @@ public class ChatApplicationService {
                 FROM im_message m
                 JOIN media_upload_ticket t ON t.storage_url = ?
                 LEFT JOIN im_receipt viewer_receipt ON viewer_receipt.conversation_id = m.conversation_id AND viewer_receipt.user_id = ?
-                WHERE m.message_type IN ('IMAGE', 'VOICE')
+                WHERE m.message_type IN ('IMAGE', 'VOICE', 'VIDEO')
                   AND m.revoked = FALSE
                   AND (m.sender_id = ? OR m.receiver_id = ?)
                   AND m.server_seq > COALESCE(viewer_receipt.cleared_seq, 0)
@@ -491,6 +495,10 @@ public class ChatApplicationService {
             return Objects.equals(jsonObject.get("url"), safeUrl)
                     || Objects.equals(jsonObject.get("audioUrl"), safeUrl)
                     || Objects.equals(jsonObject.get("voiceUrl"), safeUrl);
+        }
+        if (MessageType.VIDEO.name().equals(messageType)) {
+            return Objects.equals(jsonObject.get("url"), safeUrl)
+                    || Objects.equals(jsonObject.get("videoUrl"), safeUrl);
         }
         return false;
     }
@@ -615,6 +623,10 @@ public class ChatApplicationService {
         }
         if (MessageType.VOICE.name().equals(msgType)) {
             validateVoiceContent(senderId, content);
+            return;
+        }
+        if (MessageType.VIDEO.name().equals(msgType)) {
+            validateVideoContent(senderId, content);
         }
     }
 
@@ -707,6 +719,61 @@ public class ChatApplicationService {
         mediaUploadTicketService.requireUploadedStorageUrl(senderId, "CHAT_VOICE", url);
     }
 
+    private void validateVideoContent(Long senderId, String content) {
+        Map<String, Object> jsonObject = parseJsonObject(content);
+        Object urlValue = jsonObject.get("url");
+        if (!(urlValue instanceof String url) || url.isBlank() || url.length() > MAX_VIDEO_URL_LENGTH) {
+            throw new IllegalArgumentException("video url invalid");
+        }
+        validateChatVideoTicket(senderId, url);
+        long durationMs = videoDurationMs(jsonObject);
+        if (durationMs <= 0L || durationMs > MAX_VIDEO_DURATION_MS) {
+            throw new IllegalArgumentException("video duration invalid");
+        }
+        validateOptionalPositiveLong(jsonObject.get("sizeBytes"), "video sizeBytes invalid", 1L, MAX_VIDEO_SIZE_BYTES);
+        Object mimeTypeValue = jsonObject.get("mimeType");
+        if (!(mimeTypeValue instanceof String mimeType)
+                || mimeType.isBlank()
+                || mimeType.length() > MAX_VIDEO_MIME_TYPE_LENGTH
+                || !mimeType.matches("video/(mp4|quicktime|x-m4v|webm)")) {
+            throw new IllegalArgumentException("video mimeType invalid");
+        }
+    }
+
+    private long videoDurationMs(Map<String, Object> jsonObject) {
+        Object durationMsValue = jsonObject.get("durationMs");
+        if (durationMsValue instanceof Number number) {
+            long longValue = number.longValue();
+            if (Double.compare(number.doubleValue(), longValue) != 0) {
+                throw new IllegalArgumentException("video duration invalid");
+            }
+            return longValue;
+        }
+        Object durationSecondsValue = jsonObject.get("durationSeconds");
+        if (durationSecondsValue instanceof Number number) {
+            double seconds = number.doubleValue();
+            if (!Double.isFinite(seconds)) {
+                throw new IllegalArgumentException("video duration invalid");
+            }
+            return Math.round(seconds * 1000D);
+        }
+        throw new IllegalArgumentException("video duration invalid");
+    }
+
+    private void validateChatVideoTicket(Long senderId, String url) {
+        if (url.startsWith("local://")
+                || url.startsWith("blob:")
+                || url.startsWith("data:")
+                || url.contains("placeholder")
+                || url.contains("preview")
+                || url.startsWith("http://")
+                || url.startsWith("https://")
+                || !url.startsWith("/uploads/chat-video/")) {
+            throw new IllegalArgumentException("video url invalid");
+        }
+        mediaUploadTicketService.requireUploadedStorageUrl(senderId, "CHAT_VIDEO", url);
+    }
+
     private Map<String, Object> parseJsonObject(String content) {
         try {
             return OBJECT_MAPPER.readValue(content, JSON_OBJECT_TYPE);
@@ -765,7 +832,7 @@ public class ChatApplicationService {
                 || lower.contains("%5c")
                 || lower.contains("placeholder")
                 || lower.contains("preview")
-                || !(safeUrl.startsWith("/uploads/chat-image/") || safeUrl.startsWith("/uploads/chat-voice/"))) {
+                || !(safeUrl.startsWith("/uploads/chat-image/") || safeUrl.startsWith("/uploads/chat-voice/") || safeUrl.startsWith("/uploads/chat-video/"))) {
             throw new IllegalArgumentException("chat media url invalid");
         }
         return safeUrl;
@@ -777,6 +844,9 @@ public class ChatApplicationService {
         }
         if (storageUrl.startsWith("/uploads/chat-voice/")) {
             return "CHAT_VOICE";
+        }
+        if (storageUrl.startsWith("/uploads/chat-video/")) {
+            return "CHAT_VIDEO";
         }
         throw new IllegalArgumentException("chat media url invalid");
     }
@@ -939,6 +1009,9 @@ public class ChatApplicationService {
         }
         if (MessageType.VOICE.name().equals(msgType)) {
             return "[语音]";
+        }
+        if (MessageType.VIDEO.name().equals(msgType)) {
+            return "[视频]";
         }
         return "[消息]";
     }

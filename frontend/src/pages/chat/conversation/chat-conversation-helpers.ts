@@ -15,18 +15,22 @@ export const launchReadinessMarkers = [
 
 export const chatImageStoragePrefix = '/uploads/chat-image/'
 export const chatVoiceStoragePrefix = '/uploads/chat-voice/'
+export const chatVideoStoragePrefix = '/uploads/chat-video/'
 export const communityImageStoragePrefix = '/uploads/community-image/'
 export const avatarImageStoragePrefix = '/uploads/avatar/'
 export const MAX_CHAT_IMAGE_UPLOAD_BYTES = 10_000_000
+export const MAX_CHAT_VIDEO_UPLOAD_BYTES = 80_000_000
 
 export type ImageContentType = 'image/png' | 'image/webp' | 'image/jpeg'
 export type VoiceContentType = 'audio/webm' | 'audio/mp4' | 'audio/mpeg' | 'audio/wav' | 'audio/aac' | 'audio/x-m4a'
+export type VideoContentType = 'video/mp4' | 'video/quicktime' | 'video/x-m4v' | 'video/webm'
 export type ChooseImageFile = { name?: string; type?: string; size?: number }
+export type ChooseVideoFile = { name?: string; type?: string; size?: number; path?: string }
 
 export class ChatDataIntegrityError extends Error {}
 
-export function isKnownChatMessageType(value: unknown): value is 'TEXT' | 'IMAGE' | 'VOICE' {
-  return value === 'TEXT' || value === 'IMAGE' || value === 'VOICE'
+export function isKnownChatMessageType(value: unknown): value is 'TEXT' | 'IMAGE' | 'VOICE' | 'VIDEO' {
+  return value === 'TEXT' || value === 'IMAGE' || value === 'VOICE' || value === 'VIDEO'
 }
 
 export function isValidBackendId(value: unknown): value is number {
@@ -149,7 +153,7 @@ export function assertSendMessageResponse(value: unknown): asserts value is Send
   if (typeof ack.serverMsgId !== 'string' || !ack.serverMsgId.trim()) throw new Error('chat send invalid serverMsgId')
   if (typeof ack.clientMsgId !== 'string' || !ack.clientMsgId.trim()) throw new Error('chat send invalid clientMsgId')
   if (!isValidBackendId(ack.senderId) || !isValidBackendId(ack.receiverId)) throw new Error('chat send invalid participant ids')
-  if (ack.msgType !== 'TEXT' && ack.msgType !== 'IMAGE' && ack.msgType !== 'VOICE') throw new Error('chat send invalid msgType')
+  if (ack.msgType !== 'TEXT' && ack.msgType !== 'IMAGE' && ack.msgType !== 'VOICE' && ack.msgType !== 'VIDEO') throw new Error('chat send invalid msgType')
 }
 
 export function isValidVoiceMessageContent(content: Record<string, unknown>): boolean {
@@ -210,8 +214,35 @@ export function voiceFallbackName(contentType: VoiceContentType): string {
   return 'chat-voice.webm'
 }
 
+export function guessVideoMime(path: string, fallbackType?: string): VideoContentType {
+  const normalizedType = fallbackType?.split(';')[0]?.trim().toLowerCase()
+  if (normalizedType === 'video/mp4' || normalizedType === 'video/quicktime' || normalizedType === 'video/x-m4v' || normalizedType === 'video/webm') return normalizedType
+  const lower = path.toLowerCase().split('?')[0] || ''
+  if (lower.endsWith('.mov')) return 'video/quicktime'
+  if (lower.endsWith('.m4v')) return 'video/x-m4v'
+  if (lower.endsWith('.webm')) return 'video/webm'
+  return 'video/mp4'
+}
+
+export function videoFallbackName(contentType: VideoContentType): string {
+  if (contentType === 'video/quicktime') return 'chat-video.mov'
+  if (contentType === 'video/x-m4v') return 'chat-video.m4v'
+  if (contentType === 'video/webm') return 'chat-video.webm'
+  return 'chat-video.mp4'
+}
+
+export function videoFileSize(file?: ChooseVideoFile, pickerSize?: number): number {
+  const selectedSize = Number(file?.size ?? pickerSize)
+  const requestedSize = Number.isFinite(selectedSize) && selectedSize > 0 ? selectedSize : MAX_CHAT_VIDEO_UPLOAD_BYTES
+  return Math.max(1, Math.min(requestedSize, MAX_CHAT_VIDEO_UPLOAD_BYTES))
+}
+
 export function hasInvalidChatVoiceStorageUrl(url: unknown): boolean {
   return hasInvalidStoredImageUrl(url, chatVoiceStoragePrefix)
+}
+
+export function hasInvalidChatVideoStorageUrl(url: unknown): boolean {
+  return hasInvalidStoredImageUrl(url, chatVideoStoragePrefix)
 }
 
 export function isPickerCancel(error: unknown): boolean {
@@ -231,6 +262,23 @@ export function hasInvalidTempChatImagePath(path: string): boolean {
     path.includes('\\') ||
     path.includes('..') ||
     (!isH5BlobPath && path.includes('//'))
+}
+
+export function hasInvalidTempChatVideoPath(path: string): boolean {
+  const lower = path.toLowerCase()
+  const isH5BlobPath = lower.startsWith('blob:')
+  const allowedTempScheme = lower.startsWith('wxfile://') || lower.startsWith('file://') || lower.startsWith('ttfile://') || lower.startsWith('cdvfile://')
+  return !path ||
+    path.startsWith('local://') ||
+    path.startsWith('data:') ||
+    lower.includes('placeholder') ||
+    lower.includes('preview') ||
+    lower.includes('%2e') ||
+    lower.includes('%2f') ||
+    lower.includes('%5c') ||
+    path.includes('\\') ||
+    path.includes('..') ||
+    (!isH5BlobPath && path.includes('//') && !allowedTempScheme)
 }
 
 export function hasInvalidStoredImageUrl(url: unknown, storagePrefix: string): boolean {
@@ -257,6 +305,10 @@ export function hasInvalidChatImageStorageUrl(url: unknown): boolean {
 
 export function isValidChatVoiceStorageUrl(url: string): boolean {
   return !hasInvalidStoredImageUrl(url, chatVoiceStoragePrefix)
+}
+
+export function isValidChatVideoStorageUrl(url: string): boolean {
+  return !hasInvalidStoredImageUrl(url, chatVideoStoragePrefix)
 }
 
 export function validatedCommunityImageUrl(url: unknown): string {

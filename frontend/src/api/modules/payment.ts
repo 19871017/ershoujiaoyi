@@ -24,8 +24,32 @@ export interface RechargeResponse {
   idempotentReplay: boolean
 }
 
+export interface CreatePaymentIntentRequest {
+  bizType: 'ORDER' | 'RECHARGE'
+  bizNo: string
+  channel: 'WECHAT' | 'ALIPAY'
+  clientType?: 'H5'
+}
+
+export interface PaymentIntentResponse {
+  paymentNo: string
+  bizType: string
+  bizNo: string
+  amount: MoneyAmount
+  channel: 'WECHAT' | 'ALIPAY'
+  status: string
+  actionType: 'REDIRECT' | 'FORM'
+  payUrl?: string | null
+  formHtml?: string | null
+  message?: string | null
+}
+
 export function createRecharge(data: CreateRechargeRequest) {
   return post<RechargeResponse>('/api/payments/recharge', data)
+}
+
+export function createPaymentIntent(data: CreatePaymentIntentRequest) {
+  return post<PaymentIntentResponse>('/api/payments/intents', data)
 }
 
 export function simulateRechargeSuccess(rechargeNo: string) {

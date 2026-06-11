@@ -19,7 +19,7 @@
       </view>
     </view>
 
-    <view class="right-panel ds-card">
+    <view class="right-panel">
       <view class="panel-row">
         <view class="panel-title">{{ currentGroup.name }}</view>
         <view class="soft-count">{{ filteredProducts.length }} 件</view>
@@ -43,13 +43,16 @@
         <view class="product-section-title">精选宝贝</view>
         <view class="product-section-subtitle">只看当前在售，喜欢就去看看</view>
       </view>
-      <view class="filter-row">
-        <view v-for="item in sortOptions" :key="item.value" class="filter-chip tapable" :class="{ active: sortBy === item.value }" @click="sortBy = item.value">{{ item.label }}</view>
+      <view class="product-section-actions">
+        <view class="filter-row">
+          <view v-for="item in sortOptions" :key="item.value" class="filter-chip tapable" :class="{ active: sortBy === item.value }" @click="sortBy = item.value">{{ item.label }}</view>
+        </view>
+        <view v-if="canPublish" class="publish-inline tapable" @click="goPublishForm">＋</view>
       </view>
     </view>
 
     <view v-if="filteredProducts.length" class="product-grid">
-      <view v-for="item in filteredProducts" :key="item.productId" class="product-card ds-card tapable" @click="openProduct(item.productId)">
+      <view v-for="item in filteredProducts" :key="item.productId" class="product-card tapable" @click="openProduct(item.productId)">
         <view class="cover">
           <image v-if="item.coverImageUrl" class="cover-img" :src="item.coverImageUrl" mode="aspectFill" />
           <text v-else>{{ iconFor(item.title) }}</text>
@@ -88,8 +91,6 @@
         <view class="empty-action primary tapable" @click="refreshCategoryData(true)">刷新看看</view>
       </view>
     </view>
-
-    <view v-if="canPublish" class="publish-fab tapable" @click="goPublishForm">＋</view>
   </view>
 </template>
 

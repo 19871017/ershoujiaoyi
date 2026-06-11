@@ -3,7 +3,8 @@ package com.secondhand.platform.shared.contracts.chat;
 public enum MessageType {
     TEXT,
     IMAGE,
-    VOICE;
+    VOICE,
+    VIDEO;
 
     public static MessageType from(String value) {
         if (value == null || value.isBlank()) {
@@ -14,6 +15,6 @@ public enum MessageType {
                 return type;
             }
         }
-        throw new IllegalArgumentException("message type must be TEXT, IMAGE or VOICE");
+        throw new IllegalArgumentException("message type must be TEXT, IMAGE, VOICE or VIDEO");
     }
 }

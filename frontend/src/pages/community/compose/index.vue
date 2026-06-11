@@ -90,6 +90,18 @@
     </view>
 
     <button class="primary-btn submit" :disabled="submitting || uploadingImages" @click="submitPost">{{ submitting ? '提交中...' : '提交发布' }}</button>
+
+    <view v-if="postSuccessDialog.visible" class="post-success-overlay">
+      <view class="post-success-panel" @click.stop>
+        <view class="post-success-mark">✓</view>
+        <view class="post-success-title">发布成功</view>
+        <view class="post-success-copy">动态已进入社区，评论、点赞和私信都会以平台记录为准。</view>
+        <view class="post-success-actions">
+          <button class="post-success-btn ghost" @click="handlePostSuccessBack">回社区</button>
+          <button class="post-success-btn primary" @click="handlePostSuccessView">查看动态</button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -132,15 +144,7 @@ const myProductsLoading = ref(false)
 const myProductsError = ref('')
 const myProductsLoaded = ref(false)
 const mySelectableProducts = ref<ComposeSelectableRelatedProduct[]>([])
-const showModalWithFailure = uni.showModal as unknown as (options: {
-  title?: string
-  content: string
-  showCancel?: boolean
-  confirmText?: string
-  cancelText?: string
-  success?: (result: { confirm: boolean; cancel: boolean }) => void
-  fail?: (error: unknown) => void
-}) => void
+const postSuccessDialog = ref<{ visible: boolean; postId: number }>({ visible: false, postId: 0 })
 const redirectToWithFailure = uni.redirectTo as unknown as (options: { url: string; fail?: (error: unknown) => void }) => void
 const switchTabWithFailure = uni.switchTab as unknown as (options: { url: string; fail?: (error: unknown) => void }) => void
 const relatedProductPriceText = computed(() => {
@@ -343,24 +347,33 @@ async function submitPost() {
     const created = await createCommunityPost({ title: form.title, topic: form.topic, content: form.content, imageUrls: form.images.map(validatedCommunityImageUrl), relatedProductId: relatedProductId.value })
     assertCreatedCommunityPost(created, form.topic)
     submitMessage.value = `已提交发布：${created.postNo || created.postId}`
-    showModalWithFailure({
-      title: '发布成功',
-      content: '动态已进入社区，评论、点赞和私信都会以平台记录为准。',
-      showCancel: true,
-      confirmText: '查看动态',
-      cancelText: '回社区',
-      success: (res) => redirectAfterPostCreated(res.confirm, created.postId),
-      fail: (error: unknown) => {
-        console.warn('community compose success modal failed', error)
-        showPostCreatedNavigationFallback(created.postId)
-      }
-    })
+    openPostSuccessDialog(created.postId)
   } catch (error) {
     submitMessage.value = '发布没有提交成功，未进入社区广场'
     uni.showToast({ title: error instanceof Error ? error.message : '发布失败，请稍后重试', icon: 'none' })
   } finally {
     submitting.value = false
   }
+}
+
+function openPostSuccessDialog(postId: number): void {
+  postSuccessDialog.value = { visible: true, postId }
+}
+
+function closePostSuccessDialog(): number {
+  const postId = postSuccessDialog.value.postId
+  postSuccessDialog.value = { visible: false, postId: 0 }
+  return postId
+}
+
+function handlePostSuccessBack(): void {
+  const postId = closePostSuccessDialog()
+  redirectAfterPostCreated(false, postId)
+}
+
+function handlePostSuccessView(): void {
+  const postId = closePostSuccessDialog()
+  redirectAfterPostCreated(true, postId)
 }
 
 function redirectAfterPostCreated(stayOnPost: boolean, postId: number): void {

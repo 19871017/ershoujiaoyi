@@ -3,7 +3,7 @@
     <view v-if="loading" class="ds-card state">加载中...</view>
 
     <view v-else-if="detail" class="detail-body">
-      <view class="hero-card ds-card">
+      <view class="hero-card">
         <view class="hero" :class="toneClass(detail.productId)">
           <image v-if="activeImage" class="hero-img" :src="activeImage" mode="aspectFill" />
           <text v-else>{{ iconFor(detail.title) }}</text>
@@ -16,7 +16,7 @@
         </view>
       </view>
 
-      <view class="info-card ds-card">
+      <view class="info-card">
         <view class="title-row">
           <view class="title">{{ detail.title }}</view>
           <view class="favorite tapable" :class="{ active: favorited }" @click="toggleFavorite">{{ favorited ? '♥' : '♡' }}</view>
@@ -30,7 +30,7 @@
         <view class="desc">{{ detail.description || '暂无描述' }}</view>
       </view>
 
-      <view class="seller-card ds-card tapable" @click="openSellerProfile">
+      <view class="seller-card tapable" @click="openSellerProfile">
         <view class="seller-avatar" :class="{ image: !!sellerAvatarUrl }">
           <image v-if="sellerAvatarUrl" class="seller-avatar-img" :src="sellerAvatarUrl" mode="aspectFill" />
           <text v-else>{{ sellerName.slice(0, 1) }}</text>
@@ -46,7 +46,7 @@
         <button class="mini-btn" @click.stop="contactSeller">私信</button>
       </view>
 
-      <view class="rule-card ds-card">
+      <view class="rule-card">
         <view class="section-title">交易保障</view>
         <view class="rule-line">{{ detail.tradeRule }}</view>
         <view class="safe-grid">
@@ -60,7 +60,7 @@
         </view>
       </view>
 
-      <view class="action-panel ds-card">
+      <view class="action-panel">
         <view class="panel-title">购买前确认</view>
         <view v-for="item in confirmItems" :key="item.key" class="confirm-row tapable" @click="item.checked = !item.checked">
           <view :class="['check', { active: item.checked }]">✓</view>

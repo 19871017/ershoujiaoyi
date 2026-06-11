@@ -35,15 +35,32 @@
       <view class="section-title">实名认证资料</view>
       <view class="status-text">当前状态：{{ realNameStatusText }}</view>
       <input :value="form.name" class="input" placeholder="真实姓名" @input="updateRealNameField('name', $event)" />
-      <input :value="form.idTail" class="input" maxlength="4" type="number" placeholder="证件号码后四位" @input="updateRealNameField('idTail', $event)" />
+      <input :value="form.idNumber" class="input" maxlength="18" type="text" placeholder="18 位身份证号码" @input="updateRealNameField('idNumber', $event)" @blur="normalizeRealNameForm" />
       <view class="upload">
         <view class="upload-icon">＋</view>
         <view>
-          <view class="upload-title">提交最小实名资料</view>
-          <view class="upload-desc">仅提交真实姓名和证件后四位，不上传完整证件号；通过后台审核后用于提现和纠纷处理。</view>
+          <view class="upload-title">提交完整实名资料</view>
+          <view class="upload-desc">完整身份证号码只用于平台审核、提现复核和纠纷处理；页面与后台列表只展示脱敏摘要。</view>
         </view>
       </view>
       <button class="primary-btn" :disabled="realNameSubmitDisabled" @click="submit">{{ realNameSubmitButtonText }}</button>
+    </view>
+
+    <view class="form-card ds-card">
+      <view class="section-title">卖家收款账户</view>
+      <view class="status-text">{{ payoutAccountStatusText }}</view>
+      <view v-if="activePayoutAccount" class="account-summary">
+        <view><text>收款方式</text><text>{{ payoutMethodLabel(activePayoutAccount.paymentMethod) }}</text></view>
+        <view><text>收款人</text><text>{{ activePayoutAccount.accountName }}</text></view>
+        <view><text>脱敏账号</text><text>{{ activePayoutAccount.maskedAccountNo }}</text></view>
+      </view>
+      <view class="method-row">
+        <view v-for="item in payoutMethods" :key="item" class="method-chip tapable" :class="{ active: payoutForm.paymentMethod === item }" @click="payoutForm.paymentMethod = item">{{ payoutMethodLabel(item) }}</view>
+      </view>
+      <input :value="payoutForm.accountName" class="input" maxlength="24" placeholder="收款人姓名，需与实名一致" @input="updatePayoutField('accountName', $event)" @blur="trimPayoutField('accountName')" />
+      <input :value="payoutForm.accountNo" class="input" maxlength="80" placeholder="推荐填写支付宝账号" @input="updatePayoutField('accountNo', $event)" @blur="trimPayoutField('accountNo')" />
+      <button class="primary-btn" :disabled="payoutSubmitting || payoutLoading" @click="submitPayoutAccount">{{ payoutSubmitting ? '提交中...' : '绑定收款账户' }}</button>
+      <view v-if="payoutMessage" class="account-message" :class="{ danger: payoutFailed }">{{ payoutMessage }}</view>
     </view>
 
     <view class="check-card ds-card">
@@ -57,26 +74,38 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createMediaUploadTicket, uploadMediaTicketBlob, uploadMediaTicketFile } from '../../../api/modules/media'
 import { getMyProfile, submitRealNameIdentity, submitVideoIdentity, type UserProfileResponse } from '../../../api/modules/user'
+import { bindPayoutAccount, getPayoutAccount, type PayoutAccountResponse } from '../../../api/modules/wallet'
 import {
   assertBackendProfile,
   checks,
   guessVideoContentType,
+  hasMaskedAccountMarker,
   hasApprovedVideoIdentity,
   hasInvalidTempVideoPath,
   hasInvalidVideoIdentityDuration,
+  isValidChineseIdNumber,
   isPickerCancel,
+  normalizedIdNumber,
   validatedVideoIdentityUrl,
   videoNameFromPickerResult,
   videoTypeFromPickerResult,
+  type PayoutAccountFieldKey,
   type ChooseVideoResult,
   type RealNameFieldKey
 } from './identity-helpers'
 
-const form = reactive({ name: '', idTail: '' })
+const form = reactive({ name: '', idNumber: '' })
+const payoutMethods = ['ALIPAY', 'BANK_CARD']
+const payoutForm = reactive({ paymentMethod: 'ALIPAY', accountName: '', accountNo: '' })
+const activePayoutAccount = ref<PayoutAccountResponse | null>(null)
 const videoUrl = ref('')
 const uploadingVideo = ref(false)
 const submittingVideo = ref(false)
 const submittingRealName = ref(false)
+const payoutLoading = ref(false)
+const payoutSubmitting = ref(false)
+const payoutMessage = ref('')
+const payoutFailed = ref(false)
 const profileReady = ref(false)
 const profileUnavailable = ref(false)
 const profile = reactive<UserProfileResponse>({ userId: 0, nickname: '', mainRole: 'UNVERIFIED', identityStatus: 'UNVERIFIED', videoIdentityStatus: 'UNVERIFIED', videoVerified: false })
@@ -89,6 +118,7 @@ const videoUploadStateText = computed(videoUploadStateLabel)
 const videoSubmitButtonText = computed(submitVideoButtonLabel)
 const realNameStatusText = computed(realNameStatusLabel)
 const realNameSubmitButtonText = computed(submitRealNameButtonLabel)
+const payoutAccountStatusText = computed(payoutAccountStatusLabel)
 const videoActionDisabled = computed(() => !profileReady.value || profileUnavailable.value || uploadingVideo.value || hasApprovedVideoIdentity(profile))
 const videoSubmitDisabled = computed(() => submittingVideo.value || uploadingVideo.value || !videoUrl.value || !profileReady.value || profileUnavailable.value || hasApprovedVideoIdentity(profile))
 const realNameSubmitDisabled = computed(() => submittingRealName.value || !profileReady.value || profileUnavailable.value || profile.identityStatus === 'VERIFIED')
@@ -183,6 +213,17 @@ function submitRealNameButtonLabel(): string {
   return '提交实名认证'
 }
 
+function payoutMethodLabel(method: string): string {
+  if (method === 'ALIPAY') return '支付宝（推荐）'
+  return '银行卡'
+}
+
+function payoutAccountStatusLabel(): string {
+  if (payoutLoading.value) return '正在读取平台收款账户...'
+  if (activePayoutAccount.value) return `已绑定 ${payoutMethodLabel(activePayoutAccount.value.paymentMethod)}，提现仍需后台审核。`
+  return '推荐先绑定支付宝账号；未绑定前卖家提现会 fail-closed。'
+}
+
 function inputValue(field: RealNameFieldKey, event: unknown): string | undefined {
   const value = (event as { detail?: { value?: unknown } } | null | undefined)?.detail?.value
   if (typeof value !== 'string') {
@@ -197,6 +238,49 @@ function updateRealNameField(field: RealNameFieldKey, event: unknown): void {
   const value = inputValue(field, event)
   if (value === undefined) return
   form[field] = value
+}
+
+function normalizeRealNameForm(): void {
+  form.name = form.name.trim()
+  form.idNumber = normalizedIdNumber(form.idNumber)
+}
+
+function payoutInputValue(field: PayoutAccountFieldKey, event: unknown): string | undefined {
+  const value = (event as { detail?: { value?: unknown } } | null | undefined)?.detail?.value
+  if (typeof value !== 'string') {
+    console.warn('identity payout account input invalid', { field })
+    uni.showToast({ title: '收款账户输入读取失败，请重新输入', icon: 'none' })
+    return undefined
+  }
+  return value
+}
+
+function updatePayoutField(field: PayoutAccountFieldKey, event: unknown): void {
+  const value = payoutInputValue(field, event)
+  if (value === undefined) return
+  payoutForm[field] = value
+}
+
+function trimPayoutField(field: PayoutAccountFieldKey): void {
+  payoutForm[field] = payoutForm[field].trim()
+}
+
+async function loadPayoutAccount(): Promise<void> {
+  payoutLoading.value = true
+  payoutFailed.value = false
+  try {
+    activePayoutAccount.value = await getPayoutAccount()
+    payoutMessage.value = activePayoutAccount.value
+      ? '已读取平台绑定的脱敏收款账户。'
+      : '暂未绑定收款账户，建议优先填写支付宝账号。'
+  } catch (error) {
+    activePayoutAccount.value = null
+    payoutFailed.value = true
+    payoutMessage.value = '收款账户暂时无法读取，请稍后重新进入页面确认。'
+    console.warn('identity payout account refresh failed', { error })
+  } finally {
+    payoutLoading.value = false
+  }
 }
 
 async function readH5TempVideoBlob(tempFilePath: string): Promise<Blob | undefined> {
@@ -350,15 +434,17 @@ async function submitVideo(): Promise<void> {
 async function submit(): Promise<void> {
   if (!profileReady.value || profileUnavailable.value) return uni.showToast({ title: '认证状态暂时不可用，请稍后重新进入页面查看', icon: 'none' })
   if (profile.identityStatus === 'VERIFIED') return uni.showToast({ title: '实名认证已通过', icon: 'none' })
+  normalizeRealNameForm()
   if (!form.name || form.name.length < 2) return uni.showToast({ title: '请填写真实姓名', icon: 'none' })
-  if (!/^\d{4}$/.test(form.idTail)) return uni.showToast({ title: '请填写证件号码后四位', icon: 'none' })
+  if (!isValidChineseIdNumber(form.idNumber)) return uni.showToast({ title: '请填写有效的 18 位身份证号码', icon: 'none' })
   if (submittingRealName.value) {
     console.warn('identity real-name submit ignored because submission is already in progress')
     return uni.showToast({ title: '实名认证正在提交，请勿重复点击', icon: 'none' })
   }
   submittingRealName.value = true
   try {
-    await submitRealNameIdentity({ realName: form.name.trim(), idTail: form.idTail.trim() })
+    await submitRealNameIdentity({ realName: form.name.trim(), idNumber: normalizedIdNumber(form.idNumber) })
+    form.idNumber = ''
     const refreshed = await loadProfile()
     if (!refreshed) return uni.showToast({ title: '实名提交结果暂时无法校验，请稍后重新进入页面确认后再操作', icon: 'none' })
     const modalOptions = {
@@ -384,7 +470,50 @@ async function submit(): Promise<void> {
   }
 }
 
-onMounted(loadProfile)
+async function submitPayoutAccount(): Promise<void> {
+  if (payoutSubmitting.value) {
+    console.warn('identity payout account submit ignored because submission is already in progress')
+    return uni.showToast({ title: '收款账户正在提交，请勿重复点击', icon: 'none' })
+  }
+  trimPayoutField('accountName')
+  trimPayoutField('accountNo')
+  payoutMessage.value = ''
+  payoutFailed.value = false
+  if (!payoutForm.accountName || payoutForm.accountName.length < 2) {
+    payoutFailed.value = true
+    payoutMessage.value = '请填写真实收款人姓名。'
+    return uni.showToast({ title: '请填写真实收款人姓名', icon: 'none' })
+  }
+  if (!payoutForm.accountNo || hasMaskedAccountMarker(payoutForm.accountNo)) {
+    payoutFailed.value = true
+    payoutMessage.value = '请填写完整收款账号，不能提交脱敏账号。'
+    return uni.showToast({ title: '请填写完整收款账号', icon: 'none' })
+  }
+  payoutSubmitting.value = true
+  try {
+    activePayoutAccount.value = await bindPayoutAccount({
+      paymentMethod: payoutForm.paymentMethod,
+      accountName: payoutForm.accountName,
+      accountNo: payoutForm.accountNo
+    })
+    payoutForm.accountNo = ''
+    payoutMessage.value = '收款账户已绑定，页面只保留脱敏账号；提现仍需后台审核。'
+    uni.showToast({ title: '收款账户已绑定', icon: 'none' })
+  } catch (error) {
+    payoutFailed.value = true
+    payoutMessage.value = error instanceof Error ? error.message : '收款账户绑定失败，请检查后重试。'
+    console.warn('identity payout account submit failed', { paymentMethod: payoutForm.paymentMethod, error })
+    uni.showToast({ title: payoutMessage.value, icon: 'none' })
+  } finally {
+    payoutSubmitting.value = false
+  }
+}
+
+async function initializeIdentityPage(): Promise<void> {
+  await Promise.all([loadProfile(), loadPayoutAccount()])
+}
+
+onMounted(initializeIdentityPage)
 </script>
 
 <style scoped lang="scss" src="./style.scss"></style>

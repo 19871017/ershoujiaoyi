@@ -56,13 +56,17 @@ function assertChatContentFixtureBehavior() {
     MAX_CHAT_IMAGE_UPLOAD_BYTES,
     normalizedVoiceMimeType,
     parseMessageContentForValidation,
-    safeParsedMessageContent
+    safeParsedMessageContent,
+    videoFileSize,
+    MAX_CHAT_VIDEO_UPLOAD_BYTES
   } = helpers
   if (
     typeof assertParsableChatMessageContent !== 'function' ||
     typeof imageFileSize !== 'function' ||
     MAX_CHAT_IMAGE_UPLOAD_BYTES !== 10_000_000 ||
     typeof normalizedVoiceMimeType !== 'function' ||
+    typeof videoFileSize !== 'function' ||
+    MAX_CHAT_VIDEO_UPLOAD_BYTES !== 80_000_000 ||
     typeof parseMessageContentForValidation !== 'function' ||
     typeof safeParsedMessageContent !== 'function'
   ) {
@@ -91,6 +95,9 @@ function assertChatContentFixtureBehavior() {
     if (imageFileSize(undefined) !== 10_000_000) throw new Error('unknown image size should request max CHAT_IMAGE ticket')
     if (imageFileSize({ size: 2_000_000 }) !== 2_000_000) throw new Error('known image size should be preserved')
     if (imageFileSize({ size: 20_000_000 }) !== 10_000_000) throw new Error('oversized image ticket request should be clamped')
+    if (videoFileSize(undefined) !== 80_000_000) throw new Error('unknown video size should request max CHAT_VIDEO ticket')
+    if (videoFileSize({ size: 2_000_000 }) !== 2_000_000) throw new Error('known video size should be preserved')
+    if (videoFileSize({ size: 90_000_000 }) !== 80_000_000) throw new Error('oversized video ticket request should be clamped')
     if (parseMessageContentForValidation(normalText).text !== '你好') throw new Error('normal text not parsed')
     if (parseMessageContentForValidation(doubleEncodedText).text !== '双重编码') throw new Error('double encoded text not parsed')
     if (parseMessageContentForValidation(legacyEscapedText).text !== '历史消息') throw new Error('legacy escaped text not parsed')
@@ -179,7 +186,10 @@ const requiredConversationMarkers = [
   'const peerBuyerPowerScore = ref(0)',
   'const peerProfileTrusted = ref(false)',
   'const peerLevel = computed(() => buildChatPeerLevel(peerIdentitySource.value))',
-  'const peerIdentityBadges = computed(() => chatPeerIdentityBadges(peerIdentitySource.value).filter((badge) => !badge.startsWith(\'LV.\')))',
+  'const peerGenderBadge = computed(() => {',
+  'normalizedPeerGender(peerIdentitySource.value)',
+  'peerGenderSymbol(peerIdentitySource.value)',
+  'const peerIdentityBadges = computed(() => chatPeerIdentityBadges(peerIdentitySource.value).filter((badge) => !badge.startsWith(\'LV.\') && badge !== \'♂\' && badge !== \'♀\'))',
   'function applyPeerProfile(profile: UserProfileResponse): void',
   'function applyPeerConversationItem(item: ChatConversationItem): void',
   "peerAvatarUrl.value = resolveBackendMediaUrl(validatedChatAvatarUrl(profile.avatarUrl || ''))",
@@ -260,10 +270,15 @@ const requiredConversationMarkers = [
   ':scroll-into-view="bottomAnchorId"',
   'const bottomAnchorId = ref',
   'const keyboardInset = ref(0)',
+  'const recordingElapsedMs = ref(0)',
   'const previousBeforeSeq = ref(0)',
   'const hasEarlierMessages = ref(false)',
   'function scrollMessagesToBottom',
   'function installKeyboardInsetListeners',
+  'function startVoiceRecordTicker(): void',
+  'function stopVoiceRecordTicker(): void',
+  'const recordingElapsedText = computed(() => formatDurationSeconds',
+  'function formatDurationSeconds(seconds: number): string',
   'window.visualViewport',
   'scrollMessagesToBottom()',
   '暂不能发送消息',
@@ -271,11 +286,16 @@ const requiredConversationMarkers = [
   '请输入消息内容后再发送',
   '图片暂不可用',
   '语音暂不可用',
+  '视频暂不可用',
   "createMediaUploadTicket({ scene: 'CHAT_VOICE'",
+  "createMediaUploadTicket({ scene: 'CHAT_VIDEO'",
   'uploadMediaTicketBlob(ticket, blob',
   'uploadMediaTicketFile(ticket, tempFilePath)',
   "await handleSend('VOICE'",
+  "await handleSend('VIDEO'",
   'const MAX_CHAT_VOICE_UPLOAD_BYTES = 10_000_000',
+  'const MAX_CHAT_VIDEO_UPLOAD_BYTES = 80_000_000',
+  'const MAX_CHAT_VIDEO_DURATION_MS = 300_000',
   "type VoiceRecordingMode = 'browser' | 'uni' | ''",
   'function canUseBrowserVoiceRecorder(): boolean',
   'function browserVoiceUnsupportedReason(): string',
@@ -290,10 +310,18 @@ const requiredConversationMarkers = [
   'getRecorderManager',
   'function handleRecordedUniVoice(tempFilePath: string, durationMs: number, fileSize?: number): Promise<void>',
   'function hasInvalidTempChatVoicePath(path: string): boolean',
+  'function sendVideoPlaceholder(): void',
+  'function handleSendVideo(localPath: string, result: ChooseVideoResult): Promise<void>',
+  'function hasInvalidTempChatVideoPath(path: string): boolean',
+  'function hasInvalidChatVideoStorageUrl(url: unknown): boolean',
   "browserVoiceUnsupportedReason() || '当前环境暂不支持语音录制，请换用手机浏览器或安全连接'",
   "statusText.value = '语音文件过大，请重新录制'",
   'function chatVoiceMessageUrl(message: ChatMessageItem): string',
+  'function chatVideoMessageUrl(message: ChatMessageItem): string',
   'function isMessageUnavailable(message: ChatMessageItem): boolean',
+  'function voicePlaybackStateClass(message: ChatMessageItem): string',
+  'class="voice-state-dot"',
+  'async function prepareChatVideo(message: ChatMessageItem): Promise<void>',
   'async function previewChatImage(message: ChatMessageItem): Promise<void>',
   'function isMessageRevoked(message: ChatMessageItem): boolean',
   'function canRevokeMessage(message: ChatMessageItem): boolean',
@@ -338,6 +366,11 @@ const requiredConversationMarkers = [
   'function hasInvalidChatVoiceStorageUrl(url: unknown): boolean',
   'function validatedChatAvatarUrl(url: unknown): string',
   'function updateDraft(event: unknown): void',
+  'const composerPlaceholder = computed(() => recording.value ?',
+  'const sendButtonDisabled = computed(() => textComposerBlocked.value || !hasDraftText.value)',
+  ':disabled="sendButtonDisabled"',
+  'class="composer-tools"',
+  'class="composer-input-wrap"',
   'clientMsgId: `h5-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`',
   'chatImageMessageUrl(message)'
 ]
@@ -415,7 +448,7 @@ if (!conversation.includes('const textComposerBlocked = computed(() => composerB
   !conversation.includes(':disabled="textComposerBlocked"') ||
   !/async function handleSendText\(\): Promise<void>[\s\S]*if \(recording\.value\)[\s\S]*请先结束或取消录音，再发送文字[\s\S]*await handleSend\('TEXT'\)/s.test(conversation) ||
   !/function sendImagePlaceholder\(\): void[\s\S]*if \(recording\.value\) \{ statusText\.value = '请先结束或取消录音，再发送图片'; return \}/s.test(conversation) ||
-  !/async function handleSend\(type: 'TEXT' \| 'IMAGE' \| 'VOICE'[\s\S]*if \(recording\.value && type !== 'VOICE'\)/s.test(conversation)) {
+  !/async function handleSend\(type: 'TEXT' \| 'IMAGE' \| 'VOICE' \| 'VIDEO'[\s\S]*if \(recording\.value && type !== 'VOICE'\)/s.test(conversation)) {
   console.error(`${conversationFile}: recording state must block text/image sending while keeping the voice stop action available`)
   failed = true
 }
@@ -425,19 +458,74 @@ if (!conversation.includes('class="back-action tapable"') || !conversation.inclu
   failed = true
 }
 
-if (!conversation.includes('class="voice-control"') || !conversation.includes('class="voice-cancel-pill tapable"') || !style.includes('.voice-control') || !style.includes('.voice-cancel-pill') || /class="tool cancel-voice/.test(conversation)) {
-  console.error(`${conversationFile}: recording cancel action must not take an extra composer column on narrow mobile screens`)
+if (!conversation.includes('class="voice-control"') || !conversation.includes('class="recording-status"') || !conversation.includes('class="recording-cancel tapable"') || !style.includes('.voice-control') || !style.includes('.recording-status') || !style.includes('.recording-cancel') || /class="tool cancel-voice/.test(conversation)) {
+  console.error(`${conversationFile}: recording cancel action must use a refined status strip instead of taking an extra composer column on narrow mobile screens`)
   failed = true
 }
 
 if (
   !conversation.includes('class="voice-mic-icon"') ||
   !conversation.includes('class="voice-stop-icon"') ||
+  !conversation.includes('class="media-image-icon"') ||
+  !conversation.includes('class="media-plus-mark"') ||
+  !conversation.includes('class="composer-tools"') ||
+  !conversation.includes('class="composer-input-wrap"') ||
+  !conversation.includes('class="send-arrow-icon"') ||
+  !conversation.includes(':aria-label="sendButtonLabel"') ||
+  !conversation.includes(':disabled="sendButtonDisabled"') ||
   !style.includes('.voice-mic-icon') ||
   !style.includes('.voice-stop-icon') ||
+  !style.includes('.media-image-icon') ||
+  !style.includes('.media-plus-mark') ||
+  !style.includes('.composer-tools') ||
+  !style.includes('.composer-input-wrap.focused') ||
+  !style.includes('.send-arrow-icon') ||
+  !style.includes('.send-btn.ready') ||
   /{{\s*recording\s*\?\s*'停'\s*:\s*'语'\s*}}/.test(conversation)
 ) {
-  console.error(`${conversationFile}: voice recorder composer button must use icon-only microphone/stop states instead of text labels`)
+  console.error(`${conversationFile}: mature IM composer must use icon-only microphone, media, and send controls instead of text labels`)
+  failed = true
+}
+
+if (
+  !conversation.includes('class="message-voice-bubble tapable"') ||
+  !conversation.includes('class="voice-play-ring"') ||
+  !conversation.includes('voicePlaybackStateClass(message)') ||
+  !conversation.includes('class="voice-state-dot"') ||
+  !conversation.includes('class="voice-wave-bar tall"') ||
+  !conversation.includes('voicePlaybackStateText(message)') ||
+  !conversation.includes('voiceDurationText(message)') ||
+  !style.includes('.message-voice-bubble.playing') ||
+  !style.includes('.voice-state-dot.playing') ||
+  !style.includes('@keyframes voiceRing') ||
+  !style.includes('@keyframes voicePulse') ||
+  !style.includes('.voice-state')
+) {
+  console.error(`${conversationFile}: voice messages must render as a refined playback bubble with waveform, duration, and state text`)
+  failed = true
+}
+
+if (
+  !conversation.includes('class="recording-time"') ||
+  !conversation.includes('{{ recordingElapsedText }}') ||
+  !conversation.includes('class="recording-bars"') ||
+  !style.includes('.recording-time') ||
+  !style.includes('.recording-bars') ||
+  !style.includes('.recording-orb')
+) {
+  console.error(`${conversationFile}: recording state must show a compact timer and animated recording meter`)
+  failed = true
+}
+
+if (
+  !conversation.includes('class="peer-gender-mark"') ||
+  !conversation.includes(':class="peerGenderBadge.genderClass"') ||
+  !style.includes('.peer-badges .peer-gender-mark.god') ||
+  !style.includes('.peer-badges .peer-gender-mark.goddess') ||
+  !style.includes('#4f8cff') ||
+  !style.includes('#ff6fa7')
+) {
+  console.error(`${conversationFile}: peer gender in chat header must render as a colored symbol badge, blue for male and pink for female`)
   failed = true
 }
 
@@ -451,8 +539,8 @@ if (!conversation.includes('@click="previewChatImage(message)"') || !/async func
   failed = true
 }
 
-if (!/function isMessageUnavailable\(message: ChatMessageItem\): boolean[\s\S]*message\.msgType === 'IMAGE' \|\| message\.msgType === 'VOICE'[\s\S]*!hasValidChatMediaStorage\(message\)/s.test(conversation) || !conversation.includes("if (!hasValidChatMediaStorage(message)) return '语音文件暂不可播放'")) {
-  console.error(`${conversationFile}: unavailable image/voice bubbles must have explicit non-playable state instead of looking like ordinary messages`)
+if (!/function isMessageUnavailable\(message: ChatMessageItem\): boolean[\s\S]*message\.msgType === 'IMAGE' \|\| message\.msgType === 'VOICE' \|\| message\.msgType === 'VIDEO'[\s\S]*!hasValidChatMediaStorage\(message\)/s.test(conversation) || !conversation.includes("if (!hasValidChatMediaStorage(message)) return '语音文件暂不可播放'") || !conversation.includes("if (!hasValidChatMediaStorage(message)) return '视频文件暂不可播放'")) {
+  console.error(`${conversationFile}: unavailable image/voice/video bubbles must have explicit non-playable state instead of looking like ordinary messages`)
   failed = true
 }
 
@@ -510,6 +598,8 @@ if (!/export function getChatConversation\(conversationId: number\)[\s\S]*\/api\
 const mockData = fs.readFileSync(path.join(root, 'src/api/mock-data.ts'), 'utf8')
 for (const marker of [
   "msgType: 'VOICE'",
+  "msgType: 'TEXT' | 'IMAGE' | 'VOICE' | 'VIDEO'",
+  "scene === 'CHAT_VIDEO'",
   "mockUpload('CHAT_VOICE'",
   "mockUpload('CHAT_IMAGE'",
   'function buildConversationItem(item: MockConversation): ChatConversationItem',

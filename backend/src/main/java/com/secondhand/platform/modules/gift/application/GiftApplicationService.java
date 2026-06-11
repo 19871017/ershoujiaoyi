@@ -36,10 +36,16 @@ public class GiftApplicationService {
     private static final BigDecimal ONE = BigDecimal.ONE;
 
     private static final Map<String, GiftConfig> GIFTS_BY_CODE = Map.of(
-            "ROSE", new GiftConfig(1L, "ROSE", "玫瑰花", "🌹", new BigDecimal("1.00"), new BigDecimal("0.20")),
-            "COFFEE", new GiftConfig(2L, "COFFEE", "暖心咖啡", "☕", new BigDecimal("6.00"), new BigDecimal("0.20")),
-            "STAR", new GiftConfig(3L, "STAR", "星光应援", "⭐", new BigDecimal("18.00"), new BigDecimal("0.25")),
-            "CROWN", new GiftConfig(4L, "CROWN", "小原皇冠", "👑", new BigDecimal("68.00"), new BigDecimal("0.30"))
+            "ROSE", new GiftConfig(1L, "ROSE", "玫瑰花", "/assets/gifts/gift-rose.png", new BigDecimal("1.00"), new BigDecimal("0.20")),
+            "COFFEE", new GiftConfig(2L, "COFFEE", "暖心咖啡", "/assets/gifts/gift-coffee.png", new BigDecimal("6.00"), new BigDecimal("0.20")),
+            "STAR", new GiftConfig(3L, "STAR", "星光应援", "/assets/gifts/gift-star.png", new BigDecimal("18.00"), new BigDecimal("0.25")),
+            "HEART", new GiftConfig(4L, "HEART", "心动告白", "/assets/gifts/gift-heart.png", new BigDecimal("32.00"), new BigDecimal("0.25")),
+            "RIBBON_BOX", new GiftConfig(5L, "RIBBON_BOX", "丝带礼盒", "/assets/gifts/gift-ribbon-box.png", new BigDecimal("52.00"), new BigDecimal("0.25")),
+            "PERFUME", new GiftConfig(6L, "PERFUME", "香氛礼赞", "/assets/gifts/gift-perfume.png", new BigDecimal("88.00"), new BigDecimal("0.28")),
+            "CRYSTAL_SHOE", new GiftConfig(7L, "CRYSTAL_SHOE", "水晶鞋", "/assets/gifts/gift-crystal-shoe.png", new BigDecimal("131.00"), new BigDecimal("0.28")),
+            "CROWN", new GiftConfig(8L, "CROWN", "小原皇冠", "/assets/gifts/gift-crown.png", new BigDecimal("188.00"), new BigDecimal("0.30")),
+            "GALAXY", new GiftConfig(9L, "GALAXY", "银河之约", "/assets/gifts/gift-galaxy.png", new BigDecimal("299.00"), new BigDecimal("0.30")),
+            "LOVE_CASTLE", new GiftConfig(10L, "LOVE_CASTLE", "心愿城堡", "/assets/gifts/gift-love-castle.png", new BigDecimal("520.00"), new BigDecimal("0.30"))
     );
     private static final Map<String, GiftDisplay> LEGACY_GIFT_DISPLAY_BY_CODE = Map.of(
             "CANDY", new GiftDisplay("糖果", "🍬"),

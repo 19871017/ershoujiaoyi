@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { setAdminHeaderProvider } from '../../api/http'
 
-const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
+const API_BASE = (import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE || '')).replace(/\/$/, '')
 
 async function postAdminSessionLogin(mobile: string, password: string): Promise<AdminSessionInput> {
   const response = await fetch(`${API_BASE}/api/admin/session/login`, {
@@ -11,7 +11,8 @@ async function postAdminSessionLogin(mobile: string, password: string): Promise<
     credentials: 'include'
   })
   if (!response.ok) {
-    throw new Error('后台登录失败')
+    const errorText = await response.text().catch(() => '')
+    throw new Error(`后台登录失败：HTTP ${response.status}${errorText ? ` ${errorText.slice(0, 120)}` : ''}`)
   }
   const payload = await response.json() as { data?: AdminSessionInput }
   return payload.data ?? {}
@@ -72,6 +73,7 @@ const PROTECTED_ROUTE_PERMISSIONS: RoutePermissionRule[] = [
   { pattern: /^\/audit-logs(?:\/|$)/, permission: 'audit:log' },
   { pattern: /^\/operators(?:\/|$)/, permission: 'operator:grant' },
   { pattern: /^\/system\/location(?:\/|$)/, permission: 'system:config' },
+  { pattern: /^\/system\/payment(?:\/|$)/, permission: 'system:config' },
   { pattern: /^\/system\/banners(?:\/|$)/, permission: 'system:config' },
   { pattern: /^\/system\/announcements(?:\/|$)/, permission: 'system:config' }
 ]
@@ -94,6 +96,7 @@ export const ADMIN_DASHBOARD_ACTIONS: AdminMenuItem[] = [
   { path: '/audit-logs', label: '审计日志', permission: 'audit:log' },
   { path: '/operators', label: '运营授权', permission: 'operator:grant' },
   { path: '/system/location', label: '位置配置', permission: 'system:config' },
+  { path: '/system/payment', label: '支付配置', permission: 'system:config' },
   { path: '/system/banners', label: '首页轮播', permission: 'system:config' },
   { path: '/system/announcements', label: '公告配置', permission: 'system:config' }
 ]
@@ -127,20 +130,29 @@ function hasOnlyExpectedSessionKeys(input: AdminSessionInput | null | undefined)
   return Object.keys(input).every((key) => key === 'username' || key === 'userId' || key === 'permissions' || key === 'sessionId' || key === 'expiresAt')
 }
 
-export function normalizeAdminSession(input: AdminSessionInput | null | undefined): AdminSession | null {
-  if (!hasOnlyExpectedSessionKeys(input) || !input) return null
+function adminSessionValidationError(input: AdminSessionInput | null | undefined): string | null {
+  if (!hasOnlyExpectedSessionKeys(input) || !input) return '服务端返回的会话字段不完整'
   const username = input.username?.trim()
   const userId = input?.userId?.trim()
   const sessionId = input?.sessionId?.trim()
   const expiresAt = input?.expiresAt?.trim()
-  if (!username || !userId) return null
-  if (!USER_ID_PATTERN.test(userId)) return null
-  if (!sessionId || !/^adm_[a-f0-9]{32}$/i.test(sessionId)) return null
-  if (!expiresAt || Number.isNaN(Date.parse(expiresAt))) return null
-  if (Date.parse(expiresAt) <= Date.now()) return null
+  if (!username) return '管理员名称为空'
+  if (!userId || !USER_ID_PATTERN.test(userId)) return '管理员 ID 无效'
+  if (!sessionId || !/^adm_[a-f0-9]{32}$/i.test(sessionId)) return '会话 ID 无效'
+  if (!expiresAt || Number.isNaN(Date.parse(expiresAt))) return '会话过期时间无效'
+  if (Date.parse(expiresAt) <= Date.now()) return '会话已过期'
+  if (normalizePermissions(input.permissions).length === 0) return '管理员权限为空'
+  return null
+}
+
+export function normalizeAdminSession(input: AdminSessionInput | null | undefined): AdminSession | null {
+  if (adminSessionValidationError(input)) return null
+  const username = input.username?.trim()
+  const userId = input?.userId?.trim()
+  const sessionId = input?.sessionId?.trim()
+  const expiresAt = input?.expiresAt?.trim()
   const permissions = normalizePermissions(input.permissions)
-  if (permissions.length === 0) return null
-  return { username, userId, permissions, sessionId, expiresAt }
+  return { username: username!, userId: userId!, permissions, sessionId: sessionId!, expiresAt: expiresAt! }
 }
 
 export function sessionAllowsPermission(session: AdminSession | null, permission: AdminPermission): boolean {
@@ -200,9 +212,10 @@ export async function logoutAdminSession(session: AdminSession | null): Promise<
 }
 
 export async function loginAdminSession(mobile: string, password: string): Promise<AdminSession> {
-  const session = normalizeAdminSession(await postAdminSessionLogin(mobile, password))
+  const input = await postAdminSessionLogin(mobile, password)
+  const session = normalizeAdminSession(input)
   if (!session) {
-    throw new Error('后台登录失败')
+    throw new Error(`后台登录失败：${adminSessionValidationError(input) ?? '未生成有效管理员会话'}`)
   }
   return session
 }

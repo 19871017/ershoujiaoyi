@@ -152,6 +152,16 @@ class WalletLedgerServiceTest {
     }
 
     @Test
+    void bindPayoutAccountShouldRejectUnsupportedMethodReservedWordsAndInvalidFormats() {
+        assertThrows(IllegalArgumentException.class, () -> service.bindPayoutAccount(1L, payoutAccount("WECHAT", "Alice", "alice@example.com")));
+        assertThrows(IllegalArgumentException.class, () -> service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "测试用户", "alice@example.com")));
+        assertThrows(IllegalArgumentException.class, () -> service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "preview@example.com")));
+        assertThrows(IllegalArgumentException.class, () -> service.bindPayoutAccount(1L, payoutAccount("ALIPAY", "Alice", "6222 ＊ 8088")));
+        assertThrows(IllegalArgumentException.class, () -> service.bindPayoutAccount(1L, payoutAccount("BANK_CARD", "Alice", "bank-card-number")));
+        assertThrows(IllegalArgumentException.class, () -> service.bindPayoutAccount(1L, payoutAccount("BANK_CARD", "Alice", "123456789")));
+    }
+
+    @Test
     void createWithdrawalShouldRequireBackendOwnedPayoutAccountBindingReference() {
         service.credit(credit(1L, "income", "WITHDRAWABLE", "80.00"));
         markIdentityStatus(1L, "VERIFIED");

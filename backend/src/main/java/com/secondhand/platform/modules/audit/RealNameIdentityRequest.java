@@ -6,7 +6,7 @@ import java.util.Set;
 
 public class RealNameIdentityRequest {
     private String realName;
-    private String idTail;
+    private String idNumber;
     private Long userId;
     private String senderId;
     private String buyerId;
@@ -63,11 +63,11 @@ public class RealNameIdentityRequest {
         this.realName = realName;
     }
 
-    public String getIdTail() {
-        return idTail;
+    public String getIdNumber() {
+        return idNumber;
     }
 
-    public void setIdTail(String idTail) {
-        this.idTail = idTail;
+    public void setIdNumber(String idNumber) {
+        this.idNumber = idNumber;
     }
 }

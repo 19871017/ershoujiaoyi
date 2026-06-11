@@ -119,10 +119,15 @@ if (
   !tickerSource.includes("'/pages/chat/session-list/index'") ||
   !tickerSource.includes('const tickerHiddenOnRoute = computed(() => isTickerHiddenRoute(routePath.value))') ||
   !tickerSource.includes('const visible = computed(() => items.value.length > 0 && !tickerHiddenOnRoute.value)') ||
+  !tickerSource.includes('currentRouteIsTickerHidden()') ||
+  !tickerSource.includes('decodeRouteVariants') ||
+  !tickerSource.includes('installRouteChangeHooks') ||
+  !tickerSource.includes("window.addEventListener('popstate', syncRoutePath)") ||
+  !tickerSource.includes("window.addEventListener(routeChangeEventName, syncRoutePath)") ||
   !tickerSource.includes("window.addEventListener('hashchange', syncRoutePath)") ||
   !tickerSource.includes("window.removeEventListener('hashchange', syncRoutePath)")
 ) {
-  failures.push(`${tickerFile}: global gift ticker must be hidden on private chat pages so it cannot cover the chat header`)
+  failures.push(`${tickerFile}: global gift ticker must be hidden on private chat pages, including decoded redirect and history-driven route changes`)
 }
 
 if (appSource.includes(globalTickerTag) || appSource.includes(appGlobalTickerImport)) {

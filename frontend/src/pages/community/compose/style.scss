@@ -433,3 +433,96 @@
   margin-top: 24rpx;
   width: 100%;
 }
+
+.post-success-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  box-sizing: border-box;
+  padding: 32rpx 28rpx calc(42rpx + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 174, 104, .28), transparent 28%),
+    linear-gradient(180deg, rgba(41, 23, 14, .2), rgba(41, 23, 14, .58));
+  backdrop-filter: blur(14rpx);
+}
+
+.post-success-panel {
+  width: 100%;
+  max-width: 660rpx;
+  box-sizing: border-box;
+  padding: 34rpx 28rpx 26rpx;
+  border-radius: 34rpx;
+  color: #fff8ef;
+  background:
+    linear-gradient(135deg, rgba(67, 38, 24, .98), rgba(151, 79, 43, .96) 52%, rgba(236, 111, 58, .96)),
+    radial-gradient(circle at 18% 0%, rgba(255, 221, 170, .28), transparent 36%);
+  border: 1rpx solid rgba(255, 225, 188, .32);
+  box-shadow: 0 34rpx 72rpx rgba(55, 27, 15, .34), inset 0 1rpx 0 rgba(255, 255, 255, .2);
+}
+
+.post-success-mark {
+  width: 70rpx;
+  height: 70rpx;
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6d321c;
+  background: linear-gradient(135deg, #fff1d5, #ffd39a);
+  font-size: 38rpx;
+  font-weight: 950;
+  box-shadow: 0 16rpx 28rpx rgba(69, 32, 18, .2);
+}
+
+.post-success-title {
+  margin-top: 22rpx;
+  color: #fff8ef;
+  font-size: 34rpx;
+  font-weight: 950;
+  letter-spacing: .18rpx;
+}
+
+.post-success-copy {
+  margin-top: 12rpx;
+  color: rgba(255, 246, 235, .84);
+  font-size: 23rpx;
+  font-weight: 760;
+  line-height: 1.58;
+}
+
+.post-success-actions {
+  margin-top: 26rpx;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14rpx;
+}
+
+.post-success-btn {
+  height: 78rpx;
+  margin: 0;
+  padding: 0 18rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  font-weight: 950;
+  line-height: 78rpx;
+  border: 0;
+}
+
+.post-success-btn::after {
+  border: 0;
+}
+
+.post-success-btn.ghost {
+  color: rgba(255, 246, 235, .9);
+  background: rgba(255, 248, 238, .13);
+  box-shadow: inset 0 0 0 1rpx rgba(255, 233, 206, .26);
+}
+
+.post-success-btn.primary {
+  color: #6a321b;
+  background: linear-gradient(135deg, #fff1d5, #ffc47c);
+  box-shadow: 0 14rpx 26rpx rgba(66, 30, 15, .18);
+}

@@ -11,8 +11,14 @@ SELECT 'finance.platform_fee_rate', '0.08', 'decimal', 'finance', '平台服务�
 WHERE NOT EXISTS (SELECT 1 FROM system_config WHERE config_key = 'finance.platform_fee_rate');
 
 INSERT INTO user_account (user_no, phone, password_hash, nickname, status, created_at, updated_at)
-SELECT 'UADMINSMOKE0000001', '13800138000', 'pbkdf2$120000$p8tz58hTxab090/VckPvpw==$WJaVXtS33TSOVTRV0q7+Iy0nXTaC2rVWA+Zr7O30J/4=', '小原圈管理员', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+SELECT 'UADMINSMOKE0000001', '13800138000', 'pbkdf2$120000$sax8sqDauOkmIFyOO0JlLw==$JGDCzkzfUDZN1c++vDNbBdDPGwlGmxNXckgc6kyLJVU=', '小原圈管理员', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 WHERE NOT EXISTS (SELECT 1 FROM user_account WHERE phone = '13800138000');
+
+UPDATE user_account
+SET password_hash = 'pbkdf2$120000$sax8sqDauOkmIFyOO0JlLw==$JGDCzkzfUDZN1c++vDNbBdDPGwlGmxNXckgc6kyLJVU=',
+    updated_at = CURRENT_TIMESTAMP
+WHERE phone = '13800138000'
+  AND user_no = 'UADMINSMOKE0000001';
 
 INSERT INTO user_profile (user_id, gender, city, bio, identity_status, main_role, video_identity_status, video_verified, created_at, updated_at)
 SELECT id, NULL, NULL, '后台真实登录验通账号', 'UNVERIFIED', 'BUYER', 'UNVERIFIED', FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP

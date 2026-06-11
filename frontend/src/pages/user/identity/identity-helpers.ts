@@ -10,10 +10,11 @@ export type ChooseVideoResult = {
   tempFile?: ChooseVideoFile
   file?: ChooseVideoFile
 }
-export type RealNameFieldKey = 'name' | 'idTail'
+export type RealNameFieldKey = 'name' | 'idNumber'
+export type PayoutAccountFieldKey = 'accountName' | 'accountNo'
 
 export const videoIdentityStoragePrefix = '/uploads/video-identity/'
-export const checks = ['姓名与收款账户一致', '证件凭证已打码', '视频认证需真人出镜', '账号无高风险举报', '提现前需通过平台审核']
+export const checks = ['姓名与收款账户一致', '完整身份证号格式校验', '视频认证需真人出镜', '账号无高风险举报', '提现前需通过平台审核']
 
 export function isValidVideoIdentityStatus(value: unknown): value is UserProfileResponse['videoIdentityStatus'] {
   return value === 'UNVERIFIED' || value === 'PENDING' || value === 'APPROVED' || value === 'REJECTED'
@@ -129,6 +130,28 @@ export function guessVideoContentType(path: string, fallbackType?: unknown): str
 
 export function hasInvalidVideoIdentityDuration(duration: unknown): boolean {
   return typeof duration === 'number' && Number.isFinite(duration) && duration > 10
+}
+
+export function normalizedIdNumber(value: string): string {
+  return value.trim().toUpperCase()
+}
+
+export function isValidChineseIdNumber(value: string): boolean {
+  const normalized = normalizedIdNumber(value)
+  if (!/^[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[0-9X]$/.test(normalized)) return false
+  const year = Number(normalized.slice(6, 10))
+  const month = Number(normalized.slice(10, 12))
+  const day = Number(normalized.slice(12, 14))
+  const date = new Date(year, month - 1, day)
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return false
+  const weights = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2]
+  const checks = ['1', '0', 'X', '9', '8', '7', '6', '5', '4', '3', '2']
+  const sum = weights.reduce((total, weight, index) => total + Number(normalized[index]) * weight, 0)
+  return checks[sum % 11] === normalized[17]
+}
+
+export function hasMaskedAccountMarker(value: string): boolean {
+  return /[*＊]/.test(value)
 }
 
 export function videoTypeFromPickerResult(result: ChooseVideoResult, blob?: Blob): unknown {

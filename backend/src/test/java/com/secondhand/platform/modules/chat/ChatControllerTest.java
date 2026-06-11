@@ -347,6 +347,50 @@ class ChatControllerTest {
     }
 
     @Test
+    void videoEndpointShouldRequireUploadedChatVideoTicketAndSyncPayload() throws Exception {
+        String videoUrl = issueChatVideoTicket(1L, "/uploads/chat-video/controller-owner1.mp4");
+
+        mvc.perform(post("/api/chat/messages")
+                        .header("X-User-Id", "1")
+                        .header("X-Dev-Mode", "enabled")
+                        .contentType("application/json")
+                        .content("""
+                                {"receiverId":2,"clientMsgId":"flow-video-1","msgType":"VIDEO","contentJson":"{\\"url\\":\\"%s\\",\\"durationMs\\":2400,\\"sizeBytes\\":8192,\\"mimeType\\":\\"video/mp4\\"}"}
+                                """.formatted(videoUrl)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ack.conversationId", is(1)))
+                .andExpect(jsonPath("$.data.ack.serverSeq", is(1)))
+                .andExpect(jsonPath("$.data.ack.msgType", is("VIDEO")));
+
+        mvc.perform(get("/api/chat/conversations")
+                        .header("X-User-Id", "2")
+                        .header("X-Dev-Mode", "enabled"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.conversations[0].lastMessageSummary", is("[视频]")))
+                .andExpect(jsonPath("$.data.conversations[0].unreadCount", is(1)));
+
+        mvc.perform(get("/api/chat/conversations/{conversationId}/messages", 1)
+                        .header("X-User-Id", "2")
+                        .header("X-Dev-Mode", "enabled")
+                        .param("latest", "true")
+                        .param("limit", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.messages.length()", is(1)))
+                .andExpect(jsonPath("$.data.messages[0].msgType", is("VIDEO")))
+                .andExpect(jsonPath("$.data.messages[0].contentJson", is("{\"url\":\"/uploads/chat-video/controller-owner1.mp4\",\"durationMs\":2400,\"sizeBytes\":8192,\"mimeType\":\"video/mp4\"}")));
+
+        mvc.perform(post("/api/chat/messages")
+                        .header("X-User-Id", "1")
+                        .header("X-Dev-Mode", "enabled")
+                        .contentType("application/json")
+                        .content("""
+                                {"receiverId":2,"clientMsgId":"flow-video-unissued","msgType":"VIDEO","contentJson":"{\\"url\\":\\"/uploads/chat-video/unissued.mp4\\",\\"durationMs\\":2400,\\"sizeBytes\\":8192,\\"mimeType\\":\\"video/mp4\\"}"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success", is(false)));
+    }
+
+    @Test
     void chatMediaEndpointShouldRequireConversationParticipantAndMessageReference() throws Exception {
         String imageUrl = issueChatImageTicket(1L, "/uploads/chat-image/controller-owner1-secure.png");
         writeMediaFile(imageUrl, "secure-image");
@@ -489,6 +533,15 @@ class ChatControllerTest {
                   ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
                 ) VALUES (?, ?, 'CHAT_IMAGE', 'chat.png', 'image/png', 4096, ?, 'hash', 'UPLOADED', CURRENT_TIMESTAMP, DATEADD('HOUR', 1, CURRENT_TIMESTAMP))
                 """, "CTRL-IMAGE-TICKET-" + ownerUserId + '-' + Math.abs(storageUrl.hashCode()), ownerUserId, storageUrl);
+        return storageUrl;
+    }
+
+    private String issueChatVideoTicket(Long ownerUserId, String storageUrl) {
+        jdbcTemplate.update("""
+                INSERT INTO media_upload_ticket (
+                  ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
+                ) VALUES (?, ?, 'CHAT_VIDEO', 'chat.mp4', 'video/mp4', 8192, ?, 'hash', 'UPLOADED', CURRENT_TIMESTAMP, DATEADD('HOUR', 1, CURRENT_TIMESTAMP))
+                """, "CTRL-VIDEO-TICKET-" + ownerUserId + '-' + Math.abs(storageUrl.hashCode()), ownerUserId, storageUrl);
         return storageUrl;
     }
 

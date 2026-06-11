@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 import org.springframework.dao.DuplicateKeyException;
@@ -34,6 +35,8 @@ public class WalletLedgerService {
     private static final String BALANCE_TYPE_RECHARGE = "RECHARGE";
     private static final String BALANCE_TYPE_INCOME = "INCOME";
     private static final String BALANCE_TYPE_WITHDRAWABLE = "WITHDRAWABLE";
+    private static final Set<String> PAYOUT_ACCOUNT_METHODS = Set.of("ALIPAY", "BANK_CARD");
+    private static final Set<String> PAYOUT_ACCOUNT_RESERVED_WORDS = Set.of("preview", "demo", "mock", "sample", "placeholder", "测试");
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -47,10 +50,9 @@ public class WalletLedgerService {
         if (request == null) {
             throw new IllegalArgumentException("payout account request required");
         }
-        String paymentMethod = requireText(request.getPaymentMethod(), "payout account paymentMethod required").toUpperCase(Locale.ROOT);
-        String accountName = requireText(request.getAccountName(), "payout account accountName required");
-        String accountNo = requireText(request.getAccountNo(), "payout account accountNo required");
-        rejectClientSuppliedMaskedAccountNo(accountNo);
+        String paymentMethod = normalizePayoutPaymentMethod(request.getPaymentMethod());
+        String accountName = normalizePayoutAccountName(request.getAccountName());
+        String accountNo = normalizePayoutAccountNo(paymentMethod, request.getAccountNo());
         jdbcTemplate.update("update payout_account set is_default = false, updated_at = CURRENT_TIMESTAMP where user_id = ?", userId);
         jdbcTemplate.update(
                 "insert into payout_account (user_id,payment_method,account_name,account_no,masked_account_no,verify_status,is_default,created_at,updated_at) values (?,?,?,?,?,'VERIFIED',true,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
@@ -762,9 +764,55 @@ public class WalletLedgerService {
     }
 
     private void rejectClientSuppliedMaskedAccountNo(String accountNo) {
-        if (accountNo.contains("*")) {
+        if (accountNo.contains("*") || accountNo.contains("＊")) {
             throw new IllegalArgumentException("withdrawal accountNo must be backend-owned raw account reference");
         }
+    }
+
+    private String normalizePayoutPaymentMethod(String value) {
+        String paymentMethod = requireText(value, "payout account paymentMethod required").toUpperCase(Locale.ROOT);
+        if (!PAYOUT_ACCOUNT_METHODS.contains(paymentMethod)) {
+            throw new IllegalArgumentException("payout account paymentMethod invalid");
+        }
+        return paymentMethod;
+    }
+
+    private String normalizePayoutAccountName(String value) {
+        String accountName = requireText(value, "payout account accountName required");
+        String lower = accountName.toLowerCase(Locale.ROOT);
+        if (accountName.length() < 2 || accountName.length() > 24 || containsAnyReservedWord(lower, PAYOUT_ACCOUNT_RESERVED_WORDS)
+                || accountName.matches(".*[@#￥$%^&*_+=<>/\\\\].*")) {
+            throw new IllegalArgumentException("payout account accountName invalid");
+        }
+        return accountName;
+    }
+
+    private String normalizePayoutAccountNo(String paymentMethod, String value) {
+        String accountNo = requireText(value, "payout account accountNo required");
+        rejectClientSuppliedMaskedAccountNo(accountNo);
+        String lower = accountNo.toLowerCase(Locale.ROOT);
+        if (accountNo.length() < 5 || accountNo.length() > 80 || containsAnyReservedWord(lower, PAYOUT_ACCOUNT_RESERVED_WORDS)) {
+            throw new IllegalArgumentException("payout account accountNo invalid");
+        }
+        if ("BANK_CARD".equals(paymentMethod) && !accountNo.replaceAll("\\s+", "").matches("\\d{10,30}")) {
+            throw new IllegalArgumentException("payout account accountNo invalid");
+        }
+        if ("ALIPAY".equals(paymentMethod)
+                && !(accountNo.matches("^[A-Za-z0-9._%+-]{2,64}@[A-Za-z0-9.-]+\\.[A-Za-z]{2,20}$")
+                || accountNo.matches("^1[3-9]\\d{9}$")
+                || accountNo.matches("^[A-Za-z0-9._-]{5,64}$"))) {
+            throw new IllegalArgumentException("payout account accountNo invalid");
+        }
+        return accountNo;
+    }
+
+    private boolean containsAnyReservedWord(String lower, Set<String> reservedWords) {
+        for (String reservedWord : reservedWords) {
+            if (lower.contains(reservedWord)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void rejectLegacyClientWithdrawalAccountFields(CreateWithdrawalRequest request) {

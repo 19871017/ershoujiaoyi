@@ -286,7 +286,7 @@ describe('admin auth helpers', () => {
     })
 
     expect(dashboardActionsForSession(financeOnly).map((item) => item.path)).toEqual(['/finance/withdrawals'])
-    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/chat-trace', '/community-trace', '/products', '/finance/withdrawals', '/after-sales', '/orders', '/users', '/audit-logs', '/operators', '/system/location', '/system/banners', '/system/announcements'])
+    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/chat-trace', '/community-trace', '/products', '/finance/withdrawals', '/after-sales', '/orders', '/users', '/audit-logs', '/operators', '/system/location', '/system/payment', '/system/banners', '/system/announcements'])
     expect(dashboardActionsForSession(null)).toEqual([])
   })
 

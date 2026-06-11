@@ -1,7 +1,6 @@
 <template>
   <view class="chat-page" :class="{ 'has-status': !!statusText }" :style="chatPageStyle">
     <view class="chat-header">
-      <view class="back-action tapable" @click="goBackToSessions">‹</view>
       <view class="peer-avatar" :class="{ image: !!peerAvatarUrl }">
         <image v-if="peerAvatarUrl" class="peer-avatar-img" :src="peerAvatarUrl" mode="aspectFill" />
         <text v-else>{{ peerAvatar }}</text>
@@ -12,6 +11,7 @@
           <view class="peer-level" :class="{ charm: peerLevel.track === 'CHARM', power: peerLevel.track === 'POWER' }">LV.{{ peerLevel.level }} {{ peerLevel.title }}</view>
         </view>
         <view class="peer-badges">
+          <text v-if="peerGenderBadge.symbol" class="peer-gender-mark" :class="peerGenderBadge.genderClass">{{ peerGenderBadge.symbol }}</text>
           <text v-for="badge in peerIdentityBadges" :key="badge">{{ badge }}</text>
         </view>
       </view>
@@ -29,11 +29,61 @@
         <view v-if="messages.length === 0" class="empty-card">{{ chatListStateText }}</view>
         <view v-for="message in messages" :key="message.serverMsgId" class="bubble-row" :class="{ mine: isMine(message) }">
           <view class="bubble">
-            <image v-if="chatImageMessageUrl(message)" class="message-image tapable" :src="chatImageMessageUrl(message)" mode="aspectFill" @click="previewChatImage(message)" />
+            <view
+              v-if="message.msgType === 'IMAGE' && !isMessageRevoked(message)"
+              class="message-media image tapable"
+              :class="{ loading: isChatMediaLoading(message), failed: hasChatMediaFailed(message), unavailable: isMessageUnavailable(message) }"
+              @click="previewChatImage(message)"
+            >
+              <image v-if="chatImageMessageUrl(message)" class="message-image" :src="chatImageMessageUrl(message)" mode="aspectFill" />
+              <view v-else class="message-media-placeholder">{{ renderMessage(message) }}</view>
+            </view>
+            <view
+              v-else-if="message.msgType === 'VIDEO' && !isMessageRevoked(message)"
+              class="message-media video"
+              :class="{ loading: isChatMediaLoading(message), failed: hasChatMediaFailed(message), unavailable: isMessageUnavailable(message) }"
+            >
+              <video
+                v-if="chatVideoMessageUrl(message)"
+                class="message-video"
+                :src="chatVideoMessageUrl(message)"
+                :controls="true"
+                :show-fullscreen-btn="true"
+                :show-play-btn="true"
+                :show-center-play-btn="true"
+              />
+              <view v-else class="message-media-placeholder tapable" @click="prepareChatVideo(message)">{{ renderMessage(message) }}</view>
+            </view>
+            <view
+              v-else-if="message.msgType === 'VOICE' && !isMessageRevoked(message)"
+              class="message-voice-bubble tapable"
+              :class="{ playing: playingVoiceMessageId === message.serverMsgId, loading: isChatMediaLoading(message), failed: hasChatMediaFailed(message), unavailable: isMessageUnavailable(message) }"
+              @click="handleMessageBodyTap(message)"
+            >
+              <view class="voice-play-disc">
+                <view v-if="playingVoiceMessageId === message.serverMsgId" class="voice-play-ring" aria-hidden="true" />
+                <view v-if="playingVoiceMessageId === message.serverMsgId" class="voice-playing-dot" />
+                <view v-else class="voice-play-triangle" />
+              </view>
+              <view class="voice-wave" :class="{ active: playingVoiceMessageId === message.serverMsgId }" aria-hidden="true">
+                <view class="voice-wave-bar short" />
+                <view class="voice-wave-bar medium" />
+                <view class="voice-wave-bar tall" />
+                <view class="voice-wave-bar medium" />
+                <view class="voice-wave-bar short" />
+              </view>
+              <view class="voice-info">
+                <text class="voice-duration">{{ voiceDurationText(message) }}</text>
+                <view class="voice-state-row">
+                  <text class="voice-state-dot" :class="voicePlaybackStateClass(message)" />
+                  <text class="voice-state">{{ voicePlaybackStateText(message) }}</text>
+                </view>
+              </view>
+            </view>
             <view
               v-else
               class="message-body"
-              :class="{ image: message.msgType === 'IMAGE', voice: message.msgType === 'VOICE', playing: playingVoiceMessageId === message.serverMsgId, revoked: isMessageRevoked(message), unavailable: isMessageUnavailable(message), unsupported: !isRenderableMessageType(message) }"
+              :class="{ image: message.msgType === 'IMAGE', voice: message.msgType === 'VOICE', video: message.msgType === 'VIDEO', playing: playingVoiceMessageId === message.serverMsgId, revoked: isMessageRevoked(message), unavailable: isMessageUnavailable(message), unsupported: !isRenderableMessageType(message) }"
               @click="handleMessageBodyTap(message)"
             >{{ renderMessage(message) }}</view>
             <view class="message-meta">
@@ -55,25 +105,71 @@
       </button>
     </view>
 
-    <view class="composer">
-      <view class="voice-control">
-        <view
-          class="tool voice-tool tapable"
-          :class="{ disabled: composerBlocked, recording }"
-          :aria-label="recording ? '结束并发送语音' : '语音录制'"
-          @click="toggleVoiceRecording"
-        >
-          <view v-if="recording" class="voice-stop-icon" aria-hidden="true" />
-          <view v-else class="voice-mic-icon" aria-hidden="true">
-            <view class="voice-mic-head" />
-            <view class="voice-mic-stem" />
+    <view v-if="recording" class="recording-status">
+      <view class="recording-orb">
+        <view class="recording-pulse" />
+      </view>
+      <view class="recording-copy">
+        <view class="recording-title-row">
+          <text class="recording-title">正在录音</text>
+          <text class="recording-time">{{ recordingElapsedText }}</text>
+        </view>
+        <view class="recording-bars" aria-hidden="true">
+          <view class="recording-bar short" />
+          <view class="recording-bar medium" />
+          <view class="recording-bar tall" />
+          <view class="recording-bar medium" />
+          <view class="recording-bar short" />
+        </view>
+        <text class="recording-desc">再点麦克风发送，或取消本次录音</text>
+      </view>
+      <view class="recording-cancel tapable" @click.stop="cancelVoiceRecording">取消</view>
+    </view>
+
+    <view class="composer" :class="{ recording }">
+      <view class="composer-tools">
+        <view class="voice-control">
+          <view
+            class="tool voice-tool tapable"
+            :class="{ disabled: composerBlocked, recording }"
+            :aria-label="recording ? '结束并发送语音' : '语音录制'"
+            @click="toggleVoiceRecording"
+          >
+            <view v-if="recording" class="voice-stop-icon" aria-hidden="true" />
+            <view v-else class="voice-mic-icon" aria-hidden="true">
+              <view class="voice-mic-head" />
+              <view class="voice-mic-stem" />
+            </view>
           </view>
         </view>
-        <view v-if="recording" class="voice-cancel-pill tapable" @click.stop="cancelVoiceRecording">取消</view>
+        <view
+          class="tool media-tool tapable"
+          :class="{ disabled: textComposerBlocked }"
+          aria-label="发送图片或视频"
+          @click="openMediaComposer"
+        >
+          <view class="media-image-icon" aria-hidden="true">
+            <view class="media-image-sun" />
+            <view class="media-image-mountain" />
+          </view>
+          <view class="media-plus-mark" aria-hidden="true">＋</view>
+        </view>
       </view>
-      <view class="tool tapable" :class="{ disabled: textComposerBlocked }" @click="sendImagePlaceholder">＋</view>
-      <input :value="draft" class="field" confirm-type="send" placeholder="问尺码、瑕疵、发货时间..." :maxlength="MAX_TEXT_MESSAGE_LENGTH" :disabled="textComposerBlocked" cursor-spacing="96" @focus="handleComposerFocus" @blur="handleComposerBlur" @input="updateDraft" @confirm="handleSendText" />
-      <button class="send-btn" :disabled="textComposerBlocked" @click="handleSendText">{{ sending ? '...' : '发送' }}</button>
+      <view class="composer-input-wrap" :class="{ focused: composerFocused, blocked: textComposerBlocked }">
+        <input :value="draft" class="field" confirm-type="send" :placeholder="composerPlaceholder" :maxlength="MAX_TEXT_MESSAGE_LENGTH" :disabled="textComposerBlocked" cursor-spacing="96" @focus="handleComposerFocus" @blur="handleComposerBlur" @input="updateDraft" @confirm="handleSendText" />
+      </view>
+      <button class="send-btn" :class="{ ready: hasDraftText, sending }" :disabled="sendButtonDisabled" :aria-label="sendButtonLabel" @click="handleSendText">
+        <view v-if="sending" class="send-loading-dot" aria-hidden="true" />
+        <view v-else class="send-arrow-icon" aria-hidden="true" />
+      </button>
+    </view>
+
+    <view v-if="activeImagePreviewUrl" class="image-preview-overlay" @click="closeImagePreview">
+      <view class="image-preview-top">
+        <text>图片预览</text>
+        <view class="image-preview-close tapable" @click.stop="closeImagePreview">×</view>
+      </view>
+      <image class="image-preview-img" :src="activeImagePreviewUrl" mode="aspectFit" @click.stop />
     </view>
   </view>
 </template>
@@ -100,7 +196,7 @@ import {
 } from '../../../api/modules/chat'
 import { createMediaUploadTicket, uploadMediaTicketBlob, uploadMediaTicketFile } from '../../../api/modules/media'
 import { getMyProfile, getPublicProfile, type UserProfileResponse } from '../../../api/modules/user'
-import { buildChatPeerLevel, chatPeerIdentityBadges } from '../chat-peer'
+import { buildChatPeerLevel, chatPeerIdentityBadges, normalizedPeerGender, peerGenderSymbol } from '../chat-peer'
 import {
   ChatDataIntegrityError,
   assertConversationItem,
@@ -111,9 +207,12 @@ import {
   formatTime,
   filenameFromPath,
   guessImageMime,
+  guessVideoMime,
   hasInvalidChatVoiceStorageUrl,
   hasInvalidChatImageStorageUrl,
+  hasInvalidChatVideoStorageUrl,
   hasInvalidTempChatImagePath,
+  hasInvalidTempChatVideoPath,
   isKnownChatMessageType,
   imageFallbackName,
   imageFileSize,
@@ -125,15 +224,20 @@ import {
   parseMessageContentForValidation,
   readPositiveRouteNumber,
   safeParsedMessageContent,
+  videoFallbackName,
+  videoFileSize,
   voiceFallbackName,
   validatedChatAvatarUrl,
   type ChooseImageFile,
+  type ChooseVideoFile,
   type VoiceContentType
 } from './chat-conversation-helpers'
 
 const MAX_VOICE_RECORD_MS = 60_000
 const MIN_VOICE_RECORD_MS = 600
 const MAX_CHAT_VOICE_UPLOAD_BYTES = 10_000_000
+const MAX_CHAT_VIDEO_UPLOAD_BYTES = 80_000_000
+const MAX_CHAT_VIDEO_DURATION_MS = 300_000
 const MAX_TEXT_MESSAGE_LENGTH = 1000
 const KEYBOARD_FOCUS_FALLBACK_INSET = 120
 const MESSAGE_REVOKE_WINDOW_MS = 2 * 60 * 1000
@@ -156,6 +260,15 @@ type UniVoiceRecorderManager = {
   stop: () => void
   onStop: (callback: (result: UniVoiceRecorderStopResult) => void) => void
   onError: (callback: (error: unknown) => void) => void
+}
+type ChooseVideoResult = {
+  tempFilePath: string
+  duration?: number
+  size?: number
+  type?: string
+  name?: string
+  tempFile?: ChooseVideoFile
+  file?: ChooseVideoFile
 }
 type UniInnerAudioContext = {
   src: string
@@ -184,7 +297,9 @@ const messages = ref<ChatMessageItem[]>([])
 const chatMediaBlobUrls = ref<Record<string, string>>({})
 const chatMediaLoadingIds = ref<Record<string, boolean>>({})
 const chatMediaFailedIds = ref<Record<string, boolean>>({})
+const activeImagePreviewUrl = ref('')
 const playingVoiceMessageId = ref('')
+const recordingElapsedMs = ref(0)
 const nextAfterSeq = ref(0)
 const previousBeforeSeq = ref(0)
 const hasMore = ref(false)
@@ -202,6 +317,7 @@ let uniVoiceRecorderBound = false
 let voiceRecordingMode: VoiceRecordingMode = ''
 let voiceRecordStartedAt = 0
 let voiceStopTimer: ReturnType<typeof setTimeout> | null = null
+let voiceRecordTicker: ReturnType<typeof setInterval> | null = null
 let voiceRecordCancelled = false
 let voiceChunks: Blob[] = []
 let activeAudio: HTMLAudioElement | null = null
@@ -234,11 +350,23 @@ const peerIdentitySource = computed(() => ({
   peerBuyerPowerScore: peerBuyerPowerScore.value
 }))
 const peerLevel = computed(() => buildChatPeerLevel(peerIdentitySource.value))
-const peerIdentityBadges = computed(() => chatPeerIdentityBadges(peerIdentitySource.value).filter((badge) => !badge.startsWith('LV.')))
+const peerGenderBadge = computed(() => {
+  const gender = normalizedPeerGender(peerIdentitySource.value)
+  return {
+    symbol: peerGenderSymbol(peerIdentitySource.value),
+    genderClass: gender === 'god' ? 'god' : gender === 'goddess' ? 'goddess' : ''
+  }
+})
+const peerIdentityBadges = computed(() => chatPeerIdentityBadges(peerIdentitySource.value).filter((badge) => !badge.startsWith('LV.') && badge !== '♂' && badge !== '♀'))
 const canManualSync = computed(() => !chatBlocked.value && (!!conversationId.value || !!receiverId.value))
 const composerBlocked = computed(() => chatBlocked.value || sending.value || !currentUserId.value)
 const textComposerBlocked = computed(() => composerBlocked.value || recording.value)
 const chatPageStyle = computed(() => `--chat-keyboard-inset:${keyboardInset.value}px;`)
+const hasDraftText = computed(() => !!draft.value.trim())
+const composerPlaceholder = computed(() => recording.value ? '录音中，结束后再输入文字' : '问尺码、瑕疵、发货时间...')
+const sendButtonDisabled = computed(() => textComposerBlocked.value || !hasDraftText.value)
+const sendButtonLabel = computed(() => sending.value ? '发送中' : hasDraftText.value ? '发送消息' : '请输入消息后发送')
+const recordingElapsedText = computed(() => formatDurationSeconds(Math.max(0, Math.ceil(recordingElapsedMs.value / 1000))))
 const peerProfileUnavailableText = '对方资料暂时不可用，仍可继续聊天'
 const voicePlaybackRetryText = '语音播放失败，请确认浏览器允许音频播放后再点一次'
 const chatListStateText = computed(function chatListStateText(): string {
@@ -375,35 +503,6 @@ function applyPeerConversationItem(item: ChatConversationItem): void {
   if (statusText.value === peerProfileUnavailableText) statusText.value = ''
 }
 
-function goBackToSessions(): void {
-  const fallback = () => {
-    try {
-      uni.navigateTo({ url: '/pages/chat/session-list/index' })
-    } catch (error) {
-      console.warn('chat back fallback navigation failed', { error })
-      uni.switchTab({ url: '/pages/tabbar/message/index' })
-    }
-  }
-  try {
-    const pages = getCurrentPages()
-    if (pages.length > 1) {
-      const navigateBack = uni.navigateBack as unknown as (options: { delta?: number; fail?: (error: unknown) => void }) => void
-      navigateBack({
-        delta: 1,
-        fail: (error: unknown) => {
-          console.warn('chat back navigation failed', { error })
-          fallback()
-        }
-      })
-      return
-    }
-    fallback()
-  } catch (error) {
-    console.warn('chat back navigation failed', { error })
-    fallback()
-  }
-}
-
 onLoad((options) => {
   void initializeChatPage(options)
 })
@@ -428,6 +527,7 @@ onUnload(() => {
   clearTransientStatusTimer()
   cleanupVoiceRecording()
   stopActiveVoicePlayback()
+  closeImagePreview()
   releaseChatMediaBlobs()
   removeKeyboardInsetListeners?.()
   removeKeyboardInsetListeners = null
@@ -1005,6 +1105,7 @@ async function startBrowserVoiceRecording(): Promise<void> {
     }
     voiceRecorder.start()
     recording.value = true
+    startVoiceRecordTicker()
     showTransientStatus('正在录音，再点麦克风发送', 1200)
     voiceStopTimer = setTimeout(() => stopVoiceRecording(false), MAX_VOICE_RECORD_MS)
   } catch (error) {
@@ -1030,6 +1131,7 @@ function startUniVoiceRecording(): boolean {
       format: 'mp3'
     })
     recording.value = true
+    startVoiceRecordTicker()
     showTransientStatus('正在录音，再点麦克风发送', 1200)
     voiceStopTimer = setTimeout(() => stopVoiceRecording(false), MAX_VOICE_RECORD_MS)
     return true
@@ -1102,7 +1204,25 @@ function cancelVoiceRecording(): void {
   stopVoiceRecording(true)
 }
 
+function startVoiceRecordTicker(): void {
+  if (voiceRecordTicker) clearInterval(voiceRecordTicker)
+  recordingElapsedMs.value = 0
+  voiceRecordTicker = setInterval(() => {
+    if (!recording.value || voiceRecordStartedAt <= 0) return
+    recordingElapsedMs.value = Math.max(0, Date.now() - voiceRecordStartedAt)
+  }, 250)
+}
+
+function stopVoiceRecordTicker(): void {
+  if (voiceRecordTicker) {
+    clearInterval(voiceRecordTicker)
+    voiceRecordTicker = null
+  }
+  recordingElapsedMs.value = 0
+}
+
 function cleanupVoiceRecording(): void {
+  stopVoiceRecordTicker()
   if (voiceStopTimer) {
     clearTimeout(voiceStopTimer)
     voiceStopTimer = null
@@ -1227,6 +1347,30 @@ function hasInvalidTempChatVoicePath(path: string): boolean {
     (path.includes('//') && !allowedTempScheme)
 }
 
+function openMediaComposer(): void {
+  if (chatBlocked.value) { statusText.value = '聊天暂不可用，不能发送媒体'; return }
+  if (recording.value) { statusText.value = '请先结束或取消录音，再发送媒体'; return }
+  if (sending.value) return
+  if (!currentUserId.value) { statusText.value = '缺少当前登录用户，媒体暂不可用'; return }
+  if (!receiverId.value) { statusText.value = '缺少会话目标用户，媒体暂不可用'; return }
+  try {
+    uni.showActionSheet({
+      itemList: ['发送图片', '发送视频'],
+      success: (result) => {
+        if (result.tapIndex === 0) sendImagePlaceholder()
+        if (result.tapIndex === 1) sendVideoPlaceholder()
+      },
+      fail: (error) => {
+        console.warn('chat media action sheet failed', { cancelled: isPickerCancel(error), error })
+        if (isPickerCancel(error)) showTransientStatus('已取消选择媒体')
+      }
+    })
+  } catch (error) {
+    console.warn('chat media action sheet failed', { error })
+    statusText.value = '无法打开媒体选择器，请稍后重试'
+  }
+}
+
 function sendImagePlaceholder(): void {
   if (chatBlocked.value) { statusText.value = '聊天暂不可用，不能发送图片'; return }
   if (recording.value) { statusText.value = '请先结束或取消录音，再发送图片'; return }
@@ -1252,6 +1396,35 @@ function sendImagePlaceholder(): void {
   } catch (error) {
     console.warn('chat image picker failed', { error })
     statusText.value = '无法打开图片选择器，请检查相册权限后重试'
+  }
+}
+
+function sendVideoPlaceholder(): void {
+  if (chatBlocked.value) { statusText.value = '聊天暂不可用，不能发送视频'; return }
+  if (recording.value) { statusText.value = '请先结束或取消录音，再发送视频'; return }
+  if (sending.value) return
+  if (!currentUserId.value) { statusText.value = '缺少当前登录用户，视频暂不可用'; return }
+  if (!receiverId.value) { statusText.value = '缺少会话目标用户，视频暂不可用'; return }
+  try {
+    uni.chooseVideo({
+      sourceType: ['album', 'camera'],
+      compressed: true,
+      maxDuration: Math.floor(MAX_CHAT_VIDEO_DURATION_MS / 1000),
+      success: (res) => {
+        const result = res as ChooseVideoResult
+        const path = result.tempFilePath || ''
+        if (!path) { showTransientStatus('没有选择视频'); return }
+        void handleSendVideo(path, result)
+      },
+      fail: (error) => {
+        console.warn('chat video picker failed', { cancelled: isPickerCancel(error), error })
+        if (isPickerCancel(error)) showTransientStatus('已取消选择视频')
+        else statusText.value = '无法选择视频，请检查相册或相机权限后重试'
+      }
+    })
+  } catch (error) {
+    console.warn('chat video picker failed', { error })
+    statusText.value = '无法打开视频选择器，请检查相册或相机权限后重试'
   }
 }
 
@@ -1287,7 +1460,68 @@ async function handleSendImage(localPath: string, file?: ChooseImageFile): Promi
   }
 }
 
-async function handleSend(type: 'TEXT' | 'IMAGE' | 'VOICE', contentPayload?: Record<string, unknown>): Promise<void> {
+async function handleSendVideo(localPath: string, result: ChooseVideoResult): Promise<void> {
+  if (recording.value) {
+    statusText.value = '请先结束或取消录音，再发送视频'
+    return
+  }
+  if (!localPath || hasInvalidTempChatVideoPath(localPath)) {
+    statusText.value = '视频暂不可用，请重新选择视频'
+    return
+  }
+  const durationMs = normalizePickedVideoDurationMs(result.duration)
+  if (durationMs <= 0 || durationMs > MAX_CHAT_VIDEO_DURATION_MS) {
+    statusText.value = '视频时长最多 5 分钟，请重新选择'
+    return
+  }
+  sending.value = true
+  showTransientStatus('正在上传聊天视频...', 1200)
+  try {
+    const blob = await readH5TempVideoBlob(localPath)
+    const file = result.tempFile || result.file
+    const contentType = guessVideoMime(localPath, videoTypeFromPickerResult(result, blob))
+    const safeFileSize = videoFileSize(file, blob?.size ?? result.size)
+    if (safeFileSize > MAX_CHAT_VIDEO_UPLOAD_BYTES) throw new Error('chat video file too large')
+    const filename = filenameFromPath(file?.name || localPath, videoFallbackName(contentType))
+    const ticket = await createMediaUploadTicket({ scene: 'CHAT_VIDEO', contentType, fileSize: safeFileSize, filename })
+    const uploaded = blob
+      ? await uploadMediaTicketBlob(ticket, new Blob([blob], { type: contentType }), filename)
+      : await uploadMediaTicketFile(ticket, localPath)
+    if (hasInvalidChatVideoStorageUrl(uploaded.storageUrl)) throw new Error('chat video storageUrl invalid')
+    await handleSend('VIDEO', {
+      url: uploaded.storageUrl,
+      durationMs,
+      sizeBytes: safeFileSize,
+      mimeType: contentType
+    })
+  } catch (error) {
+    console.warn('chat video send failed', { pathLength: localPath.length, fileSize: result.size, duration: result.duration, error })
+    statusText.value = '视频发送失败，请重新选择后发送'
+  } finally {
+    sending.value = false
+  }
+}
+
+function normalizePickedVideoDurationMs(duration: unknown): number {
+  const numeric = Number(duration)
+  if (!Number.isFinite(numeric) || numeric <= 0) return 1000
+  const milliseconds = numeric <= 600 ? numeric * 1000 : numeric
+  return Math.max(1, Math.round(milliseconds))
+}
+
+async function readH5TempVideoBlob(path: string): Promise<Blob | undefined> {
+  if (!path.toLowerCase().startsWith('blob:')) return undefined
+  if (typeof fetch !== 'function') throw new Error('chat video blob fetch unsupported')
+  const response = await fetch(path)
+  if (!response.ok) throw new Error('chat video blob fetch failed')
+  return response.blob()
+}
+
+function videoTypeFromPickerResult(result: ChooseVideoResult, blob?: Blob): string | undefined {
+  return blob?.type || result.type || result.tempFile?.type || result.file?.type
+}
+
+async function handleSend(type: 'TEXT' | 'IMAGE' | 'VOICE' | 'VIDEO', contentPayload?: Record<string, unknown>): Promise<void> {
   if (chatBlocked.value) { statusText.value = '聊天暂不可用，暂不能发送消息'; return }
   if (recording.value && type !== 'VOICE') { statusText.value = '请先结束或取消录音，再发送其他消息'; return }
   if (sending.value && type === 'TEXT') return
@@ -1295,6 +1529,7 @@ async function handleSend(type: 'TEXT' | 'IMAGE' | 'VOICE', contentPayload?: Rec
   if (!receiverId.value) { statusText.value = '缺少会话目标用户，暂不能发送消息'; return }
   if (type === 'IMAGE' && (!contentPayload || hasInvalidChatImageStorageUrl(contentPayload.url))) { statusText.value = '图片暂不可用，暂不能发送消息'; return }
   if (type === 'VOICE' && (!contentPayload || hasInvalidChatVoiceStorageUrl(contentPayload.url))) { statusText.value = '语音暂不可用，暂不能发送消息'; return }
+  if (type === 'VIDEO' && (!contentPayload || hasInvalidChatVideoStorageUrl(contentPayload.url))) { statusText.value = '视频暂不可用，暂不能发送消息'; return }
   const text = draft.value.trim()
   if (type === 'TEXT' && !text) { statusText.value = '请输入消息内容后再发送'; return }
   if (type === 'TEXT' && text.length > MAX_TEXT_MESSAGE_LENGTH) { statusText.value = `消息最多 ${MAX_TEXT_MESSAGE_LENGTH} 字，请精简后再发送`; return }
@@ -1378,9 +1613,17 @@ function chatVoiceMessageUrl(message: ChatMessageItem): string {
   return chatMediaBlobUrls.value[message.serverMsgId] || ''
 }
 
+function chatVideoMessageUrl(message: ChatMessageItem): string {
+  if (isMessageRevoked(message)) return ''
+  if (message.msgType !== 'VIDEO') return ''
+  const url = chatMediaStorageUrl(message)
+  if (!url || hasInvalidChatVideoStorageUrl(url)) return ''
+  return chatMediaBlobUrls.value[message.serverMsgId] || ''
+}
+
 function chatMediaStorageUrl(message: ChatMessageItem): string {
   const content = parsedMessageContent(message)
-  const url = content?.url ?? content?.audioUrl ?? content?.voiceUrl
+  const url = content?.url ?? content?.audioUrl ?? content?.voiceUrl ?? content?.videoUrl
   return typeof url === 'string' ? url : ''
 }
 
@@ -1389,6 +1632,7 @@ function hasValidChatMediaStorage(message: ChatMessageItem): boolean {
   const storageUrl = chatMediaStorageUrl(message)
   if (message.msgType === 'IMAGE') return !hasInvalidChatImageStorageUrl(storageUrl)
   if (message.msgType === 'VOICE') return !hasInvalidChatVoiceStorageUrl(storageUrl)
+  if (message.msgType === 'VIDEO') return !hasInvalidChatVideoStorageUrl(storageUrl)
   return false
 }
 
@@ -1398,7 +1642,7 @@ function isRenderableMessageType(message: ChatMessageItem): boolean {
 
 function isMessageUnavailable(message: ChatMessageItem): boolean {
   if (isMessageRevoked(message)) return false
-  if (message.msgType === 'IMAGE' || message.msgType === 'VOICE') return !hasValidChatMediaStorage(message)
+  if (message.msgType === 'IMAGE' || message.msgType === 'VOICE' || message.msgType === 'VIDEO') return !hasValidChatMediaStorage(message)
   const content = parsedMessageContent(message)
   if (!content) return true
   return message.msgType === 'TEXT' && (typeof content.text !== 'string' || !content.text.trim())
@@ -1420,7 +1664,11 @@ function isMessageWithinRevokeWindow(message: ChatMessageItem): boolean {
 }
 
 function renderMessage(message: ChatMessageItem): string {
-  if (isMessageRevoked(message)) return message.msgType === 'VOICE' ? '语音已撤回' : '消息已撤回'
+  if (isMessageRevoked(message)) {
+    if (message.msgType === 'VOICE') return '语音已撤回'
+    if (message.msgType === 'VIDEO') return '视频已撤回'
+    return '消息已撤回'
+  }
   const content = parsedMessageContent(message)
   if (!content) return '此条消息暂不可用'
   if (message.msgType === 'IMAGE') {
@@ -1437,13 +1685,62 @@ function renderMessage(message: ChatMessageItem): string {
     if (hasChatMediaFailed(message)) return `${label} 加载失败，点击重试`
     return `${label} · 点击播放`
   }
+  if (message.msgType === 'VIDEO') {
+    if (!hasValidChatMediaStorage(message)) return '视频文件暂不可播放'
+    const duration = normalizedVideoDurationSeconds(content)
+    const label = Number.isFinite(duration) && duration > 0 ? `视频消息 ${Math.ceil(duration)}″` : '视频消息'
+    if (isChatMediaLoading(message)) return `${label} 加载中...`
+    if (hasChatMediaFailed(message)) return `${label} 加载失败，点击重试`
+    return `${label} · 点击播放`
+  }
   if (!isKnownChatMessageType(message.msgType)) return '暂不支持的消息类型'
   return typeof content?.text === 'string' && content.text.trim() ? content.text : '消息内容暂不可用'
+}
+
+function voiceDurationText(message: ChatMessageItem): string {
+  const duration = normalizedVoiceDurationSeconds(parsedMessageContent(message))
+  return Number.isFinite(duration) && duration > 0 ? formatDurationSeconds(Math.ceil(duration)) : '语音'
+}
+
+function voicePlaybackStateText(message: ChatMessageItem): string {
+  if (!hasValidChatMediaStorage(message)) return '不可播放'
+  if (isChatMediaLoading(message)) return '加载中'
+  if (hasChatMediaFailed(message)) return '点击重试'
+  if (playingVoiceMessageId.value === message.serverMsgId) return '播放中'
+  return '点击播放'
+}
+
+function voicePlaybackStateClass(message: ChatMessageItem): string {
+  if (!hasValidChatMediaStorage(message)) return 'unavailable'
+  if (isChatMediaLoading(message)) return 'loading'
+  if (hasChatMediaFailed(message)) return 'failed'
+  if (playingVoiceMessageId.value === message.serverMsgId) return 'playing'
+  return 'ready'
+}
+
+function formatDurationSeconds(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '0:00'
+  const safeSeconds = Math.max(0, Math.min(Math.floor(seconds), 600))
+  const minutes = Math.floor(safeSeconds / 60)
+  const rest = String(safeSeconds % 60).padStart(2, '0')
+  return `${minutes}:${rest}`
+}
+
+function normalizedVideoDurationSeconds(content: Record<string, unknown> | null | undefined): number {
+  if (!content) return 0
+  const seconds = Number(content.durationSeconds ?? content.duration ?? 0)
+  if (Number.isFinite(seconds) && seconds > 0) return seconds
+  const milliseconds = Number(content.durationMs ?? 0)
+  return Number.isFinite(milliseconds) && milliseconds > 0 ? milliseconds / 1000 : 0
 }
 
 function handleMessageBodyTap(message: ChatMessageItem): void {
   if (message.msgType === 'IMAGE') {
     void previewChatImage(message)
+    return
+  }
+  if (message.msgType === 'VIDEO') {
+    void prepareChatVideo(message)
     return
   }
   if (message.msgType !== 'VOICE') return
@@ -1464,7 +1761,7 @@ async function previewChatImage(message: ChatMessageItem): Promise<void> {
     previewImage?: (options: { current: string; urls: string[]; fail?: (error: unknown) => void }) => void
   }
   if (typeof imagePreviewer.previewImage !== 'function') {
-    statusText.value = '当前环境暂不支持图片预览'
+    openImagePreviewFallback(imageUrl)
     return
   }
   try {
@@ -1473,12 +1770,30 @@ async function previewChatImage(message: ChatMessageItem): Promise<void> {
       urls: messages.value.map((item) => chatImageMessageUrl(item)).filter(Boolean),
       fail: (error: unknown) => {
         console.warn('chat image preview failed', { serverMsgId: message.serverMsgId, error })
-        statusText.value = '图片预览失败，请稍后重试'
+        openImagePreviewFallback(imageUrl)
       }
     })
   } catch (error) {
     console.warn('chat image preview failed', { serverMsgId: message.serverMsgId, error })
-    statusText.value = '图片预览失败，请稍后重试'
+    openImagePreviewFallback(imageUrl)
+  }
+}
+
+function openImagePreviewFallback(imageUrl: string): void {
+  activeImagePreviewUrl.value = imageUrl
+  if (statusText.value === '当前环境暂不支持图片预览' || statusText.value === '图片预览失败，请稍后重试') {
+    clearStatusText()
+  }
+}
+
+function closeImagePreview(): void {
+  activeImagePreviewUrl.value = ''
+}
+
+async function prepareChatVideo(message: ChatMessageItem): Promise<void> {
+  const videoUrl = await ensureChatMediaBlob(message)
+  if (!videoUrl) {
+    statusText.value = hasChatMediaFailed(message) ? '视频文件加载失败，请稍后再点一次' : '视频文件正在加载，请稍后再点一次'
   }
 }
 
@@ -1620,7 +1935,7 @@ function setChatMediaState(target: typeof chatMediaLoadingIds, serverMsgId: stri
 
 function shouldReleaseChatMediaBlob(message: ChatMessageItem): boolean {
   if (isMessageRevoked(message)) return true
-  if (message.msgType !== 'IMAGE' && message.msgType !== 'VOICE') return true
+  if (message.msgType !== 'IMAGE' && message.msgType !== 'VOICE' && message.msgType !== 'VIDEO') return true
   return !hasValidChatMediaStorage(message)
 }
 

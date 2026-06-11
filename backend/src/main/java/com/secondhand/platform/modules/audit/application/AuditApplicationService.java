@@ -7,7 +7,9 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -59,10 +61,10 @@ public class AuditApplicationService {
     }
 
     @Transactional
-    public AuditRecordResponse submitRealNameIdentity(Long userId, String realName, String idTail) {
+    public AuditRecordResponse submitRealNameIdentity(Long userId, String realName, String idNumber) {
         validateUserId(userId);
         String safeRealName = normalizeRealName(realName);
-        String safeIdTail = normalizeIdTail(idTail);
+        String safeIdNumber = normalizeIdNumber(idNumber);
         Integer existing = jdbcTemplate.queryForObject("select count(1) from user_profile where user_id = ?", Integer.class, userId);
         if (existing == null || existing == 0) {
             throw new IllegalArgumentException("user profile not found");
@@ -73,8 +75,8 @@ public class AuditApplicationService {
                 userId,
                 "REAL_NAME_IDENTITY",
                 String.valueOf(userId),
-                "实名：" + maskRealName(safeRealName) + " / 证件后四位：" + safeIdTail,
-                "实名资料仅保存姓名与证件后四位，管理员按平台规则复核。"
+                "实名：" + maskRealName(safeRealName) + " / 身份证：" + maskIdNumber(safeIdNumber),
+                "用户已提交完整身份证号码并通过平台格式校验；审核列表仅展示脱敏摘要，管理员按平台规则复核。"
         );
     }
 
@@ -1070,12 +1072,37 @@ public class AuditApplicationService {
         return safe;
     }
 
-    private String normalizeIdTail(String value) {
-        String safe = requireText(value, "idTail required");
-        if (!safe.matches("\\d{4}")) {
-            throw new IllegalArgumentException("idTail invalid");
+    private String normalizeIdNumber(String value) {
+        String safe = requireText(value, "idNumber required").toUpperCase(Locale.ROOT);
+        if (!safe.matches("[1-9]\\d{5}(18|19|20)\\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\\d|3[01])\\d{3}[0-9X]")) {
+            throw new IllegalArgumentException("idNumber invalid");
+        }
+        try {
+            LocalDate.parse(safe.substring(6, 14), java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+        } catch (DateTimeParseException exception) {
+            throw new IllegalArgumentException("idNumber invalid", exception);
+        }
+        if (!hasValidChineseIdChecksum(safe)) {
+            throw new IllegalArgumentException("idNumber invalid");
         }
         return safe;
+    }
+
+    private boolean hasValidChineseIdChecksum(String idNumber) {
+        int[] weights = {7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2};
+        char[] checks = {'1', '0', 'X', '9', '8', '7', '6', '5', '4', '3', '2'};
+        int sum = 0;
+        for (int index = 0; index < weights.length; index++) {
+            sum += Character.digit(idNumber.charAt(index), 10) * weights[index];
+        }
+        return checks[sum % 11] == idNumber.charAt(17);
+    }
+
+    private String maskIdNumber(String idNumber) {
+        if (idNumber == null || idNumber.length() < 10) {
+            return "********";
+        }
+        return idNumber.substring(0, 6) + "********" + idNumber.substring(idNumber.length() - 4);
     }
 
     private String maskRealName(String value) {

@@ -1,6 +1,6 @@
 <template>
   <view class="page-shell public-profile">
-    <view v-if="profileLoaded" class="hero ds-card">
+    <view v-if="profileLoaded" class="hero">
       <view class="profile-top">
         <view class="avatar-wrap">
           <view class="avatar" :class="{ image: !!safeAvatarUrl }">
@@ -40,7 +40,7 @@
       </view>
     </view>
 
-    <view v-if="hasIdentityVideo" class="video-verify-card ds-card tapable" @click="openVideoPreview">
+    <view v-if="hasIdentityVideo" class="video-verify-card tapable" @click="openVideoPreview">
       <video
         class="verify-video-bg"
         :src="identityVideoUrl"
@@ -69,7 +69,7 @@
       <button class="report-btn" @click="report">举报</button>
     </view>
 
-    <view v-if="showcasePhotos.length" class="showcase-card ds-card">
+    <view v-if="showcasePhotos.length" class="showcase-card">
       <view class="section-title">照片</view>
       <scroll-view class="showcase-scroll" scroll-x>
         <view class="showcase-strip">
@@ -102,7 +102,7 @@
       </view>
     </view>
 
-    <view v-if="showSellerTradePanel" class="section-card ds-card seller-trade-card">
+    <view v-if="showSellerTradePanel" class="section-card seller-trade-card">
       <view class="section-head compact">
         <view>
           <view class="section-title">卖家宝贝</view>

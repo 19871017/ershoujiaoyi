@@ -146,25 +146,56 @@ class ChatApplicationServiceTest {
     }
 
     @Test
+    void shouldValidateVideoMessagesAgainstUploadedVideoTicket() {
+        Long conversationId = service.createConversation(conversation(1L, 2L));
+        String chatVideoUrl = issueChatVideoTicket(1L, "/uploads/chat-video/owner1-a.mp4");
+
+        ChatMessageAck videoAck = service.sendMessage(video(conversationId, "video-1", 1L, 2L, chatVideoUrl));
+
+        assertEquals(1L, videoAck.getServerSeq());
+        assertEquals("VIDEO", videoAck.getMsgType());
+        assertEquals("[视频]", service.listConversations(1L).get(0).getLastMessageSummary());
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(video(conversationId, "video-local", 1L, 2L, "local://video.mp4")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(video(conversationId, "video-blob", 1L, 2L, "blob:https://example.com/a")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(video(conversationId, "video-http", 1L, 2L, "https://cdn.example.com/a.mp4")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(video(conversationId, "video-placeholder", 1L, 2L, "/uploads/chat-video/placeholder.mp4")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(video(conversationId, "video-other-owner", 2L, 1L, chatVideoUrl)));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(video(conversationId, "video-not-ticket", 1L, 2L, "/uploads/chat-video/no-ticket.mp4")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(videoWithContent(conversationId, "video-zero-duration", 1L, 2L,
+                "{\"url\":\"" + chatVideoUrl + "\",\"durationMs\":0,\"sizeBytes\":8192,\"mimeType\":\"video/mp4\"}")));
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(videoWithContent(conversationId, "video-bad-mime", 1L, 2L,
+                "{\"url\":\"" + chatVideoUrl + "\",\"durationMs\":1200,\"sizeBytes\":8192,\"mimeType\":\"audio/webm\"}")));
+        String expiredUploadedChatVideoUrl = issueExpiredUploadedChatVideoTicket(1L, "/uploads/chat-video/expired-owner1.mp4");
+        ChatMessageAck expiredUploadedVideoAck = service.sendMessage(video(conversationId, "expired-uploaded-video-ticket", 1L, 2L, expiredUploadedChatVideoUrl));
+        assertEquals(2L, expiredUploadedVideoAck.getServerSeq());
+        assertEquals("VIDEO", expiredUploadedVideoAck.getMsgType());
+    }
+
+    @Test
     void chatMediaAccessShouldRequireExactMessageContentUrlField() {
         Long conversationId = service.createConversation(conversation(1L, 2L));
         String imageUrl = issueChatImageTicket(1L, "/uploads/chat-image/owner1-access.png");
+        String videoUrl = issueChatVideoTicket(1L, "/uploads/chat-video/owner1-access.mp4");
         String doubleEncodedVoiceUrl = issueChatVoiceTicket(1L, "/uploads/chat-voice/owner1-double.webm");
         String legacyEscapedVoiceUrl = issueChatVoiceTicket(1L, "/uploads/chat-voice/owner1-escaped.webm");
         String smuggledVoiceUrl = issueChatVoiceTicket(3L, "/uploads/chat-voice/owner3-smuggled.webm");
 
         service.sendMessage(image(conversationId, "media-access-image", 1L, 2L, imageUrl));
+        service.sendMessage(video(conversationId, "media-access-video", 1L, 2L, videoUrl));
         insertLegacyVoiceMessage(conversationId, "legacy-double-voice", 1L, 2L, doubleEncodedVoiceUrl, true);
         insertLegacyVoiceMessage(conversationId, "legacy-escaped-voice", 1L, 2L, legacyEscapedVoiceUrl, false);
         service.sendMessage(textWithContent(conversationId, "media-access-smuggled-text", 1L, 2L,
                 "{\"text\":\"hello\",\"extra\":\"" + smuggledVoiceUrl + "\"}"));
 
         var access = service.requireChatMediaAccess(2L, imageUrl);
+        var videoAccess = service.requireChatMediaAccess(2L, videoUrl);
         var doubleEncodedVoiceAccess = service.requireChatMediaAccess(2L, doubleEncodedVoiceUrl);
         var legacyEscapedVoiceAccess = service.requireChatMediaAccess(2L, legacyEscapedVoiceUrl);
 
         assertEquals(imageUrl, access.storageUrl());
         assertEquals(conversationId, access.conversationId());
+        assertEquals(videoUrl, videoAccess.storageUrl());
+        assertEquals(conversationId, videoAccess.conversationId());
         assertEquals(doubleEncodedVoiceUrl, doubleEncodedVoiceAccess.storageUrl());
         assertEquals(conversationId, doubleEncodedVoiceAccess.conversationId());
         assertEquals(legacyEscapedVoiceUrl, legacyEscapedVoiceAccess.storageUrl());
@@ -641,6 +672,18 @@ class ChatApplicationServiceTest {
         return command;
     }
 
+    private SendMessageCommand video(Long conversationId, String clientMsgId, Long senderId, Long receiverId, String url) {
+        return videoWithContent(conversationId, clientMsgId, senderId, receiverId,
+                "{\"url\":\"" + url + "\",\"durationMs\":2200,\"sizeBytes\":8192,\"mimeType\":\"video/mp4\"}");
+    }
+
+    private SendMessageCommand videoWithContent(Long conversationId, String clientMsgId, Long senderId, Long receiverId, String contentJson) {
+        SendMessageCommand command = baseMessage(conversationId, clientMsgId, senderId, receiverId);
+        command.setMsgType("VIDEO");
+        command.setContentJson(contentJson);
+        return command;
+    }
+
     private SendMessageCommand baseMessage(Long conversationId, String clientMsgId, Long senderId, Long receiverId) {
         SendMessageCommand command = new SendMessageCommand();
         command.setConversationId(conversationId);
@@ -715,6 +758,15 @@ class ChatApplicationServiceTest {
         return storageUrl;
     }
 
+    private String issueChatVideoTicket(Long ownerUserId, String storageUrl) {
+        jdbcTemplate.update("""
+                INSERT INTO media_upload_ticket (
+                  ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
+                ) VALUES (?, ?, 'CHAT_VIDEO', 'chat.mp4', 'video/mp4', 8192, ?, 'hash', 'UPLOADED', CURRENT_TIMESTAMP, DATEADD('HOUR', 1, CURRENT_TIMESTAMP))
+                """, "VIDEO-CHAT-TICKET-" + ownerUserId + '-' + Math.abs(storageUrl.hashCode()), ownerUserId, storageUrl);
+        return storageUrl;
+    }
+
     private String issueVideoIdentityTicket(Long ownerUserId) {
         String storageUrl = "/uploads/video-identity/" + ownerUserId + "/identity.mp4";
         jdbcTemplate.update("""
@@ -739,6 +791,15 @@ class ChatApplicationServiceTest {
                   ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
                 ) VALUES (?, ?, 'CHAT_VOICE', 'chat.webm', 'audio/webm', 4096, ?, 'hash', 'UPLOADED', DATEADD('HOUR', -2, CURRENT_TIMESTAMP), DATEADD('HOUR', -1, CURRENT_TIMESTAMP))
                 """, "EXPIRED-VOICE-TICKET-" + ownerUserId + '-' + Math.abs(storageUrl.hashCode()), ownerUserId, storageUrl);
+        return storageUrl;
+    }
+
+    private String issueExpiredUploadedChatVideoTicket(Long ownerUserId, String storageUrl) {
+        jdbcTemplate.update("""
+                INSERT INTO media_upload_ticket (
+                  ticket_no, owner_user_id, scene, original_filename, content_type, file_size, storage_url, upload_token_hash, status, created_at, expires_at
+                ) VALUES (?, ?, 'CHAT_VIDEO', 'chat.mp4', 'video/mp4', 8192, ?, 'hash', 'UPLOADED', DATEADD('HOUR', -2, CURRENT_TIMESTAMP), DATEADD('HOUR', -1, CURRENT_TIMESTAMP))
+                """, "EXPIRED-VIDEO-CHAT-TICKET-" + ownerUserId + '-' + Math.abs(storageUrl.hashCode()), ownerUserId, storageUrl);
         return storageUrl;
     }
 }

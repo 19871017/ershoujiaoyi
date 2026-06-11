@@ -6,7 +6,7 @@
       </view>
       <view class="hero-icon gift-orb gift-orb-crown">
         <view class="gift-shine" />
-        <text>🎁</text>
+        <image class="gift-img" :src="giftCrownUrl" mode="aspectFit" />
       </view>
     </view>
 
@@ -26,19 +26,23 @@
       <view v-else-if="catalogMessage" class="empty-row">{{ catalogMessage }}</view>
       <view v-else class="gift-grid">
         <view
-          v-for="item in catalogList"
+          v-for="item in visibleCatalogList"
           :key="item.giftCode"
           :class="['gift-card', giftTone(item.giftCode), selectedGift?.giftCode === item.giftCode ? 'active' : '']"
           @click="selectGift(item)"
         >
           <view class="gift-orb pulse">
             <view class="gift-shine" />
-            <text>{{ item.icon || '🎁' }}</text>
+            <image v-if="isGiftImage(item.icon)" class="gift-img" :src="resolveGiftImage(item.icon)" mode="aspectFit" />
+            <text v-else>{{ item.icon || '🎁' }}</text>
           </view>
           <view class="gift-title">{{ item.name }}</view>
           <view class="gift-desc">¥{{ money(item.price) }}</view>
         </view>
       </view>
+      <button v-if="hasFoldedGifts" class="fold-btn" @click="toggleGiftFold">
+        {{ giftExpanded ? '收起其他礼物' : `展开其他 ${foldedGiftCount} 个礼物` }}
+      </button>
       <view class="quantity-row">
         <text>数量</text>
         <button class="mini-btn" @click="changeQuantity(-1)">-</button>
@@ -53,7 +57,8 @@
         <view class="effect-burst two" />
         <view class="effect-icon gift-orb gift-orb-crown">
           <view class="gift-shine" />
-          <text>{{ giftEffect.icon }}</text>
+          <image v-if="isGiftImage(giftEffect.icon)" class="gift-img" :src="resolveGiftImage(giftEffect.icon)" mode="aspectFit" />
+          <text v-else>{{ giftEffect.icon }}</text>
         </view>
         <view class="effect-copy">{{ giftEffect.name }} × {{ giftEffect.quantity }} 已送达</view>
         <view class="effect-order">{{ giftEffect.orderNo }}</view>
@@ -70,7 +75,8 @@
       <view v-for="item in giftList" :key="item.giftOrderNo" class="gift-row">
         <view class="gift-orb gift-orb-mini">
           <view class="gift-shine" />
-          <text>{{ item.giftIcon || '🎁' }}</text>
+          <image v-if="isGiftImage(item.giftIcon)" class="gift-img" :src="resolveGiftImage(item.giftIcon)" mode="aspectFit" />
+          <text v-else>{{ item.giftIcon || '🎁' }}</text>
         </view>
         <view class="gift-main">
           <view class="gift-title">{{ item.giftName }} × {{ item.quantity }} · 来自 {{ senderLabel(item.senderId) }}</view>
@@ -102,7 +108,18 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getGiftCatalog, getReceivedGifts, sendGift, type GiftCatalogItemResponse, type ReceivedGiftItemResponse } from '../../api/modules/gift'
 import { getWalletBalance, type WalletMoneyAmount } from '../../api/modules/wallet'
+import giftCoffeeUrl from '../../assets/gifts/gift-coffee.png'
+import giftCrownUrl from '../../assets/gifts/gift-crown.png'
+import giftCrystalShoeUrl from '../../assets/gifts/gift-crystal-shoe.png'
+import giftGalaxyUrl from '../../assets/gifts/gift-galaxy.png'
+import giftHeartUrl from '../../assets/gifts/gift-heart.png'
+import giftLoveCastleUrl from '../../assets/gifts/gift-love-castle.png'
+import giftPerfumeUrl from '../../assets/gifts/gift-perfume.png'
+import giftRibbonBoxUrl from '../../assets/gifts/gift-ribbon-box.png'
+import giftRoseUrl from '../../assets/gifts/gift-rose.png'
+import giftStarUrl from '../../assets/gifts/gift-star.png'
 
+const DEFAULT_VISIBLE_GIFT_COUNT = 3
 const receiverId = ref<number | null>(null)
 const receiverName = ref('')
 const sceneType = ref('PROFILE')
@@ -119,6 +136,7 @@ const loadingCatalog = ref(false)
 const loadingReceived = ref(false)
 const loadingBalance = ref(false)
 const sending = ref(false)
+const giftExpanded = ref(false)
 type GiftEffect = { icon: string; name: string; quantity: number; orderNo: string }
 const giftEffect = ref<GiftEffect | null>(null)
 let giftEffectTimer: ReturnType<typeof setTimeout> | null = null
@@ -128,6 +146,9 @@ const rechargeBalanceText = computed(() => loadingBalance.value ? '余额加载�
 const totalIncome = computed(() => giftList.value.reduce((sum, item) => sum + Number(item.receiverAmount || 0), 0).toFixed(2))
 const totalIncomeText = computed(() => loadingReceived.value ? '--' : `¥${totalIncome.value}`)
 const estimatedTotal = computed(() => selectedGift.value ? (Number(selectedGift.value.price) * quantity.value).toFixed(2) : '0.00')
+const hasFoldedGifts = computed(() => catalogList.value.length > DEFAULT_VISIBLE_GIFT_COUNT)
+const foldedGiftCount = computed(() => Math.max(0, catalogList.value.length - DEFAULT_VISIBLE_GIFT_COUNT))
+const visibleCatalogList = computed(() => giftExpanded.value || !hasFoldedGifts.value ? catalogList.value : catalogList.value.slice(0, DEFAULT_VISIBLE_GIFT_COUNT))
 const summary = computed(() => [
   { label: '累计入账', value: totalIncomeText.value },
   { label: '收礼记录', value: loadingReceived.value ? '--' : `${giftList.value.length}` },
@@ -196,6 +217,10 @@ function selectGift(item: GiftCatalogItemResponse) {
   sendMessage.value = ''
 }
 
+function toggleGiftFold() {
+  giftExpanded.value = !giftExpanded.value
+}
+
 function changeQuantity(delta: number) {
   quantity.value = Math.min(99, Math.max(1, quantity.value + delta))
 }
@@ -244,9 +269,21 @@ async function submitGift() {
 function giftTone(giftCode: string): string {
   const normalized = giftCode.toLowerCase()
   if (normalized.includes('crown')) return 'gift-tone-crown'
-  if (normalized.includes('heart') || normalized.includes('spark')) return 'gift-tone-heart'
-  if (normalized.includes('box') || normalized.includes('star')) return 'gift-tone-star'
+  if (normalized.includes('heart') || normalized.includes('spark') || normalized.includes('love')) return 'gift-tone-heart'
+  if (normalized.includes('box') || normalized.includes('star') || normalized.includes('galaxy')) return 'gift-tone-star'
+  if (normalized.includes('perfume') || normalized.includes('shoe')) return 'gift-tone-gold'
   return 'gift-tone-rose'
+}
+
+function isGiftImage(value?: string | null): boolean {
+  return Boolean(resolveGiftImage(value))
+}
+
+function resolveGiftImage(value?: string | null): string {
+  const path = value?.trim() || ''
+  const mapped = giftImageMap[path]
+  if (mapped) return mapped
+  return path.startsWith('/assets/') ? path : ''
 }
 
 function senderLabel(senderId: number) {
@@ -268,6 +305,19 @@ function openRanking() {
 
 function money(value: WalletMoneyAmount) {
   return value === '--' ? '--' : Number(value || 0).toFixed(2)
+}
+
+const giftImageMap: Record<string, string> = {
+  '/assets/gifts/gift-rose.png': giftRoseUrl,
+  '/assets/gifts/gift-coffee.png': giftCoffeeUrl,
+  '/assets/gifts/gift-star.png': giftStarUrl,
+  '/assets/gifts/gift-heart.png': giftHeartUrl,
+  '/assets/gifts/gift-ribbon-box.png': giftRibbonBoxUrl,
+  '/assets/gifts/gift-perfume.png': giftPerfumeUrl,
+  '/assets/gifts/gift-crystal-shoe.png': giftCrystalShoeUrl,
+  '/assets/gifts/gift-crown.png': giftCrownUrl,
+  '/assets/gifts/gift-galaxy.png': giftGalaxyUrl,
+  '/assets/gifts/gift-love-castle.png': giftLoveCastleUrl
 }
 
 function formatDateTime(value: string) {
@@ -308,12 +358,15 @@ onBeforeUnmount(() => {
 .gift-tone-heart { background:linear-gradient(180deg,#fff0f6,#fff7ed); }
 .gift-tone-star { background:linear-gradient(180deg,#f6f1ff,#fff7ed); }
 .gift-tone-rose { background:linear-gradient(180deg,#fff4f0,#fffaf6); }
+.gift-tone-gold { background:linear-gradient(180deg,#fff9e8,#fff5ef); }
+.fold-btn { margin:16rpx 0 0; height:64rpx; line-height:64rpx; border-radius:999rpx; background:rgba(255,243,231,.88); color:#c8693f; font-size:23rpx; font-weight:900; }
 .gift-row { margin-top:16rpx; padding:18rpx; border-radius:24rpx; background:#fffaf6; }
 .gift-orb { position:relative; margin:0 auto; width:76rpx; height:76rpx; border-radius:28rpx; display:flex; align-items:center; justify-content:center; color:#fff; font-size:38rpx; background:radial-gradient(circle at 32% 24%,#fff8cf 0,#ffcf73 28%,#ff7a45 64%,#ff4d8f 100%); box-shadow:0 14rpx 26rpx rgba(255,83,128,.18), inset 0 0 0 2rpx rgba(255,255,255,.45); overflow:hidden; }
 .gift-orb-mini { flex:0 0 auto; margin:0; width:68rpx; height:68rpx; border-radius:24rpx; font-size:34rpx; }
 .gift-orb-crown { background:radial-gradient(circle at 32% 24%,#fff8cf 0,#ffd76b 30%,#ff9a45 68%,#ff4d8f 100%); }
 .gift-shine { position:absolute; left:10rpx; top:8rpx; width:24rpx; height:12rpx; border-radius:999rpx; background:rgba(255,255,255,.72); transform:rotate(-28deg); }
 .gift-orb text { position:relative; z-index:1; filter:drop-shadow(0 4rpx 8rpx rgba(90,35,18,.16)); }
+.gift-img { position:relative; z-index:1; width:88%; height:88%; display:block; filter:drop-shadow(0 5rpx 10rpx rgba(90,35,18,.16)); }
 .gift-orb.pulse { animation:pulse 1.6s infinite; }
 .gift-main { flex:1; min-width:0; }
 .gift-title { color:#3a2a1f; font-size:25rpx; font-weight:950; }

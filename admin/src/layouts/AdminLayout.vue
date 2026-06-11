@@ -35,6 +35,7 @@ const moduleMenus = new Map([
   { path: '/audit-logs', label: '审计日志', permission: 'audit:log' },
   { path: '/operators', label: '运营授权', permission: 'operator:grant' },
   { path: '/system/location', label: '位置配置', permission: 'system:config' },
+  { path: '/system/payment', label: '支付配置', permission: 'system:config' },
   { path: '/system/banners', label: '首页轮播', permission: 'system:config' },
   { path: '/system/announcements', label: '公告配置', permission: 'system:config' }
 ].map((item) => [item.path, item] as const))

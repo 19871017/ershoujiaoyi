@@ -54,7 +54,7 @@
         <view
           v-for="item in products"
           :key="item.productId"
-          class="product-grid-card ds-card tapable"
+          class="product-grid-card tapable"
           @click="goDetail(item.productId)"
         >
           <view class="product-cover-wrap" :class="toneClass(item.productId)">

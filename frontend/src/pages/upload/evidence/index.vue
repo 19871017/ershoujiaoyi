@@ -1,6 +1,6 @@
 <template>
   <view class="page-shell upload-page">
-    <view class="hero ds-card"><view><view class="kicker">♡ 媒体上传</view><view class="page-title">上传媒体文件</view><view class="page-desc">用于售后、举报、实名、商品和聊天图片上传；本页只完成平台文件上传，不代表业务表单已提交。</view></view><view class="hero-icon">🖼️</view></view>
+    <view class="hero ds-card"><view><view class="kicker">♡ 媒体上传</view><view class="page-title">上传媒体文件</view><view class="page-desc">用于售后、举报、实名、商品和聊天媒体上传；本页只完成平台文件上传，不代表业务表单已提交。</view></view><view class="hero-icon">🖼️</view></view>
     <view v-if="errorText" class="status-card ds-card danger"><view class="section-title">暂不能上传</view><view class="status-desc">{{ errorText }}</view></view>
     <view class="type-row"><view v-for="item in types" :key="item.value" class="chip tapable" :class="{ active: scene === item.value }" @click="selectScene(item.value)">{{ item.label }}</view></view>
     <view class="rule-card ds-card"><view class="section-head"><view><view class="section-title">上传规则</view><view class="section-desc">当前场景：{{ currentSceneLabel }}，返回地址会按后端场景前缀校验。</view></view><view class="scene-chip">{{ images.length }}/{{ maxImages }}</view></view><view v-for="item in rules" :key="item" class="rule-line">{{ item }}</view></view>
@@ -39,8 +39,8 @@ const saving=ref(false)
 const uploading=ref(false)
 const remark=ref('')
 const images=ref<string[]>([])
-const types=[{label:'售后',value:'AFTER_SALES_EVIDENCE' as const},{label:'举报',value:'REPORT_EVIDENCE' as const},{label:'实名视频',value:'VIDEO_IDENTITY' as const},{label:'商品',value:'PRODUCT_IMAGE' as const},{label:'社区',value:'COMMUNITY_IMAGE' as const},{label:'聊天',value:'CHAT_IMAGE' as const}]
-const supportedScenes: Scene[] = ['AFTER_SALES_EVIDENCE','REPORT_EVIDENCE','VIDEO_IDENTITY','PRODUCT_IMAGE','COMMUNITY_IMAGE','CHAT_IMAGE']
+const types=[{label:'售后',value:'AFTER_SALES_EVIDENCE' as const},{label:'举报',value:'REPORT_EVIDENCE' as const},{label:'实名视频',value:'VIDEO_IDENTITY' as const},{label:'商品',value:'PRODUCT_IMAGE' as const},{label:'社区',value:'COMMUNITY_IMAGE' as const},{label:'聊天图片',value:'CHAT_IMAGE' as const},{label:'聊天视频',value:'CHAT_VIDEO' as const}]
+const supportedScenes: Scene[] = ['AFTER_SALES_EVIDENCE','REPORT_EVIDENCE','VIDEO_IDENTITY','PRODUCT_IMAGE','COMMUNITY_IMAGE','CHAT_IMAGE','CHAT_VIDEO']
 const storagePrefixByScene: Record<Scene, string> = {
   AFTER_SALES_EVIDENCE: '/uploads/evidence/after-sales/',
   REPORT_EVIDENCE: '/uploads/report-evidence/',
@@ -48,7 +48,8 @@ const storagePrefixByScene: Record<Scene, string> = {
   PRODUCT_IMAGE: '/uploads/product-image/',
   COMMUNITY_IMAGE: '/uploads/community-image/',
   CHAT_IMAGE: '/uploads/chat-image/',
-  CHAT_VOICE: '/uploads/chat-voice/'
+  CHAT_VOICE: '/uploads/chat-voice/',
+  CHAT_VIDEO: '/uploads/chat-video/'
 }
 const legacySceneMap: Record<string, Scene> = {
   AFTER_SALES: 'AFTER_SALES_EVIDENCE',
@@ -125,7 +126,7 @@ function chooseMedia(): void {
   if (uploading.value) return uni.showToast({ title:'文件上传中，请稍后再选', icon:'none' })
   refreshSceneError()
   if (errorText.value) return uni.showToast({ title:errorText.value, icon:'none' })
-  if (scene.value === 'VIDEO_IDENTITY') {
+  if (scene.value === 'VIDEO_IDENTITY' || scene.value === 'CHAT_VIDEO') {
     chooseVideoIdentity()
     return
   }
@@ -133,7 +134,7 @@ function chooseMedia(): void {
 }
 function chooseVideoIdentity(): void {
   if (images.value.length >= 1) return uni.showToast({ title:'视频认证上传票据每次仅保留 1 条', icon:'none' })
-  const sceneSnapshot: Scene = 'VIDEO_IDENTITY'
+  const sceneSnapshot: Scene = scene.value === 'CHAT_VIDEO' ? 'CHAT_VIDEO' : 'VIDEO_IDENTITY'
   uploading.value = true
   try {
     uni.chooseVideo({ sourceType:['camera','album'], compressed:true, maxDuration:60, async success(res: ChooseVideoResult){
@@ -141,9 +142,9 @@ function chooseVideoIdentity(): void {
         const path = res.tempFilePath
         if (!path || hasInvalidTempMediaPath(path)) throw new Error('视频文件无效，请重新选择')
         const blob = await readH5TempVideoBlob(path)
-        const contentType = videoContentType(path, videoTypeFromPickerResult(res, blob))
+        const contentType = videoContentType(path, videoTypeFromPickerResult(res, blob), sceneSnapshot)
         const filename = videoFileNameFromPickerResult(res, contentType)
-        const ticket = await createMediaUploadTicket({ scene: 'VIDEO_IDENTITY', contentType, fileSize: Math.max(1, blob?.size ?? res.size ?? 1), filename })
+        const ticket = await createMediaUploadTicket({ scene: sceneSnapshot, contentType, fileSize: Math.max(1, blob?.size ?? res.size ?? 1), filename })
         const uploaded = blob
           ? await uploadMediaTicketBlob(ticket, new Blob([blob], { type: contentType }), filename)
           : await uploadMediaTicketFile(ticket, path)
@@ -246,22 +247,24 @@ function videoFallbackName(contentType: string): string {
   if (contentType === 'video/x-m4v') return 'video-identity.m4v'
   return 'video-identity.mp4'
 }
-function normalizedVideoContentType(contentType: unknown): string | undefined {
+function normalizedVideoContentType(contentType: unknown, sceneValue: Scene = 'VIDEO_IDENTITY'): string | undefined {
   if (typeof contentType !== 'string') return undefined
   const lower = contentType.trim().toLowerCase()
   if (lower === 'video/mp4' || lower === 'video/mpeg4') return 'video/mp4'
   if (lower === 'video/quicktime' || lower === 'video/mov') return 'video/quicktime'
   if (lower === 'video/x-m4v' || lower === 'video/m4v') return 'video/x-m4v'
+  if (lower === 'video/webm' && sceneValue === 'CHAT_VIDEO') return 'video/webm'
   if (lower === 'video/webm') throw new Error('暂不支持 WebM 视频，请选择 MP4、MOV 或 M4V')
   if (lower.startsWith('video/')) throw new Error('暂不支持该视频格式，请选择 MP4、MOV 或 M4V')
   return undefined
 }
-function videoContentType(path: string, fallbackType?: unknown): string {
-  const normalized = normalizedVideoContentType(fallbackType)
+function videoContentType(path: string, fallbackType?: unknown, sceneValue: Scene = 'VIDEO_IDENTITY'): string {
+  const normalized = normalizedVideoContentType(fallbackType, sceneValue)
   if (normalized) return normalized
   const lower = path.toLowerCase()
   if (lower.endsWith('.mov')) return 'video/quicktime'
   if (lower.endsWith('.m4v')) return 'video/x-m4v'
+  if (lower.endsWith('.webm') && sceneValue === 'CHAT_VIDEO') return 'video/webm'
   if (lower.endsWith('.webm')) throw new Error('暂不支持 WebM 视频，请选择 MP4、MOV 或 M4V')
   return 'video/mp4'
 }

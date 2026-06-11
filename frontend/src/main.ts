@@ -1,5 +1,6 @@
 import { createApp as createVueApp, createSSRApp, type App as VueApp, type Component } from 'vue'
 import App from './App.vue'
+import GlobalBackButton from './components/GlobalBackButton.vue'
 import GlobalBottomNav from './components/GlobalBottomNav.vue'
 import GlobalTicker from './components/GlobalTicker.vue'
 import { pinia } from './store'
@@ -18,6 +19,13 @@ type GlobalMountTarget = {
 const globalTickerTarget: GlobalMountTarget = {
   component: GlobalTicker,
   rootId: 'global-ticker-root',
+  mounted: false,
+  installQueued: false
+}
+
+const globalBackButtonTarget: GlobalMountTarget = {
+  component: GlobalBackButton,
+  rootId: 'global-back-button-root',
   mounted: false,
   installQueued: false
 }
@@ -52,6 +60,10 @@ function installGlobalTicker(): void {
   installGlobalComponent(globalTickerTarget)
 }
 
+function installGlobalBackButton(): void {
+  installGlobalComponent(globalBackButtonTarget)
+}
+
 function installGlobalBottomNav(): void {
   installGlobalComponent(globalBottomNavTarget)
 }
@@ -60,6 +72,7 @@ export function createApp(): UniAppBootstrap {
   const app = createSSRApp(App)
   app.use(pinia)
   installGlobalTicker()
+  installGlobalBackButton()
   installGlobalBottomNav()
   return {
     app

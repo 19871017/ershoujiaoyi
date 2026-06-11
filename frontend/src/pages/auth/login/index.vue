@@ -1,7 +1,9 @@
 <template>
   <view class="page-shell login-page">
     <view class="brand-card ds-card">
-      <view class="brand-logo">♡</view>
+      <view class="brand-logo">
+        <image class="brand-logo-img" :src="brandLogoUrl" mode="aspectFit" />
+      </view>
       <view class="brand-title">小原圈</view>
     </view>
 
@@ -48,6 +50,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { login, register, type LoginRequest, type RegisterGender } from '../../../api/modules/auth'
 import { useUserStore } from '../../../store/modules/user'
 import { loginRedirectIsTabbar, normalizeLoginRedirect } from './login-redirect'
+import brandLogoUrl from '../../../assets/brand/xiaoyuanquan-logo-mark.png'
 
 type AuthMode = 'login' | 'register'
 
@@ -125,7 +128,8 @@ onLoad((options) => {
 <style scoped>
 .login-page { min-height:100vh; background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 52%,#fff7ed 100%); }
 .brand-card { margin-top:20rpx; padding:42rpx 28rpx; text-align:center; border-color:#ffd9bd; background:linear-gradient(135deg,#fff,#fff3e7); }
-.brand-logo { width:104rpx; height:104rpx; margin:0 auto; border-radius:36rpx; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:60rpx; font-weight:950; box-shadow:0 18rpx 36rpx rgba(255,122,69,.2); }
+.brand-logo { width:104rpx; height:104rpx; margin:0 auto; border-radius:36rpx; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:60rpx; font-weight:950; box-shadow:0 18rpx 36rpx rgba(255,122,69,.2); overflow:hidden; }
+.brand-logo-img { width:92rpx; height:92rpx; display:block; filter:drop-shadow(0 8rpx 14rpx rgba(120,45,22,.16)); }
 .brand-title { margin-top:22rpx; color:#3a2a1f; font-size:42rpx; font-weight:950; }
 .form-card { margin-top:22rpx; padding:24rpx; border-color:#ffd9bd; }
 .mode-tabs { display:flex; gap:12rpx; margin-bottom:22rpx; padding:8rpx; border-radius:999rpx; background:#fff4ea; }

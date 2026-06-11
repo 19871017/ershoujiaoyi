@@ -20,6 +20,10 @@ import com.secondhand.platform.modules.media.application.VideoIdentityMediaInspe
 import com.secondhand.platform.modules.order.OrderDetailResponse;
 import com.secondhand.platform.modules.order.OrderListItemResponse;
 import com.secondhand.platform.modules.order.application.OrderApplicationService;
+import com.secondhand.platform.modules.payment.AdminPaymentChannelConfigRequest;
+import com.secondhand.platform.modules.payment.AdminPaymentChannelConfigResponse;
+import com.secondhand.platform.modules.payment.application.DefaultPaymentGatewayClient;
+import com.secondhand.platform.modules.payment.application.PaymentApplicationService;
 import com.secondhand.platform.modules.product.CreateProductResponse;
 import com.secondhand.platform.modules.product.ProductDetailResponse;
 import com.secondhand.platform.modules.product.ProductListItemResponse;
@@ -107,6 +111,7 @@ public class AdminController {
     private final AfterSalesApplicationService afterSalesApplicationService;
     private final OrderApplicationService orderApplicationService;
     private final ProductApplicationService productApplicationService;
+    private final PaymentApplicationService paymentApplicationService;
     private final CommunityApplicationService communityApplicationService;
     private final UserApplicationService userApplicationService;
     private final com.secondhand.platform.modules.home.HomeBannerApplicationService homeBannerApplicationService;
@@ -123,6 +128,7 @@ public class AdminController {
                            AfterSalesApplicationService afterSalesApplicationService,
                            OrderApplicationService orderApplicationService,
                            ProductApplicationService productApplicationService,
+                           PaymentApplicationService paymentApplicationService,
                            CommunityApplicationService communityApplicationService,
                            UserApplicationService userApplicationService,
                            com.secondhand.platform.modules.home.HomeBannerApplicationService homeBannerApplicationService,
@@ -137,6 +143,7 @@ public class AdminController {
         this.afterSalesApplicationService = afterSalesApplicationService;
         this.orderApplicationService = orderApplicationService;
         this.productApplicationService = productApplicationService;
+        this.paymentApplicationService = paymentApplicationService;
         this.communityApplicationService = communityApplicationService;
         this.userApplicationService = userApplicationService;
         this.homeBannerApplicationService = homeBannerApplicationService;
@@ -165,6 +172,7 @@ public class AdminController {
                 afterSalesApplicationService,
                 orderApplicationService,
                 productApplicationService,
+                new PaymentApplicationService(walletLedgerService, jdbcTemplate, orderApplicationService, new DefaultPaymentGatewayClient()),
                 communityApplicationService,
                 userApplicationService,
                 homeBannerApplicationService,
@@ -172,6 +180,37 @@ public class AdminController {
                 jdbcTemplate,
                 new MediaUploadTicketService(jdbcTemplate),
                 System.getProperty("java.io.tmpdir"));
+    }
+
+    public AdminController(AuditApplicationService auditApplicationService,
+                           WalletLedgerService walletLedgerService,
+                           AnnouncementApplicationService announcementApplicationService,
+                           LocationApplicationService locationApplicationService,
+                           AfterSalesApplicationService afterSalesApplicationService,
+                           OrderApplicationService orderApplicationService,
+                           ProductApplicationService productApplicationService,
+                           CommunityApplicationService communityApplicationService,
+                           UserApplicationService userApplicationService,
+                           com.secondhand.platform.modules.home.HomeBannerApplicationService homeBannerApplicationService,
+                           AdminAccessGuard adminAccessGuard,
+                           JdbcTemplate jdbcTemplate,
+                           MediaUploadTicketService mediaUploadTicketService,
+                           String mediaStorageRoot) {
+        this(auditApplicationService,
+                walletLedgerService,
+                announcementApplicationService,
+                locationApplicationService,
+                afterSalesApplicationService,
+                orderApplicationService,
+                productApplicationService,
+                new PaymentApplicationService(walletLedgerService, jdbcTemplate, orderApplicationService, new DefaultPaymentGatewayClient()),
+                communityApplicationService,
+                userApplicationService,
+                homeBannerApplicationService,
+                adminAccessGuard,
+                jdbcTemplate,
+                mediaUploadTicketService,
+                mediaStorageRoot);
     }
 
     @GetMapping("/dashboard")
@@ -427,6 +466,12 @@ public class AdminController {
         return Result.ok(announcementApplicationService.getTicker());
     }
 
+    @GetMapping("/payment/config")
+    public Result<List<AdminPaymentChannelConfigResponse>> paymentConfig(HttpServletRequest request) {
+        adminAccessGuard.requireAdmin(request, "system:config");
+        return Result.ok(paymentApplicationService.adminListChannelConfigs());
+    }
+
     @GetMapping("/home/banners")
     public Result<List<com.secondhand.platform.modules.home.HomeBannerResponse>> homeBanners(HttpServletRequest request) {
         adminAccessGuard.requireAdmin(request, "system:config");
@@ -510,6 +555,23 @@ public class AdminController {
                 "announcement-ticker",
                 "SUCCESS",
                 "全局跑马灯公告已更新：enabled=" + response.enabled()
+        );
+        return Result.ok(response);
+    }
+
+    @PostMapping("/payment/config/{channel}")
+    public Result<AdminPaymentChannelConfigResponse> updatePaymentConfig(@PathVariable String channel,
+                                                                         @RequestBody(required = false) AdminPaymentChannelConfigRequest body,
+                                                                         HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "system:config");
+        AdminPaymentChannelConfigResponse response = paymentApplicationService.adminUpdateChannelConfig(channel, body);
+        auditApplicationService.recordAdminOperation(
+                "PAYMENT_CONFIG_UPDATE",
+                adminUserId,
+                "SYSTEM_CONFIG",
+                "payment:" + response.channel(),
+                "SUCCESS",
+                "更新支付配置 channel=" + response.channel() + " enabled=" + response.enabled() + " configured=" + response.configured()
         );
         return Result.ok(response);
     }
@@ -914,7 +976,7 @@ public class AdminController {
     private String normalizeChatTraceMediaUrl(String storageUrl) {
         String safeUrl = requireText(storageUrl, "chat media url required");
         String lower = safeUrl.toLowerCase(Locale.ROOT);
-        if (!(safeUrl.startsWith("/uploads/chat-image/") || safeUrl.startsWith("/uploads/chat-voice/"))
+        if (!(safeUrl.startsWith("/uploads/chat-image/") || safeUrl.startsWith("/uploads/chat-voice/") || safeUrl.startsWith("/uploads/chat-video/"))
                 || lower.startsWith("http:")
                 || lower.startsWith("https:")
                 || lower.startsWith("data:")
@@ -1064,7 +1126,7 @@ public class AdminController {
     }
 
     private String resolveChatTraceMediaContentType(String storageUrl) {
-        String expectedScene = storageUrl.startsWith("/uploads/chat-voice/") ? "CHAT_VOICE" : "CHAT_IMAGE";
+        String expectedScene = sceneForChatTraceStorageUrl(storageUrl);
         List<String> rows = jdbcTemplate.query("""
                 SELECT content_type
                 FROM media_upload_ticket
@@ -1091,7 +1153,13 @@ public class AdminController {
             return "image/jpeg";
         }
         if (lower.endsWith(".mp4") || lower.endsWith(".m4a")) {
-            return "audio/mp4";
+            return storageUrl.startsWith("/uploads/chat-video/") ? "video/mp4" : "audio/mp4";
+        }
+        if (lower.endsWith(".mov")) {
+            return "video/quicktime";
+        }
+        if (lower.endsWith(".m4v")) {
+            return "video/x-m4v";
         }
         if (lower.endsWith(".aac")) {
             return "audio/aac";
@@ -1101,6 +1169,9 @@ public class AdminController {
         }
         if (lower.endsWith(".wav")) {
             return "audio/wav";
+        }
+        if (storageUrl.startsWith("/uploads/chat-video/")) {
+            return lower.endsWith(".webm") ? "video/webm" : "video/mp4";
         }
         return storageUrl.startsWith("/uploads/chat-voice/") ? "audio/webm" : "application/octet-stream";
     }
@@ -1393,7 +1464,7 @@ public class AdminController {
                          where conversation_id = ?
                            and id = ?
                            and message_no = ?
-                           and message_type in ('IMAGE', 'VOICE')
+                           and message_type in ('IMAGE', 'VOICE', 'VIDEO')
                          limit 1
                         """,
                 (rs, rowNum) -> new ChatTraceMediaCandidate(
@@ -1423,10 +1494,23 @@ public class AdminController {
         if ("VOICE".equals(messageType)) {
             return "CHAT_VOICE";
         }
+        if ("VIDEO".equals(messageType)) {
+            return "CHAT_VIDEO";
+        }
         if ("IMAGE".equals(messageType)) {
             return "CHAT_IMAGE";
         }
         throw new IllegalArgumentException("chat media message invalid");
+    }
+
+    private String sceneForChatTraceStorageUrl(String storageUrl) {
+        if (storageUrl.startsWith("/uploads/chat-voice/")) {
+            return "CHAT_VOICE";
+        }
+        if (storageUrl.startsWith("/uploads/chat-video/")) {
+            return "CHAT_VIDEO";
+        }
+        return "CHAT_IMAGE";
     }
 
     private String extractChatTraceMediaUrl(String messageType, String contentJson) {
@@ -1434,6 +1518,8 @@ public class AdminController {
         String rawUrl = "";
         if ("VOICE".equals(messageType)) {
             rawUrl = firstText(payload.get("url"), payload.get("audioUrl"), payload.get("voiceUrl"));
+        } else if ("VIDEO".equals(messageType)) {
+            rawUrl = firstText(payload.get("url"), payload.get("videoUrl"));
         } else if ("IMAGE".equals(messageType)) {
             rawUrl = firstText(payload.get("url"));
         }
@@ -1445,6 +1531,9 @@ public class AdminController {
             throw new IllegalArgumentException("chat media message invalid");
         }
         if ("IMAGE".equals(messageType) && !safeUrl.startsWith("/uploads/chat-image/")) {
+            throw new IllegalArgumentException("chat media message invalid");
+        }
+        if ("VIDEO".equals(messageType) && !safeUrl.startsWith("/uploads/chat-video/")) {
             throw new IllegalArgumentException("chat media message invalid");
         }
         return safeUrl;

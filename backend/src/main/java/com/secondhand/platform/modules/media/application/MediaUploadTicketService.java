@@ -32,6 +32,7 @@ public class MediaUploadTicketService {
     private static final long MAX_COMMUNITY_IMAGE_SIZE = 10_000_000L;
     private static final long MAX_EVIDENCE_IMAGE_SIZE = 10_000_000L;
     private static final long MAX_CHAT_VOICE_SIZE = 10_000_000L;
+    private static final long MAX_CHAT_VIDEO_SIZE = 80_000_000L;
     private static final String SCENE_VIDEO_IDENTITY = "VIDEO_IDENTITY";
     private static final String SCENE_PRODUCT_IMAGE = "PRODUCT_IMAGE";
     private static final String SCENE_COMMUNITY_IMAGE = "COMMUNITY_IMAGE";
@@ -39,6 +40,7 @@ public class MediaUploadTicketService {
     private static final String SCENE_REPORT_EVIDENCE = "REPORT_EVIDENCE";
     private static final String SCENE_CHAT_IMAGE = "CHAT_IMAGE";
     private static final String SCENE_CHAT_VOICE = "CHAT_VOICE";
+    private static final String SCENE_CHAT_VIDEO = "CHAT_VIDEO";
 
     private final JdbcTemplate jdbcTemplate;
     private final Path storageRoot;
@@ -71,6 +73,7 @@ public class MediaUploadTicketService {
             case SCENE_REPORT_EVIDENCE -> "/uploads/report-evidence/";
             case SCENE_CHAT_IMAGE -> "/uploads/chat-image/";
             case SCENE_CHAT_VOICE -> "/uploads/chat-voice/";
+            case SCENE_CHAT_VIDEO -> "/uploads/chat-video/";
             default -> "/uploads/video-identity/";
         };
         String storageUrl = storageDir + userId + "/" + ticketNo + ext;
@@ -123,6 +126,9 @@ public class MediaUploadTicketService {
             }
             if (SCENE_CHAT_VOICE.equals(ticket.scene())) {
                 requireValidVoiceMedia(target, uploadedContentType);
+            }
+            if (SCENE_CHAT_VIDEO.equals(ticket.scene())) {
+                requireValidChatVideoMedia(target, uploadedContentType);
             }
         } catch (IOException e) {
             throw new IllegalStateException("upload file save failed", e);
@@ -221,7 +227,7 @@ public class MediaUploadTicketService {
     }
 
     private void validateSceneAndMedia(String scene, String contentType, Long fileSize, String filename) {
-        if (!List.of(SCENE_VIDEO_IDENTITY, SCENE_PRODUCT_IMAGE, SCENE_COMMUNITY_IMAGE, SCENE_AFTER_SALES_EVIDENCE, SCENE_REPORT_EVIDENCE, SCENE_CHAT_IMAGE, SCENE_CHAT_VOICE).contains(scene)) {
+        if (!List.of(SCENE_VIDEO_IDENTITY, SCENE_PRODUCT_IMAGE, SCENE_COMMUNITY_IMAGE, SCENE_AFTER_SALES_EVIDENCE, SCENE_REPORT_EVIDENCE, SCENE_CHAT_IMAGE, SCENE_CHAT_VOICE, SCENE_CHAT_VIDEO).contains(scene)) {
             throw new IllegalArgumentException("unsupported media scene");
         }
         if (SCENE_VIDEO_IDENTITY.equals(scene)) {
@@ -254,6 +260,15 @@ public class MediaUploadTicketService {
             }
             if (fileSize == null || fileSize <= 0 || fileSize > MAX_CHAT_VOICE_SIZE) {
                 throw new IllegalArgumentException("voice size invalid");
+            }
+        }
+        if (SCENE_CHAT_VIDEO.equals(scene)) {
+            List<String> allowedTypes = List.of("video/mp4", "video/quicktime", "video/x-m4v", "video/webm");
+            if (!allowedTypes.contains(contentType)) {
+                throw new IllegalArgumentException("chat video content type invalid");
+            }
+            if (fileSize == null || fileSize <= 0 || fileSize > MAX_CHAT_VIDEO_SIZE) {
+                throw new IllegalArgumentException("chat video size invalid");
             }
         }
         String lower = filename.toLowerCase(Locale.ROOT);
@@ -349,6 +364,28 @@ public class MediaUploadTicketService {
         };
     }
 
+    private void requireValidChatVideoMedia(Path mediaPath, String contentType) {
+        try (InputStream inputStream = Files.newInputStream(mediaPath)) {
+            byte[] header = inputStream.readNBytes(64);
+            if (!chatVideoHeaderMatches(contentType, header)) {
+                throw new IllegalArgumentException("chat video media invalid");
+            }
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("chat video media invalid", exception);
+        }
+    }
+
+    private boolean chatVideoHeaderMatches(String contentType, byte[] header) {
+        if (header == null || header.length < 4) {
+            return false;
+        }
+        return switch (contentType) {
+            case "video/webm" -> isEbml(header);
+            case "video/mp4", "video/quicktime", "video/x-m4v" -> isMp4LikeVideo(header);
+            default -> false;
+        };
+    }
+
     private boolean isEbml(byte[] header) {
         return header.length >= 4
                 && (header[0] & 0xFF) == 0x1A
@@ -358,6 +395,11 @@ public class MediaUploadTicketService {
     }
 
     private boolean isMp4LikeAudio(byte[] header) {
+        return header.length >= 12
+                && "ftyp".equals(ascii(header, 4, 4));
+    }
+
+    private boolean isMp4LikeVideo(byte[] header) {
         return header.length >= 12
                 && "ftyp".equals(ascii(header, 4, 4));
     }
@@ -387,6 +429,27 @@ public class MediaUploadTicketService {
 
     private String extensionFor(String contentType, String filename) {
         String lower = filename.toLowerCase(Locale.ROOT);
+        if (contentType.startsWith("video/")) {
+            if (lower.endsWith(".webm")) {
+                return ".webm";
+            }
+            if (lower.endsWith(".mov")) {
+                return ".mov";
+            }
+            if (lower.endsWith(".m4v")) {
+                return ".m4v";
+            }
+            if (contentType.equals("video/webm")) {
+                return ".webm";
+            }
+            if (contentType.equals("video/quicktime")) {
+                return ".mov";
+            }
+            if (contentType.equals("video/x-m4v")) {
+                return ".m4v";
+            }
+            return ".mp4";
+        }
         if (contentType.startsWith("audio/")) {
             if (lower.endsWith(".webm")) {
                 return ".webm";

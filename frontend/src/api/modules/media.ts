@@ -8,6 +8,7 @@ export type MediaUploadScene =
   | 'REPORT_EVIDENCE'
   | 'CHAT_IMAGE'
   | 'CHAT_VOICE'
+  | 'CHAT_VIDEO'
 
 export interface CreateMediaUploadTicketRequest {
   scene: MediaUploadScene

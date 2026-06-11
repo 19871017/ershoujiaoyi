@@ -34,6 +34,21 @@ class GiftApplicationServiceTest {
     }
 
     @Test
+    void listCatalogShouldReturnTenPremiumGiftTiers() {
+        var catalog = service.listCatalog();
+
+        assertEquals(10, catalog.size());
+        assertEquals("ROSE", catalog.get(0).getGiftCode());
+        assertEquals("玫瑰花", catalog.get(0).getName());
+        assertEquals("/assets/gifts/gift-rose.png", catalog.get(0).getIcon());
+        assertMoney("1.00", catalog.get(0).getPrice());
+        assertEquals("LOVE_CASTLE", catalog.get(9).getGiftCode());
+        assertEquals("心愿城堡", catalog.get(9).getName());
+        assertEquals("/assets/gifts/gift-love-castle.png", catalog.get(9).getIcon());
+        assertMoney("520.00", catalog.get(9).getPrice());
+    }
+
+    @Test
     void sendGiftShouldRejectWhenBothRequestNoAndClientGiftIdMissing() {
         SendGiftRequest request = giftRequest(2L, "ROSE", 1, null, null);
 
@@ -127,7 +142,7 @@ class GiftApplicationServiceTest {
         seedUser(2L, "暖暖", "U-GIFT-2");
         seedUser(3L, "星星", "U-GIFT-3");
         seedRecharge(1L, "100.00");
-        seedRecharge(3L, "100.00");
+        seedRecharge(3L, "300.00");
 
         SendGiftResponse first = service.sendGift(1L, giftRequest(2L, "ROSE", 1, "recent-001", null));
         SendGiftResponse latest = service.sendGift(3L, giftRequest(2L, "CROWN", 1, "recent-002", null));
@@ -139,8 +154,8 @@ class GiftApplicationServiceTest {
         assertEquals("星星", feed.get(0).getSenderName());
         assertEquals("暖暖", feed.get(0).getReceiverName());
         assertEquals("小原皇冠", feed.get(0).getGiftName());
-        assertEquals("👑", feed.get(0).getGiftIcon());
-        assertMoney("68.00", feed.get(0).getTotalAmount());
+        assertEquals("/assets/gifts/gift-crown.png", feed.get(0).getGiftIcon());
+        assertMoney("188.00", feed.get(0).getTotalAmount());
         assertEquals(first.getGiftOrderNo(), feed.get(1).getGiftOrderNo());
     }
 

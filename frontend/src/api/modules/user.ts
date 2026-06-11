@@ -52,7 +52,7 @@ export interface SubmitVideoIdentityRequest {
 
 export interface SubmitRealNameIdentityRequest {
   realName: string
-  idTail: string
+  idNumber: string
 }
 
 export interface UpdateUserProfileRequest {

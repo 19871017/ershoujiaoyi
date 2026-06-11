@@ -106,6 +106,7 @@ const requiredMarkers = [
   '换个关键词，或恢复到全部在售宝贝看看。',
   '暂时还没有在售宝贝',
   '新的宝贝上架后会直接出现在这里。',
+  'class="publish-inline tapable" @click="goPublishForm"',
   'class="empty-action primary tapable" @click="refreshCategoryData(true)"',
   '刷新看看',
   'class="empty-action primary tapable" @click="resetFilters"',
@@ -137,7 +138,7 @@ for (const marker of refreshMarkers) {
 const requiredStyleMarkers = [
   'padding-bottom: calc(230rpx + env(safe-area-inset-bottom))',
   'grid-template-columns: repeat(4, minmax(0, 1fr))',
-  'bottom: calc(154rpx + env(safe-area-inset-bottom))',
+  '.publish-inline {',
   '.product-card {\n  min-width: 0;',
   '.product-bottom {\n  margin-top: 12rpx;\n  align-items: flex-end;',
   '.price {\n  flex: 1 1 auto;\n  min-width: 0;',

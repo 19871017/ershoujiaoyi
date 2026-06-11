@@ -111,6 +111,7 @@ onShow(() => {
   --radius-lg: 28rpx;
   --shadow-card: 0 8rpx 22rpx rgba(255, 122, 69, .10);
   --global-ticker-offset: 0rpx;
+  --global-back-page-offset: 0rpx;
 }
 
 page {
@@ -126,7 +127,7 @@ button { margin: 0; padding: 0; border: 0; background: none; line-height: 1.2; }
 
 .page-shell {
   min-height: 100vh;
-  padding: calc(18rpx + var(--global-ticker-offset)) 18rpx calc(230rpx + env(safe-area-inset-bottom));
+  padding: calc(18rpx + var(--global-ticker-offset) + var(--global-back-page-offset)) 18rpx calc(230rpx + env(safe-area-inset-bottom));
   background: var(--c-bg);
 }
 

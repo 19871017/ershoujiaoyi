@@ -13,6 +13,32 @@ const viewports = [
 ]
 const pages = [
   {
+    name: 'home',
+    hash: '/pages/tabbar/home/index',
+    coreTabFixture: true,
+    selectors: {
+      page: '.home-page',
+      topCard: '.banner-swiper, .banner-empty',
+      required: '.ranking-entrance, .product-grid',
+      cards: '.product-grid-card',
+      bottomNav: '.global-bottom-nav-wrap',
+      allowScrollableContentUnderBottomNav: true
+    }
+  },
+  {
+    name: 'category',
+    hash: '/pages/tabbar/category/index',
+    coreTabFixture: true,
+    selectors: {
+      page: '.category-page',
+      topCard: '.search-card',
+      required: '.category-pills, .product-grid',
+      cards: '.product-card',
+      bottomNav: '.global-bottom-nav-wrap',
+      allowScrollableContentUnderBottomNav: true
+    }
+  },
+  {
     name: 'community',
     hash: '/pages/tabbar/message/index',
     selectors: {
@@ -63,6 +89,20 @@ const pages = [
     }
   },
   {
+    name: 'me',
+    hash: '/pages/tabbar/me/index',
+    coreTabFixture: true,
+    selectors: {
+      page: '.me-page',
+      topCard: '.profile-card',
+      required: '.wallet-card, .ops-card, .order-status, .menu-card',
+      cards: '.menu-card',
+      bottomNav: '.global-bottom-nav-wrap',
+      floating: '.seller-verify-fab',
+      allowScrollableContentUnderBottomNav: true
+    }
+  },
+  {
     name: 'conversation',
     hash: '/pages/chat/conversation/index?receiverId=2',
     authenticatedChatFixture: true,
@@ -95,15 +135,33 @@ const pages = [
     }
   },
   {
+    name: 'product-detail',
+    hash: '/pages/product/detail/index?productId=101',
+    productProfileFixture: true,
+    selectors: {
+      page: '.detail-page',
+      topCard: '.hero-card',
+      required: '.info-card, .seller-card, .rule-card, .action-panel',
+      cards: '.hero-card, .info-card, .seller-card, .rule-card, .action-panel',
+      action: '.bottom-actions',
+      bottomSafeGap: 0,
+      absentBottomNav: '.global-bottom-nav-wrap',
+      allowScrollableContentUnderBottomNav: true
+    }
+  },
+  {
     name: 'public-profile',
     hash: '/pages/user/public-profile/index?userId=8187306278',
+    productProfileFixture: true,
     selectors: {
       page: '.public-profile',
-      topCard: '.hero, .empty-card',
+      topCard: '.hero',
+      required: '.action-row, .seller-trade-card',
       action: '.action-row',
       cards: '.video-verify-card, .showcase-card, .section-card',
       bottomSafeGap: 18,
-      absentBottomNav: '.global-bottom-nav-wrap'
+      absentBottomNav: '.global-bottom-nav-wrap',
+      allowScrollableContentUnderBottomNav: true
     }
   }
 ]
@@ -127,6 +185,9 @@ async function main() {
       })
       for (const pageSpec of pages) {
         const page = await context.newPage()
+        if (pageSpec.coreTabFixture) {
+          await installCoreTabFixture(page)
+        }
         if (pageSpec.chatSessionListFixture) {
           await installChatSessionListFixture(page)
         }
@@ -135,6 +196,9 @@ async function main() {
         }
         if (pageSpec.communityDetailFixture) {
           await installCommunityDetailFixture(page)
+        }
+        if (pageSpec.productProfileFixture) {
+          await installProductProfileFixture(page)
         }
         const url = `${baseUrl}/#${pageSpec.hash}`
         try {
@@ -540,12 +604,240 @@ async function inspectPage(page, selectors) {
     }
 
     const lastCardRect = pageSelectors.cards ? lastRect(pageSelectors.cards) : null
-    if (lastCardRect && bottomNavRect && lastCardRect.bottom > bottomNavRect.top - 8) {
+    if (lastCardRect && bottomNavRect && !pageSelectors.allowScrollableContentUnderBottomNav && lastCardRect.bottom > bottomNavRect.top - 8) {
       return { ok: false, message: 'last content card overlaps bottom nav' }
     }
 
     return { ok: true, message: 'ok' }
   }, selectors)
+}
+
+async function installCoreTabFixture(page) {
+  const json = (data) => ({ success: true, message: 'ok', data })
+  const now = new Date().toISOString()
+  const products = [
+    {
+      productId: 101,
+      productNo: 'PRD-MOBILE-101',
+      sellerId: 2,
+      sellerNickname: '初见卖家',
+      sellerAvatarUrl: '',
+      sellerGender: 'goddess',
+      sellerCity: '杭州',
+      sellerVideoVerified: true,
+      title: '奶油白连衣裙 轻微瑕疵已说明',
+      category: '上衣',
+      price: '168.00',
+      coverImageUrl: null,
+      status: 'ACTIVE',
+      auditState: 'APPROVED',
+      visible: true,
+      createdAt: now
+    },
+    {
+      productId: 102,
+      productNo: 'PRD-MOBILE-102',
+      sellerId: 3,
+      sellerNickname: '雨哥体验号',
+      sellerAvatarUrl: '',
+      sellerGender: 'god',
+      sellerCity: '新乡',
+      sellerVideoVerified: false,
+      title: '小众复古包包 日常通勤可背',
+      category: '包包',
+      price: '89.00',
+      coverImageUrl: null,
+      status: 'ACTIVE',
+      auditState: 'APPROVED',
+      visible: true,
+      createdAt: now
+    },
+    {
+      productId: 103,
+      productNo: 'PRD-MOBILE-103',
+      sellerId: 4,
+      sellerNickname: '鞋柜整理',
+      sellerAvatarUrl: '',
+      sellerGender: 'goddess',
+      sellerCity: '上海',
+      sellerVideoVerified: true,
+      title: '低跟单鞋 只穿过一次',
+      category: '鞋子',
+      price: '126.00',
+      coverImageUrl: null,
+      status: 'ACTIVE',
+      auditState: 'APPROVED',
+      visible: true,
+      createdAt: now
+    },
+    {
+      productId: 104,
+      productNo: 'PRD-MOBILE-104',
+      sellerId: 5,
+      sellerNickname: '小物收藏',
+      sellerAvatarUrl: '',
+      sellerGender: 'god',
+      sellerCity: '苏州',
+      sellerVideoVerified: false,
+      title: '暖色围巾柔软不扎肤',
+      category: '小物',
+      price: '45.00',
+      coverImageUrl: null,
+      status: 'ACTIVE',
+      auditState: 'APPROVED',
+      visible: true,
+      createdAt: now
+    }
+  ]
+  const banners = [
+    {
+      id: 1,
+      kicker: '上新',
+      title: '今晚看看新上架',
+      description: '真实在售宝贝优先展示',
+      cta: '去看看',
+      imageUrl: '',
+      action: 'closet',
+      placement: 'HOME',
+      sortOrder: 1,
+      enabled: true,
+      sizeHint: 'wide',
+      updatedAt: now
+    }
+  ]
+  const profile = {
+    userId: 1,
+    userNo: 'XYQ10001',
+    nickname: '移动端验收用户',
+    avatarUrl: '',
+    mainRole: 'SELLER',
+    identityStatus: 'VERIFIED',
+    videoIdentityStatus: 'APPROVED',
+    videoVerified: true,
+    gender: 'goddess',
+    city: '杭州',
+    sellerCharmScore: 48,
+    buyerPowerScore: 18,
+    followedByMe: false,
+    followerCount: 12,
+    followingCount: 4,
+    showcaseImageUrls: [],
+    level: { level: 2, title: '心动新星', track: 'CHARM', score: 48, progressPercent: 62 }
+  }
+  const wallet = {
+    rechargeBalance: '66.00',
+    incomeBalance: '128.00',
+    frozenBalance: '0.00',
+    withdrawableBalance: '128.00'
+  }
+  const conversations = {
+    conversations: [
+      {
+        conversationId: 1,
+        peerUserId: 2,
+        peerNickname: '移动端聊天对象',
+        peerAvatarUrl: '',
+        peerGender: 'god',
+        peerCity: '杭州',
+        peerMainRole: 'SELLER',
+        peerVideoVerified: true,
+        peerSellerCharmScore: 38,
+        peerBuyerPowerScore: 0,
+        lastMessageSummary: '手机端聊天窗口自适应检查',
+        lastServerSeq: 6,
+        deliveredSeq: 6,
+        readSeq: 5,
+        unreadCount: 1,
+        updatedAt: '2026-06-09T07:30:00'
+      }
+    ],
+    serverTime: now
+  }
+  const notifications = [
+    {
+      notificationNo: 'NTF-MOBILE-1',
+      userId: 1,
+      type: 'CHAT',
+      title: '有新的私信',
+      description: '移动端消息中心验收',
+      targetUrl: '/pages/chat/session-list/index',
+      read: false,
+      createdAt: now
+    }
+  ]
+  const buyerOrders = [
+    {
+      orderNo: 'ORD-MOBILE-BUYER-1',
+      buyerId: 1,
+      sellerId: 2,
+      productId: 101,
+      goodsId: 101,
+      productNo: 'PRD-MOBILE-101',
+      productTitle: '奶油白连衣裙',
+      amount: '168.00',
+      tradeRuleSnapshot: '按平台订单流程交易',
+      status: 'PENDING_PAY',
+      role: 'buyer',
+      counterpartyName: '初见卖家',
+      createdAt: now
+    }
+  ]
+  const sellerOrders = [
+    {
+      orderNo: 'ORD-MOBILE-SELLER-1',
+      buyerId: 3,
+      sellerId: 1,
+      productId: 102,
+      goodsId: 102,
+      productNo: 'PRD-MOBILE-102',
+      productTitle: '小众复古包包',
+      amount: '89.00',
+      tradeRuleSnapshot: '按平台订单流程交易',
+      status: 'PAID',
+      role: 'seller',
+      counterpartyName: '雨哥体验号',
+      createdAt: now
+    }
+  ]
+  await page.route('**/api/home/banners', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(json(banners))
+  }))
+  await page.route('**/api/products', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(json(products))
+  }))
+  await page.route('**/api/user/me', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(json(profile))
+  }))
+  await page.route('**/api/wallet/balance', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(json(wallet))
+  }))
+  await page.route('**/api/notifications**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(json(notifications))
+  }))
+  await page.route('**/api/chat/conversations', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(json(conversations))
+  }))
+  await page.route('**/api/orders**', (route) => {
+    const url = new URL(route.request().url())
+    const role = url.searchParams.get('role')
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(json(role === 'seller' ? sellerOrders : buyerOrders))
+    })
+  })
 }
 
 async function installCommunityDetailFixture(page) {
@@ -613,6 +905,152 @@ async function installCommunityDetailFixture(page) {
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify(json({ conversations: [], serverTime: new Date().toISOString() }))
+  }))
+}
+
+async function installProductProfileFixture(page) {
+  const json = (data) => ({ success: true, message: 'ok', data })
+  const now = new Date().toISOString()
+  const sellerProfile = {
+    userId: 8187306278,
+    userNo: 'XYQ818730',
+    nickname: '认证卖家体验号',
+    avatarUrl: '/uploads/avatar/mobile-seller-avatar.jpg',
+    mainRole: 'SELLER',
+    identityStatus: 'VERIFIED',
+    videoIdentityStatus: 'APPROVED',
+    videoVerified: true,
+    videoIdentityUrl: '/uploads/video-identity/mobile-seller-verify.mp4',
+    gender: 'goddess',
+    age: 24,
+    city: '杭州',
+    bio: '喜欢分享状态清楚、描述完整的闲置好物。',
+    sellerCharmScore: 268,
+    buyerPowerScore: 18,
+    followedByMe: false,
+    followerCount: 36,
+    followingCount: 7,
+    showcaseImageUrls: [
+      '/uploads/community-image/mobile-showcase-1.jpg',
+      '/uploads/community-image/mobile-showcase-2.jpg',
+      '/uploads/community-image/mobile-showcase-3.jpg'
+    ],
+    level: { level: 4, title: '星光女神', track: 'CHARM', score: 268, progressPercent: 58 }
+  }
+  const currentProfile = {
+    userId: 1,
+    userNo: 'XYQ10001',
+    nickname: '移动端验收用户',
+    avatarUrl: '',
+    mainRole: 'BUYER',
+    identityStatus: 'UNVERIFIED',
+    videoIdentityStatus: 'UNVERIFIED',
+    videoVerified: false,
+    gender: 'god',
+    city: '上海',
+    sellerCharmScore: 0,
+    buyerPowerScore: 42,
+    followedByMe: false,
+    followerCount: 0,
+    followingCount: 0,
+    showcaseImageUrls: [],
+    level: null
+  }
+  const activeProducts = [
+    {
+      productId: 101,
+      productNo: 'PRD-MOBILE-101',
+      sellerId: 8187306278,
+      sellerNickname: sellerProfile.nickname,
+      sellerAvatarUrl: sellerProfile.avatarUrl,
+      sellerGender: sellerProfile.gender,
+      sellerCity: sellerProfile.city,
+      sellerVideoVerified: true,
+      title: '奶油白连衣裙 轻微瑕疵已说明',
+      category: '衣物',
+      price: '168.00',
+      coverImageUrl: '/uploads/product-image/mobile-product-101.jpg',
+      status: 'ACTIVE',
+      auditState: 'APPROVED',
+      visible: true,
+      createdAt: now
+    },
+    {
+      productId: 102,
+      productNo: 'PRD-MOBILE-102',
+      sellerId: 8187306278,
+      sellerNickname: sellerProfile.nickname,
+      sellerAvatarUrl: sellerProfile.avatarUrl,
+      sellerGender: sellerProfile.gender,
+      sellerCity: sellerProfile.city,
+      sellerVideoVerified: true,
+      title: '复古通勤小包 成色很新',
+      category: '包包',
+      price: '89.00',
+      coverImageUrl: '/uploads/product-image/mobile-product-102.jpg',
+      status: 'ACTIVE',
+      auditState: 'APPROVED',
+      visible: true,
+      createdAt: now
+    }
+  ]
+  const soldProducts = [
+    {
+      productId: 201,
+      productNo: 'PRD-MOBILE-SOLD-201',
+      sellerId: 8187306278,
+      title: '低跟单鞋 只穿过一次',
+      category: '鞋子',
+      price: '126.00',
+      coverImageUrl: '/uploads/product-image/mobile-product-201.jpg',
+      status: 'SOLD',
+      auditState: 'APPROVED',
+      visible: true,
+      createdAt: now
+    }
+  ]
+  const detail = {
+    productId: 101,
+    productNo: 'PRD-MOBILE-101',
+    sellerId: 8187306278,
+    title: '奶油白连衣裙 轻微瑕疵已说明',
+    description: '衣服整体很干净，肩线和裙摆状态已拍清楚，介意瑕疵请先私信确认。',
+    price: '168.00',
+    imageUrls: [
+      '/uploads/product-image/mobile-product-101.jpg',
+      '/uploads/product-image/mobile-product-101-detail.jpg'
+    ],
+    status: 'ACTIVE',
+    auditState: 'APPROVED',
+    visible: true,
+    tradeRule: '按平台订单流程交易',
+    favoritedByMe: false,
+    createdAt: now
+  }
+  await page.route('**/api/user/me', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(json(currentProfile))
+  }))
+  await page.route('**/api/user/8187306278/profile', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(json(sellerProfile))
+  }))
+  await page.route('**/api/products/101', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(json(detail))
+  }))
+  await page.route('**/api/products/seller/8187306278', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(json(activeProducts))
+  }))
+  await page.route('**/api/products/seller/8187306278/sold', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(json(soldProducts))
   }))
 }
 

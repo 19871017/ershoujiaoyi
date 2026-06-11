@@ -59,7 +59,7 @@ if (!afterSalesApply.includes('请至少上传一张售后票据')) {
 }
 
 const uploadEvidence = contents['src/pages/upload/evidence/index.vue']
-for (const canonical of ['AFTER_SALES_EVIDENCE', 'REPORT_EVIDENCE', 'VIDEO_IDENTITY', 'PRODUCT_IMAGE', 'COMMUNITY_IMAGE', 'CHAT_IMAGE']) {
+for (const canonical of ['AFTER_SALES_EVIDENCE', 'REPORT_EVIDENCE', 'VIDEO_IDENTITY', 'PRODUCT_IMAGE', 'COMMUNITY_IMAGE', 'CHAT_IMAGE', 'CHAT_VIDEO']) {
   if (!uploadEvidence.includes(canonical)) {
     failures.push(`upload evidence page must understand canonical media scene ${canonical}`)
   }
@@ -73,16 +73,16 @@ if (!uploadEvidence.includes("{label:'实名视频',value:'VIDEO_IDENTITY' as co
 if (!uploadEvidence.includes('function chooseVideoIdentity()')) {
   failures.push('upload evidence page must use uni.chooseVideo for VIDEO_IDENTITY instead of routing video verification through chooseImage')
 }
-if (!uploadEvidence.includes("createMediaUploadTicket({ scene: 'VIDEO_IDENTITY'")) {
-  failures.push('upload evidence page must create VIDEO_IDENTITY tickets with the canonical scene')
+if (!uploadEvidence.includes("createMediaUploadTicket({ scene: sceneSnapshot")) {
+  failures.push('upload evidence page must create video tickets with the current canonical scene snapshot')
 }
 if (!uploadEvidence.includes('视频文件已上传 1 条') || !uploadEvidence.includes('视频上传票据创建失败')) {
   failures.push('upload evidence VIDEO_IDENTITY flow should upload the selected file and keep ticket creation failure copy explicit')
 }
-for (const prefix of ['/uploads/evidence/after-sales/', '/uploads/report-evidence/', '/uploads/video-identity/', '/uploads/product-image/', '/uploads/community-image/', '/uploads/chat-image/']) {
+for (const prefix of ['/uploads/evidence/after-sales/', '/uploads/report-evidence/', '/uploads/video-identity/', '/uploads/product-image/', '/uploads/community-image/', '/uploads/chat-image/', '/uploads/chat-video/']) {
   if (!uploadEvidence.includes(prefix)) failures.push(`upload evidence page must validate uploaded storage URLs against backend prefix ${prefix}`)
 }
-for (const marker of ['const sceneSnapshot = scene.value', 'const sceneSnapshot: Scene = \'VIDEO_IDENTITY\'', 'validatedStorageUrl(sceneSnapshot, uploaded.storageUrl)', "throw new Error('未选择到有效媒体图片，请重新选择')", 'if (scene.value !== sceneSnapshot)', '文件上传中，请稍后切换场景', 'upload evidence invalid storageUrl', 'upload evidence result modal failed', '媒体文件已上传，但结果弹窗无法显示，请稍后查看页面记录', "console.warn('upload evidence invalid route scene'", "console.warn('upload evidence invalid route orderNo'", "console.warn('upload evidence initialize failed'", "console.warn('upload evidence image upload failed'", "console.warn('upload evidence video upload failed'", "storageUrl.startsWith('blob:')", "storageUrl.startsWith('data:')", "lower.includes('%2e')", "lower.includes('%2f')", "lower.includes('%5c')", "storageUrl.includes('\\\\')", "storageUrl.includes('..')", "storageUrl.includes('//')", "relativePath.split('/').some", 'const fatalRouteError=ref(false)', 'function isPickerCancel(error: unknown): boolean', 'function hasInvalidTempMediaPath(path: string): boolean', 'function hasInvalidStorageUrl(sceneValue: Scene, storageUrl: unknown): boolean']) {
+for (const marker of ['const sceneSnapshot = scene.value', "const sceneSnapshot: Scene = scene.value === 'CHAT_VIDEO' ? 'CHAT_VIDEO' : 'VIDEO_IDENTITY'", 'validatedStorageUrl(sceneSnapshot, uploaded.storageUrl)', "throw new Error('未选择到有效媒体图片，请重新选择')", 'if (scene.value !== sceneSnapshot)', '文件上传中，请稍后切换场景', 'upload evidence invalid storageUrl', 'upload evidence result modal failed', '媒体文件已上传，但结果弹窗无法显示，请稍后查看页面记录', "console.warn('upload evidence invalid route scene'", "console.warn('upload evidence invalid route orderNo'", "console.warn('upload evidence initialize failed'", "console.warn('upload evidence image upload failed'", "console.warn('upload evidence video upload failed'", "storageUrl.startsWith('blob:')", "storageUrl.startsWith('data:')", "lower.includes('%2e')", "lower.includes('%2f')", "lower.includes('%5c')", "storageUrl.includes('\\\\')", "storageUrl.includes('..')", "storageUrl.includes('//')", "relativePath.split('/').some", 'const fatalRouteError=ref(false)', 'function isPickerCancel(error: unknown): boolean', 'function hasInvalidTempMediaPath(path: string): boolean', 'function hasInvalidStorageUrl(sceneValue: Scene, storageUrl: unknown): boolean']) {
   if (!uploadEvidence.includes(marker)) failures.push(`upload evidence page must fail closed on upload route, scene drift, storage URL, or empty picker result: ${marker}`)
 }
 if (!/function decodeRouteValue\(fieldName: string, value: string\): \{ ok: boolean; value: string \}[\s\S]*console\.warn\('upload evidence route decode failed'[\s\S]*return \{ ok: false, value: '' \}/.test(uploadEvidence) || !uploadEvidence.includes("errorText.value = '上传入口参数无效，请返回上一页重新进入'")) {
@@ -191,8 +191,14 @@ if (identityPage.includes("imageCount.value = Math.max(imageCount.value, 1)")) {
 if (identityPage.includes('实名认证接口尚未接入') || identityPage.includes('实名认证提交暂不可用') || identityPage.includes('realNameBackendMissingCopy')) {
   failures.push('identity real-name submit must use the backend API instead of backend-missing copy')
 }
-if (!identityPage.includes('submitRealNameIdentity({ realName: form.name.trim(), idTail: form.idTail.trim() })')) {
-  failures.push('identity real-name submit must call the backend real-name audit API with only realName and idTail')
+if (!identityPage.includes('submitRealNameIdentity({ realName: form.name.trim(), idNumber: normalizedIdNumber(form.idNumber) })')) {
+  failures.push('identity real-name submit must call the backend real-name audit API with only realName and full normalized idNumber')
+}
+if (!identityPage.includes('form.idNumber = \'\'')) {
+  failures.push('identity real-name submit must clear full idNumber from page state after backend accepts the audit submission')
+}
+for (const marker of ['isValidChineseIdNumber(form.idNumber)', '完整身份证号码', '页面与后台列表只展示脱敏摘要']) {
+  if (!identityPage.includes(marker)) failures.push(`identity real-name flow must require full ID input without exposing raw ID in UI copy: ${marker}`)
 }
 if (identityPage.includes("uni.showToast({ title: '已生成上传凭证', icon: 'none' })")) {
   failures.push('identity video picker must say upload ticket, not saved/uploaded credential, because business submission has not happened yet')
@@ -241,11 +247,14 @@ if (!/function navigateToNotificationAfterVideoSubmit\(\): void\s*\{[\s\S]*try\s
 if (!/async function submitVideo\(\): Promise<void>\s*\{[\s\S]*if \(!profileReady\.value \|\| profileUnavailable\.value\)[\s\S]*if \(hasApprovedVideoIdentity\(profile\)\)[\s\S]*const safeVideoUrl = validatedVideoIdentityUrl\(videoUrl\.value\)[\s\S]*submitVideoIdentity\(\{ videoUrl: safeVideoUrl, description:[\s\S]*const refreshed = await loadProfile\(\)[\s\S]*if \(!refreshed\) return uni\.showToast[\s\S]*try\s*\{\s*uni\.showModal\(modalOptions\)[\s\S]*catch \(error\)\s*\{[\s\S]*console\.warn\('identity video submit success modal failed'[\s\S]*console\.warn\('identity video submit failed'/s.test(identityPage)) {
   failures.push('identity video submit must require available backend state, validate storage URL, refresh backend state, and stop normal success flow when refresh fails')
 }
-if (!/async function submit\(\): Promise<void>\s*\{[\s\S]*if \(!profileReady\.value \|\| profileUnavailable\.value\)[\s\S]*if \(profile\.identityStatus === 'VERIFIED'\)[\s\S]*submitRealNameIdentity\(\{ realName: form\.name\.trim\(\), idTail: form\.idTail\.trim\(\) \}\)[\s\S]*const refreshed = await loadProfile\(\)[\s\S]*if \(!refreshed\) return uni\.showToast[\s\S]*try\s*\{\s*uni\.showModal\(modalOptions\)[\s\S]*catch \(error\)\s*\{[\s\S]*console\.warn\('identity real-name submit success modal failed'[\s\S]*console\.warn\('identity real-name submit failed'/s.test(identityPage)) {
+if (!/async function submit\(\): Promise<void>\s*\{[\s\S]*if \(!profileReady\.value \|\| profileUnavailable\.value\)[\s\S]*if \(profile\.identityStatus === 'VERIFIED'\)[\s\S]*normalizeRealNameForm\(\)[\s\S]*isValidChineseIdNumber\(form\.idNumber\)[\s\S]*submitRealNameIdentity\(\{ realName: form\.name\.trim\(\), idNumber: normalizedIdNumber\(form\.idNumber\) \}\)[\s\S]*form\.idNumber = ''[\s\S]*const refreshed = await loadProfile\(\)[\s\S]*if \(!refreshed\) return uni\.showToast[\s\S]*try\s*\{\s*uni\.showModal\(modalOptions\)[\s\S]*catch \(error\)\s*\{[\s\S]*console\.warn\('identity real-name submit success modal failed'[\s\S]*console\.warn\('identity real-name submit failed'/s.test(identityPage)) {
   failures.push('identity real-name submit must require backend state, call real audit API, refresh backend state, and handle modal/API failures')
 }
 if (/submitRealNameIdentity\(\{[^}]*\b(userId|senderId|buyerId|sellerId|admin|role|identityStatus|videoIdentityStatus|videoVerified)\b/s.test(identityPage)) {
   failures.push('identity real-name submit must not include client-supplied identity/trust fields in the audit request body')
+}
+for (const marker of ['bindPayoutAccount', 'getPayoutAccount', "const payoutForm = reactive({ paymentMethod: 'ALIPAY'", '推荐填写支付宝账号', 'hasMaskedAccountMarker(payoutForm.accountNo)', "payoutForm.accountNo = ''", '页面只保留脱敏账号', 'identity payout account submit failed']) {
+  if (!identityPage.includes(marker)) failures.push(`identity page must support backend-owned seller payout account binding without raw-account display: ${marker}`)
 }
 const forbiddenLocalIdentityTrustPatterns = [
   { label: 'local pending status assignment', pattern: /profile\.videoIdentityStatus\s*=\s*['"]PENDING['"]/ },

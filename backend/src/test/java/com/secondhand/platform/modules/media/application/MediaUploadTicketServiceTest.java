@@ -75,9 +75,13 @@ class MediaUploadTicketServiceTest {
                 .storageUrl().startsWith("/uploads/chat-image/7/"));
         assertTrue(service.issue(7L, "CHAT_VOICE", "audio/webm", 600_000L, "chat-voice.webm")
                 .storageUrl().startsWith("/uploads/chat-voice/7/"));
+        assertTrue(service.issue(7L, "CHAT_VIDEO", "video/mp4", 600_000L, "chat-video.mp4")
+                .storageUrl().startsWith("/uploads/chat-video/7/"));
         assertThrows(IllegalArgumentException.class, () -> service.issue(7L, "AFTER_SALES_EVIDENCE", "image/png", 10_000_001L, "too-large.png"));
         assertThrows(IllegalArgumentException.class, () -> service.issue(7L, "CHAT_VOICE", "image/png", 600_000L, "chat-voice.png"));
         assertThrows(IllegalArgumentException.class, () -> service.issue(7L, "CHAT_VOICE", "audio/webm", 10_000_001L, "chat-voice.webm"));
+        assertThrows(IllegalArgumentException.class, () -> service.issue(7L, "CHAT_VIDEO", "audio/webm", 600_000L, "chat-video.webm"));
+        assertThrows(IllegalArgumentException.class, () -> service.issue(7L, "CHAT_VIDEO", "video/mp4", 80_000_001L, "chat-video.mp4"));
     }
 
     @Test
@@ -216,6 +220,37 @@ class MediaUploadTicketServiceTest {
         assertEquals("ISSUED", jdbcTemplate.queryForObject("select status from media_upload_ticket where ticket_no = ?", String.class, issued.ticketNo()));
         assertTrue(!Files.exists(storageRoot.resolve(issued.storageUrl().substring(1))));
         assertThrows(IllegalArgumentException.class, () -> service.requireUploadedStorageUrl(6L, "CHAT_VOICE", issued.storageUrl()));
+    }
+
+    @Test
+    void shouldStoreUploadedChatVideoFileAndMarkTicketUploaded() throws Exception {
+        byte[] videoBytes = minimalMp4WithDurationSeconds(30);
+        MediaUploadTicketResponse issued = service.issue(6L, "CHAT_VIDEO", "video/mp4", (long) videoBytes.length, "video.mp4");
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", videoBytes);
+
+        MediaUploadTicketResponse uploaded = service.storeUploadedFile(6L, issued.ticketNo(), issued.uploadToken(), file);
+
+        Path storedFile = storageRoot.resolve(issued.storageUrl().substring(1));
+        assertEquals("UPLOADED", uploaded.status());
+        assertTrue(uploaded.storageUrl().startsWith("/uploads/chat-video/6/"));
+        assertTrue(uploaded.storageUrl().endsWith(".mp4"));
+        assertTrue(Files.exists(storedFile));
+        assertEquals(videoBytes.length, Files.readAllBytes(storedFile).length);
+        assertEquals(issued.ticketNo(), service.requireUploadedStorageUrl(6L, "CHAT_VIDEO", issued.storageUrl()).ticketNo());
+    }
+
+    @Test
+    void shouldRejectInvalidChatVideoBytesBeforeMarkingTicketUploaded() throws Exception {
+        byte[] invalidBytes = "not-a-real-video".getBytes(StandardCharsets.UTF_8);
+        MediaUploadTicketResponse issued = service.issue(6L, "CHAT_VIDEO", "video/mp4", (long) invalidBytes.length, "video.mp4");
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", invalidBytes);
+
+        assertEquals("chat video media invalid", assertThrows(IllegalArgumentException.class,
+                () -> service.storeUploadedFile(6L, issued.ticketNo(), issued.uploadToken(), file)).getMessage());
+
+        assertEquals("ISSUED", jdbcTemplate.queryForObject("select status from media_upload_ticket where ticket_no = ?", String.class, issued.ticketNo()));
+        assertTrue(!Files.exists(storageRoot.resolve(issued.storageUrl().substring(1))));
+        assertThrows(IllegalArgumentException.class, () -> service.requireUploadedStorageUrl(6L, "CHAT_VIDEO", issued.storageUrl()));
     }
 
     @Test

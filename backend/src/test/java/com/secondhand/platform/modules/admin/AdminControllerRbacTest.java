@@ -291,7 +291,7 @@ class AdminControllerRbacTest {
         grantPermission(35L, "audit:read");
         createActiveUser(45L);
         jdbcTemplate.update("insert into user_profile (user_id, identity_status, video_identity_status, video_verified) values (?,?,?,?)", 45L, "UNVERIFIED", "UNVERIFIED", false);
-        var realNameAudit = auditApplicationService.submitRealNameIdentity(45L, "陈小原", "5544");
+        var realNameAudit = auditApplicationService.submitRealNameIdentity(45L, "陈小原", "110105199001010045");
 
         mvc.perform(post("/api/admin/audit/" + realNameAudit.auditNo() + "/approve")
                         .header("X-User-Id", "35")
@@ -343,7 +343,7 @@ class AdminControllerRbacTest {
         grantPermission(34L, "audit:read");
         createActiveUser(44L);
         jdbcTemplate.update("insert into user_profile (user_id, identity_status, video_identity_status, video_verified) values (?,?,?,?)", 44L, "UNVERIFIED", "UNVERIFIED", false);
-        var realNameAudit = auditApplicationService.submitRealNameIdentity(44L, "孙小原", "3344");
+        var realNameAudit = auditApplicationService.submitRealNameIdentity(44L, "孙小原", "110105199001010053");
 
         mvc.perform(post("/api/admin/audit/" + realNameAudit.auditNo() + "/approve")
                         .header("X-User-Id", "34")

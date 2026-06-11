@@ -5,6 +5,15 @@ export default defineConfig({
   base: '/admin/',
   plugins: [vue()],
   server: {
-    port: 5174
+    port: 5174,
+    headers: {
+      'Cache-Control': 'no-store'
+    },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:18080',
+        changeOrigin: true
+      }
+    }
   }
 })
