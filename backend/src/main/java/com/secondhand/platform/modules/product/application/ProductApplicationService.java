@@ -30,6 +30,7 @@ public class ProductApplicationService {
     private static final String STATUS_ACTIVE = "ACTIVE";
     private static final String STATUS_OFFLINE = "OFFLINE";
     private static final String STATUS_SOLD = "SOLD";
+    private static final String STATUS_DELETED = "DELETED";
     private static final String AUDIT_TYPE_PRODUCT = "PRODUCT";
     private static final String AUDIT_PENDING = "PENDING";
     private static final String AUDIT_APPROVED = "APPROVED";
@@ -391,6 +392,52 @@ public class ProductApplicationService {
         return toUpdateResponse(getExistingProduct(productId));
     }
 
+    @Transactional
+    public UpdateProductResponse adminHideProduct(Long productId, String reason) {
+        ProductRecord existing = getExistingProduct(productId);
+        normalizeAdminModerationReason(reason);
+        if (!AUDIT_APPROVED.equals(existing.auditState())) {
+            throw new IllegalArgumentException("product-not-approved");
+        }
+        if (STATUS_SOLD.equals(existing.status()) || existing.lockedOrderNo() != null) {
+            throw new IllegalArgumentException("product cannot be hidden after locked or sold");
+        }
+        if (STATUS_DELETED.equals(existing.status())) {
+            throw new IllegalArgumentException("product-already-deleted");
+        }
+        int changed = jdbcTemplate.update(
+                "update product_item set product_status = ?, visible = false, updated_at = CURRENT_TIMESTAMP where id = ? and audit_status = ? and product_status <> ? and locked_order_no is null",
+                STATUS_OFFLINE,
+                existing.productId(),
+                AUDIT_APPROVED,
+                STATUS_SOLD
+        );
+        if (changed == 0) {
+            throw new IllegalArgumentException("product hide failed");
+        }
+        return toUpdateResponse(getExistingProduct(productId));
+    }
+
+    @Transactional
+    public UpdateProductResponse adminDeleteProduct(Long productId, String reason) {
+        ProductRecord existing = getExistingProduct(productId);
+        normalizeAdminModerationReason(reason);
+        if (STATUS_SOLD.equals(existing.status()) || existing.lockedOrderNo() != null) {
+            throw new IllegalArgumentException("product cannot be deleted after locked or sold");
+        }
+        int changed = jdbcTemplate.update(
+                "update product_item set product_status = ?, audit_status = ?, visible = false, updated_at = CURRENT_TIMESTAMP where id = ? and product_status <> ? and locked_order_no is null",
+                STATUS_DELETED,
+                AUDIT_REJECTED,
+                existing.productId(),
+                STATUS_SOLD
+        );
+        if (changed == 0) {
+            throw new IllegalArgumentException("product delete failed");
+        }
+        return toUpdateResponse(getExistingProduct(productId));
+    }
+
     public ProductSnapshot snapshotForOrder(Long productId) {
         ProductRecord product = getVisibleProduct(productId);
         if (product.lockedOrderNo() != null) {
@@ -627,7 +674,7 @@ public class ProductApplicationService {
             return null;
         }
         String upper = safeStatus.toUpperCase(Locale.ROOT);
-        if (!List.of(STATUS_PENDING_AUDIT, STATUS_ACTIVE, STATUS_OFFLINE, STATUS_SOLD).contains(upper)) {
+        if (!List.of(STATUS_PENDING_AUDIT, STATUS_ACTIVE, STATUS_OFFLINE, STATUS_SOLD, STATUS_DELETED).contains(upper)) {
             throw new IllegalArgumentException("product status invalid");
         }
         return upper;
@@ -672,13 +719,21 @@ public class ProductApplicationService {
     }
 
     private String normalizeAdminOfflineReason(String reason) {
+        return normalizeAdminReason(reason, "product offline reason invalid");
+    }
+
+    private String normalizeAdminModerationReason(String reason) {
+        return normalizeAdminReason(reason, "product moderation reason invalid");
+    }
+
+    private String normalizeAdminReason(String reason, String message) {
         String normalized = safeText(reason);
         if (normalized == null || normalized.length() > 128) {
-            throw new IllegalArgumentException("product offline reason invalid");
+            throw new IllegalArgumentException(message);
         }
         String lower = normalized.toLowerCase(Locale.ROOT);
         if (lower.contains("preview") || lower.contains("demo") || lower.contains("mock") || lower.contains("sample") || lower.contains("placeholder")) {
-            throw new IllegalArgumentException("product offline reason invalid");
+            throw new IllegalArgumentException(message);
         }
         return normalized;
     }

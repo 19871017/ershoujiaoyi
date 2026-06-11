@@ -270,6 +270,43 @@ public class AdminController {
         return Result.ok(response);
     }
 
+    @PostMapping("/products/{productId}/hide")
+    public Result<UpdateProductResponse> hideProduct(@PathVariable Long productId,
+                                                     @RequestBody AdminProductOfflineRequest body,
+                                                     HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
+        String reason = body == null || body.getReason() == null ? null : body.getReason().trim();
+        UpdateProductResponse response = productApplicationService.adminHideProduct(productId, reason);
+        auditApplicationService.recordAdminOperation(
+                "PRODUCT_HIDE",
+                adminUserId,
+                "PRODUCT",
+                String.valueOf(productId),
+                "SUCCESS",
+                reason
+        );
+        return Result.ok(response);
+    }
+
+    @PostMapping("/products/{productId}/delete")
+    public Result<UpdateProductResponse> deleteProduct(@PathVariable Long productId,
+                                                       @RequestBody AdminProductOfflineRequest body,
+                                                       HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "audit:review");
+        String reason = body == null || body.getReason() == null ? null : body.getReason().trim();
+        UpdateProductResponse response = productApplicationService.adminDeleteProduct(productId, reason);
+        rejectPendingProductAuditIfPresent(productId, adminUserId);
+        auditApplicationService.recordAdminOperation(
+                "PRODUCT_DELETE",
+                adminUserId,
+                "PRODUCT",
+                String.valueOf(productId),
+                "SUCCESS",
+                reason
+        );
+        return Result.ok(response);
+    }
+
     @GetMapping("/products")
     public Result<List<ProductListItemResponse>> productList(@RequestParam(required = false) String status,
                                                              @RequestParam(required = false) String auditStatus,
@@ -1788,6 +1825,15 @@ public class AdminController {
         }
         if ("REJECTED".equals(status)) {
             productApplicationService.rejectForSale(productId);
+        }
+    }
+
+    private void rejectPendingProductAuditIfPresent(Long productId, long adminUserId) {
+        try {
+            String auditNo = productApplicationService.requirePendingProductAuditNo(productId);
+            auditApplicationService.reject(auditNo, "后台商品运营删除", adminUserId);
+        } catch (IllegalArgumentException ignored) {
+            // No pending product audit exists for already-reviewed products; the admin operation log above is the trace.
         }
     }
 

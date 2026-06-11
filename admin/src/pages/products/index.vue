@@ -18,6 +18,7 @@
         <option value="ACTIVE">在售</option>
         <option value="SOLD">已售出</option>
         <option value="OFFLINE">已下架</option>
+        <option value="DELETED">已删除</option>
       </select>
       <select v-model="auditStatusFilter" :disabled="loadingList || reviewing">
         <option value="ALL">全部审核状态</option>
@@ -104,8 +105,10 @@
         <button class="primary-btn" :disabled="reviewing || !canReviewDetail" @click="reviewProduct('approve')">
           {{ reviewing ? '提交中...' : '通过商品审核' }}
         </button>
-        <button class="danger-btn" :disabled="reviewing || !canReviewDetail" @click="reviewProduct('reject')">拒绝商品审核</button>
+        <button class="danger-btn" :disabled="reviewing || !canReviewDetail" @click="reviewProduct('reject')">驳回商品审核</button>
+        <button class="danger-btn" :disabled="reviewing || !canHideDetail" @click="hideProduct">隐藏商品</button>
         <button class="danger-btn" :disabled="reviewing || !canOfflineDetail" @click="offlineProduct">运营下架</button>
+        <button class="danger-btn" :disabled="reviewing || !canDeleteDetail" @click="deleteProduct">删除商品</button>
         <button class="secondary-btn" :disabled="reviewing" @click="openSeller">查看卖家</button>
       </div>
       <p class="safe-note">商品状态以后台接口返回为准；审核动作只提交真实 /api/admin/products* 请求，不在本地伪造成功状态。</p>
@@ -118,10 +121,13 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   approveAdminProduct,
+  deleteAdminProduct,
   getAdminProductDetail,
   getAdminProductList,
+  hideAdminProduct,
   isValidAdminProductId,
   isValidAdminProductKeyword,
+  isValidAdminProductModerationReason,
   isValidAdminProductOfflineReason,
   offlineAdminProduct,
   rejectAdminProduct,
@@ -146,16 +152,30 @@ const error = ref('')
 const products = ref<AdminProductListItem[]>([])
 const detail = ref<AdminProductDetail | null>(null)
 
-const statusValues: NonNullable<AdminProductListQuery['status']>[] = ['ALL', 'PENDING_AUDIT', 'ACTIVE', 'OFFLINE', 'SOLD']
+const statusValues: NonNullable<AdminProductListQuery['status']>[] = ['ALL', 'PENDING_AUDIT', 'ACTIVE', 'OFFLINE', 'SOLD', 'DELETED']
 const auditStatusValues: NonNullable<AdminProductListQuery['auditStatus']>[] = ['ALL', 'PENDING', 'APPROVED', 'REJECTED']
 const detailAuditStatus = computed(() => detail.value ? productAuditStatus(detail.value) : 'PENDING')
 const canReviewDetail = computed(() => Boolean(detail.value && canReviewAudit(auth.session) && isPendingProduct(detail.value)))
+const canHideDetail = computed(() => Boolean(
+  detail.value &&
+  canReviewAudit(auth.session) &&
+  detailAuditStatus.value === 'APPROVED' &&
+  detail.value.status !== 'SOLD' &&
+  detail.value.status !== 'DELETED' &&
+  detail.value.visible === true
+))
 const canOfflineDetail = computed(() => Boolean(
   detail.value &&
   canReviewAudit(auth.session) &&
   detail.value.status === 'ACTIVE' &&
   detailAuditStatus.value === 'APPROVED' &&
   detail.value.visible === true
+))
+const canDeleteDetail = computed(() => Boolean(
+  detail.value &&
+  canReviewAudit(auth.session) &&
+  detail.value.status !== 'SOLD' &&
+  detail.value.status !== 'DELETED'
 ))
 
 function productAuditStatus(item: AdminProductListItem | AdminProductDetail) {
@@ -178,7 +198,7 @@ function formatPrice(price: number) {
 
 function statusClass(status: string) {
   if (status === 'ACTIVE' || status === 'SOLD') return 'approved'
-  if (status === 'OFFLINE') return 'rejected'
+  if (status === 'OFFLINE' || status === 'DELETED') return 'rejected'
   return 'pending'
 }
 
@@ -279,6 +299,62 @@ async function offlineProduct() {
     await loadList(true)
   } catch {
     error.value = '商品下架失败，请确认审核权限、商品状态和订单锁定状态。'
+  } finally {
+    reviewing.value = false
+  }
+}
+
+async function hideProduct() {
+  if (!detail.value || !canHideDetail.value) return
+  const safeId = detail.value.productId
+  if (!isValidAdminProductId(safeId)) {
+    error.value = '商品编号无效，未提交隐藏。'
+    return
+  }
+  const reason = window.prompt('请输入隐藏原因，商品会从用户端不可见，但保留审核通过记录。', '')
+  if (reason === null) return
+  const safeReason = reason.trim()
+  if (!isValidAdminProductModerationReason(safeReason)) {
+    error.value = '商品处理原因无效：不能为空、最多 128 字，不能包含测试占位语义。'
+    return
+  }
+  if (!window.confirm('确认隐藏该商品？用户端将不再展示，后台仍可追溯。')) return
+  reviewing.value = true
+  error.value = ''
+  try {
+    await hideAdminProduct(safeId, { reason: safeReason })
+    await loadDetail()
+    await loadList(true)
+  } catch {
+    error.value = '商品隐藏失败，请确认审核权限、商品状态和订单锁定状态。'
+  } finally {
+    reviewing.value = false
+  }
+}
+
+async function deleteProduct() {
+  if (!detail.value || !canDeleteDetail.value) return
+  const safeId = detail.value.productId
+  if (!isValidAdminProductId(safeId)) {
+    error.value = '商品编号无效，未提交删除。'
+    return
+  }
+  const reason = window.prompt('请输入删除原因，商品会软删除并保留后台追溯记录。', '')
+  if (reason === null) return
+  const safeReason = reason.trim()
+  if (!isValidAdminProductModerationReason(safeReason)) {
+    error.value = '商品处理原因无效：不能为空、最多 128 字，不能包含测试占位语义。'
+    return
+  }
+  if (!window.confirm('确认删除该商品？这是运营软删除，用户端不可见，后台仍保留追溯。')) return
+  reviewing.value = true
+  error.value = ''
+  try {
+    await deleteAdminProduct(safeId, { reason: safeReason })
+    await loadDetail()
+    await loadList(true)
+  } catch {
+    error.value = '商品删除失败，请确认审核权限、商品状态和订单锁定状态。'
   } finally {
     reviewing.value = false
   }

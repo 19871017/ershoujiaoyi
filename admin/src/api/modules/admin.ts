@@ -149,7 +149,7 @@ export interface AdminProductDetail extends AdminProductListItem {
 }
 
 export interface AdminProductListQuery {
-  status?: 'ALL' | 'PENDING_AUDIT' | 'ACTIVE' | 'OFFLINE' | 'SOLD'
+  status?: 'ALL' | 'PENDING_AUDIT' | 'ACTIVE' | 'OFFLINE' | 'SOLD' | 'DELETED'
   auditStatus?: 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'
   keyword?: string
   limit?: number
@@ -530,6 +530,10 @@ export function isValidAdminProductKeyword(keyword: string) {
 }
 
 export function isValidAdminProductOfflineReason(reason: string) {
+  return isValidAdminProductModerationReason(reason)
+}
+
+export function isValidAdminProductModerationReason(reason: string) {
   const normalized = reason.trim()
   if (!normalized || normalized.length > 128) return false
   return !/(preview|demo|mock|sample|placeholder)/i.test(normalized)
@@ -719,10 +723,40 @@ export async function offlineAdminProduct(productId: string | number, payload: A
   })
 }
 
+export async function hideAdminProduct(productId: string | number, payload: AdminProductOfflineRequest) {
+  if (!isValidAdminProductId(productId)) {
+    throw new Error('商品编号无效')
+  }
+  const reason = payload?.reason?.trim() ?? ''
+  if (!isValidAdminProductModerationReason(reason)) {
+    throw new Error('商品处理原因无效')
+  }
+  return request<AdminProductAuditResponse>({
+    url: `/api/admin/products/${encodeURIComponent(String(productId))}/hide`,
+    method: 'POST',
+    data: { reason }
+  })
+}
+
+export async function deleteAdminProduct(productId: string | number, payload: AdminProductOfflineRequest) {
+  if (!isValidAdminProductId(productId)) {
+    throw new Error('商品编号无效')
+  }
+  const reason = payload?.reason?.trim() ?? ''
+  if (!isValidAdminProductModerationReason(reason)) {
+    throw new Error('商品处理原因无效')
+  }
+  return request<AdminProductAuditResponse>({
+    url: `/api/admin/products/${encodeURIComponent(String(productId))}/delete`,
+    method: 'POST',
+    data: { reason }
+  })
+}
+
 export async function getAdminProductList(query: AdminProductListQuery = {}) {
   const params = new URLSearchParams()
   const status = query.status ?? 'ALL'
-  if (!['ALL', 'PENDING_AUDIT', 'ACTIVE', 'OFFLINE', 'SOLD'].includes(status)) {
+  if (!['ALL', 'PENDING_AUDIT', 'ACTIVE', 'OFFLINE', 'SOLD', 'DELETED'].includes(status)) {
     throw new Error('商品状态筛选无效')
   }
   if (status !== 'ALL') params.set('status', status)

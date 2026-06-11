@@ -571,6 +571,83 @@ class AdminControllerRbacTest {
     }
 
     @Test
+    void adminProductHideRequiresAuditReviewAndKeepsAuditApprovedForTrace() throws Exception {
+        CreateProductResponse product = productApplicationService.createProduct(173L, productRequest(173L, "运营隐藏在售商品", "56.78"));
+        productApplicationService.approveForSale(product.getProductId());
+        createActiveUser(174L);
+
+        mvc.perform(post("/api/admin/products/" + product.getProductId() + "/hide")
+                        .header("X-User-Id", "174")
+                        .header("X-Admin-Session", issueAdminSession(174L))
+                        .contentType("application/json")
+                        .content("{\"reason\":\"重复发布先隐藏\"}"))
+                .andExpect(status().isForbidden());
+
+        grantPermission(174L, "audit:review");
+
+        mvc.perform(post("/api/admin/products/" + product.getProductId() + "/hide")
+                        .header("X-User-Id", "174")
+                        .header("X-Admin-Session", issueAdminSession(174L))
+                        .contentType("application/json")
+                        .content("{\"reason\":\"重复发布先隐藏\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.productId").value(product.getProductId()))
+                .andExpect(jsonPath("$.data.status").value("OFFLINE"))
+                .andExpect(jsonPath("$.data.auditState").value("APPROVED"))
+                .andExpect(jsonPath("$.data.visible").value(false));
+
+        org.junit.jupiter.api.Assertions.assertEquals("OFFLINE",
+                jdbcTemplate.queryForObject("select product_status from product_item where id = ?", String.class, product.getProductId()));
+        org.junit.jupiter.api.Assertions.assertEquals("APPROVED",
+                jdbcTemplate.queryForObject("select audit_status from product_item where id = ?", String.class, product.getProductId()));
+        org.junit.jupiter.api.Assertions.assertFalse(
+                jdbcTemplate.queryForObject("select visible from product_item where id = ?", Boolean.class, product.getProductId()));
+        org.junit.jupiter.api.Assertions.assertEquals(174L,
+                jdbcTemplate.queryForObject("select operator_id from admin_audit_log where action = ? and target_id = ?", Long.class, "PRODUCT_HIDE", String.valueOf(product.getProductId())));
+    }
+
+    @Test
+    void adminProductDeleteRequiresAuditReviewAndSoftDeletesWithoutBreakingTrace() throws Exception {
+        CreateProductResponse product = productApplicationService.createProduct(175L, productRequest(175L, "运营删除待审商品", "36.78"));
+        createActiveUser(176L);
+
+        mvc.perform(post("/api/admin/products/" + product.getProductId() + "/delete")
+                        .header("X-User-Id", "176")
+                        .header("X-Admin-Session", issueAdminSession(176L))
+                        .contentType("application/json")
+                        .content("{\"reason\":\"严重违规删除\"}"))
+                .andExpect(status().isForbidden());
+
+        grantPermission(176L, "audit:review");
+        grantPermission(176L, "audit:read");
+
+        mvc.perform(post("/api/admin/products/" + product.getProductId() + "/delete")
+                        .header("X-User-Id", "176")
+                        .header("X-Admin-Session", issueAdminSession(176L))
+                        .contentType("application/json")
+                        .content("{\"reason\":\"严重违规删除\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.productId").value(product.getProductId()))
+                .andExpect(jsonPath("$.data.status").value("DELETED"))
+                .andExpect(jsonPath("$.data.visible").value(false));
+
+        org.junit.jupiter.api.Assertions.assertEquals("DELETED",
+                jdbcTemplate.queryForObject("select product_status from product_item where id = ?", String.class, product.getProductId()));
+        org.junit.jupiter.api.Assertions.assertEquals(1,
+                productApplicationService.adminListProducts("DELETED", "ALL", String.valueOf(product.getProductId()), 20).size());
+        org.junit.jupiter.api.Assertions.assertFalse(
+                jdbcTemplate.queryForObject("select visible from product_item where id = ?", Boolean.class, product.getProductId()));
+        org.junit.jupiter.api.Assertions.assertEquals(176L,
+                jdbcTemplate.queryForObject("select operator_id from admin_audit_log where action = ? and target_id = ?", Long.class, "PRODUCT_DELETE", String.valueOf(product.getProductId())));
+
+        mvc.perform(get("/api/admin/products/" + product.getProductId())
+                        .header("X-User-Id", "176")
+                        .header("X-Admin-Session", issueAdminSession(176L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("DELETED"));
+    }
+
+    @Test
     void adminAuditListMasksSensitiveDescriptionBeforeDtoResponse() throws Exception {
         createActiveUser(72L);
         grantPermission(72L, "audit:read");

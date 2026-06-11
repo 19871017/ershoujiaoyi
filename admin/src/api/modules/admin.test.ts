@@ -15,6 +15,8 @@ import {
   getAdminProductDetail,
   getAdminProductList,
   approveAdminProduct,
+  deleteAdminProduct,
+  hideAdminProduct,
   rejectAdminProduct,
   offlineAdminProduct,
   getAdminChatConversationMessages,
@@ -42,6 +44,7 @@ import {
   isValidAdminOrderNo,
   isValidAdminProductId,
   isValidAdminProductKeyword,
+  isValidAdminProductModerationReason,
   isValidAdminProductOfflineReason,
   isValidAdminUserId,
   isValidAdminWithdrawalNo,
@@ -119,14 +122,20 @@ describe('admin finance api', () => {
     await expect(approveAdminProduct('preview-product')).rejects.toThrow('商品编号无效')
     await expect(rejectAdminProduct('preview-product')).rejects.toThrow('商品编号无效')
     await expect(offlineAdminProduct('preview-product', { reason: '违规图片' })).rejects.toThrow('商品编号无效')
+    await expect(hideAdminProduct('preview-product', { reason: '重复发布' })).rejects.toThrow('商品编号无效')
+    await expect(deleteAdminProduct('preview-product', { reason: '违规删除' })).rejects.toThrow('商品编号无效')
     await expect(approveAdminProduct(0)).rejects.toThrow('商品编号无效')
     await expect(rejectAdminProduct(0)).rejects.toThrow('商品编号无效')
     await expect(offlineAdminProduct(88, { reason: 'preview offline' })).rejects.toThrow('商品下架原因无效')
+    await expect(hideAdminProduct(88, { reason: 'preview hide' })).rejects.toThrow('商品处理原因无效')
+    await expect(deleteAdminProduct(88, { reason: 'preview delete' })).rejects.toThrow('商品处理原因无效')
     expect(fetchMock).not.toHaveBeenCalled()
 
     const product = await approveAdminProduct(88)
     await rejectAdminProduct(88)
     await offlineAdminProduct(88, { reason: '商品图片违规' })
+    await hideAdminProduct(88, { reason: '重复发布，先隐藏' })
+    await deleteAdminProduct(88, { reason: '严重违规，运营删除' })
 
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/products/88/approve'), expect.objectContaining({
       method: 'POST'
@@ -138,9 +147,19 @@ describe('admin finance api', () => {
       method: 'POST',
       body: JSON.stringify({ reason: '商品图片违规' })
     }))
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/products/88/hide'), expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ reason: '重复发布，先隐藏' })
+    }))
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/products/88/delete'), expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ reason: '严重违规，运营删除' })
+    }))
     expect(product.status).toBe('ON_SALE')
     expect(isValidAdminProductOfflineReason('商品图片违规')).toBe(true)
     expect(isValidAdminProductOfflineReason('preview offline')).toBe(false)
+    expect(isValidAdminProductModerationReason('重复发布，先隐藏')).toBe(true)
+    expect(isValidAdminProductModerationReason('preview hide')).toBe(false)
   })
 
   it('loads admin product list and detail through backend product endpoints with bounded filters', async () => {
