@@ -1,4 +1,5 @@
 import type { UpdateUserProfileRequest, UserProfileResponse } from '../../../api/modules/user'
+import { isDefaultAvatarUrl } from '../../../utils/default-avatar'
 
 export const MAX_SHOWCASE_PHOTOS = 6
 export const communityImageStoragePrefix = '/uploads/community-image/'
@@ -38,6 +39,7 @@ export function uploadedCommunityImageUrl(storageUrl: string, purpose: 'avatar' 
 
 export function storedAvatarUrl(url: string): string {
   if (!url) return ''
+  if (isDefaultAvatarUrl(url)) return url
   if (!isValidCommunityImageUrl(url)) {
     console.warn('profile edit rejected stored avatar url', { expectedPrefix: communityImageStoragePrefix, url })
     return ''

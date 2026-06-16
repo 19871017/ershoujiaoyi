@@ -20,6 +20,9 @@ export interface CreateOrderResponse {
   productNo: string
   productTitle: string
   productPrice: MoneyAmount
+  sellerPrice?: MoneyAmount
+  platformMarkupRate?: MoneyAmount
+  platformMarkupAmount?: MoneyAmount
   tradeRuleSnapshot: string
   status: OrderCreateStatus
   acceptedTradeRule: boolean
@@ -34,6 +37,9 @@ export interface PayOrderResponse {
   productNo: string
   productTitle: string
   amount: MoneyAmount
+  sellerAmount?: MoneyAmount
+  platformMarkupRate?: MoneyAmount
+  platformMarkupAmount?: MoneyAmount
   status: OrderPayStatus
   ledgerNo?: string | null
   balanceType?: string | null
@@ -52,6 +58,9 @@ export interface OrderListItemResponse {
   productNo: string
   productTitle: string
   amount: MoneyAmount
+  sellerAmount?: MoneyAmount
+  platformMarkupRate?: MoneyAmount
+  platformMarkupAmount?: MoneyAmount
   tradeRuleSnapshot: string
   status: Exclude<OrderListStatus, 'REFUNDING'>
   role: OrderRole
@@ -70,6 +79,9 @@ export interface OrderDetailResponse {
   productNo: string
   productTitle: string
   amount: MoneyAmount
+  sellerAmount?: MoneyAmount
+  platformMarkupRate?: MoneyAmount
+  platformMarkupAmount?: MoneyAmount
   tradeRuleSnapshot: string
   status: Exclude<OrderListStatus, 'REFUNDING'>
   role: OrderRole

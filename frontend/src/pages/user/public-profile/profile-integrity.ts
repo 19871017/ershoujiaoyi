@@ -1,5 +1,6 @@
 import type { ProductListItemResponse } from '../../../api/modules/product'
 import type { UserProfileResponse } from '../../../api/modules/user'
+import { isDefaultAvatarUrl } from '../../../utils/default-avatar'
 
 export const unavailableProfileMessage = '卖家资料暂时不可用，请稍后再看'
 export const noBackendProductsMessage = '这位卖家暂时没有公开在售宝贝'
@@ -17,6 +18,7 @@ const rejectedPublicMediaWarnings = new Set<string>()
 
 export function validatedPublicMediaUrl(url: unknown, expectedPrefix: string | string[]): string {
   if (!url) return ''
+  if (isDefaultAvatarUrl(url)) return url
   const prefixes = Array.isArray(expectedPrefix) ? expectedPrefix : [expectedPrefix]
   if (typeof url !== 'string') {
     console.warn('public profile rejected media url', { expectedPrefix: prefixes.join(','), url })

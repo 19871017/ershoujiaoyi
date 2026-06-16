@@ -67,22 +67,79 @@
 
     <view class="section-card ds-card">
       <view class="section-head">
-        <view class="section-title">礼物流水</view>
+        <view class="section-title">最新礼物流水</view>
+        <view class="settle-chip">最新 {{ recentGiftList.length }} 条</view>
+      </view>
+      <view v-if="loadingRecent" class="empty-row">礼物流水加载中...</view>
+      <view v-else-if="recentMessage" class="empty-row">{{ recentMessage }}</view>
+      <view v-else>
+        <view v-for="item in visibleRecentFlowRows" :key="item.giftOrderNo" class="gift-row">
+          <view class="gift-orb gift-orb-mini">
+            <view class="gift-shine" />
+            <image v-if="isGiftImage(item.giftIcon)" class="gift-img" :src="resolveGiftImage(item.giftIcon)" mode="aspectFit" />
+            <text v-else>{{ item.giftIcon || '🎁' }}</text>
+          </view>
+          <view class="gift-main">
+            <view class="gift-title">{{ item.title }}</view>
+            <view class="gift-desc">{{ item.subtitle }}</view>
+          </view>
+          <view v-if="item.amountText" class="gift-amount" :class="{ muted: item.amountMuted }">{{ item.amountText }}</view>
+        </view>
+        <button v-if="recordFoldMeta('recent', flowRows).hasFolded" class="fold-btn record-fold-btn" @click="toggleRecordFold('recent')">
+          {{ recordFoldMeta('recent', flowRows).expanded ? '收起' : `展开其他 ${recordFoldMeta('recent', flowRows).foldedCount} 条` }}
+        </button>
+      </view>
+    </view>
+
+    <view class="section-card ds-card">
+      <view class="section-head">
+        <view class="section-title">我送出的</view>
+        <view class="settle-chip">支出 {{ sentTotalText }}</view>
+      </view>
+      <view v-if="loadingSent" class="empty-row">送礼记录加载中...</view>
+      <view v-else-if="sentMessage" class="empty-row">{{ sentMessage }}</view>
+      <view v-else>
+        <view v-for="item in visibleSentFlowRows" :key="item.giftOrderNo" class="gift-row">
+          <view class="gift-orb gift-orb-mini">
+            <view class="gift-shine" />
+            <image v-if="isGiftImage(item.giftIcon)" class="gift-img" :src="resolveGiftImage(item.giftIcon)" mode="aspectFit" />
+            <text v-else>{{ item.giftIcon || '🎁' }}</text>
+          </view>
+          <view class="gift-main">
+            <view class="gift-title">{{ item.title }}</view>
+            <view class="gift-desc">{{ item.subtitle }}</view>
+          </view>
+          <view class="gift-amount muted">{{ item.amountText }}</view>
+        </view>
+        <button v-if="recordFoldMeta('sent', sentFlowRows).hasFolded" class="fold-btn record-fold-btn" @click="toggleRecordFold('sent')">
+          {{ recordFoldMeta('sent', sentFlowRows).expanded ? '收起' : `展开其他 ${recordFoldMeta('sent', sentFlowRows).foldedCount} 条` }}
+        </button>
+      </view>
+    </view>
+
+    <view class="section-card ds-card">
+      <view class="section-head">
+        <view class="section-title">我收到的</view>
         <view class="settle-chip">累计入账 {{ totalIncomeText }}</view>
       </view>
-      <view v-if="loadingReceived" class="empty-row">礼物流水加载中...</view>
+      <view v-if="loadingReceived" class="empty-row">收礼记录加载中...</view>
       <view v-else-if="receivedMessage" class="empty-row">{{ receivedMessage }}</view>
-      <view v-for="item in giftList" :key="item.giftOrderNo" class="gift-row">
-        <view class="gift-orb gift-orb-mini">
-          <view class="gift-shine" />
-          <image v-if="isGiftImage(item.giftIcon)" class="gift-img" :src="resolveGiftImage(item.giftIcon)" mode="aspectFit" />
-          <text v-else>{{ item.giftIcon || '🎁' }}</text>
+      <view v-else>
+        <view v-for="item in visibleReceivedFlowRows" :key="item.giftOrderNo" class="gift-row">
+          <view class="gift-orb gift-orb-mini">
+            <view class="gift-shine" />
+            <image v-if="isGiftImage(item.giftIcon)" class="gift-img" :src="resolveGiftImage(item.giftIcon)" mode="aspectFit" />
+            <text v-else>{{ item.giftIcon || '🎁' }}</text>
+          </view>
+          <view class="gift-main">
+            <view class="gift-title">{{ item.title }}</view>
+            <view class="gift-desc">{{ item.subtitle }}</view>
+          </view>
+          <view class="gift-amount">{{ item.amountText }}</view>
         </view>
-        <view class="gift-main">
-          <view class="gift-title">{{ item.giftName }} × {{ item.quantity }} · 来自 {{ senderLabel(item.senderId) }}</view>
-          <view class="gift-desc">{{ formatDateTime(item.createdAt) }}</view>
-        </view>
-        <view class="gift-amount">+¥{{ money(item.receiverAmount) }}</view>
+        <button v-if="recordFoldMeta('received', receivedFlowRows).hasFolded" class="fold-btn record-fold-btn" @click="toggleRecordFold('received')">
+          {{ recordFoldMeta('received', receivedFlowRows).expanded ? '收起' : `展开其他 ${recordFoldMeta('received', receivedFlowRows).foldedCount} 条` }}
+        </button>
       </view>
     </view>
 
@@ -106,7 +163,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { getGiftCatalog, getReceivedGifts, sendGift, type GiftCatalogItemResponse, type ReceivedGiftItemResponse } from '../../api/modules/gift'
+import { getGiftCatalog, getReceivedGifts, getRecentGiftFeed, getSentGifts, sendGift, type GiftCatalogItemResponse, type ReceivedGiftItemResponse, type RecentGiftFeedItemResponse } from '../../api/modules/gift'
 import { getWalletBalance, type WalletMoneyAmount } from '../../api/modules/wallet'
 import giftCoffeeUrl from '../../assets/gifts/gift-coffee.png'
 import giftCrownUrl from '../../assets/gifts/gift-crown.png'
@@ -120,24 +177,45 @@ import giftRoseUrl from '../../assets/gifts/gift-rose.png'
 import giftStarUrl from '../../assets/gifts/gift-star.png'
 
 const DEFAULT_VISIBLE_GIFT_COUNT = 3
+const DEFAULT_VISIBLE_RECORD_COUNT = 3
+type GiftRecordFoldKey = 'recent' | 'sent' | 'received'
 const receiverId = ref<number | null>(null)
 const receiverName = ref('')
 const sceneType = ref('PROFILE')
 const sceneId = ref<number | undefined>()
 const catalogList = ref<GiftCatalogItemResponse[]>([])
 const giftList = ref<ReceivedGiftItemResponse[]>([])
+const recentGiftList = ref<RecentGiftFeedItemResponse[]>([])
+const sentGiftList = ref<RecentGiftFeedItemResponse[]>([])
 const selectedGift = ref<GiftCatalogItemResponse | null>(null)
 const quantity = ref(1)
 const rechargeBalance = ref<WalletMoneyAmount>('--')
 const catalogMessage = ref('')
 const receivedMessage = ref('')
+const sentMessage = ref('')
 const sendMessage = ref('')
 const loadingCatalog = ref(false)
 const loadingReceived = ref(false)
+const loadingRecent = ref(false)
+const loadingSent = ref(false)
 const loadingBalance = ref(false)
 const sending = ref(false)
 const giftExpanded = ref(false)
+const recordExpanded = ref<Record<GiftRecordFoldKey, boolean>>({
+  recent: false,
+  sent: false,
+  received: false
+})
 type GiftEffect = { icon: string; name: string; quantity: number; orderNo: string }
+type GiftFlowRow = {
+  giftOrderNo: string
+  giftIcon: string
+  title: string
+  subtitle: string
+  amountText: string
+  amountMuted: boolean
+  senderId?: number
+}
 const giftEffect = ref<GiftEffect | null>(null)
 let giftEffectTimer: ReturnType<typeof setTimeout> | null = null
 const sendMode = computed(() => Boolean(receiverId.value))
@@ -145,15 +223,54 @@ const receiverLabel = computed(() => receiverName.value || (receiverId.value ? `
 const rechargeBalanceText = computed(() => loadingBalance.value ? '余额加载中' : `¥${money(rechargeBalance.value)}`)
 const totalIncome = computed(() => giftList.value.reduce((sum, item) => sum + Number(item.receiverAmount || 0), 0).toFixed(2))
 const totalIncomeText = computed(() => loadingReceived.value ? '--' : `¥${totalIncome.value}`)
+const sentTotal = computed(() => sentGiftList.value.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0).toFixed(2))
+const sentTotalText = computed(() => loadingSent.value ? '--' : `¥${sentTotal.value}`)
 const estimatedTotal = computed(() => selectedGift.value ? (Number(selectedGift.value.price) * quantity.value).toFixed(2) : '0.00')
 const hasFoldedGifts = computed(() => catalogList.value.length > DEFAULT_VISIBLE_GIFT_COUNT)
 const foldedGiftCount = computed(() => Math.max(0, catalogList.value.length - DEFAULT_VISIBLE_GIFT_COUNT))
 const visibleCatalogList = computed(() => giftExpanded.value || !hasFoldedGifts.value ? catalogList.value : catalogList.value.slice(0, DEFAULT_VISIBLE_GIFT_COUNT))
+const flowRows = computed<GiftFlowRow[]>(() => {
+  return recentGiftList.value.map((item) => ({
+    giftOrderNo: item.giftOrderNo,
+    giftIcon: item.giftIcon,
+    title: `${item.senderName || senderLabel(item.senderId)} 送给 ${item.receiverName || receiverLabelById(item.receiverId)} ${item.giftName} × ${item.quantity}`,
+    subtitle: formatDateTime(item.createdAt),
+    amountText: `¥${money(item.totalAmount)}`,
+    amountMuted: true,
+    senderId: item.senderId
+  }))
+})
+const visibleRecentFlowRows = computed(() => visibleRecordRows('recent', flowRows.value))
+const sentFlowRows = computed<GiftFlowRow[]>(() => {
+  return sentGiftList.value.map((item) => ({
+    giftOrderNo: item.giftOrderNo,
+    giftIcon: item.giftIcon,
+    title: `送给 ${item.receiverName || receiverLabelById(item.receiverId)} ${item.giftName} × ${item.quantity}`,
+    subtitle: formatDateTime(item.createdAt),
+    amountText: `-¥${money(item.totalAmount)}`,
+    amountMuted: true,
+    senderId: item.receiverId
+  }))
+})
+const visibleSentFlowRows = computed(() => visibleRecordRows('sent', sentFlowRows.value))
+const receivedFlowRows = computed<GiftFlowRow[]>(() => {
+  return giftList.value.map((item) => ({
+    giftOrderNo: item.giftOrderNo,
+    giftIcon: item.giftIcon,
+    title: `${item.giftName} × ${item.quantity} · 来自 ${senderLabel(item.senderId)}`,
+    subtitle: formatDateTime(item.createdAt),
+    amountText: `+¥${money(item.receiverAmount)}`,
+    amountMuted: false,
+    senderId: item.senderId
+  }))
+})
+const visibleReceivedFlowRows = computed(() => visibleRecordRows('received', receivedFlowRows.value))
 const summary = computed(() => [
   { label: '累计入账', value: totalIncomeText.value },
-  { label: '收礼记录', value: loadingReceived.value ? '--' : `${giftList.value.length}` },
+  { label: '送礼记录', value: loadingSent.value ? '--' : `${sentGiftList.value.length}` },
   { label: '可选礼物', value: loadingCatalog.value ? '--' : `${catalogList.value.length}` }
 ])
+const recentMessage = ref('')
 
 function readQuery() {
   const pages = getCurrentPages()
@@ -199,6 +316,34 @@ async function loadReceived() {
   }
 }
 
+async function loadRecentGifts() {
+  loadingRecent.value = true
+  recentMessage.value = ''
+  try {
+    recentGiftList.value = await getRecentGiftFeed()
+    recentMessage.value = recentGiftList.value.length ? '' : '暂无记录'
+  } catch {
+    recentGiftList.value = []
+    recentMessage.value = '礼物流水暂不可用'
+  } finally {
+    loadingRecent.value = false
+  }
+}
+
+async function loadSentGifts() {
+  loadingSent.value = true
+  sentMessage.value = ''
+  try {
+    sentGiftList.value = await getSentGifts()
+    sentMessage.value = sentGiftList.value.length ? '' : '暂无送出记录'
+  } catch {
+    sentGiftList.value = []
+    sentMessage.value = '送礼记录暂不可用'
+  } finally {
+    loadingSent.value = false
+  }
+}
+
 async function loadBalance() {
   if (!sendMode.value) return
   loadingBalance.value = true
@@ -219,6 +364,23 @@ function selectGift(item: GiftCatalogItemResponse) {
 
 function toggleGiftFold() {
   giftExpanded.value = !giftExpanded.value
+}
+
+function visibleRecordRows(key: GiftRecordFoldKey, rows: GiftFlowRow[]) {
+  return recordExpanded.value[key] || rows.length <= DEFAULT_VISIBLE_RECORD_COUNT ? rows : rows.slice(0, DEFAULT_VISIBLE_RECORD_COUNT)
+}
+
+function recordFoldMeta(key: GiftRecordFoldKey, rows: GiftFlowRow[]) {
+  const foldedCount = Math.max(0, rows.length - DEFAULT_VISIBLE_RECORD_COUNT)
+  return {
+    expanded: recordExpanded.value[key],
+    foldedCount,
+    hasFolded: foldedCount > 0
+  }
+}
+
+function toggleRecordFold(key: GiftRecordFoldKey) {
+  recordExpanded.value[key] = !recordExpanded.value[key]
 }
 
 function changeQuantity(delta: number) {
@@ -257,7 +419,8 @@ async function submitGift() {
     showGiftEffect(sentGift, sentQuantity, response.giftOrderNo)
     sendMessage.value = `已送出，订单 ${response.giftOrderNo}`
     uni.showToast({ title: '送礼成功', icon: 'success' })
-    await Promise.all([loadReceived(), loadBalance()])
+    dispatchGiftSent()
+    await Promise.all([loadReceived(), loadSentGifts(), loadRecentGifts(), loadBalance()])
   } catch {
     sendMessage.value = '送礼失败，请稍后重试'
     uni.showToast({ title: '送礼失败', icon: 'none' })
@@ -290,8 +453,17 @@ function senderLabel(senderId: number) {
   return `用户 ${senderId}`
 }
 
+function receiverLabelById(value: number) {
+  return `用户 ${value}`
+}
+
+function dispatchGiftSent() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('xiaoyuanquan:giftsent'))
+}
+
 function sendThanks() {
-  const first = giftList.value[0]
+  const first = receivedFlowRows.value.find((item) => item.senderId)
   if (!first?.senderId) {
     uni.showToast({ title: '暂无送礼用户', icon: 'none' })
     return
@@ -326,7 +498,7 @@ function formatDateTime(value: string) {
 
 onMounted(async () => {
   readQuery()
-  await Promise.all([loadCatalog(), loadReceived(), loadBalance()])
+  await Promise.all([loadCatalog(), loadReceived(), loadSentGifts(), loadRecentGifts(), loadBalance()])
 })
 
 onBeforeUnmount(() => {
@@ -371,6 +543,7 @@ onBeforeUnmount(() => {
 .gift-main { flex:1; min-width:0; }
 .gift-title { color:#3a2a1f; font-size:25rpx; font-weight:950; }
 .gift-amount { color:#16a34a; font-size:26rpx; font-weight:950; }
+.gift-amount.muted { color:#9b7560; }
 .quantity-row { margin-top:18rpx; color:#7b5542; font-size:24rpx; font-weight:900; }
 .mini-btn { width:56rpx; height:56rpx; padding:0; line-height:56rpx; border-radius:50%; background:#fff3e7; color:#ff7a45; font-weight:950; }
 .quantity-num { min-width:46rpx; text-align:center; }

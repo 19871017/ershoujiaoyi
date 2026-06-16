@@ -71,6 +71,45 @@ class ProductApplicationServiceTest {
     }
 
     @Test
+    void publicProductPriceShouldApplyDefaultBuyerMarkupWhileKeepingSellerPrice() {
+        CreateProductResponse response = service.createProduct(1L, product("默认加价商品", "100.00"));
+        service.approveForSale(response.getProductId());
+
+        ProductDetailResponse detail = service.detailProduct(response.getProductId());
+        ProductSnapshot snapshot = service.snapshotForOrder(response.getProductId());
+        var publicRows = service.listProducts();
+        var mineRows = service.listMyProducts(1L);
+
+        assertEquals(new BigDecimal("100.00"), response.getPrice());
+        assertEquals(new BigDecimal("130.00"), detail.getPrice());
+        assertEquals(new BigDecimal("100.00"), detail.getSellerPrice());
+        assertEquals(new BigDecimal("0.3000"), detail.getPlatformMarkupRate());
+        assertEquals(new BigDecimal("30.00"), detail.getPlatformMarkupAmount());
+        assertEquals(new BigDecimal("130.00"), snapshot.getBuyerPrice());
+        assertEquals(new BigDecimal("100.00"), snapshot.getSellerPrice());
+        assertEquals(new BigDecimal("30.00"), snapshot.getPlatformMarkupAmount());
+        assertEquals(new BigDecimal("130.00"), publicRows.get(0).getPrice());
+        assertEquals(new BigDecimal("100.00"), publicRows.get(0).getSellerPrice());
+        assertEquals(new BigDecimal("130.00"), mineRows.get(0).getPrice());
+        assertEquals(new BigDecimal("100.00"), mineRows.get(0).getSellerPrice());
+    }
+
+    @Test
+    void adminProductMarkupConfigShouldPersistAndRejectUnsafeRates() {
+        var updated = service.adminUpdatePricingConfig(new AdminProductPricingConfigRequest(new BigDecimal("0.25")));
+
+        assertEquals(new BigDecimal("0.2500"), updated.markupRate());
+        assertEquals(new BigDecimal("125.00"), service.applyBuyerPrice(new BigDecimal("100.00")));
+
+        ProductApplicationService reloaded = new ProductApplicationService(new JdbcTemplate(database), new com.secondhand.platform.modules.media.application.MediaUploadTicketService(new JdbcTemplate(database)));
+        assertEquals(new BigDecimal("0.2500"), reloaded.adminPricingConfig().markupRate());
+        assertEquals(new BigDecimal("125.00"), reloaded.applyBuyerPrice(new BigDecimal("100.00")));
+        assertThrows(IllegalArgumentException.class, () -> reloaded.adminUpdatePricingConfig(new AdminProductPricingConfigRequest(new BigDecimal("-0.01"))));
+        assertThrows(IllegalArgumentException.class, () -> reloaded.adminUpdatePricingConfig(new AdminProductPricingConfigRequest(new BigDecimal("5.01"))));
+        assertThrows(IllegalArgumentException.class, () -> reloaded.adminUpdatePricingConfig(new AdminProductPricingConfigRequest(new BigDecimal("0.12345"))));
+    }
+
+    @Test
     void reserveAndSoldStateShouldBePersisted() {
         CreateProductResponse response = service.createProduct(1L, product("蝴蝶结小包", "56.00"));
         service.approveForSale(response.getProductId());

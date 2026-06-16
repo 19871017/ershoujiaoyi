@@ -128,8 +128,8 @@ onLoad((options) => {
 <style scoped>
 .login-page { min-height:100vh; background:linear-gradient(180deg,#fff7ed 0%,#fffdfa 52%,#fff7ed 100%); }
 .brand-card { margin-top:20rpx; padding:42rpx 28rpx; text-align:center; border-color:#ffd9bd; background:linear-gradient(135deg,#fff,#fff3e7); }
-.brand-logo { width:104rpx; height:104rpx; margin:0 auto; border-radius:36rpx; background:linear-gradient(135deg,#ff7a45,#ffb08a); color:#fff; display:flex; align-items:center; justify-content:center; font-size:60rpx; font-weight:950; box-shadow:0 18rpx 36rpx rgba(255,122,69,.2); overflow:hidden; }
-.brand-logo-img { width:92rpx; height:92rpx; display:block; filter:drop-shadow(0 8rpx 14rpx rgba(120,45,22,.16)); }
+.brand-logo { width:124rpx; height:124rpx; margin:0 auto; border-radius:32rpx; background:rgba(255,255,255,.5); color:#fff; display:flex; align-items:center; justify-content:center; font-size:60rpx; font-weight:950; box-shadow:0 18rpx 42rpx rgba(255,91,128,.18); overflow:visible; }
+.brand-logo-img { width:124rpx; height:124rpx; display:block; filter:drop-shadow(0 12rpx 22rpx rgba(116,21,52,.22)); }
 .brand-title { margin-top:22rpx; color:#3a2a1f; font-size:42rpx; font-weight:950; }
 .form-card { margin-top:22rpx; padding:24rpx; border-color:#ffd9bd; }
 .mode-tabs { display:flex; gap:12rpx; margin-bottom:22rpx; padding:8rpx; border-radius:999rpx; background:#fff4ea; }

@@ -21,6 +21,7 @@
               :class="item.kind"
             >
               <text class="ticker-kind">{{ tickerKindLabel(item.kind) }}</text>
+              <image v-if="item.giftIcon" class="ticker-gift-icon" :src="item.giftIcon" mode="aspectFit" />
               <text class="ticker-text">{{ item.text }}</text>
             </view>
           </view>
@@ -34,13 +35,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getRecentGiftFeed } from '../api/modules/gift'
-import { buildGiftText, normalizeTargetUrl, type TickerItem } from './global-ticker-helpers'
+import { buildGiftText, normalizeTargetUrl, safeGiftIconUrl, type TickerItem } from './global-ticker-helpers'
 
 const TICKER_HIDDEN_ROUTE_PREFIXES = [
   '/pages/chat/conversation/index',
   '/pages/chat/session-list/index'
 ] as const
 const routeChangeEventName = 'xiaoyuanquan:routechange'
+const giftSentEventName = 'xiaoyuanquan:giftsent'
 const items = ref<TickerItem[]>([])
 const routePath = ref('')
 const OPTIONAL_SOURCE_COOLDOWN_MS = 5 * 60_000
@@ -134,6 +136,11 @@ function syncRoutePath() {
   applyOffset()
 }
 
+function refreshAfterGiftSent() {
+  sourceCooldownUntil.gift = 0
+  void loadTicker()
+}
+
 function currentRouteIsTickerHidden(): boolean {
   return currentRouteCandidates().some(isTickerHiddenRoute)
 }
@@ -165,7 +172,7 @@ function installRouteChangeHooks() {
 
 function applyOffset() {
   if (typeof document === 'undefined') return
-  document.documentElement.style.setProperty('--global-ticker-offset', visible.value ? '76rpx' : '0rpx')
+  document.documentElement.style.setProperty('--global-ticker-offset', visible.value ? '38px' : '0px')
 }
 
 function clearTimers() {
@@ -211,6 +218,7 @@ async function loadTicker() {
         id: `gift-${item.giftOrderNo}`,
         kind: 'gift',
         text: buildGiftText(item),
+        giftIcon: safeGiftIconUrl(item.giftIcon),
         targetUrl: item.receiverId ? `/pages/user/public-profile/index?userId=${item.receiverId}` : '/pages/gift/index'
       }))
     items.value = giftItems
@@ -263,6 +271,7 @@ onMounted(() => {
     window.addEventListener('hashchange', syncRoutePath)
     window.addEventListener('popstate', syncRoutePath)
     window.addEventListener(routeChangeEventName, syncRoutePath)
+    window.addEventListener(giftSentEventName, refreshAfterGiftSent)
   }
 })
 
@@ -273,9 +282,10 @@ onBeforeUnmount(() => {
     window.removeEventListener('hashchange', syncRoutePath)
     window.removeEventListener('popstate', syncRoutePath)
     window.removeEventListener(routeChangeEventName, syncRoutePath)
+    window.removeEventListener(giftSentEventName, refreshAfterGiftSent)
   }
   if (typeof document !== 'undefined') {
-    document.documentElement.style.setProperty('--global-ticker-offset', '0rpx')
+    document.documentElement.style.setProperty('--global-ticker-offset', '0px')
   }
 })
 </script>

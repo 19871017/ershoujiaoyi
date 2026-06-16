@@ -4,7 +4,7 @@
       <view>
         <view class="kicker">♡ 支付方式</view>
         <view class="page-title">{{ title }}</view>
-        <view class="page-desc">正在通过平台后端创建正式支付单，前端不会接触商户密钥。</view>
+        <view class="page-desc">正在通过平台创建正式支付单，页面不会接触商户密钥。</view>
       </view>
       <view class="hero-icon">{{ icon }}</view>
     </view>
@@ -17,7 +17,7 @@
         </view>
         <view class="method-chip">{{ statusChip }}</view>
       </view>
-      <view class="desc">支付单号：{{ paymentNo || '等待后端返回' }}</view>
+      <view class="desc">支付单号：{{ paymentNo || '等待平台生成' }}</view>
       <view v-if="routeErrorText" class="warning-line">{{ routeErrorText }}</view>
       <view v-if="message" class="warning-line">{{ message }}</view>
     </view>
@@ -60,7 +60,7 @@ const isError = computed(() => Boolean(routeErrorText.value || message.value))
 const statusTitle = computed(() => intent.value ? '支付单已创建' : isError.value ? '暂时无法支付' : '等待创建支付单')
 const statusLine = computed(() => intent.value ? '请继续前往官方收银台完成付款' : isError.value ? '支付通道配置或订单状态未通过校验' : '平台正在校验订单与支付通道')
 const statusChip = computed(() => intent.value ? '可拉起' : isError.value ? '已阻止' : '校验中')
-const steps = ['平台创建支付单并保存业务绑定', '前端只拉起微信/支付宝官方收银台', '支付平台异步通知必须验签并防重放', '后端回调确认金额后更新订单状态', '退款、提现和对账保留独立审计']
+const steps = ['平台创建支付单并保存业务绑定', '页面只拉起微信/支付宝官方收银台', '支付通知必须验签并防重放', '平台确认金额后更新订单状态', '退款、提现和对账保留独立审计']
 
 function decodeRouteValue(fieldName: string, value: string): string {
   try {

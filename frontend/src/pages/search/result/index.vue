@@ -40,7 +40,7 @@
     <view v-else-if="filtered.length === 0" class="empty ds-card">
       <view class="empty-icon">🧺</view>
       <view class="section-title">没有找到平台宝贝</view>
-      <view class="section-desc">仅展示后端返回的在售商品，未使用默认搜索内容。</view>
+      <view class="section-desc">仅展示当前在售宝贝，换个关键词也许会有惊喜。</view>
       <button class="primary-btn" @click="goPublish">去上新</button>
     </view>
 
@@ -94,7 +94,7 @@ async function loadProducts() {
     products.value = remote
   } catch {
     products.value = []
-    loadMessage.value = '商品接口暂时不可用，未展示本地搜索宝贝样例'
+    loadMessage.value = '商品暂时加载失败，请稍后重试'
   } finally {
     loading.value = false
   }

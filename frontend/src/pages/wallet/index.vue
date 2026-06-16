@@ -45,7 +45,7 @@
       <view class="section-title">提现申请</view>
       <view class="section-desc">提交后立即冻结可提现余额；审核通过会从冻结资金出款，拒绝会原路解冻。</view>
       <view class="safe-guard">资金动作均以平台账本为准：冻结、出款、解冻都会写入幂等流水。</view>
-      <view class="safe-guard danger">提现页不采集完整收款账号；仅使用后端返回的提现账户引用提交审核。</view>
+      <view class="safe-guard danger">提现页不展示完整收款账号；仅使用已绑定提现账户提交审核。</view>
       <view class="safe-guard" :class="{ danger: !identityVerified }">{{ withdrawalIdentityText }}</view>
       <button v-if="!identityVerified" class="secondary-btn" @click="openIdentity">去实名认证</button>
       <input v-model.trim="withdrawForm.amount" class="field" type="digit" placeholder="提现金额" />
@@ -187,14 +187,14 @@ async function handleCreateWithdrawal() {
   const amount = normalizeAmount(withdrawForm.amount)
   if (!isValidMoneyAmount(amount)) { withdrawMessage.value = '请输入有效提现金额'; return }
   if (!identityVerified.value) { withdrawMessage.value = '提现前需先完成实名认证；未执行资金冻结'; return }
-  if (!activePayoutAccount.value?.payoutAccountId) { withdrawMessage.value = '请先在账户管理页完成后端提现账户绑定；未执行资金冻结'; return }
+  if (!activePayoutAccount.value?.payoutAccountId) { withdrawMessage.value = '请先在账户管理页完成提现账户绑定；未执行资金冻结'; return }
   withdrawing.value = true
   withdrawMessage.value = ''
   try {
     const withdrawal = await createWithdrawal({ amount, payoutAccountId: activePayoutAccount.value.payoutAccountId, remark: withdrawForm.remark })
     withdrawMessage.value = `提现已提交审核：${withdrawal.withdrawalNo}，冻结状态以平台账本为准`
     await refreshAll()
-  } catch { withdrawMessage.value = '提现提交失败：未执行本地资金状态变更' }
+  } catch { withdrawMessage.value = '提现提交失败，资金状态未变更' }
   finally { withdrawing.value = false }
 }
 onMounted(() => { void refreshAll() })

@@ -74,6 +74,7 @@ const PROTECTED_ROUTE_PERMISSIONS: RoutePermissionRule[] = [
   { pattern: /^\/operators(?:\/|$)/, permission: 'operator:grant' },
   { pattern: /^\/system\/location(?:\/|$)/, permission: 'system:config' },
   { pattern: /^\/system\/payment(?:\/|$)/, permission: 'system:config' },
+  { pattern: /^\/system\/product-pricing(?:\/|$)/, permission: 'system:config' },
   { pattern: /^\/system\/banners(?:\/|$)/, permission: 'system:config' },
   { pattern: /^\/system\/announcements(?:\/|$)/, permission: 'system:config' }
 ]
@@ -97,6 +98,7 @@ export const ADMIN_DASHBOARD_ACTIONS: AdminMenuItem[] = [
   { path: '/operators', label: '运营授权', permission: 'operator:grant' },
   { path: '/system/location', label: '位置配置', permission: 'system:config' },
   { path: '/system/payment', label: '支付配置', permission: 'system:config' },
+  { path: '/system/product-pricing', label: '商品加价', permission: 'system:config' },
   { path: '/system/banners', label: '首页轮播', permission: 'system:config' },
   { path: '/system/announcements', label: '公告配置', permission: 'system:config' }
 ]

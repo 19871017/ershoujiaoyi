@@ -25,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserApplicationService {
     private static final int MAX_SHOWCASE_PHOTOS = 6;
     private static final String VIDEO_IDENTITY_STORAGE_PREFIX = "/uploads/video-identity/";
+    private static final String DEFAULT_GOD_AVATAR_URL = "/assets/profile/default-avatar-god.png";
+    private static final String DEFAULT_GODDESS_AVATAR_URL = "/assets/profile/default-avatar-goddess.png";
     private static final Set<String> ALLOWED_GENDERS = Set.of("god", "goddess");
     private static final Set<String> VIDEO_IDENTITY_PUBLIC_ROLES = Set.of("SELLER", "BOTH");
     private static final Set<String> ADMIN_SEARCH_RESERVED_WORDS = Set.of("preview", "demo", "mock", "sample", "placeholder");
@@ -491,7 +493,7 @@ public class UserApplicationService {
                     rs.getLong("id"),
                     rowNum + 1,
                     rs.getString("nickname"),
-                    rs.getString("avatar_url"),
+                    defaultAvatarUrl(rs.getString("avatar_url"), rs.getString("gender")),
                     rs.getString("gender"),
                     rs.getString("city"),
                     rs.getString("bio"),
@@ -583,7 +585,7 @@ public class UserApplicationService {
                             rs.getLong("id"),
                             rs.getString("user_no"),
                             rs.getString("nickname"),
-                            rs.getString("avatar_url"),
+                            defaultAvatarUrl(rs.getString("avatar_url"), rs.getString("gender")),
                             mainRole,
                             rs.getString("gender"),
                             rs.getString("city"),
@@ -732,6 +734,14 @@ public class UserApplicationService {
             throw new IllegalArgumentException(message);
         }
         return normalized;
+    }
+
+    private String defaultAvatarUrl(String avatarUrl, String gender) {
+        String normalizedAvatar = normalizeOptional(avatarUrl, 512, "avatarUrl invalid");
+        if (normalizedAvatar != null) {
+            return normalizedAvatar;
+        }
+        return "god".equalsIgnoreCase(normalizeOptional(gender, 16, "gender invalid")) ? DEFAULT_GOD_AVATAR_URL : DEFAULT_GODDESS_AVATAR_URL;
     }
 
     private String normalizeAdminSearchKeyword(String value) {

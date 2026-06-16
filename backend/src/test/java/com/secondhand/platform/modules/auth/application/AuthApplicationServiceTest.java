@@ -44,6 +44,22 @@ class AuthApplicationServiceTest {
     }
 
     @Test
+    void registerShouldAssignGoddessDefaultAvatar() {
+        service.register(login("13800138005", "pass-123456", "goddess"), "203.0.113.5");
+
+        assertEquals("/assets/profile/default-avatar-goddess.png", jdbcTemplate.queryForObject(
+                "SELECT avatar_url FROM user_account WHERE phone = ?", String.class, "13800138005"));
+    }
+
+    @Test
+    void registerShouldAssignGodDefaultAvatar() {
+        service.register(login("13800138006", "pass-123456", "god"), "203.0.113.6");
+
+        assertEquals("/assets/profile/default-avatar-god.png", jdbcTemplate.queryForObject(
+                "SELECT avatar_url FROM user_account WHERE phone = ?", String.class, "13800138006"));
+    }
+
+    @Test
     void loginShouldRejectUnknownMobileInsteadOfRegisteringImplicitly() {
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
                 () -> service.login(login("13800138009", "pass-123456"), "203.0.113.2"));
@@ -127,10 +143,14 @@ class AuthApplicationServiceTest {
     }
 
     private LoginRequest login(String mobile, String password) {
+        return login(mobile, password, "goddess");
+    }
+
+    private LoginRequest login(String mobile, String password, String gender) {
         LoginRequest request = new LoginRequest();
         request.setMobile(mobile);
         request.setPassword(password);
-        request.setGender("goddess");
+        request.setGender(gender);
         return request;
     }
 

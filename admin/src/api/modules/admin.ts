@@ -89,6 +89,9 @@ export interface AdminOrderDetail {
   productNo: string
   productTitle: string
   amount: number
+  sellerAmount?: number | null
+  platformMarkupRate?: number | null
+  platformMarkupAmount?: number | null
   tradeRuleSnapshot?: string
   status: string
   peerRoleLabel?: string
@@ -116,6 +119,9 @@ export interface AdminProductAuditResponse {
   title: string
   description?: string
   price: number
+  sellerPrice?: number | null
+  platformMarkupRate?: number | null
+  platformMarkupAmount?: number | null
   status: string
   auditState?: string
   auditStatus?: string
@@ -130,6 +136,9 @@ export interface AdminProductListItem {
   title: string
   description?: string | null
   price: number
+  sellerPrice?: number | null
+  platformMarkupRate?: number | null
+  platformMarkupAmount?: number | null
   status: string
   auditStatus?: string | null
   auditState?: string | null
@@ -422,6 +431,15 @@ export interface AdminPaymentChannelConfigRequest {
   merchantSerialNo?: string
   apiV3Key?: string
   wechatPayPublicKey?: string
+}
+
+export interface AdminProductPricingConfig {
+  markupRate: number
+  updatedAt?: string | null
+}
+
+export interface AdminUpdateProductPricingConfigRequest {
+  markupRate: number
 }
 
 const adminHomeBannerActions = ['closet', 'ranking', 'forum', 'search', 'none'] as const
@@ -1119,6 +1137,10 @@ export function getAdminPaymentConfig() {
   return request<AdminPaymentChannelConfig[]>({ url: '/api/admin/payment/config' })
 }
 
+export function getAdminProductPricingConfig() {
+  return request<AdminProductPricingConfig>({ url: '/api/admin/product-pricing/config' })
+}
+
 export function updateAdminPaymentConfig(channel: AdminPaymentChannel, data: AdminPaymentChannelConfigRequest) {
   if (!['ALIPAY', 'WECHAT'].includes(channel)) {
     throw new Error('支付通道无效')
@@ -1128,6 +1150,15 @@ export function updateAdminPaymentConfig(channel: AdminPaymentChannel, data: Adm
     url: `/api/admin/payment/config/${channel}`,
     method: 'POST',
     data
+  })
+}
+
+export function updateAdminProductPricingConfig(data: AdminUpdateProductPricingConfigRequest) {
+  validateAdminProductPricingConfigRequest(data)
+  return request<AdminProductPricingConfig>({
+    url: '/api/admin/product-pricing/config',
+    method: 'POST',
+    data: { markupRate: Number(data.markupRate) }
   })
 }
 
@@ -1205,6 +1236,19 @@ function validateAdminPaymentConfigRequest(data: AdminPaymentChannelConfigReques
   }
   if (data.apiV3Key && new TextEncoder().encode(data.apiV3Key.trim()).length !== 32) {
     throw new Error('微信 APIv3 密钥必须为 32 字节')
+  }
+}
+
+function validateAdminProductPricingConfigRequest(data: AdminUpdateProductPricingConfigRequest) {
+  if (!data || typeof data !== 'object') throw new Error('商品加价配置无效')
+  const rate = Number(data.markupRate)
+  if (!Number.isFinite(rate) || rate < 0 || rate > 5) {
+    throw new Error('商品加价比例无效')
+  }
+  const raw = String(data.markupRate)
+  const decimal = raw.includes('.') ? raw.split('.')[1] : ''
+  if (decimal.length > 4) {
+    throw new Error('商品加价比例最多保留 4 位小数')
   }
 }
 

@@ -17,7 +17,7 @@
             </view>
           </view>
           <view class="author-actions">
-            <view class="message-author tapable" :class="{ disabled: !canMessageAuthor }" @click="messageAuthor">私信</view>
+            <view v-if="!canManagePost" class="message-author tapable" :class="{ disabled: !canMessageAuthor }" @click="messageAuthor">私信</view>
             <view class="follow tapable" :class="{ disabled: !authorFollowLoaded || !!authorFollowError || authorFollowSubmitting }" @click="toggleAuthorFollow">{{ authorFollowButtonText }}</view>
           </view>
         </view>
@@ -29,8 +29,12 @@
         <view class="action-row">
           <view class="tapable" @click="likePost">{{ liked ? '♥' : '♡' }} {{ likeCount }}</view>
           <view>💬 {{ serverCommentCount }}</view>
-          <view class="tapable" @click="messageAuthor">私信作者</view>
-          <view class="tapable" @click="reportPost">举报</view>
+          <view v-if="!canManagePost" class="tapable" @click="messageAuthor">私信</view>
+          <view v-if="canManagePost" class="tapable owner" @click="editCurrentPost">编辑</view>
+          <view v-if="!canManagePost" class="tapable" @click="reportPost">举报</view>
+          <view v-if="canManagePost" class="tapable danger" :class="{ disabled: deleteSubmitting }" @click="deleteCurrentPost">
+            {{ deleteSubmitting ? '删除中' : '删除' }}
+          </view>
         </view>
       </view>
 
@@ -71,8 +75,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { resolveBackendMediaUrl } from '../../../api/http'
-import { createCommunityComment, getCommunityPostDetail, likeCommunityPost, unlikeCommunityPost, type CommunityCommentResponse, type CommunityPostDetailResponse } from '../../../api/modules/community'
-import { followPublicProfile, getPublicProfile, unfollowPublicProfile } from '../../../api/modules/user'
+import { createCommunityComment, deleteCommunityPost, getCommunityPostDetail, likeCommunityPost, unlikeCommunityPost, type CommunityCommentResponse, type CommunityPostDetailResponse } from '../../../api/modules/community'
+import { followPublicProfile, getMyProfile, getPublicProfile, unfollowPublicProfile } from '../../../api/modules/user'
 import {
   firstChar,
   formatDateTime,
@@ -90,6 +94,8 @@ import {
 } from './community-detail-helpers'
 
 type NavigateToWithFailure = (options: { url: string; fail?: (error: unknown) => void }) => void
+type RedirectToWithFailure = (options: { url: string; fail?: (error: unknown) => void }) => void
+type SwitchTabWithFailure = (options: { url: string; fail?: (error: unknown) => void }) => void
 
 const topic = ref('')
 const postId = ref('')
@@ -101,6 +107,7 @@ const postTitle = ref('')
 const postContent = ref('')
 const imageSlots = ref<string[]>([])
 const authorId = ref<number | null>(null)
+const currentUserId = ref<number | null>(null)
 const authorFollowed = ref(false)
 const authorFollowLoaded = ref(false)
 const authorFollowError = ref('')
@@ -116,9 +123,12 @@ const relatedProductPrice = ref<string | number | null>(null)
 const errorText = ref('')
 const detailLoading = ref(false)
 const detailLoaded = ref(false)
+const deleteSubmitting = ref(false)
 const comments = reactive<CommentItem[]>([])
 const serverCommentCount = ref(0)
 const navigateToWithFailure = uni.navigateTo as unknown as NavigateToWithFailure
+const redirectToWithFailure = uni.redirectTo as unknown as RedirectToWithFailure
+const switchTabWithFailure = uni.switchTab as unknown as SwitchTabWithFailure
 const authorFollowButtonText = computed(() => {
   if (authorFollowError.value) return '关注状态暂不可用'
   if (authorFollowSubmitting.value) return '处理中'
@@ -126,6 +136,13 @@ const authorFollowButtonText = computed(() => {
   return authorFollowed.value ? '已关注' : '关注'
 })
 const canMessageAuthor = computed(() => isValidBackendUserId(authorId.value))
+const canManagePost = computed(() =>
+  detailLoaded.value &&
+  currentUserId.value !== null &&
+  authorId.value === currentUserId.value &&
+  isValidCommunityPostId(postId.value) &&
+  !deleteSubmitting.value
+)
 
 const hasRelatedProduct = computed(() => productId.value !== null && isValidBackendProductId(String(productId.value)))
 const productTitle = computed(() => `关联商品：${relatedProductTitle.value || '平台商品'}`)
@@ -201,6 +218,15 @@ async function loadDetail() {
     detailLoading.value = false
   }
 }
+async function loadCurrentUserForManagement(): Promise<void> {
+  try {
+    const profile = await getMyProfile()
+    currentUserId.value = Number.isSafeInteger(profile.userId) && profile.userId > 0 ? profile.userId : null
+  } catch (error) {
+    currentUserId.value = null
+    console.warn('community detail current user load failed', { error })
+  }
+}
 async function hydrateAuthorFollowState() {
   authorFollowError.value = ''
   authorFollowSubmitting.value = false
@@ -274,6 +300,36 @@ function openProduct() {
     return
   }
   uni.navigateTo({ url: `/pages/product/detail/index?productId=${productId.value}` })
+}
+function editCurrentPost() {
+  const numericPostId = toSafeBackendId(postId.value)
+  if (!canManagePost.value || !numericPostId) {
+    uni.showToast({ title: '这条动态当前不能编辑', icon: 'none' })
+    return
+  }
+  uni.navigateTo({ url: `/pages/community/compose/index?mode=edit&postId=${encodeURIComponent(String(numericPostId))}` })
+}
+async function deleteCurrentPost() {
+  const numericPostId = toSafeBackendId(postId.value)
+  if (!canManagePost.value || !numericPostId || deleteSubmitting.value) {
+    uni.showToast({ title: '这条动态当前不能删除', icon: 'none' })
+    return
+  }
+  deleteSubmitting.value = true
+  try {
+    const deleted = await deleteCommunityPost(numericPostId)
+    if (deleted.status !== 'DELETED') throw new Error('community detail delete response invalid')
+    uni.showToast({ title: '动态已删除', icon: 'none' })
+    redirectToWithFailure({
+      url: '/pages/community/manage/index',
+      fail: () => switchTabWithFailure({ url: '/pages/tabbar/message/index' })
+    })
+  } catch (error) {
+    console.warn('community detail delete post failed', { postId: numericPostId, error })
+    uni.showToast({ title: error instanceof Error ? error.message : '删除失败，请稍后重试', icon: 'none' })
+  } finally {
+    deleteSubmitting.value = false
+  }
 }
 function previewPostImage(index: number): void {
   const current = imageSlots.value[index]
@@ -374,7 +430,11 @@ function navigateToReport(url: string) {
     uni.showToast({ title: '暂时无法打开举报页，请稍后重试', icon: 'none' })
   }
 }
-onMounted(() => { readQuery(); loadDetail() })
+onMounted(() => {
+  readQuery()
+  void loadCurrentUserForManagement()
+  void loadDetail()
+})
 </script>
 
 <style scoped lang="scss" src="./style.scss"></style>

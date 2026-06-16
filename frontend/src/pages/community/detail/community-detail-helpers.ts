@@ -2,6 +2,7 @@ import type {
   CommunityCommentResponse,
   CommunityPostDetailResponse
 } from '../../../api/modules/community'
+import { isDefaultAvatarUrl } from '../../../utils/default-avatar'
 
 export const launchReadinessMarkers = [
   '缺少后端作者ID，未执行任何关注变更',
@@ -110,6 +111,7 @@ export function sanitizeCommunityDetailImageUrls(imageUrls: unknown, postId: num
 
 function validatedStoredImageUrl(url: unknown, storagePrefixes: string[]): string {
   if (typeof url !== 'string') return ''
+  if (isDefaultAvatarUrl(url)) return url
   const storagePrefix = storagePrefixes.find((prefix) => url.startsWith(prefix))
   if (!storagePrefix) return ''
   const lower = url.toLowerCase()

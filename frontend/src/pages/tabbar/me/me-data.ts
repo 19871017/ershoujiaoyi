@@ -40,6 +40,7 @@ export const orderStatusItems: Array<{ key: OrderStatusKey; icon: string; label:
 
 export const menus: MeMenuItem[] = [
   { icon: '👤', label: '编辑资料', url: '/pages/user/profile/index' },
+  { icon: '✎', label: '我的帖子', url: '/pages/community/manage/index' },
   { icon: '📦', label: '我的订单', url: '/pages/order/list/index' },
   { icon: '🌸', label: '我的售后', key: 'afterSales' },
   { icon: '💰', label: '钱包账本', url: '/pages/wallet/index' },

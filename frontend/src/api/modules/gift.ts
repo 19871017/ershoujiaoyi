@@ -76,6 +76,10 @@ export function getReceivedGifts() {
   return get<ReceivedGiftItemResponse[]>('/api/gifts/received')
 }
 
+export function getSentGifts() {
+  return get<RecentGiftFeedItemResponse[]>('/api/gifts/sent')
+}
+
 export function getRecentGiftFeed() {
   return get<RecentGiftFeedItemResponse[]>('/api/gifts/recent')
 }

@@ -1,4 +1,4 @@
-import { del, get, post } from '../http'
+import { del, get, post, put } from '../http'
 
 export const COMMUNITY_TOPICS = ['生活日常', '闲置避坑', '交易经验', '求购心愿'] as const
 export type CommunityTopic = typeof COMMUNITY_TOPICS[number]
@@ -89,6 +89,18 @@ export function createCommunityPost(data: CreateCommunityPostRequest) {
   return post<CommunityPostResponse>('/api/community/posts', { ...data, topic: normalizeCommunityTopic(data.topic) })
 }
 
+export function listMyCommunityPosts(limit = 20) {
+  return get<CommunityPostResponse[]>('/api/community/posts/mine', { limit: normalizeCommunityLimit(limit) })
+}
+
+export function updateCommunityPost(postId: string | number, data: CreateCommunityPostRequest) {
+  return put<CommunityPostDetailResponse>(`/api/community/posts/${normalizeCommunityPostId(postId)}`, { ...data, topic: normalizeCommunityTopic(data.topic) })
+}
+
+export function deleteCommunityPost(postId: string | number) {
+  return del<CommunityPostDetailResponse>(`/api/community/posts/${normalizeCommunityPostId(postId)}`)
+}
+
 export function createCommunityComment(postId: number, content: string) {
   return post<CommunityCommentResponse>(`/api/community/posts/${postId}/comments`, { content })
 }
@@ -119,6 +131,14 @@ function normalizeCommunityLimit(value: unknown): number {
     throw new Error('社区列表条数无效')
   }
   return Math.min(numeric, 50)
+}
+
+function normalizeCommunityPostId(value: unknown): number {
+  const numeric = Number(value)
+  if (!Number.isSafeInteger(numeric) || numeric <= 0) {
+    throw new Error('动态编号无效')
+  }
+  return numeric
 }
 
 function normalizeCommunityCursor(value: unknown): string | undefined {

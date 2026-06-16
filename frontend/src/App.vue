@@ -110,8 +110,11 @@ onShow(() => {
   --radius-md: 22rpx;
   --radius-lg: 28rpx;
   --shadow-card: 0 8rpx 22rpx rgba(255, 122, 69, .10);
-  --global-ticker-offset: 0rpx;
-  --global-back-page-offset: 0rpx;
+  --global-ticker-offset: 0px;
+  --global-back-page-offset: 0px;
+  --global-top-page-offset: 0px;
+  --global-bottom-nav-height: calc(64px + env(safe-area-inset-bottom));
+  --global-bottom-nav-clearance: calc(var(--global-bottom-nav-height) + 18px);
 }
 
 page {
@@ -127,7 +130,7 @@ button { margin: 0; padding: 0; border: 0; background: none; line-height: 1.2; }
 
 .page-shell {
   min-height: 100vh;
-  padding: calc(18rpx + var(--global-ticker-offset) + var(--global-back-page-offset)) 18rpx calc(230rpx + env(safe-area-inset-bottom));
+  padding: calc(18rpx + max(var(--global-top-page-offset), var(--global-ticker-offset), var(--global-back-page-offset))) 18rpx calc(230rpx + env(safe-area-inset-bottom));
   background: var(--c-bg);
 }
 

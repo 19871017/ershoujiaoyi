@@ -223,6 +223,53 @@ class AdminControllerRbacTest {
     }
 
     @Test
+    void adminProductPricingConfigRequiresSystemConfigAndPersistsAuditLog() throws Exception {
+        createActiveUser(22L);
+        grantPermission(22L, "audit:read");
+
+        mvc.perform(get("/api/admin/product-pricing/config")
+                        .header("X-User-Id", "22")
+                        .header("X-Admin-Session", issueAdminSession(22L)))
+                .andExpect(status().isForbidden());
+
+        grantPermission(22L, "system:config");
+
+        mvc.perform(get("/api/admin/product-pricing/config")
+                        .header("X-User-Id", "22")
+                        .header("X-Admin-Session", issueAdminSession(22L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.markupRate").value(0.3000));
+
+        mvc.perform(post("/api/admin/product-pricing/config")
+                        .header("X-User-Id", "22")
+                        .header("X-Admin-Session", issueAdminSession(22L))
+                        .contentType("application/json")
+                        .content("{\"markupRate\":0.25}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.markupRate").value(0.2500));
+
+        mvc.perform(post("/api/admin/product-pricing/config")
+                        .header("X-User-Id", "22")
+                        .header("X-Admin-Session", issueAdminSession(22L))
+                        .contentType("application/json")
+                        .content("{\"markupRate\":0.12345}"))
+                .andExpect(status().isBadRequest());
+
+        org.junit.jupiter.api.Assertions.assertEquals(new BigDecimal("0.2500"),
+                jdbcTemplate.queryForObject("select config_value from system_config where config_key = 'product.pricing.markup_rate'", BigDecimal.class));
+        Integer count = jdbcTemplate.queryForObject("""
+                select count(1)
+                from admin_audit_log
+                where action = 'PRODUCT_PRICING_CONFIG_UPDATE'
+                  and operator_id = 22
+                  and target_type = 'SYSTEM_CONFIG'
+                  and target_id = 'product-pricing'
+                  and result = 'SUCCESS'
+                """, Integer.class);
+        org.junit.jupiter.api.Assertions.assertEquals(1, count);
+    }
+
+    @Test
     void adminWithdrawalAuditApprovalPersistsWithdrawalOperationAuditLog() throws Exception {
         createActiveUser(31L);
         grantPermission(31L, "audit:review");
@@ -702,6 +749,7 @@ class AdminControllerRbacTest {
     void adminChatTraceRequiresChatTracePermissionAndReturnsParticipantProfiles() throws Exception {
         createActiveUser(141L);
         createChatTraceFixture();
+        jdbcTemplate.update("update user_account set avatar_url = null where id in (?, ?)", 141L, 142L);
 
         mvc.perform(get("/api/admin/chat/conversations")
                         .header("X-User-Id", "141")
@@ -730,7 +778,9 @@ class AdminControllerRbacTest {
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].conversationNo").value("CHAT-141-142"))
                 .andExpect(jsonPath("$.data[0].owner.nickname").value("私聊用户141"))
+                .andExpect(jsonPath("$.data[0].owner.avatarUrl").value("/assets/profile/default-avatar-goddess.png"))
                 .andExpect(jsonPath("$.data[0].owner.videoVerified").value(false))
+                .andExpect(jsonPath("$.data[0].peer.avatarUrl").value("/assets/profile/default-avatar-god.png"))
                 .andExpect(jsonPath("$.data[0].peer.city").value("上海"));
 
         mvc.perform(get("/api/admin/chat/conversations")

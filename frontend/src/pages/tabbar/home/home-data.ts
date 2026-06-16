@@ -2,6 +2,7 @@ import type { HomeBannerAction } from '../../../api/modules/home'
 import type { ProductListItemResponse } from '../../../api/modules/product'
 import rankingGoddessArtwork from '../../../assets/ranking/ranking-goddess-desktop.png'
 import rankingGodArtwork from '../../../assets/ranking/ranking-god-desktop.png'
+import { isDefaultAvatarUrl } from '../../../utils/default-avatar'
 
 export type BannerAction = HomeBannerAction
 export type RankingTab = 'goddess' | 'god'
@@ -86,6 +87,7 @@ export function sellerInitial(item: ProductListItemResponse) {
 export function sellerAvatarUrl(item: ProductListItemResponse) {
   const avatar = item.sellerAvatarUrl?.trim()
   if (!avatar) return ''
+  if (isDefaultAvatarUrl(avatar)) return avatar
   const lower = avatar.toLowerCase()
   const allowedPrefix = avatar.startsWith('/uploads/avatar/') || avatar.startsWith('/uploads/community-image/')
   const invalid = avatar.startsWith('local://') ||

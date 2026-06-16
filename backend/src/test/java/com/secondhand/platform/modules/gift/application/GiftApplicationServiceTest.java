@@ -160,6 +160,29 @@ class GiftApplicationServiceTest {
     }
 
     @Test
+    void listSentGiftsShouldReturnOnlyCurrentSenderWithReceiverNames() {
+        seedUser(1L, "小雨", "U-GIFT-1");
+        seedUser(2L, "暖暖", "U-GIFT-2");
+        seedUser(3L, "星星", "U-GIFT-3");
+        seedRecharge(1L, "200.00");
+        seedRecharge(3L, "200.00");
+
+        SendGiftResponse first = service.sendGift(1L, giftRequest(2L, "ROSE", 1, "sent-001", null));
+        service.sendGift(3L, giftRequest(2L, "COFFEE", 1, "sent-other", null));
+        SendGiftResponse latest = service.sendGift(1L, giftRequest(2L, "STAR", 1, "sent-002", null));
+
+        var sent = service.listSentGifts(1L);
+
+        assertEquals(2, sent.size());
+        assertEquals(latest.getGiftOrderNo(), sent.get(0).getGiftOrderNo());
+        assertEquals("小雨", sent.get(0).getSenderName());
+        assertEquals("暖暖", sent.get(0).getReceiverName());
+        assertEquals("星光应援", sent.get(0).getGiftName());
+        assertMoney("18.00", sent.get(0).getTotalAmount());
+        assertEquals(first.getGiftOrderNo(), sent.get(1).getGiftOrderNo());
+    }
+
+    @Test
     void recentGiftFeedShouldDisplayLegacyGiftCodeNames() {
         seedUser(1L, "大王", "U-GIFT-1");
         seedUser(2L, "暖暖", "U-GIFT-2");

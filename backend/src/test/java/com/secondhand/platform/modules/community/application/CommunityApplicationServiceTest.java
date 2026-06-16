@@ -139,6 +139,30 @@ class CommunityApplicationServiceTest {
     }
 
     @Test
+    void communityAuthorAndCommentShouldFallbackToGenderDefaultAvatarAcrossPublicAndAdminTrace() {
+        seedUserProfileWithoutAvatar(97L, "默认女作者", "goddess", "杭州");
+        seedUserProfileWithoutAvatar(98L, "默认男评论者", "god", "上海");
+
+        CommunityPostResponse created = service.createPost(97L,
+                post("默认头像展示", "生活日常", "没有上传头像时也要按性别展示默认头像。", List.of()));
+        CommunityCommentResponse comment = service.addComment(98L, created.getPostId(), comment("评论作者也要按性别展示默认头像。"));
+
+        CommunityPostResponse publicListRow = service.listPublishedPosts(20, 98L).get(0);
+        CommunityPostDetailResponse publicDetail = service.detail(created.getPostId(), 98L);
+        CommunityPostResponse adminListRow = service.adminListPosts(created.getPostNo(), null, 20).get(0);
+        CommunityPostDetailResponse adminDetail = service.adminDetail(created.getPostId().toString());
+
+        assertEquals("/assets/profile/default-avatar-goddess.png", created.getAuthorAvatar());
+        assertEquals("/assets/profile/default-avatar-goddess.png", publicListRow.getAuthorAvatar());
+        assertEquals("/assets/profile/default-avatar-goddess.png", publicDetail.getAuthorAvatar());
+        assertEquals("/assets/profile/default-avatar-goddess.png", adminListRow.getAuthorAvatar());
+        assertEquals("/assets/profile/default-avatar-goddess.png", adminDetail.getAuthorAvatar());
+        assertEquals("/assets/profile/default-avatar-god.png", comment.getAuthorAvatar());
+        assertEquals("/assets/profile/default-avatar-god.png", publicDetail.getComments().get(0).getAuthorAvatar());
+        assertEquals("/assets/profile/default-avatar-god.png", adminDetail.getComments().get(0).getAuthorAvatar());
+    }
+
+    @Test
     void commentShouldNotifyPostAuthorExceptSelfComment() {
         seedUser(12L, "发帖人");
         seedUser(18L, "评论者");
@@ -540,6 +564,59 @@ class CommunityApplicationServiceTest {
     }
 
     @Test
+    void userShouldListOnlyOwnCommunityPostsIncludingDeletedTrace() {
+        CommunityPostResponse mine = createPost(101L, post("我的社区管理", "生活日常", "用户需要能看到自己发布过的动态。", List.of()));
+        createPost(102L, post("别人的社区动态", "生活日常", "别人的动态不能混入我的帖子管理。", List.of()));
+
+        service.deleteMyPost(101L, mine.getPostId());
+
+        List<CommunityPostResponse> rows = service.listMyPosts(101L, 20);
+
+        assertEquals(1, rows.size());
+        assertEquals(mine.getPostNo(), rows.get(0).getPostNo());
+        assertEquals("DELETED", rows.get(0).getStatus());
+    }
+
+    @Test
+    void userShouldUpdateOwnPublishedCommunityPostOnly() {
+        CommunityPostResponse mine = createPost(103L, post("修改前标题", "生活日常", "修改前的社区内容需要被真实保存。", List.of()));
+        CreateCommunityPostRequest update = post("修改后的标题", "交易经验", "修改后的社区内容应该进入公开详情。", List.of());
+        seedUser(104L, "不能编辑别人帖子");
+
+        CommunityPostDetailResponse updated = service.updateMyPost(103L, mine.getPostId(), update);
+
+        assertEquals("修改后的标题", updated.getTitle());
+        assertEquals("交易经验", updated.getTopic());
+        assertEquals("修改后的社区内容应该进入公开详情。", service.detail(mine.getPostId(), 103L).getContent());
+        assertEquals("community post not editable", assertThrows(IllegalArgumentException.class,
+                () -> service.updateMyPost(104L, mine.getPostId(), update)).getMessage());
+
+        service.deleteMyPost(103L, mine.getPostId());
+        assertEquals("community post not editable", assertThrows(IllegalArgumentException.class,
+                () -> service.updateMyPost(103L, mine.getPostId(), update)).getMessage());
+    }
+
+    @Test
+    void userShouldDeleteOwnPostFromPublicFeedButKeepAdminTrace() {
+        CommunityPostResponse mine = createPost(105L, post("用户删除动态", "闲置避坑", "删除后公开社区不能继续看到这条动态。", List.of()));
+        addComment(106L, mine.getPostId(), comment("删除帖子后后台仍要能追溯评论。"));
+
+        CommunityPostDetailResponse deleted = service.deleteMyPost(105L, mine.getPostId());
+
+        assertEquals("DELETED", deleted.getStatus());
+        assertTrue(service.listPublishedPosts(20, 105L).isEmpty());
+        assertEquals("post not found", assertThrows(IllegalArgumentException.class,
+                () -> service.detail(mine.getPostId(), 105L)).getMessage());
+        CommunityPostDetailResponse adminDetail = service.adminDetail(mine.getPostId().toString());
+        assertEquals("DELETED", adminDetail.getStatus());
+        assertEquals(1, adminDetail.getComments().size());
+        assertEquals("community post not deletable", assertThrows(IllegalArgumentException.class,
+                () -> service.deleteMyPost(106L, mine.getPostId())).getMessage());
+        assertEquals("community post not deletable", assertThrows(IllegalArgumentException.class,
+                () -> service.deleteMyPost(105L, mine.getPostId())).getMessage());
+    }
+
+    @Test
     void communityMutationsShouldRejectMissingOrDisabledUsersAtServiceLayer() {
         seedUser(91L, "正常作者");
         seedUser(92L, "禁用用户");
@@ -654,6 +731,17 @@ class CommunityApplicationServiceTest {
                 INSERT INTO user_profile (user_id, city, main_role, video_identity_status, video_verified)
                 VALUES (?, ?, 'SELLER', 'APPROVED', TRUE)
                 """, userId, city);
+    }
+
+    private void seedUserProfileWithoutAvatar(Long userId, String nickname, String gender, String city) {
+        new JdbcTemplate(database).update("""
+                INSERT INTO user_account (id, user_no, phone, password_hash, nickname, status)
+                VALUES (?, ?, ?, 'hash', ?, 'ACTIVE')
+                """, userId, "U-COM-" + userId, "1390000" + String.format("%04d", userId), nickname);
+        new JdbcTemplate(database).update("""
+                INSERT INTO user_profile (user_id, gender, city, main_role, video_identity_status, video_verified)
+                VALUES (?, ?, ?, 'SELLER', 'APPROVED', TRUE)
+                """, userId, gender, city);
     }
 
     private void seedProduct(Long productId, Long sellerId, String title, String price, String status, String auditStatus, boolean visible) {

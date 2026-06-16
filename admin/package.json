@@ -6,6 +6,8 @@
     "dev": "vite",
     "test": "vitest run",
     "build": "vite build",
+    "check:order-markup-display": "node scripts/check-order-markup-display.cjs",
+    "check:no-confirm": "node scripts/check-no-confirm-dialogs.cjs",
     "check:real-backoffice": "node scripts/check-real-backoffice.cjs"
   },
   "dependencies": {

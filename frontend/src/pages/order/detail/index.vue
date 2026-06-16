@@ -17,7 +17,9 @@
         <view class="goods-main">
           <view class="goods-title">{{ order.productTitle }}</view>
           <view class="goods-desc">{{ order.tradeRuleSnapshot }}</view>
-          <view class="goods-price">¥{{ order.amount }}</view>
+          <view class="goods-price-label">买家应付</view>
+          <view class="goods-price">¥{{ formatMoneyAmount(order.amount) }}</view>
+          <view class="goods-subprice">卖家结算 ¥{{ sellerAmountText }} · 平台加价 ¥{{ platformMarkupText }}</view>
         </view>
         <view class="arrow">›</view>
       </view>
@@ -106,6 +108,9 @@ const afterSalesNextStep = computed(() => {
   if (status === 'CANCELLED') return '售后已取消，可回到订单确认当前交易状态。'
   return '售后处理中，请保留聊天、物流和票据材料，进度以平台售后详情为准。'
 })
+const sellerAmountText = computed(() => formatMoneyAmount(order.value?.sellerAmount ?? order.value?.amount))
+const platformMarkupText = computed(() => formatMoneyAmount(order.value?.platformMarkupAmount ?? 0))
+const platformMarkupRateText = computed(() => formatMarkupRate(order.value?.platformMarkupRate))
 const flow = computed(() => {
   const item = order.value
   return [
@@ -118,7 +123,10 @@ const flow = computed(() => {
 const infoRows = computed(() => order.value ? [
   { label: '订单号', value: order.value.orderNo },
   { label: '对方', value: order.value.counterpartyName },
-  { label: '商品金额', value: `¥${order.value.amount}` },
+  { label: '买家应付', value: `¥${formatMoneyAmount(order.value.amount)}` },
+  { label: '卖家结算', value: `¥${sellerAmountText.value}` },
+  { label: '平台加价', value: `¥${platformMarkupText.value}` },
+  { label: '加价比例', value: platformMarkupRateText.value },
   { label: '交易方式', value: order.value.tradeRuleSnapshot },
   { label: '售后单', value: order.value.afterSalesNo || '暂无' }
 ] : [])
@@ -138,6 +146,16 @@ function readQuery(): void {
 }
 function navigateWithFailure(url: string, fail: (error: unknown) => void): void {
   uni.navigateTo({ url, fail } as { url: string; fail(error: unknown): void })
+}
+function formatMoneyAmount(value: unknown): string {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return '0.00'
+  return numeric.toFixed(2)
+}
+function formatMarkupRate(value: unknown): string {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return '0.00%'
+  return `${(numeric * 100).toFixed(2)}%`
 }
 function validatedOrderNo(invalidTitle: string): string {
   const currentOrder = order.value

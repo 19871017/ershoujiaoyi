@@ -92,6 +92,7 @@ export function devRuntimeUserId() {
 
 export function resolveBackendMediaUrl(url?: string | null) {
   if (!url) return ''
+  if (url.startsWith('/assets/')) return url
   if (!url.startsWith('/uploads/')) return url
   return RESOLVED_API_BASE_URL ? `${RESOLVED_API_BASE_URL}${url}` : url
 }

@@ -1,9 +1,9 @@
 .global-ticker-wrap {
   position: fixed;
-  left: 18rpx;
+  left: calc(18rpx + var(--global-back-control-offset, 0px));
   right: 18rpx;
   top: calc(8rpx + env(safe-area-inset-top));
-  z-index: 99999;
+  z-index: 99998;
   pointer-events: auto;
 }
 .global-ticker {
@@ -167,6 +167,13 @@
 }
 .ticker-line.gift .ticker-kind {
   background: linear-gradient(135deg, #ff6f9a 0%, #d57b2b 100%);
+}
+.ticker-gift-icon {
+  width: 30rpx;
+  height: 30rpx;
+  flex: 0 0 auto;
+  border-radius: 9rpx;
+  filter: drop-shadow(0 4rpx 8rpx rgba(255, 111, 154, .20));
 }
 .ticker-line.announcement .ticker-kind {
   background: linear-gradient(135deg, #d49a52 0%, #8f5c2c 100%);

@@ -7,8 +7,8 @@
     </view>
 
     <view class="profile-card tapable" :class="{ loading: profileLoading && !profileLoaded }" @click="goProfile">
-      <view class="avatar" :class="{ image: !!profile.avatarUrl }">
-        <image v-if="profile.avatarUrl" class="avatar-image" :src="profile.avatarUrl" mode="aspectFill" />
+      <view class="avatar" :class="{ image: !!displayAvatarUrl }">
+        <image v-if="displayAvatarUrl" class="avatar-image" :src="displayAvatarUrl" mode="aspectFill" />
         <text v-else>{{ avatarText }}</text>
       </view>
       <view class="profile-main">
@@ -120,6 +120,7 @@ import { listOrders, type OrderListItemResponse } from '../../../api/modules/ord
 import { getMyProfile, type UserProfileResponse } from '../../../api/modules/user'
 import { getWalletBalance, type WalletBalanceResponse } from '../../../api/modules/wallet'
 import { assertNotificationItem, isSafeNotificationTargetUrl, isTabBarNotificationTargetUrl, isValidNotificationNo } from '../../notification/notification-helpers'
+import { avatarUrlWithGenderFallback } from '../../../utils/default-avatar'
 import { emptyBalance, emptyProfile, menus, orderStatusItems, publishRoles, type MeMenuItem, type OrderStatusKey } from './me-data'
 
 const profile = reactive<UserProfileResponse>({ ...emptyProfile })
@@ -206,6 +207,7 @@ const trustTagText = computed(() => {
   if (profileError.value) return '身份信息待刷新'
   return canPublish.value ? '已认证卖家' : '普通买家'
 })
+const displayAvatarUrl = computed(() => avatarUrlWithGenderFallback(profile.avatarUrl, profile.gender))
 
 async function loadProfile() {
   profileLoading.value = true

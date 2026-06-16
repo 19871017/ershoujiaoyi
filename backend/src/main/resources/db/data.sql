@@ -10,6 +10,10 @@ INSERT INTO system_config (config_key, config_value, config_type, config_group, 
 SELECT 'finance.platform_fee_rate', '0.08', 'decimal', 'finance', '平台服务费率'
 WHERE NOT EXISTS (SELECT 1 FROM system_config WHERE config_key = 'finance.platform_fee_rate');
 
+INSERT INTO system_config (config_key, config_value, config_type, config_group, remark)
+SELECT 'product.pricing.markup_rate', '0.3000', 'decimal', 'product-pricing', '商品买家展示价平台加价比例'
+WHERE NOT EXISTS (SELECT 1 FROM system_config WHERE config_key = 'product.pricing.markup_rate');
+
 INSERT INTO user_account (user_no, phone, password_hash, nickname, status, created_at, updated_at)
 SELECT 'UADMINSMOKE0000001', '13800138000', 'pbkdf2$120000$sax8sqDauOkmIFyOO0JlLw==$JGDCzkzfUDZN1c++vDNbBdDPGwlGmxNXckgc6kyLJVU=', '小原圈管理员', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 WHERE NOT EXISTS (SELECT 1 FROM user_account WHERE phone = '13800138000');

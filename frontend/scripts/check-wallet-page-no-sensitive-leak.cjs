@@ -39,7 +39,7 @@ const walletRequiredMarkers = [
   "profile.value?.identityStatus === 'VERIFIED'",
   '提现前需先完成实名认证；未通过前不会冻结资金。',
   'payoutAccountId',
-  '仅使用后端返回的提现账户引用提交审核'
+  '仅使用已绑定提现账户提交审核'
 ]
 
 const walletNewForbiddenMarkers = [
@@ -74,9 +74,9 @@ for (const marker of walletNewForbiddenMarkers) {
 
 const walletNewRequiredMarkers = [
   '提现前需先完成实名认证；未执行资金冻结',
-  '请先在账户管理页完成后端提现账户绑定；未执行资金冻结',
+  '请先在账户管理页完成提现账户绑定；未执行资金冻结',
   'createWithdrawal({ amount, payoutAccountId: activePayoutAccount.value.payoutAccountId',
-  '提现提交失败：未执行本地资金状态变更'
+  '提现提交失败，资金状态未变更'
 ]
 
 for (const marker of walletNewRequiredMarkers) {

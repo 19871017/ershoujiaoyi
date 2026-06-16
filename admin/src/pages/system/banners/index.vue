@@ -87,10 +87,6 @@
         </label>
       </div>
       <p class="safe-note">{{ form.placement === merchantShowcasePlacement ? '商家秀顶部推荐 750×520px，最多启用排序靠前 3 张，人物主体放中间安全区。' : '首页推荐 750×300px（5:2），单张不超过 500KB。' }} 图片必须先上传到轮播目录并使用 /uploads/home/ 地址。</p>
-      <label class="confirm-row">
-        <span>二次确认</span>
-        <input v-model.trim="confirmText" autocomplete="off" placeholder="输入 保存首页轮播 后才能提交" />
-      </label>
       <button class="primary-btn" :disabled="saving">{{ saving ? '保存中...' : '保存首页轮播' }}</button>
     </form>
   </section>
@@ -111,7 +107,6 @@ const saving = ref(false)
 const error = ref('')
 const banners = ref<AdminHomeBanner[]>([])
 const sizeHint = ref(defaultHint)
-const confirmText = ref('')
 
 const form = reactive({
   id: 0,
@@ -158,12 +153,10 @@ function resetForm() {
   form.placement = homePlacement
   form.sortOrder = banners.value.length ? Math.max(...banners.value.map((item) => item.sortOrder)) + 10 : 10
   form.enabled = true
-  confirmText.value = ''
 }
 
 function edit(item: AdminHomeBanner) {
   fillForm(item)
-  confirmText.value = ''
 }
 
 function toPayload() {
@@ -198,10 +191,6 @@ async function loadBanners() {
 
 async function saveBanner() {
   error.value = ''
-  if (confirmText.value !== '保存首页轮播') {
-    error.value = '首页轮播保存已阻止：请输入“保存首页轮播”完成二次确认。'
-    return
-  }
   if (!form.imageUrl.startsWith(homeBannerUploadPrefix)) {
     error.value = '首页轮播图片必须使用 /uploads/home/ 平台上传地址。'
     return
@@ -214,7 +203,6 @@ async function saveBanner() {
       await createAdminHomeBanner(toPayload())
     }
     await loadBanners()
-    confirmText.value = ''
   } catch (err) {
     console.error('[admin-banners] failed to save home banner', { id: form.id || null, err })
     error.value = err instanceof Error ? err.message : '首页轮播保存失败，请检查字段、权限与服务状态。'
@@ -225,7 +213,6 @@ async function saveBanner() {
 
 async function remove(item: AdminHomeBanner) {
   error.value = ''
-  if (!window.confirm(`确认删除首页轮播图“${item.title}”？`)) return
   try {
     await deleteAdminHomeBanner(item.id)
     await loadBanners()

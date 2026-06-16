@@ -14,6 +14,10 @@ const failures = []
 
 const forbiddenMarkers = [
   'const products = [',
+  '本地搜索宝贝样例',
+  '未展示本地',
+  '接口暂时不可用',
+  '后端返回',
   '奶油白法式连衣裙',
   '小香风玛丽珍鞋 37码',
   '蝴蝶结长袜三双装',
@@ -39,8 +43,8 @@ const requiredMarkers = [
   "const loadMessage = ref('')",
   "products.value = remote",
   "products.value = []",
-  "商品接口暂时不可用，未展示本地搜索宝贝样例",
-  "仅展示后端返回的在售商品",
+  "商品暂时加载失败，请稍后重试",
+  "仅展示当前在售宝贝，换个关键词也许会有惊喜。",
   "onMounted(() => { readQuery(); loadProducts() })"
 ]
 

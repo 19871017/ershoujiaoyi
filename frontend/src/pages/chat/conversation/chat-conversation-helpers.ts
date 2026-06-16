@@ -5,6 +5,7 @@ import type {
   MessageSyncResponse,
   SendMessageResponse
 } from '../../../api/modules/chat'
+import { isDefaultAvatarUrl } from '../../../utils/default-avatar'
 import { assertChatPeerIdentityFields } from '../chat-peer'
 
 export const launchReadinessMarkers = [
@@ -318,6 +319,7 @@ export function validatedCommunityImageUrl(url: unknown): string {
 
 export function validatedChatAvatarUrl(url: unknown): string {
   if (typeof url !== 'string') return ''
+  if (isDefaultAvatarUrl(url)) return url
   if (!hasInvalidStoredImageUrl(url, communityImageStoragePrefix)) return url
   if (!hasInvalidStoredImageUrl(url, avatarImageStoragePrefix)) return url
   return ''

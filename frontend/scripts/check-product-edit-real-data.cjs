@@ -34,6 +34,10 @@ const forbiddenMarkers = [
   'form.city',
   'const categories =',
   'const conditions ='
+  ,
+  '未加载本地样例商品',
+  '未展示本地样例商品',
+  '保存失败时不会展示本地成功状态'
 ]
 
 for (const marker of forbiddenMarkers) {
@@ -49,8 +53,8 @@ const requiredMarkers = [
   'function decodeRouteValue(fieldName: string, value: string): string',
   "console.warn('product edit route decode failed'",
   "console.warn('product edit route read failed'",
-  "loadError.value = '缺少有效商品编号，未加载本地样例商品'",
-  "loadError.value = userSafeLoadErrors.has(message) ? message : '商品详情加载失败，未展示本地样例商品'",
+  "loadError.value = '商品信息缺失，请返回后重试'",
+  "loadError.value = userSafeLoadErrors.has(message) ? message : '商品详情暂时加载失败，请稍后重试'",
   'function assertProductDetail(value: unknown): asserts value is ProductDetailResponse',
   'assertProductDetail(detail)',
   "throw new Error('product edit productId mismatch')",
@@ -70,13 +74,13 @@ const requiredMarkers = [
   'updateProduct(backendProductId.value',
   'safeImageUrls = images.value.map(validatedProductImageUrl)',
   'imageUrls: safeImageUrls',
-  '保存失败时不会展示本地成功状态',
+  '商品修改保存失败，请稍后重试',
   'product edit media/trade controls are read-only until backend update contract supports them',
   '商品图片上传票据已生成，需提交修改审核后才会更新商品图片',
   '商品图片移除需提交修改审核后生效',
   "function toggleTradePreference(_field: 'serverTradeOnly' | 'serverChatRecord')",
-  '交易方式以服务端订单与支付状态为准',
-  '聊天记录以服务端会话为准',
+  '交易方式以平台订单与支付状态为准',
+  '聊天记录以平台会话为准',
   '图片上传中，请稍后提交',
   "if (!/^\\d+(\\.\\d{1,2})?$/.test(form.price) || !Number.isFinite(priceValue)) return '价格格式不正确'",
   "console.warn('product edit success modal failed'",
@@ -130,7 +134,7 @@ if (!/function navigateToDetailAfterSave\(\): void[\s\S]*try\s*\{\s*uni\.navigat
   failures.push(`${file}: product edit detail navigation must handle async and synchronous failures`)
 }
 
-if (!/function initializePage\(\): void[\s\S]*try\s*\{\s*readQuery\(\)[\s\S]*catch \(error\)[\s\S]*productId\.value = ''[\s\S]*loadError\.value = '缺少有效商品编号，未加载本地样例商品'[\s\S]*console\.warn\('product edit route read failed'[\s\S]*void loadDetail\(\)/s.test(source)) {
+if (!/function initializePage\(\): void[\s\S]*try\s*\{\s*readQuery\(\)[\s\S]*catch \(error\)[\s\S]*productId\.value = ''[\s\S]*loadError\.value = '商品信息缺失，请返回后重试'[\s\S]*console\.warn\('product edit route read failed'[\s\S]*void loadDetail\(\)/s.test(source)) {
   failures.push(`${file}: product edit route initialization must fail closed if route reading throws`)
 }
 

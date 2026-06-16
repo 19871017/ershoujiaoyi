@@ -57,6 +57,8 @@ public class ChatApplicationService {
     private static final int MAX_SYNC_LIMIT = 200;
     private static final int MESSAGE_REVOKE_WINDOW_MINUTES = 2;
     private static final String REVOKED_MESSAGE_CONTENT = "{\"revoked\":true}";
+    private static final String DEFAULT_GOD_AVATAR_URL = "/assets/profile/default-avatar-god.png";
+    private static final String DEFAULT_GODDESS_AVATAR_URL = "/assets/profile/default-avatar-goddess.png";
     private static final Pattern MOBILE_PHONE_PATTERN = Pattern.compile("1[3-9]\\d{9}");
     private static final Set<String> BLOCKED_TEXT_TOKENS = Set.of(
             "微信",
@@ -558,8 +560,8 @@ public class ChatApplicationService {
         item.setConversationId(conversationId);
         item.setPeerUserId(Objects.equals(userId, rs.getLong("owner_user_id")) ? rs.getLong("peer_user_id") : rs.getLong("owner_user_id"));
         item.setPeerNickname(rs.getString("peer_nickname"));
-        item.setPeerAvatarUrl(rs.getString("peer_avatar_url"));
         item.setPeerGender(rs.getString("peer_gender"));
+        item.setPeerAvatarUrl(defaultAvatarUrl(rs.getString("peer_avatar_url"), item.getPeerGender()));
         item.setPeerCity(rs.getString("peer_city"));
         item.setPeerMainRole(rs.getString("peer_main_role"));
         item.setPeerVideoVerified(rs.getBoolean("peer_video_verified"));
@@ -572,6 +574,14 @@ public class ChatApplicationService {
         item.setUnreadCount(clearedAllVisibleMessages ? 0L : unreadCount(conversationId, userId, readSeq));
         item.setUpdatedAt(toLocalDateTime(rs.getTimestamp("updated_at")));
         return item;
+    }
+
+    private String defaultAvatarUrl(String avatarUrl, String gender) {
+        String normalizedAvatar = avatarUrl == null ? null : avatarUrl.trim();
+        if (normalizedAvatar != null && !normalizedAvatar.isBlank()) {
+            return normalizedAvatar;
+        }
+        return "god".equalsIgnoreCase(gender == null ? null : gender.trim()) ? DEFAULT_GOD_AVATAR_URL : DEFAULT_GODDESS_AVATAR_URL;
     }
 
     private void validateConversation(CreateConversationCommand command) {

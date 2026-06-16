@@ -12,6 +12,10 @@
               <text>私信</text>
               <text v-if="totalUnread > 0" class="unread-dot">{{ displayUnread }}</text>
             </view>
+            <view class="community-manage tapable" @click="goMyPosts">
+              <text class="community-notice-icon">✎</text>
+              <text>我的</text>
+            </view>
             <view class="community-notice tapable" @click="openNotification">
               <text class="community-notice-icon">🔔</text>
               <text>通知</text>
@@ -71,8 +75,10 @@
       <view class="feed-actions" @click.stop>
         <view class="feed-action tapable" @click="toggleLikeFeed(item)">{{ item.likedByMe ? '♥' : '♡' }} {{ item.likeCount }}</view>
         <view class="feed-action tapable" @click="openPost(item)">💬 {{ item.commentCount }}</view>
-        <view class="feed-action tapable" @click="chatPostAuthor(item)">私信</view>
-        <view class="feed-action report tapable" @click="reportFeedPost(item)">举报</view>
+        <view v-if="!canManageFeedPost(item)" class="feed-action tapable" @click="chatPostAuthor(item)">私信</view>
+        <view v-if="canManageFeedPost(item)" class="feed-action owner tapable" @click.stop="editFeedPost(item)">编辑</view>
+        <view v-if="!canManageFeedPost(item)" class="feed-action report tapable" @click="reportFeedPost(item)">举报</view>
+        <view v-if="canManageFeedPost(item)" class="feed-action danger tapable" @click.stop="deleteFeedPost(item)">删除</view>
       </view>
     </view>
 
@@ -101,9 +107,10 @@ import { computed, onMounted, ref } from 'vue'
 import { onHide, onReachBottom, onShow, onUnload } from '@dcloudio/uni-app'
 import { resolveBackendMediaUrl } from '../../../api/http'
 import { getChatConversations, type ChatConversationItem, type ChatConversationListResponse } from '../../../api/modules/chat'
-import { COMMUNITY_TOPICS, isCommunityTopic, likeCommunityPost, listCommunityPostPage, unlikeCommunityPost, type CommunityPostPageResponse, type CommunityPostResponse, type CommunityTopic } from '../../../api/modules/community'
-import { followPublicProfile } from '../../../api/modules/user'
+import { COMMUNITY_TOPICS, deleteCommunityPost, isCommunityTopic, likeCommunityPost, listCommunityPostPage, unlikeCommunityPost, type CommunityPostPageResponse, type CommunityPostResponse, type CommunityTopic } from '../../../api/modules/community'
+import { followPublicProfile, getMyProfile } from '../../../api/modules/user'
 import communityHeroBanner from '../../../assets/community/community-hero-banner.png'
+import { isDefaultAvatarUrl } from '../../../utils/default-avatar'
 
 const communitySwitcherEventName = 'xiaoyuanquan:community-switcher'
 const COMMUNITY_FEED_PAGE_SIZE = 20
@@ -125,6 +132,8 @@ const hasMoreFeeds = ref(false)
 const nextFeedCursor = ref<string | null>(null)
 const followingAuthorId = ref<number | null>(null)
 const followedAuthorIds = ref<Set<number>>(new Set())
+const currentUserId = ref<number | null>(null)
+const deletingFeedPostId = ref<number | null>(null)
 const communitySwitcherOpen = ref(false)
 let privateRefreshTimer: ReturnType<typeof setInterval> | null = null
 const communityImageStoragePrefix = '/uploads/community-image/'
@@ -143,6 +152,11 @@ const privateSummaryText = computed(() => {
   return `${peer} 有新消息 · ${unread} 未读`
 })
 const emptyTopicTitle = computed(() => `${activeTopic.value}还没有新动态`)
+const canManageFeedPost = (item: CommunityPostResponse) =>
+  currentUserId.value !== null &&
+  item.authorId === currentUserId.value &&
+  item.status === 'PUBLISHED' &&
+  deletingFeedPostId.value !== item.postId
 
 async function loadFeeds() {
   const requestSeq = ++feedRequestSeq
@@ -216,6 +230,7 @@ function syncFollowedAuthorIds(rows: CommunityPostResponse[]) {
 }
 
 function goSessions() { uni.navigateTo({ url: '/pages/chat/session-list/index' }) }
+function goMyPosts() { uni.navigateTo({ url: '/pages/community/manage/index' }) }
 async function loadPrivateSummary(preserveOnError = true) {
   try {
     const response = await getChatConversations()
@@ -236,6 +251,16 @@ function stopPrivateSummaryRefresh() {
   if (!privateRefreshTimer) return
   clearInterval(privateRefreshTimer)
   privateRefreshTimer = null
+}
+
+async function loadCurrentCommunityUser(): Promise<void> {
+  try {
+    const profile = await getMyProfile()
+    currentUserId.value = Number.isSafeInteger(profile.userId) && profile.userId > 0 ? profile.userId : null
+  } catch (error) {
+    currentUserId.value = null
+    console.warn('community current user load failed', { error })
+  }
 }
 
 function syncCommunitySwitcherState(event: Event): void {
@@ -334,6 +359,32 @@ function openPost(item: CommunityPostResponse) {
     return
   }
   uni.navigateTo({ url: `/pages/community/detail/index?postId=${item.postId}&topic=${encodeURIComponent(item.topic)}` })
+}
+function editFeedPost(item: CommunityPostResponse) {
+  if (!canManageFeedPost(item)) {
+    showToast('这条动态当前不能编辑')
+    return
+  }
+  uni.navigateTo({ url: `/pages/community/compose/index?mode=edit&postId=${encodeURIComponent(String(item.postId))}` })
+}
+async function deleteFeedPost(item: CommunityPostResponse) {
+  if (!canManageFeedPost(item)) {
+    showToast('这条动态当前不能删除')
+    return
+  }
+  if (deletingFeedPostId.value) return
+  deletingFeedPostId.value = item.postId
+  try {
+    const deleted = await deleteCommunityPost(item.postId)
+    if (deleted.status !== 'DELETED') throw new Error('community feed delete response invalid')
+    feeds.value = feeds.value.filter((row) => row.postId !== item.postId)
+    showToast('动态已删除')
+  } catch (error) {
+    console.warn('community feed delete post failed', { postId: item.postId, error })
+    showToast(error instanceof Error ? error.message : '删除失败，请稍后重试')
+  } finally {
+    deletingFeedPostId.value = null
+  }
 }
 function chatPostAuthor(item: CommunityPostResponse) {
   if (!isValidBackendUserId(item.authorId)) {
@@ -491,6 +542,7 @@ function sanitizeCommunityImageUrls(imageUrls: unknown, postId: number): string[
 }
 function validatedStoredImageUrl(url: unknown, storagePrefixes: string[]): string {
   if (typeof url !== 'string') return ''
+  if (isDefaultAvatarUrl(url)) return url
   const storagePrefix = storagePrefixes.find((prefix) => url.startsWith(prefix))
   if (!storagePrefix) return ''
   const lower = url.toLowerCase()
@@ -551,6 +603,7 @@ onMounted(() => {
   }
 })
 onShow(() => {
+  void loadCurrentCommunityUser()
   void loadFeeds()
   void loadPrivateSummary(true)
   startPrivateSummaryRefresh()
@@ -628,6 +681,7 @@ onReachBottom(() => {
 .feed-head,
 .community-notice,
 .community-private,
+.community-manage,
 .topic-card,
 .avatar,
 .compose-fab {
@@ -690,6 +744,23 @@ onReachBottom(() => {
   font-weight: 920;
   border: 1rpx solid rgba(255, 217, 189, .62);
   box-shadow: 0 10rpx 22rpx rgba(132, 70, 36, .09);
+  box-sizing: border-box;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.community-manage {
+  gap: 6rpx;
+  min-width: 96rpx;
+  min-height: 48rpx;
+  padding: 0 14rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 248, 239, .9);
+  color: #df6735;
+  font-size: 19rpx;
+  font-weight: 920;
+  border: 1rpx solid rgba(255, 195, 150, .64);
+  box-shadow: 0 10rpx 22rpx rgba(132, 70, 36, .075);
   box-sizing: border-box;
   justify-content: center;
   white-space: nowrap;
@@ -1034,6 +1105,18 @@ onReachBottom(() => {
   border: 1rpx solid rgba(255, 217, 189, .62);
 }
 
+.feed-action.owner {
+  color: #df6735;
+  background: rgba(255, 243, 231, .92);
+  border: 1rpx solid rgba(255, 195, 150, .56);
+}
+
+.feed-action.danger {
+  color: #b9452c;
+  background: rgba(255, 235, 229, .86);
+  border: 1rpx solid rgba(255, 190, 176, .62);
+}
+
 .feed-page-state {
   margin: 18rpx 0 6rpx;
   display: flex;
@@ -1133,7 +1216,7 @@ onReachBottom(() => {
 .compose-fab {
   position: fixed;
   right: 32rpx;
-  bottom: calc(176rpx + env(safe-area-inset-bottom));
+  bottom: calc(var(--global-bottom-nav-clearance, calc(82px + env(safe-area-inset-bottom))) + 14rpx);
   z-index: 30;
   width: 92rpx;
   height: 92rpx;

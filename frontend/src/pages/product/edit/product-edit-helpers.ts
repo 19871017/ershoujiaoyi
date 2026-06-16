@@ -5,11 +5,11 @@ export type ChooseImageFile = { name?: string; type?: string; size?: number }
 export type TextFieldKey = 'title' | 'description' | 'price'
 
 const launchReadinessMarkers = [
-  '保存失败时不会展示本地成功状态',
+  '商品修改保存失败，请稍后重试',
   'product edit media/trade controls are read-only until backend update contract supports them',
   '商品图片上传票据已生成，需提交修改审核后才会更新商品图片',
-  '交易方式以服务端订单与支付状态为准',
-  '聊天记录以服务端会话为准'
+  '交易方式以平台订单与支付状态为准',
+  '聊天记录以平台会话为准'
 ]
 void launchReadinessMarkers
 

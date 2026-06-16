@@ -414,7 +414,7 @@ if (
   !/--chat-composer-reserve:calc\(/.test(style) ||
   !/--chat-status-reserve:(?:0rpx|calc\(0px\))/.test(style) ||
   !/--chat-bottom-reserve:calc\(var\(--chat-composer-reserve\) \+ var\(--chat-status-reserve\)\)/.test(style) ||
-  !/padding:calc\(16rpx \+ var\(--global-ticker-offset, 0rpx\)\) 18rpx 0/.test(style) ||
+  !/padding:calc\(16rpx \+ var\(--global-ticker-offset, 0px\)\) 18rpx 0/.test(style) ||
   !/\.chat-page\.has-status\s*\{[^}]*--chat-status-reserve:calc\(var\(--chat-status-height\) \+ var\(--chat-status-gap\)\)/.test(style) ||
   !/\.status-bar\s*\{[^}]*bottom:calc\(var\(--chat-composer-reserve\) \+ var\(--chat-status-gap\)\)/.test(style) ||
   !/\.composer\s*\{[^}]*bottom:var\(--chat-composer-bottom-offset\)/.test(style)

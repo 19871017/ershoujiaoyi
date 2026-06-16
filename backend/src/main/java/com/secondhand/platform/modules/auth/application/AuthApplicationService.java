@@ -28,6 +28,8 @@ public class AuthApplicationService {
     private static final int PBKDF2_KEY_LENGTH = 256;
     private static final int PASSWORD_SALT_BYTES = 16;
     private static final List<String> ALLOWED_GENDERS = List.of("god", "goddess");
+    private static final String DEFAULT_GOD_AVATAR_URL = "/assets/profile/default-avatar-god.png";
+    private static final String DEFAULT_GODDESS_AVATAR_URL = "/assets/profile/default-avatar-goddess.png";
     private static final String REGISTRATION_IP_LIMIT_KEY_PREFIX = "auth.registration.ip.";
     private static final DateTimeFormatter REGISTRATION_DAY_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -73,15 +75,19 @@ public class AuthApplicationService {
         String userNo = "U" + sha256("user:" + mobile).substring(0, 18).toUpperCase(Locale.ROOT);
         String nickname = "小原圈用户" + mobile.substring(mobile.length() - 4);
         jdbcTemplate.update("""
-                INSERT INTO user_account (user_no, phone, password_hash, nickname, status, created_at, updated_at)
-                VALUES (?, ?, ?, ?, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """, userNo, mobile, passwordHash, nickname);
+                INSERT INTO user_account (user_no, phone, password_hash, nickname, avatar_url, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, userNo, mobile, passwordHash, nickname, defaultAvatarUrl(gender));
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, mobile);
         jdbcTemplate.update("""
                 INSERT INTO user_profile (user_id, gender, city, bio, identity_status, main_role, video_identity_status, video_verified, created_at, updated_at)
                 VALUES (?, ?, NULL, NULL, 'UNVERIFIED', 'BUYER', 'UNVERIFIED', FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """, userId, gender);
         return new UserAuthRow(userId, userNo, mobile, passwordHash, nickname, "ACTIVE");
+    }
+
+    private String defaultAvatarUrl(String gender) {
+        return "god".equals(gender) ? DEFAULT_GOD_AVATAR_URL : DEFAULT_GODDESS_AVATAR_URL;
     }
 
     private String normalizeRegistrationGender(String gender) {

@@ -212,8 +212,10 @@ describe('admin auth helpers', () => {
     expect(shouldRedirectToLogin('/users', normalizeAdminSession({ username: 'user-admin', userId: '9', permissions: ['user:read'], sessionId: 'adm_ffffffffffffffffffffffffffffffff', expiresAt: FUTURE_EXPIRES_AT }))).toBe(false)
     expect(shouldRedirectToLogin('/finance/withdrawals', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/system/location', auditOnly)).toBe(true)
+    expect(shouldRedirectToLogin('/system/product-pricing', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/system/banners', auditOnly)).toBe(true)
     expect(shouldRedirectToLogin('/system/announcements', auditOnly)).toBe(true)
+    expect(shouldRedirectToLogin('/system/product-pricing', normalizeAdminSession({ username: 'system-admin', userId: '9', permissions: ['system:config'], sessionId: 'adm_ffffffffffffffffffffffffffffffff', expiresAt: FUTURE_EXPIRES_AT }))).toBe(false)
     expect(shouldRedirectToLogin('/system/banners', normalizeAdminSession({ username: 'system-admin', userId: '9', permissions: ['system:config'], sessionId: 'adm_ffffffffffffffffffffffffffffffff', expiresAt: FUTURE_EXPIRES_AT }))).toBe(false)
     expect(shouldRedirectToLogin('/system/announcements', normalizeAdminSession({ username: 'system-admin', userId: '9', permissions: ['system:config'], sessionId: 'adm_ffffffffffffffffffffffffffffffff', expiresAt: FUTURE_EXPIRES_AT }))).toBe(false)
     expect(shouldRedirectToLogin('/audit-logs', auditOnly)).toBe(true)
@@ -286,7 +288,7 @@ describe('admin auth helpers', () => {
     })
 
     expect(dashboardActionsForSession(financeOnly).map((item) => item.path)).toEqual(['/finance/withdrawals'])
-    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/chat-trace', '/community-trace', '/products', '/finance/withdrawals', '/after-sales', '/orders', '/users', '/audit-logs', '/operators', '/system/location', '/system/payment', '/system/banners', '/system/announcements'])
+    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/chat-trace', '/community-trace', '/products', '/finance/withdrawals', '/after-sales', '/orders', '/users', '/audit-logs', '/operators', '/system/location', '/system/payment', '/system/product-pricing', '/system/banners', '/system/announcements'])
     expect(dashboardActionsForSession(null)).toEqual([])
   })
 

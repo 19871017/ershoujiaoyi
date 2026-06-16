@@ -87,6 +87,21 @@ public class GiftApplicationService {
                 """, (rs, rowNum) -> mapReceivedGift(rs), receiverId);
     }
 
+    public List<RecentGiftFeedItemResponse> listSentGifts(Long senderId) {
+        validateSender(senderId);
+        return jdbcTemplate.query("""
+                SELECT g.gift_order_no, g.sender_id, COALESCE(sender.nickname, sender.user_no, CONCAT('用户', g.sender_id)) AS sender_name,
+                       g.receiver_id, COALESCE(receiver.nickname, receiver.user_no, CONCAT('用户', g.receiver_id)) AS receiver_name,
+                       g.gift_id, g.gift_code, g.quantity, g.total_amount, g.created_at
+                FROM gift_order g
+                LEFT JOIN user_account sender ON sender.id = g.sender_id
+                LEFT JOIN user_account receiver ON receiver.id = g.receiver_id
+                WHERE g.sender_id = ? AND g.status = 'SUCCESS'
+                ORDER BY g.created_at DESC, g.id DESC
+                LIMIT 50
+                """, (rs, rowNum) -> mapRecentGiftFeedItem(rs), senderId);
+    }
+
     public List<RecentGiftFeedItemResponse> listRecentGiftFeed() {
         return jdbcTemplate.query("""
                 SELECT g.gift_order_no, g.sender_id, COALESCE(sender.nickname, sender.user_no, CONCAT('用户', g.sender_id)) AS sender_name,

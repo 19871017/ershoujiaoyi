@@ -259,10 +259,31 @@
 }
 
 .goods-price {
-  margin-top: 6rpx;
+  margin-top: 2rpx;
   color: #df6735;
   font-size: 26rpx;
   font-weight: 950;
+}
+
+.goods-price-label {
+  margin-top: 8rpx;
+  color: #a8785f;
+  font-size: 17rpx;
+  font-weight: 900;
+}
+
+.settlement-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6rpx 12rpx;
+  margin-top: 5rpx;
+}
+
+.settlement-line text {
+  color: #8f6b57;
+  font-size: 17rpx;
+  font-weight: 760;
+  line-height: 1.35;
 }
 
 .flow-row {

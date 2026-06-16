@@ -184,10 +184,24 @@
 .action-row {
   margin-top: 18rpx;
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 30rpx;
   color: #8f6b57;
   font-size: 23rpx;
   font-weight: 900;
+}
+
+.action-row .owner {
+  color: #df6735;
+}
+
+.action-row .danger {
+  color: #b9452c;
+}
+
+.action-row .disabled {
+  opacity: .58;
 }
 
 .goods-card {

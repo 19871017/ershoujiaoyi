@@ -434,6 +434,10 @@ watch(communityMenuOpen, (open) => {
   font-weight: 950;
 }
 @media (max-width: 360px) {
+  :global(:root) {
+    --global-bottom-nav-height: calc(62px + env(safe-area-inset-bottom));
+    --global-bottom-nav-clearance: calc(var(--global-bottom-nav-height) + 18px);
+  }
   .global-bottom-nav {
     min-height: calc(62px + env(safe-area-inset-bottom));
     padding: 5px max(7px, env(safe-area-inset-right)) calc(5px + env(safe-area-inset-bottom)) max(7px, env(safe-area-inset-left));

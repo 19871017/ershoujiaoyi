@@ -49,6 +49,12 @@
       }
     },
     {
+      "path": "pages/community/manage/index",
+      "style": {
+        "navigationBarTitleText": ""
+      }
+    },
+    {
       "path": "pages/community/detail/index",
       "style": {
         "navigationBarTitleText": ""

@@ -14,6 +14,7 @@ import {
   getAdminOrderList,
   getAdminProductDetail,
   getAdminProductList,
+  getAdminProductPricingConfig,
   approveAdminProduct,
   deleteAdminProduct,
   hideAdminProduct,
@@ -54,7 +55,8 @@ import {
   restoreAdminCommunityPost,
   reviewAdminAfterSales,
   reviewAdminWithdrawal,
-  updateAdminLocationConfig
+  updateAdminLocationConfig,
+  updateAdminProductPricingConfig
 } from './admin'
 import { setAdminHeaderProvider } from '../http'
 
@@ -214,6 +216,35 @@ describe('admin finance api', () => {
     expect(isValidAdminProductKeyword('PD-88')).toBe(true)
     expect(isValidAdminProductKeyword('8331')).toBe(true)
     expect(isValidAdminProductKeyword('preview-product')).toBe(false)
+  })
+
+  it('loads and updates admin product pricing config with fail-closed rate validation', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: { markupRate: 0.3, updatedAt: '2026-06-15T10:00:00Z' } })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: { markupRate: 0.25, updatedAt: '2026-06-15T10:01:00Z' } })
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const current = await getAdminProductPricingConfig()
+    const updated = await updateAdminProductPricingConfig({ markupRate: 0.25 })
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, expect.stringContaining('/api/admin/product-pricing/config'), expect.any(Object))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringContaining('/api/admin/product-pricing/config'), expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ markupRate: 0.25 })
+    }))
+    expect(current.markupRate).toBe(0.3)
+    expect(updated.markupRate).toBe(0.25)
+
+    expect(() => updateAdminProductPricingConfig({ markupRate: -0.01 })).toThrow('商品加价比例无效')
+    expect(() => updateAdminProductPricingConfig({ markupRate: 5.01 })).toThrow('商品加价比例无效')
+    expect(() => updateAdminProductPricingConfig({ markupRate: 0.12345 })).toThrow('商品加价比例最多保留 4 位小数')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('fails closed before admin product requests with invalid ids filters or limits', async () => {
@@ -949,6 +980,9 @@ describe('admin finance api', () => {
           productNo: 'PD-42',
           productTitle: '后台订单详情裙子',
           amount: 129,
+          sellerAmount: 100,
+          platformMarkupRate: 0.29,
+          platformMarkupAmount: 29,
           status: 'PAID',
           afterSalesNo: null,
           afterSalesStatus: null,
@@ -964,6 +998,10 @@ describe('admin finance api', () => {
     expect(detail.orderNo).toBe('OD-ABC123')
     expect(detail.buyerId).toBe(6101)
     expect(detail.sellerId).toBe(7101)
+    expect(detail.amount).toBe(129)
+    expect(detail.sellerAmount).toBe(100)
+    expect(detail.platformMarkupRate).toBe(0.29)
+    expect(detail.platformMarkupAmount).toBe(29)
     expect(isValidAdminOrderNo('OD-ABC123')).toBe(true)
     expect(isValidAdminOrderNo('preview-order')).toBe(false)
     expect(isValidAdminOrderNo('ORDER-DEMO-0001')).toBe(false)
@@ -984,6 +1022,9 @@ describe('admin finance api', () => {
             productNo: 'PD-42',
             productTitle: '后台订单列表裙子',
             amount: 129,
+            sellerAmount: 100,
+            platformMarkupRate: 0.29,
+            platformMarkupAmount: 29,
             status: 'PAID',
             afterSalesNo: 'AS-ADMINLIST-6101',
             afterSalesStatus: 'PENDING_REVIEW',
@@ -998,6 +1039,10 @@ describe('admin finance api', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/orders?status=PAID&keyword=OD-ABC123&limit=20'), expect.any(Object))
     expect(rows[0].orderNo).toBe('OD-ABC123')
+    expect(rows[0].amount).toBe(129)
+    expect(rows[0].sellerAmount).toBe(100)
+    expect(rows[0].platformMarkupRate).toBe(0.29)
+    expect(rows[0].platformMarkupAmount).toBe(29)
     expect(rows[0].afterSalesNo).toBe('AS-ADMINLIST-6101')
     expect(isValidAdminOrderKeyword('OD-ABC123')).toBe(true)
     expect(isValidAdminOrderKeyword('6101')).toBe(true)

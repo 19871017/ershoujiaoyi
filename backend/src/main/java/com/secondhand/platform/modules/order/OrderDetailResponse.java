@@ -11,6 +11,9 @@ public class OrderDetailResponse {
     private String productNo;
     private String productTitle;
     private BigDecimal amount;
+    private BigDecimal sellerAmount;
+    private BigDecimal platformMarkupRate;
+    private BigDecimal platformMarkupAmount;
     private String tradeRuleSnapshot;
     private String status;
     private String role;
@@ -31,6 +34,17 @@ public class OrderDetailResponse {
                                String role, String counterpartyName, String afterSalesNo, String afterSalesStatus, String shippingType,
                                String shippingCompany, String trackingNo, String shippingRemark, String createdAt,
                                String paidAt, String shippedAt, String completedAt) {
+        this(orderNo, buyerId, sellerId, productId, goodsId, productNo, productTitle, amount, amount,
+                BigDecimal.ZERO.setScale(4), BigDecimal.ZERO.setScale(2), tradeRuleSnapshot, status, role, counterpartyName,
+                afterSalesNo, afterSalesStatus, shippingType, shippingCompany, trackingNo, shippingRemark, createdAt, paidAt, shippedAt, completedAt);
+    }
+
+    public OrderDetailResponse(String orderNo, Long buyerId, Long sellerId, Long productId, Long goodsId, String productNo,
+                               String productTitle, BigDecimal amount, BigDecimal sellerAmount, BigDecimal platformMarkupRate,
+                               BigDecimal platformMarkupAmount, String tradeRuleSnapshot, String status,
+                               String role, String counterpartyName, String afterSalesNo, String afterSalesStatus, String shippingType,
+                               String shippingCompany, String trackingNo, String shippingRemark, String createdAt,
+                               String paidAt, String shippedAt, String completedAt) {
         this.orderNo = orderNo;
         this.buyerId = buyerId;
         this.sellerId = sellerId;
@@ -39,6 +53,9 @@ public class OrderDetailResponse {
         this.productNo = productNo;
         this.productTitle = productTitle;
         this.amount = amount;
+        this.sellerAmount = sellerAmount;
+        this.platformMarkupRate = platformMarkupRate;
+        this.platformMarkupAmount = platformMarkupAmount;
         this.tradeRuleSnapshot = tradeRuleSnapshot;
         this.status = status;
         this.role = role;
@@ -63,6 +80,9 @@ public class OrderDetailResponse {
     public String getProductNo() { return productNo; }
     public String getProductTitle() { return productTitle; }
     public BigDecimal getAmount() { return amount; }
+    public BigDecimal getSellerAmount() { return sellerAmount; }
+    public BigDecimal getPlatformMarkupRate() { return platformMarkupRate; }
+    public BigDecimal getPlatformMarkupAmount() { return platformMarkupAmount; }
     public String getTradeRuleSnapshot() { return tradeRuleSnapshot; }
     public String getStatus() { return status; }
     public String getRole() { return role; }

@@ -38,6 +38,7 @@ button { cursor: pointer; border: 0; }
 .link-btn:disabled { opacity: .5; cursor: not-allowed; }
 .login-page { min-height: 100vh; display: grid; place-items: center; background: linear-gradient(135deg,#eff6ff,#fff7ed); }
 .login-card { width: 380px; background: #fff; border-radius: 22px; padding: 32px; box-shadow: 0 20px 60px rgba(15,23,42,.12); }
+.login-logo { display: block; width: 82px; height: 82px; object-fit: contain; border-radius: 22px; margin-bottom: 16px; filter: drop-shadow(0 14px 24px rgba(116,21,52,.2)); }
 .login-kicker { color: #2563eb; font-weight: 700; }
 .login-card h1 { margin: 10px 0; }
 .login-card p { color: #6b7280; }

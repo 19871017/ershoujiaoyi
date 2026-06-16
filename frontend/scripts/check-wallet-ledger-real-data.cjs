@@ -20,6 +20,8 @@ const forbiddenMarkers = [
   "amount: '66.00'",
   "time: '2026-05-07",
   "time: '2026-05-06"
+  ,
+  '未展示本地账本样例'
 ]
 
 for (const marker of forbiddenMarkers) {
@@ -45,7 +47,7 @@ const detailRequiredMarkers = [
   'getWalletLedgerDetail',
   'WalletLedgerItemResponse',
   'ledgerNo 缺失，未查询账本详情',
-  '账本详情加载失败，未展示本地账本样例',
+  '账本详情暂时加载失败，请稍后重试',
   'loading',
   'loadMessage',
   'Object.assign(detail, mapLedgerDetail(response))'

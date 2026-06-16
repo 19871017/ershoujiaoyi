@@ -34,7 +34,11 @@
             <td>{{ item.productTitle }}</td>
             <td>{{ item.buyerId }} / {{ item.sellerId }}</td>
             <td>{{ item.status }}</td>
-            <td>¥{{ item.amount }}</td>
+            <td><div class="money-stack">
+              <strong>买家付款 ¥{{ formatMoney(item.amount) }}</strong>
+              <span>卖家结算 ¥{{ sellerAmountText(item) }}</span>
+              <span>平台加价 ¥{{ platformMarkupText(item) }}</span>
+            </div></td>
             <td><button class="link-btn" @click="selectOrder(item.orderNo)">查看详情</button></td>
           </tr>
         </tbody>
@@ -57,7 +61,10 @@
         <div><dt>买家 ID</dt><dd>{{ detail.buyerId }}</dd></div>
         <div><dt>卖家 ID</dt><dd>{{ detail.sellerId }}</dd></div>
         <div><dt>商品 ID</dt><dd>{{ detail.productId }}</dd></div>
-        <div><dt>订单金额</dt><dd>¥{{ detail.amount }}</dd></div>
+        <div><dt>买家付款</dt><dd>¥{{ formatMoney(detail.amount) }}</dd></div>
+        <div><dt>卖家结算</dt><dd>¥{{ sellerAmountText(detail) }}</dd></div>
+        <div><dt>平台加价</dt><dd>¥{{ platformMarkupText(detail) }}</dd></div>
+        <div><dt>加价比例</dt><dd>{{ platformMarkupRateText(detail) }}</dd></div>
         <div><dt>售后编号</dt><dd>{{ detail.afterSalesNo || '暂无' }}</dd></div>
         <div><dt>售后状态</dt><dd>{{ detail.afterSalesStatus || '暂无' }}</dd></div>
         <div><dt>配送方式</dt><dd>{{ detail.shippingType || '以平台记录为准' }}</dd></div>
@@ -94,6 +101,30 @@ const error = ref('')
 const detail = ref<AdminOrderDetail | null>(null)
 const list = ref<AdminOrderDetail[]>([])
 const statusValues: NonNullable<AdminOrderListQuery['status']>[] = ['ALL', 'PENDING_PAY', 'PAID', 'SHIPPED', 'COMPLETED', 'REFUNDING']
+
+function formatMoney(value: unknown): string {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return '0.00'
+  return numeric.toFixed(2)
+}
+
+function formatRate(value: unknown): string {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return '0.00%'
+  return `${(numeric * 100).toFixed(2)}%`
+}
+
+function sellerAmountText(item: AdminOrderDetail): string {
+  return formatMoney(item.sellerAmount ?? item.amount)
+}
+
+function platformMarkupText(item: AdminOrderDetail): string {
+  return formatMoney(item.platformMarkupAmount ?? 0)
+}
+
+function platformMarkupRateText(item: AdminOrderDetail): string {
+  return formatRate(item.platformMarkupRate ?? 0)
+}
 
 async function loadList() {
   listLoading.value = true
@@ -170,3 +201,22 @@ onMounted(() => {
   }
 })
 </script>
+
+<style scoped>
+.money-stack {
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+}
+
+.money-stack strong {
+  color: #111827;
+  font-size: 13px;
+}
+
+.money-stack span {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
+}
+</style>

@@ -9,6 +9,9 @@ public class ProductDetailResponse {
     private final String title;
     private final String description;
     private final BigDecimal price;
+    private final BigDecimal sellerPrice;
+    private final BigDecimal platformMarkupRate;
+    private final BigDecimal platformMarkupAmount;
     private final List<String> imageUrls;
     private final String status;
     private final String auditState;
@@ -21,10 +24,18 @@ public class ProductDetailResponse {
     public ProductDetailResponse(Long productId, String productNo, String title, String description, BigDecimal price,
             List<String> imageUrls, String status, String auditState, Boolean visible, String tradeRule,
             String createdAt, Long sellerId) {
-        this(productId, productNo, title, description, price, imageUrls, status, auditState, visible, tradeRule, createdAt, sellerId, false);
+        this(productId, productNo, title, description, price, price, BigDecimal.ZERO.setScale(4), BigDecimal.ZERO.setScale(2), imageUrls, status, auditState, visible, tradeRule, createdAt, sellerId, false);
     }
 
     public ProductDetailResponse(Long productId, String productNo, String title, String description, BigDecimal price,
+            List<String> imageUrls, String status, String auditState, Boolean visible, String tradeRule,
+            String createdAt, Long sellerId, boolean favoritedByMe) {
+        this(productId, productNo, title, description, price, price, BigDecimal.ZERO.setScale(4), BigDecimal.ZERO.setScale(2), imageUrls,
+                status, auditState, visible, tradeRule, createdAt, sellerId, favoritedByMe);
+    }
+
+    public ProductDetailResponse(Long productId, String productNo, String title, String description, BigDecimal price,
+            BigDecimal sellerPrice, BigDecimal platformMarkupRate, BigDecimal platformMarkupAmount,
             List<String> imageUrls, String status, String auditState, Boolean visible, String tradeRule,
             String createdAt, Long sellerId, boolean favoritedByMe) {
         this.productId = productId;
@@ -32,6 +43,9 @@ public class ProductDetailResponse {
         this.title = title;
         this.description = description;
         this.price = price;
+        this.sellerPrice = sellerPrice;
+        this.platformMarkupRate = platformMarkupRate;
+        this.platformMarkupAmount = platformMarkupAmount;
         this.imageUrls = List.copyOf(imageUrls);
         this.status = status;
         this.auditState = auditState;
@@ -47,6 +61,9 @@ public class ProductDetailResponse {
     public String getTitle() { return title; }
     public String getDescription() { return description; }
     public BigDecimal getPrice() { return price; }
+    public BigDecimal getSellerPrice() { return sellerPrice; }
+    public BigDecimal getPlatformMarkupRate() { return platformMarkupRate; }
+    public BigDecimal getPlatformMarkupAmount() { return platformMarkupAmount; }
     public List<String> getImageUrls() { return imageUrls; }
     public String getStatus() { return status; }
     public String getAuditState() { return auditState; }

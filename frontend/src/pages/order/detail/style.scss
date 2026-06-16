@@ -181,10 +181,25 @@
 }
 
 .goods-price {
-  margin-top: 6rpx;
+  margin-top: 2rpx;
   color: #df6735;
   font-size: 27rpx;
   font-weight: 950;
+}
+
+.goods-price-label {
+  margin-top: 7rpx;
+  color: #a8785f;
+  font-size: 18rpx;
+  font-weight: 900;
+}
+
+.goods-subprice {
+  margin-top: 5rpx;
+  color: #8f6b57;
+  font-size: 18rpx;
+  font-weight: 760;
+  line-height: 1.35;
 }
 
 .arrow {

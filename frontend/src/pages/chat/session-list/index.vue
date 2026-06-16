@@ -66,6 +66,7 @@ import { computed, onMounted, ref } from 'vue'
 import { onShow, onUnload } from '@dcloudio/uni-app'
 import { resolveBackendMediaUrl } from '../../../api/http'
 import { getChatConversations, type ChatConversationItem, type ChatConversationListResponse } from '../../../api/modules/chat'
+import { avatarUrlWithGenderFallback, isDefaultAvatarUrl } from '../../../utils/default-avatar'
 import { assertChatPeerIdentityFields, chatPeerIdentityBadges } from '../chat-peer'
 
 type Filter = 'ALL' | 'UNREAD' | 'ORDER' | 'GIFT'
@@ -228,6 +229,7 @@ function openConversation(item: ChatConversationItem): void {
 
 function validatedCommunityImageUrl(url: unknown): string {
   if (typeof url !== 'string') return ''
+  if (isDefaultAvatarUrl(url)) return url
   const matchedPrefix = url.startsWith(communityImageStoragePrefix)
     ? communityImageStoragePrefix
     : (url.startsWith(avatarImageStoragePrefix) ? avatarImageStoragePrefix : '')
@@ -259,7 +261,9 @@ function updateKeyword(event: unknown): void {
 }
 
 function peerAvatar(item: ChatConversationItem): string { return (item.peerNickname || '聊').slice(-1) }
-function peerAvatarUrl(item: ChatConversationItem): string { return resolveBackendMediaUrl(validatedCommunityImageUrl(item.peerAvatarUrl || '')) }
+function peerAvatarUrl(item: ChatConversationItem): string {
+  return resolveBackendMediaUrl(validatedCommunityImageUrl(avatarUrlWithGenderFallback(item.peerAvatarUrl, item.peerGender)))
+}
 function peerName(item: ChatConversationItem): string { return item.peerNickname?.trim() || '小原圈用户' }
 function scenarioLabel(summary?: string): string {
   if (!summary) return ''
@@ -279,7 +283,7 @@ onUnload(stopConversationRefresh)
 </script>
 
 <style scoped>
-.session-page { --session-visible-height:calc(100vh - var(--window-top, 0px) - var(--window-bottom, 0px)); height:var(--session-visible-height); min-height:var(--session-visible-height); padding:calc(18rpx + var(--global-ticker-offset, 0rpx) + var(--global-back-page-offset, 0rpx)) 18rpx calc(18rpx + env(safe-area-inset-bottom)); display:flex; flex-direction:column; overflow:hidden; background:linear-gradient(180deg,#fff8ef 0%,#fffdfa 48%,#fff7ef 100%); }
+.session-page { --session-visible-height:calc(100vh - var(--window-top, 0px) - var(--window-bottom, 0px)); height:var(--session-visible-height); min-height:var(--session-visible-height); padding:calc(18rpx + max(var(--global-top-page-offset, 0px), var(--global-ticker-offset, 0px), var(--global-back-page-offset, 0px))) 18rpx calc(18rpx + env(safe-area-inset-bottom)); display:flex; flex-direction:column; overflow:hidden; background:linear-gradient(180deg,#fff8ef 0%,#fffdfa 48%,#fff7ef 100%); }
 @supports (height: 100dvh) {
   .session-page { --session-visible-height:calc(100dvh - var(--window-top, 0px) - var(--window-bottom, 0px)); }
 }

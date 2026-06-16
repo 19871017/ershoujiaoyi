@@ -14,7 +14,7 @@
     <template v-if="loaded">
       <view class="form-card ds-card">
         <view class="section-title">基础信息</view>
-        <view class="section-desc">本页仅提交后端支持的标题、描述、价格和图片修改审核。</view>
+        <view class="section-desc">本页可提交标题、描述、价格和图片修改审核。</view>
         <input :value="form.title" class="field" maxlength="40" placeholder="宝贝标题" confirm-type="next" @input="updateTextField('title', $event)" @blur="trimTextField('title')" />
         <textarea :value="form.description" class="field area" maxlength="240" placeholder="描述成色、尺码、瑕疵和购买建议" @input="updateTextField('description', $event)" @blur="trimTextField('description')" />
         <input :value="form.price" class="field" type="text" inputmode="decimal" placeholder="价格" confirm-type="done" @input="updateTextField('price', $event)" @blur="normalizePrice" />
@@ -30,8 +30,8 @@
           </view>
           <view v-if="images.length < 9" class="image-box add tapable" :class="{ busy: uploadingImages }" @click="chooseImage">{{ uploadingImages ? '…' : '＋' }}</view>
         </view>
-        <view class="rule"><switch :checked="form.serverTradeOnly" @change="toggleTradePreference('serverTradeOnly')" /> <text>交易方式以服务端订单与支付状态为准</text></view>
-        <view class="rule"><switch :checked="form.serverChatRecord" @change="toggleTradePreference('serverChatRecord')" /> <text>聊天记录以服务端会话为准</text></view>
+        <view class="rule"><switch :checked="form.serverTradeOnly" @change="toggleTradePreference('serverTradeOnly')" /> <text>交易方式以平台订单与支付状态为准</text></view>
+        <view class="rule"><switch :checked="form.serverChatRecord" @change="toggleTradePreference('serverChatRecord')" /> <text>聊天记录以平台会话为准</text></view>
       </view>
 
       <button class="primary-btn" :disabled="saving || uploadingImages || !backendProductId" @click="save">{{ submitButtonText }}</button>
@@ -83,14 +83,14 @@ function readQuery(): void {
 async function loadDetail(): Promise<void> {
   loaded.value = false
   loadError.value = ''
-  if (!backendProductId.value) { loadError.value = '缺少有效商品编号，未加载本地样例商品'; return }
+  if (!backendProductId.value) { loadError.value = '商品信息缺失，请返回后重试'; return }
   try {
     const detail = await getProductDetail(backendProductId.value)
     assertProductDetail(detail)
     if (detail.productId !== backendProductId.value) throw new Error('product edit productId mismatch')
     form.title = detail.title
     form.description = detail.description || ''
-    form.price = String(detail.price)
+    form.price = String(detail.sellerPrice || detail.price)
     images.value = (detail.imageUrls || []).map(validatedProductImageUrl)
     loaded.value = true
   } catch (error) {
@@ -99,7 +99,7 @@ async function loadDetail(): Promise<void> {
     form.price = ''
     images.value = []
     const message = error instanceof Error ? error.message : ''
-    loadError.value = userSafeLoadErrors.has(message) ? message : '商品详情加载失败，未展示本地样例商品'
+    loadError.value = userSafeLoadErrors.has(message) ? message : '商品详情暂时加载失败，请稍后重试'
     console.warn('product edit load failed', { productId: productId.value, loadError: loadError.value, error })
   }
 }
@@ -165,7 +165,7 @@ function removeImage(url: string): void {
 }
 
 function toggleTradePreference(_field: 'serverTradeOnly' | 'serverChatRecord'): void {
-  showToastSafely('交易展示项暂不可变更，请提交商品修改后以服务端审核结果为准', 'trade-preference')
+  showToastSafely('交易展示项暂不可变更，请提交商品修改后以平台审核结果为准', 'trade-preference')
 }
 
 function updateTextField(field: TextFieldKey, event: unknown): void {
@@ -232,14 +232,14 @@ async function save(): Promise<void> {
       safeImageUrls = images.value.map(validatedProductImageUrl)
     } catch (error) {
       console.warn('product edit save failed', { productId: backendProductId.value, imageCount: images.value.length, error })
-      showToastSafely(error instanceof Error && error.message ? error.message : '商品修改保存失败，保存失败时不会展示本地成功状态', 'save-invalid-images')
+      showToastSafely(error instanceof Error && error.message ? error.message : '商品修改保存失败，请稍后重试', 'save-invalid-images')
       return
     }
     try {
       await updateProduct(backendProductId.value, { title: form.title, description: form.description, price: Number(form.price).toFixed(2), imageUrls: safeImageUrls })
     } catch (error) {
       console.warn('product edit save failed', { productId: backendProductId.value, imageCount: images.value.length, error })
-      showToastSafely(error instanceof Error && error.message ? error.message : '商品修改保存失败，保存失败时不会展示本地成功状态', 'save-update-failed')
+      showToastSafely(error instanceof Error && error.message ? error.message : '商品修改保存失败，请稍后重试', 'save-update-failed')
       return
     }
     const modalOptions = {
@@ -268,7 +268,7 @@ function initializePage(): void {
     readQuery()
   } catch (error) {
     productId.value = ''
-    loadError.value = '缺少有效商品编号，未加载本地样例商品'
+    loadError.value = '商品信息缺失，请返回后重试'
     console.warn('product edit route read failed', { error })
     return
   }

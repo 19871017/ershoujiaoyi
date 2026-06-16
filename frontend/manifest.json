@@ -1,7 +1,98 @@
 {
   "name": "小原圈",
   "appid": "",
+  "id": "com.tiklxd09.xiaoyuanquan",
   "description": "小原圈用户端 uni-app 壳工程",
   "versionName": "1.0.0",
-  "versionCode": "100"
+  "versionCode": "100",
+  "version": {
+    "name": "1.0.0",
+    "code": 100
+  },
+  "developer": {
+    "name": "小原圈",
+    "email": "",
+    "url": "https://old.tiklxd09.club"
+  },
+  "icons": {
+    "app": "static/app-icons/icon-1024.png",
+    "android": {
+      "hdpi": "static/app-icons/icon-72.png",
+      "xhdpi": "static/app-icons/icon-96.png",
+      "xxhdpi": "static/app-icons/icon-144.png",
+      "xxxhdpi": "static/app-icons/icon-192.png"
+    },
+    "ios": {
+      "appstore": "static/app-icons/icon-1024.png",
+      "iphone": {
+        "app": "static/app-icons/icon-120.png",
+        "app@3x": "static/app-icons/icon-180.png",
+        "spotlight": "static/app-icons/icon-80.png",
+        "spotlight@3x": "static/app-icons/icon-120.png",
+        "settings": "static/app-icons/icon-58.png",
+        "settings@3x": "static/app-icons/icon-87.png"
+      },
+      "ipad": {
+        "app": "static/app-icons/icon-76.png",
+        "app@2x": "static/app-icons/icon-152.png",
+        "proapp@2x": "static/app-icons/icon-167.png",
+        "spotlight": "static/app-icons/icon-40.png",
+        "spotlight@2x": "static/app-icons/icon-80.png",
+        "settings": "static/app-icons/icon-29.png",
+        "settings@2x": "static/app-icons/icon-58.png"
+      }
+    }
+  },
+  "permissions": {
+    "Camera": {
+      "description": "用于上传商品图片、头像、聊天图片和视频认证"
+    },
+    "Gallery": {
+      "description": "用于选择头像、商品图片、聊天图片和聊天视频"
+    },
+    "Microphone": {
+      "description": "用于私聊语音录制"
+    }
+  },
+  "plus": {
+    "statusbar": {
+      "immersed": false,
+      "background": "#fff7ed"
+    },
+    "splashscreen": {
+      "autoclose": true,
+      "waiting": true,
+      "alwaysShowBeforeRender": true
+    },
+    "popGesture": "close",
+    "launchwebview": {
+      "kernel": "WKWebview"
+    },
+    "distribute": {
+      "android": {
+        "packagename": "com.tiklxd09.xiaoyuanquan",
+        "permissions": [
+          "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+          "<uses-permission android:name=\"android.permission.CAMERA\"/>",
+          "<uses-permission android:name=\"android.permission.RECORD_AUDIO\"/>",
+          "<uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\"/>",
+          "<uses-permission android:name=\"android.permission.READ_MEDIA_VIDEO\"/>",
+          "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" android:maxSdkVersion=\"32\"/>"
+        ]
+      },
+      "ios": {
+        "bundleIdentifier": "com.tiklxd09.xiaoyuanquan",
+        "privacyDescription": {
+          "NSCameraUsageDescription": "用于上传商品图片、头像、聊天图片和视频认证。",
+          "NSMicrophoneUsageDescription": "用于私聊语音录制。",
+          "NSPhotoLibraryUsageDescription": "用于选择头像、商品图片、聊天图片和聊天视频。",
+          "NSPhotoLibraryAddUsageDescription": "用于保存平台图片或视频到相册。"
+        }
+      }
+    }
+  },
+  "h5": {
+    "title": "小原圈",
+    "favicon": "static/brand/xiaoyuanquan-logo-mark.png"
+  }
 }

@@ -274,7 +274,6 @@ async function blockPost() {
     error.value = '社区处置原因无效：不能为空、最多 128 字，不能包含测试占位语义。'
     return
   }
-  if (!window.confirm('确认屏蔽该社区帖子？')) return
   moderating.value = true
   error.value = ''
   try {
@@ -298,7 +297,6 @@ async function restorePost() {
     error.value = '社区处置原因无效：不能为空、最多 128 字，不能包含测试占位语义。'
     return
   }
-  if (!window.confirm('确认恢复该社区帖子？')) return
   moderating.value = true
   error.value = ''
   try {
@@ -322,7 +320,6 @@ async function blockComment(comment: AdminCommunityCommentTrace) {
     error.value = '社区处置原因无效：不能为空、最多 128 字，不能包含测试占位语义。'
     return
   }
-  if (!window.confirm('确认屏蔽该评论？')) return
   moderating.value = true
   error.value = ''
   try {
@@ -346,7 +343,6 @@ async function restoreComment(comment: AdminCommunityCommentTrace) {
     error.value = '社区处置原因无效：不能为空、最多 128 字，不能包含测试占位语义。'
     return
   }
-  if (!window.confirm('确认恢复该评论？')) return
   moderating.value = true
   error.value = ''
   try {

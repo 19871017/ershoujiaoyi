@@ -34,6 +34,12 @@ public class GiftController {
         return Result.ok(giftApplicationService.listReceivedGifts(receiverId));
     }
 
+    @GetMapping("/sent")
+    public Result<List<RecentGiftFeedItemResponse>> sent(HttpServletRequest httpRequest) {
+        Long senderId = currentUserResolver.resolve(httpRequest);
+        return Result.ok(giftApplicationService.listSentGifts(senderId));
+    }
+
     @GetMapping("/recent")
     public Result<List<RecentGiftFeedItemResponse>> recent() {
         return Result.ok(giftApplicationService.listRecentGiftFeed());

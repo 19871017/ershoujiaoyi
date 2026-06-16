@@ -199,6 +199,7 @@ import {
 } from '../../../api/modules/chat'
 import { createMediaUploadTicket, uploadMediaTicketBlob, uploadMediaTicketFile } from '../../../api/modules/media'
 import { getMyProfile, getPublicProfile, type UserProfileResponse } from '../../../api/modules/user'
+import { avatarUrlWithGenderFallback } from '../../../utils/default-avatar'
 import { buildChatPeerLevel, chatPeerIdentityBadges, normalizedPeerGender, peerGenderSymbol } from '../chat-peer'
 import {
   ChatDataIntegrityError,
@@ -509,8 +510,8 @@ function hasTrustedPeerProfileContext(peerUserId: number): boolean {
 
 function applyPeerProfile(profile: UserProfileResponse): void {
   peerName.value = profile.nickname || `用户 ${profile.userId}`
-  peerAvatarUrl.value = resolveBackendMediaUrl(validatedChatAvatarUrl(profile.avatarUrl || ''))
   peerGender.value = typeof profile.gender === 'string' ? profile.gender : null
+  peerAvatarUrl.value = resolveBackendMediaUrl(validatedChatAvatarUrl(avatarUrlWithGenderFallback(profile.avatarUrl, peerGender.value)))
   peerCity.value = typeof profile.city === 'string' ? profile.city : null
   peerVideoVerified.value = profile.videoVerified === true
   peerSellerCharmScore.value = Math.max(0, Math.floor(Number(profile.sellerCharmScore || 0)))
@@ -521,8 +522,8 @@ function applyPeerProfile(profile: UserProfileResponse): void {
 
 function applyPeerConversationItem(item: ChatConversationItem): void {
   peerName.value = item.peerNickname || `用户 ${item.peerUserId}`
-  peerAvatarUrl.value = resolveBackendMediaUrl(validatedChatAvatarUrl(item.peerAvatarUrl || ''))
   peerGender.value = item.peerGender || null
+  peerAvatarUrl.value = resolveBackendMediaUrl(validatedChatAvatarUrl(avatarUrlWithGenderFallback(item.peerAvatarUrl, peerGender.value)))
   peerCity.value = item.peerCity || null
   peerVideoVerified.value = item.peerVideoVerified === true
   peerSellerCharmScore.value = Math.max(0, Math.floor(Number(item.peerSellerCharmScore || 0)))

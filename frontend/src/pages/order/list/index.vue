@@ -56,7 +56,13 @@
           <view class="goods-main">
             <view class="goods-title">{{ item.productTitle }}</view>
             <view class="goods-desc">{{ item.role === 'buyer' ? '卖家' : '买家' }}：{{ item.counterpartyName }} · {{ item.tradeRuleSnapshot }}</view>
-            <view class="goods-price">¥{{ item.amount }}</view>
+            <view class="goods-price-label">{{ displayOrderAmountLabel(item) }}</view>
+            <view class="goods-price">¥{{ displayOrderAmountValue(item) }}</view>
+            <view v-if="item.role === 'seller'" class="settlement-line">
+              <text>卖家结算 ¥{{ sellerSettlementText(item) }}</text>
+              <text>买家支付 ¥{{ formatMoneyAmount(item.amount) }}</text>
+              <text>平台加价 ¥{{ platformMarkupText(item) }}</text>
+            </view>
           </view>
         </view>
 
@@ -127,6 +133,23 @@ function navigateWithFailure(url: string, fail: (error: unknown) => void): void 
 }
 function countByStatus(value: StatusTab): number {
   return statusCounts.value[value]
+}
+function formatMoneyAmount(value: unknown): string {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return '0.00'
+  return numeric.toFixed(2)
+}
+function displayOrderAmountLabel(item: OrderListItemResponse): string {
+  return item.role === 'seller' ? '可结算' : '应付'
+}
+function displayOrderAmountValue(item: OrderListItemResponse): string {
+  return formatMoneyAmount(item.role === 'seller' ? item.sellerAmount ?? item.amount : item.amount)
+}
+function sellerSettlementText(item: OrderListItemResponse): string {
+  return formatMoneyAmount(item.sellerAmount ?? item.amount)
+}
+function platformMarkupText(item: OrderListItemResponse): string {
+  return formatMoneyAmount(item.platformMarkupAmount ?? 0)
 }
 function readRouteFilters(): void {
   const pages = getCurrentPages()

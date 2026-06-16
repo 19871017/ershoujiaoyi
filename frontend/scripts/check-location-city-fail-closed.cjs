@@ -8,6 +8,9 @@ const failures = []
 
 const forbiddenMarkers = [
   'const selected = ref(\'深圳\')',
+  '本地城市偏好样例',
+  '未展示本地',
+  '资料接口加载失败',
   "setTimeout(() => uni.switchTab({ url: '/pages/tabbar/home/index' }), 300)",
   '@click="selected = city"',
   '城市偏好接口尚未接入，未保存为正式位置偏好'
@@ -25,9 +28,9 @@ const requiredMarkers = [
   'const selected = ref(\'\')',
   'function selectCity(city: string)',
   'updateMyProfile({ nickname: profile.nickname, mainRole: profile.mainRole, gender: profile.gender, city: selected.value, bio: profile.bio })',
-  '城市偏好已保存至服务端资料',
-  '城市偏好保存失败，未修改服务端资料',
-  '资料接口加载失败，未展示本地城市偏好样例'
+  '城市偏好已保存至平台资料',
+  '城市偏好保存失败，未修改平台资料',
+  '城市偏好暂时加载失败，请稍后重试'
 ]
 
 for (const marker of requiredMarkers) {
@@ -44,4 +47,3 @@ if (failures.length) {
 }
 
 console.log('location city page persists city preference via backend profile API and no longer behaves as local-only no-op')
-

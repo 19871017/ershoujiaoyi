@@ -33,8 +33,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { listFavoriteProducts, unfavoriteProduct, type ProductListItemResponse } from '../../api/modules/product'
 const launchReadinessMarkers = [
-  '收藏列表接口加载失败，未展示本地收藏样例',
-  '后端取消收藏失败，未执行本地收藏变更'
+  '收藏列表暂时加载失败，请稍后重试',
+  '取消收藏失败，请稍后重试'
 ]
 
 const active = ref('全部')
@@ -66,7 +66,7 @@ async function unfav(productId: number) {
     if (active.value !== '全部' && !filtered.value.length) active.value = '全部'
     uni.showToast({ title: '平台已确认取消收藏', icon: 'none' })
   } catch {
-    uni.showToast({ title: '后端取消收藏失败，未执行本地收藏变更', icon: 'none' })
+    uni.showToast({ title: '取消收藏失败，请稍后重试', icon: 'none' })
   } finally {
     const next = new Set(removingIds.value)
     next.delete(productId)
@@ -83,7 +83,7 @@ async function loadFavorites() {
     favorites.value = await listFavoriteProducts()
   } catch {
     favorites.value = []
-    loadMessage.value = '收藏列表接口加载失败，未展示本地收藏样例'
+    loadMessage.value = '收藏列表暂时加载失败，请稍后重试'
   } finally {
     loading.value = false
   }

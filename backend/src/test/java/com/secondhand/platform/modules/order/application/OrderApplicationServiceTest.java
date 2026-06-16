@@ -64,6 +64,21 @@ class OrderApplicationServiceTest {
     }
 
     @Test
+    void createOrderShouldChargeBuyerMarkupAndKeepSellerSettlementAmount() {
+        CreateProductResponse product = approvedProduct("平台加价裙子", "100.00", 7003L);
+
+        CreateOrderResponse order = orderService.createOrder(orderRequest(product.getProductId()), 2003L);
+
+        assertEquals(new BigDecimal("130.00"), order.getProductPrice());
+        assertEquals(new BigDecimal("100.00"), order.getSellerPrice());
+        assertEquals(new BigDecimal("0.3000"), order.getPlatformMarkupRate());
+        assertEquals(new BigDecimal("30.00"), order.getPlatformMarkupAmount());
+        assertEquals(new BigDecimal("130.00"), jdbcTemplate.queryForObject("select amount from trade_order where order_no = ?", BigDecimal.class, order.getOrderNo()));
+        assertEquals(new BigDecimal("100.00"), jdbcTemplate.queryForObject("select seller_amount from trade_order where order_no = ?", BigDecimal.class, order.getOrderNo()));
+        assertEquals(new BigDecimal("30.00"), jdbcTemplate.queryForObject("select platform_markup_amount from trade_order where order_no = ?", BigDecimal.class, order.getOrderNo()));
+    }
+
+    @Test
     void createOrderShouldRejectSelfPurchaseBeforeLockingProduct() {
         CreateProductResponse product = approvedProduct("自买风险商品", "168.00", 7002L);
 
@@ -164,6 +179,8 @@ class OrderApplicationServiceTest {
         assertTrue(sellerNotices.stream().anyMatch(notice -> "订单已完成".equals(notice.title())
                 && ("/pages/order/detail/index?orderNo=" + order.getOrderNo()).equals(notice.targetUrl())));
         assertEquals(new BigDecimal("109.00"), jdbcTemplate.queryForObject("select withdrawable_balance from wallet_account where user_id = ?", BigDecimal.class, 1L));
+        assertEquals(new BigDecimal("109.00"), jdbcTemplate.queryForObject("select seller_amount from trade_order where order_no = ?", BigDecimal.class, order.getOrderNo()));
+        assertEquals(new BigDecimal("32.70"), jdbcTemplate.queryForObject("select platform_markup_amount from trade_order where order_no = ?", BigDecimal.class, order.getOrderNo()));
         assertEquals(1, jdbcTemplate.queryForObject("select count(*) from wallet_ledger_entry where biz_no = ? and biz_type = 'ORDER_SETTLEMENT'", Integer.class, order.getOrderNo()));
     }
 

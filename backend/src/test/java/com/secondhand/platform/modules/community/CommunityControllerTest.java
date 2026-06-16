@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -158,6 +159,57 @@ class CommunityControllerTest {
                 .andExpect(jsonPath("$.data.likedByMe", is(false)))
                 .andExpect(jsonPath("$.data.likeCount", is(0)))
                 .andExpect(jsonPath("$.data.commentCount", is(1)));
+    }
+
+    @Test
+    void authenticatedSessionCanManageOnlyOwnCommunityPosts() throws Exception {
+        seedActiveUser(31L, "管理自己的用户");
+        seedActiveUser(32L, "其他作者");
+        seedUserSession("usr_cccccccccccccccccccccccccccccccc", "usr_dddddddddddddddddddddddddddddddd", 31L);
+        CommunityPostResponse ownPost = service.createPost(31L, postRequest());
+        CommunityPostResponse otherPost = service.createPost(32L, postRequest());
+
+        mvc.perform(get("/api/community/posts/mine")
+                        .header("Authorization", "Bearer usr_cccccccccccccccccccccccccccccccc")
+                        .param("limit", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].postId", is(ownPost.getPostId().intValue())));
+
+        mvc.perform(put("/api/community/posts/{postId}", ownPost.getPostId())
+                        .header("Authorization", "Bearer usr_cccccccccccccccccccccccccccccccc")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title":"我修改后的动态",
+                                  "topic":"交易经验",
+                                  "content":"自己的帖子可以被修改并继续公开展示。",
+                                  "imageUrls":[]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.title", is("我修改后的动态")))
+                .andExpect(jsonPath("$.data.topic", is("交易经验")));
+
+        mvc.perform(put("/api/community/posts/{postId}", otherPost.getPostId())
+                        .header("Authorization", "Bearer usr_cccccccccccccccccccccccccccccccc")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title":"不能修改别人的动态",
+                                  "topic":"交易经验",
+                                  "content":"其他作者的帖子必须被后端拒绝。",
+                                  "imageUrls":[]
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(delete("/api/community/posts/{postId}", ownPost.getPostId())
+                        .header("Authorization", "Bearer usr_cccccccccccccccccccccccccccccccc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("DELETED")));
+
+        mvc.perform(get("/api/community/posts/{postId}", ownPost.getPostId()))
+                .andExpect(status().isBadRequest());
     }
 
     private CreateCommunityPostRequest postRequest() {

@@ -102,6 +102,7 @@ function installRouteChangeHooks(): void {
 function applyPageOffset(): void {
   if (typeof document === 'undefined') return
   document.documentElement.style.setProperty('--global-back-page-offset', visible.value ? '2.25rem' : '0')
+  document.documentElement.style.setProperty('--global-back-control-offset', visible.value ? '58px' : '0px')
 }
 
 function fallbackTarget(): string {
@@ -170,6 +171,7 @@ onBeforeUnmount(() => {
   }
   if (typeof document !== 'undefined') {
     document.documentElement.style.setProperty('--global-back-page-offset', '0')
+    document.documentElement.style.setProperty('--global-back-control-offset', '0px')
   }
 })
 </script>
@@ -178,8 +180,8 @@ onBeforeUnmount(() => {
 .global-back-button {
   position: fixed;
   left: 12px;
-  top: 12px;
-  z-index: 99998;
+  top: calc(10px + env(safe-area-inset-top));
+  z-index: 100000;
   width: 38px;
   height: 38px;
   border-radius: 50%;

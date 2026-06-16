@@ -11,8 +11,8 @@ export const sorts = [
 
 export const launchReadinessMarkers = [
   '商品搜索暂时不可用，请稍后重试',
-  '商品接口暂时不可用，未展示本地搜索宝贝样例',
-  '仅展示后端返回的在售商品'
+  '商品暂时加载失败，请稍后重试',
+  '仅展示当前在售宝贝，换个关键词也许会有惊喜。'
 ]
 
 void launchReadinessMarkers

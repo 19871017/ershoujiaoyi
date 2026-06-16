@@ -1,6 +1,7 @@
 <template>
   <main class="login-page">
     <section class="login-card">
+      <img class="login-logo" :src="brandLogoUrl" alt="小原圈" />
       <div class="login-kicker">小原圈 Admin</div>
       <h1>独立管理后台登录</h1>
       <p>后台登录仅服务独立 admin 应用，用户端不再暴露管理入口。</p>
@@ -20,6 +21,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../store/modules/auth'
+import brandLogoUrl from '../../assets/brand/xiaoyuanquan-logo-mark.png'
 
 const router = useRouter()
 const auth = useAuthStore()

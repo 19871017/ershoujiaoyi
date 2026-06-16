@@ -28,6 +28,8 @@ import com.secondhand.platform.modules.product.CreateProductResponse;
 import com.secondhand.platform.modules.product.ProductDetailResponse;
 import com.secondhand.platform.modules.product.ProductListItemResponse;
 import com.secondhand.platform.modules.product.UpdateProductResponse;
+import com.secondhand.platform.modules.product.application.AdminProductPricingConfigRequest;
+import com.secondhand.platform.modules.product.application.AdminProductPricingConfigResponse;
 import com.secondhand.platform.modules.product.application.ProductApplicationService;
 import com.secondhand.platform.modules.user.AdminUserDetailResponse;
 import com.secondhand.platform.modules.user.application.UserApplicationService;
@@ -77,6 +79,8 @@ public class AdminController {
     private static final Set<String> ALLOWED_VIDEO_IDENTITY_CONTENT_TYPES = Set.of("video/mp4", "video/quicktime", "video/x-m4v");
     private static final double VIDEO_IDENTITY_WATCH_PROGRESS_GRACE_SECONDS = 0.75;
     private static final double VIDEO_IDENTITY_DURATION_MISMATCH_GRACE_SECONDS = 1.0;
+    private static final String DEFAULT_GOD_AVATAR_URL = "/assets/profile/default-avatar-god.png";
+    private static final String DEFAULT_GODDESS_AVATAR_URL = "/assets/profile/default-avatar-goddess.png";
     private static final Set<String> BLOCKED_ADMIN_SEARCH_KEYWORDS = Set.of(
             "preview",
             "demo",
@@ -509,6 +513,12 @@ public class AdminController {
         return Result.ok(paymentApplicationService.adminListChannelConfigs());
     }
 
+    @GetMapping("/product-pricing/config")
+    public Result<AdminProductPricingConfigResponse> productPricingConfig(HttpServletRequest request) {
+        adminAccessGuard.requireAdmin(request, "system:config");
+        return Result.ok(productApplicationService.adminPricingConfig());
+    }
+
     @GetMapping("/home/banners")
     public Result<List<com.secondhand.platform.modules.home.HomeBannerResponse>> homeBanners(HttpServletRequest request) {
         adminAccessGuard.requireAdmin(request, "system:config");
@@ -609,6 +619,22 @@ public class AdminController {
                 "payment:" + response.channel(),
                 "SUCCESS",
                 "更新支付配置 channel=" + response.channel() + " enabled=" + response.enabled() + " configured=" + response.configured()
+        );
+        return Result.ok(response);
+    }
+
+    @PostMapping("/product-pricing/config")
+    public Result<AdminProductPricingConfigResponse> updateProductPricingConfig(@RequestBody(required = false) AdminProductPricingConfigRequest body,
+                                                                                HttpServletRequest request) {
+        long adminUserId = adminAccessGuard.requireAdmin(request, "system:config");
+        AdminProductPricingConfigResponse response = productApplicationService.adminUpdatePricingConfig(body);
+        auditApplicationService.recordAdminOperation(
+                "PRODUCT_PRICING_CONFIG_UPDATE",
+                adminUserId,
+                "SYSTEM_CONFIG",
+                "product-pricing",
+                "SUCCESS",
+                "商品加价比例已更新：markupRate=" + response.markupRate()
         );
         return Result.ok(response);
     }
@@ -1451,7 +1477,7 @@ public class AdminController {
                         rs.getLong("owner_user_id"),
                         rs.getString("owner_user_no"),
                         rs.getString("owner_nickname"),
-                        rs.getString("owner_avatar_url"),
+                        defaultAvatarUrl(rs.getString("owner_avatar_url"), rs.getString("owner_gender")),
                         rs.getString("owner_status"),
                         rs.getString("owner_gender"),
                         rs.getString("owner_city"),
@@ -1462,7 +1488,7 @@ public class AdminController {
                         rs.getLong("peer_user_id"),
                         rs.getString("peer_user_no"),
                         rs.getString("peer_nickname"),
-                        rs.getString("peer_avatar_url"),
+                        defaultAvatarUrl(rs.getString("peer_avatar_url"), rs.getString("peer_gender")),
                         rs.getString("peer_status"),
                         rs.getString("peer_gender"),
                         rs.getString("peer_city"),
@@ -1470,6 +1496,15 @@ public class AdminController {
                         rs.getBoolean("peer_video_verified")
                 )
         ), args.toArray());
+    }
+
+    private String defaultAvatarUrl(String avatarUrl, String gender) {
+        String normalizedAvatar = avatarUrl == null ? null : avatarUrl.trim();
+        if (normalizedAvatar != null && !normalizedAvatar.isBlank()) {
+            return normalizedAvatar;
+        }
+        String normalizedGender = gender == null ? "" : gender.trim().toLowerCase(Locale.ROOT);
+        return normalizedGender.equals("god") || normalizedGender.equals("男") ? DEFAULT_GOD_AVATAR_URL : DEFAULT_GODDESS_AVATAR_URL;
     }
 
     private Long requirePositiveId(Long value, String message) {

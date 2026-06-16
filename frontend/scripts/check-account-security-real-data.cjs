@@ -17,6 +17,10 @@ const forbiddenMarkers = [
   'city:\'杭州\'',
   'city:\'上海\'',
   '安全校验流程已记录'
+  ,
+  '未展示本地登录设备样例',
+  '服务端暂未返回登录设备记录',
+  '账号风控接口'
 ]
 
 for (const marker of forbiddenMarkers) {
@@ -24,11 +28,10 @@ for (const marker of forbiddenMarkers) {
 }
 
 const requiredMarkers = [
-  '安全状态以服务端账号风控接口为准',
+  '安全状态由平台账号保护体系记录',
   'getAccountSecurity',
   'security.value = await getAccountSecurity()',
-  '服务端暂未返回登录设备记录',
-  '未展示本地登录设备样例',
+  '暂无登录设备记录',
   '未执行任何账号安全变更',
   'security.value?.maskedPhone',
   'const securityScore = computed(() => security.value?.securityScore || \'--\')'

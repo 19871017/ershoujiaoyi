@@ -31,6 +31,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'operators/:userId', component: () => import('../pages/operators/index.vue') },
       { path: 'system/location', component: () => import('../pages/system/location/index.vue') },
       { path: 'system/payment', component: () => import('../pages/system/payment/index.vue') },
+      { path: 'system/product-pricing', component: () => import('../pages/system/product-pricing/index.vue') },
       { path: 'system/banners', component: () => import('../pages/system/banners/index.vue') },
       { path: 'system/announcements', component: () => import('../pages/system/announcements/index.vue') }
     ]

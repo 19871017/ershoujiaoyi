@@ -24,6 +24,9 @@ const forbiddenMarkers = [
   'favorites.splice',
   '收藏列表接口尚未接入',
   '收藏接口暂未接通后端'
+  ,
+  '未展示本地收藏样例',
+  '后端取消收藏失败'
 ]
 
 for (const marker of forbiddenMarkers) {
@@ -36,8 +39,8 @@ const requiredMarkers = [
   'const favorites = ref<ProductListItemResponse[]>([])',
   'favorites.value = await listFavoriteProducts()',
   'favorites.value = []',
-  '收藏列表接口加载失败，未展示本地收藏样例',
-  '后端取消收藏失败，未执行本地收藏变更',
+  '收藏列表暂时加载失败，请稍后重试',
+  '取消收藏失败，请稍后重试',
   'if (!productId || productId <= 0)',
   'onMounted(loadFavorites)'
 ]

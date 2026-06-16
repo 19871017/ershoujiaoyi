@@ -31,6 +31,12 @@ public class ProductApplicationService {
     private static final String STATUS_OFFLINE = "OFFLINE";
     private static final String STATUS_SOLD = "SOLD";
     private static final String STATUS_DELETED = "DELETED";
+    private static final String PRICING_CONFIG_GROUP = "product-pricing";
+    private static final String KEY_PLATFORM_MARKUP_RATE = "product.pricing.markup_rate";
+    private static final BigDecimal DEFAULT_PLATFORM_MARKUP_RATE = new BigDecimal("0.3000");
+    private static final BigDecimal MAX_PLATFORM_MARKUP_RATE = new BigDecimal("5.0000");
+    private static final String DEFAULT_GOD_AVATAR_URL = "/assets/profile/default-avatar-god.png";
+    private static final String DEFAULT_GODDESS_AVATAR_URL = "/assets/profile/default-avatar-goddess.png";
     private static final String AUDIT_TYPE_PRODUCT = "PRODUCT";
     private static final String AUDIT_PENDING = "PENDING";
     private static final String AUDIT_APPROVED = "APPROVED";
@@ -443,7 +449,30 @@ public class ProductApplicationService {
         if (product.lockedOrderNo() != null) {
             throw new IllegalArgumentException("product-already-locked");
         }
-        return new ProductSnapshot(product.productId(), product.productNo(), product.title(), product.price(), product.tradeRule(), product.sellerId());
+        BigDecimal markupRate = platformMarkupRate();
+        BigDecimal markupAmount = platformMarkupAmount(product.price(), markupRate);
+        BigDecimal buyerPrice = product.price().add(markupAmount).setScale(2, RoundingMode.HALF_UP);
+        return new ProductSnapshot(product.productId(), product.productNo(), product.title(), buyerPrice, product.price(),
+                markupRate, markupAmount, product.tradeRule(), product.sellerId());
+    }
+
+    public AdminProductPricingConfigResponse adminPricingConfig() {
+        return new AdminProductPricingConfigResponse(platformMarkupRate(), pricingConfigUpdatedAt());
+    }
+
+    @Transactional
+    public AdminProductPricingConfigResponse adminUpdatePricingConfig(AdminProductPricingConfigRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("product pricing config required");
+        }
+        BigDecimal markupRate = normalizeMarkupRate(request.markupRate());
+        upsertPricingConfig(markupRate);
+        return adminPricingConfig();
+    }
+
+    public BigDecimal applyBuyerPrice(BigDecimal sellerPrice) {
+        BigDecimal safeSellerPrice = money(sellerPrice);
+        return safeSellerPrice.add(platformMarkupAmount(safeSellerPrice, platformMarkupRate())).setScale(2, RoundingMode.HALF_UP);
     }
 
     @Transactional
@@ -592,24 +621,39 @@ public class ProductApplicationService {
     }
 
     private ProductListItemResponse mapListItem(ResultSet rs, int rowNum) throws SQLException {
+        BigDecimal sellerPrice = money(rs.getBigDecimal("price"));
+        BigDecimal markupRate = platformMarkupRate();
+        BigDecimal markupAmount = platformMarkupAmount(sellerPrice, markupRate);
+        BigDecimal buyerPrice = sellerPrice.add(markupAmount).setScale(2, RoundingMode.HALF_UP);
         return new ProductListItemResponse(
                 rs.getLong("id"),
                 rs.getString("product_no"),
                 rs.getLong("seller_id"),
                 rs.getString("seller_nickname"),
-                rs.getString("seller_avatar_url"),
+                defaultAvatarUrl(rs.getString("seller_avatar_url"), rs.getString("seller_gender")),
                 rs.getString("seller_gender"),
                 rs.getString("title"),
                 rs.getString("category"),
                 rs.getString("seller_city"),
                 rs.getBoolean("seller_video_verified"),
-                rs.getBigDecimal("price"),
+                buyerPrice,
+                sellerPrice,
+                markupRate,
+                markupAmount,
                 firstImageUrl(decodeImageUrls(rs.getString("image_urls"))),
                 rs.getString("product_status"),
                 rs.getString("audit_status"),
                 rs.getBoolean("visible"),
                 timeText(rs.getTimestamp("created_at"))
         );
+    }
+
+    private String defaultAvatarUrl(String avatarUrl, String gender) {
+        String normalizedAvatar = avatarUrl == null ? null : avatarUrl.trim();
+        if (normalizedAvatar != null && !normalizedAvatar.isBlank()) {
+            return normalizedAvatar;
+        }
+        return "god".equalsIgnoreCase(gender == null ? null : gender.trim()) ? DEFAULT_GOD_AVATAR_URL : DEFAULT_GODDESS_AVATAR_URL;
     }
 
     private ProductRecord getExistingProduct(Long productId) {
@@ -822,7 +866,13 @@ public class ProductApplicationService {
     }
 
     private ProductDetailResponse toDetailResponse(ProductRecord product, boolean favoritedByMe) {
-        return new ProductDetailResponse(product.productId(), product.productNo(), product.title(), product.description(), product.price(), product.imageUrls(), product.status(), product.auditState(), product.visible(), product.tradeRule(), product.createdAt(), product.sellerId(), favoritedByMe);
+        BigDecimal sellerPrice = product.price();
+        BigDecimal markupRate = platformMarkupRate();
+        BigDecimal markupAmount = platformMarkupAmount(sellerPrice, markupRate);
+        BigDecimal buyerPrice = sellerPrice.add(markupAmount).setScale(2, RoundingMode.HALF_UP);
+        return new ProductDetailResponse(product.productId(), product.productNo(), product.title(), product.description(), buyerPrice,
+                sellerPrice, markupRate, markupAmount, product.imageUrls(), product.status(), product.auditState(), product.visible(),
+                product.tradeRule(), product.createdAt(), product.sellerId(), favoritedByMe);
     }
 
     private boolean isProductFavoritedBy(Long userId, Long productId) {
@@ -883,10 +933,73 @@ public class ProductApplicationService {
     }
 
     private BigDecimal money(BigDecimal amount) {
+        if (amount == null) {
+            throw new IllegalArgumentException("product price required");
+        }
         try {
             return amount.setScale(2, RoundingMode.UNNECESSARY);
         } catch (ArithmeticException ex) {
             throw new IllegalArgumentException("product price scale must be <= 2", ex);
+        }
+    }
+
+    private BigDecimal platformMarkupRate() {
+        try {
+            String value = jdbcTemplate.queryForObject(
+                    "select config_value from system_config where config_key = ?",
+                    String.class,
+                    KEY_PLATFORM_MARKUP_RATE
+            );
+            return normalizeMarkupRate(new BigDecimal(value));
+        } catch (EmptyResultDataAccessException e) {
+            return DEFAULT_PLATFORM_MARKUP_RATE;
+        } catch (NumberFormatException | ArithmeticException ex) {
+            throw new IllegalStateException("product pricing config invalid", ex);
+        }
+    }
+
+    private BigDecimal platformMarkupAmount(BigDecimal sellerPrice, BigDecimal markupRate) {
+        return sellerPrice.multiply(markupRate).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal normalizeMarkupRate(BigDecimal value) {
+        if (value == null) {
+            throw new IllegalArgumentException("product markup rate required");
+        }
+        if (value.scale() > 4) {
+            throw new IllegalArgumentException("product markup rate scale invalid");
+        }
+        BigDecimal normalized = value.setScale(4, RoundingMode.UNNECESSARY);
+        if (normalized.compareTo(BigDecimal.ZERO) < 0 || normalized.compareTo(MAX_PLATFORM_MARKUP_RATE) > 0) {
+            throw new IllegalArgumentException("product markup rate invalid");
+        }
+        return normalized;
+    }
+
+    private void upsertPricingConfig(BigDecimal markupRate) {
+        int updated = jdbcTemplate.update("""
+                update system_config
+                set config_value = ?, config_type = ?, config_group = ?, remark = ?, updated_at = CURRENT_TIMESTAMP
+                where config_key = ?
+                """, markupRate.toPlainString(), "decimal", PRICING_CONFIG_GROUP, "商品买家展示价平台加价比例", KEY_PLATFORM_MARKUP_RATE);
+        if (updated == 0) {
+            jdbcTemplate.update("""
+                    insert into system_config (config_key, config_value, config_type, config_group, remark, created_at, updated_at)
+                    values (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """, KEY_PLATFORM_MARKUP_RATE, markupRate.toPlainString(), "decimal", PRICING_CONFIG_GROUP, "商品买家展示价平台加价比例");
+        }
+    }
+
+    private String pricingConfigUpdatedAt() {
+        try {
+            Timestamp updatedAt = jdbcTemplate.queryForObject(
+                    "select updated_at from system_config where config_key = ?",
+                    Timestamp.class,
+                    KEY_PLATFORM_MARKUP_RATE
+            );
+            return updatedAt == null ? "" : updatedAt.toInstant().toString();
+        } catch (EmptyResultDataAccessException e) {
+            return "";
         }
     }
 

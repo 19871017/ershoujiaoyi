@@ -13,7 +13,12 @@ import com.secondhand.platform.modules.wallet_ledger.application.CreditCommand;
 import com.secondhand.platform.modules.wallet_ledger.application.DebitCommand;
 import com.secondhand.platform.modules.wallet_ledger.application.LedgerTransactionResponse;
 import com.secondhand.platform.modules.wallet_ledger.application.WalletLedgerService;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
@@ -58,6 +63,7 @@ public class OrderApplicationService {
 
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request, Long buyerId) {
+        ensureOrderPricingSchemaCompatibility();
         if (request == null || request.getGoodsId() == null) {
             throw new IllegalArgumentException("goodsId required");
         }
@@ -76,7 +82,7 @@ public class OrderApplicationService {
         String orderNo = generateNo("OD", productSnapshot.getProductId(), productSnapshot.getProductNo(), buyerId);
         productApplicationService.reserveForOrder(productSnapshot.getProductId(), orderNo);
         jdbcTemplate.update(
-                "insert into trade_order (order_no,product_id,goods_id,product_no,product_title,trade_rule_snapshot,buyer_id,seller_id,amount,order_status,accepted_trade_rule,created_at,updated_at) values (?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                "insert into trade_order (order_no,product_id,goods_id,product_no,product_title,trade_rule_snapshot,buyer_id,seller_id,amount,seller_amount,platform_markup_rate,platform_markup_amount,order_status,accepted_trade_rule,created_at,updated_at) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
                 orderNo,
                 productSnapshot.getProductId(),
                 request.getGoodsId(),
@@ -85,7 +91,10 @@ public class OrderApplicationService {
                 productSnapshot.getTradeRule(),
                 buyerId,
                 productSnapshot.getSellerId(),
-                productSnapshot.getPrice(),
+                productSnapshot.getBuyerPrice(),
+                productSnapshot.getSellerPrice(),
+                productSnapshot.getPlatformMarkupRate(),
+                productSnapshot.getPlatformMarkupAmount(),
                 STATUS_PENDING_PAY,
                 true
         );
@@ -94,6 +103,7 @@ public class OrderApplicationService {
 
     @Transactional
     public PayOrderResponse payOrder(String orderNo, Long userId) {
+        ensureOrderPricingSchemaCompatibility();
         if (orderNo == null || orderNo.isBlank()) {
             throw new IllegalArgumentException("orderNo required");
         }
@@ -154,6 +164,7 @@ public class OrderApplicationService {
 
     @Transactional
     public PayOrderResponse markOrderPaidByExternal(String orderNo, Long userId, String paymentNo, String channel) {
+        ensureOrderPricingSchemaCompatibility();
         if (orderNo == null || orderNo.isBlank()) {
             throw new IllegalArgumentException("orderNo required");
         }
@@ -194,6 +205,7 @@ public class OrderApplicationService {
 
     @Transactional
     public OrderDetailResponse cancelPendingOrder(String orderNo, Long buyerId) {
+        ensureOrderPricingSchemaCompatibility();
         if (buyerId == null || buyerId <= 0) throw new IllegalArgumentException("buyerId required");
         String safeOrderNo = requireText(orderNo, "orderNo required");
         OrderRecord order = findByOrderNoRequired(safeOrderNo);
@@ -218,6 +230,7 @@ public class OrderApplicationService {
 
     @Transactional
     public ShipOrderResponse shipOrder(String orderNo, Long sellerId, ShipOrderRequest request) {
+        ensureOrderPricingSchemaCompatibility();
         if (sellerId == null || sellerId <= 0) throw new IllegalArgumentException("sellerId required");
         String safeOrderNo = requireText(orderNo, "orderNo required");
         OrderRecord order = findByOrderNoRequired(safeOrderNo);
@@ -247,6 +260,7 @@ public class OrderApplicationService {
 
     @Transactional
     public OrderDetailResponse confirmReceipt(String orderNo, Long buyerId) {
+        ensureOrderPricingSchemaCompatibility();
         if (buyerId == null || buyerId <= 0) throw new IllegalArgumentException("buyerId required");
         String safeOrderNo = requireText(orderNo, "orderNo required");
         OrderRecord order = findByOrderNoRequired(safeOrderNo);
@@ -267,7 +281,7 @@ public class OrderApplicationService {
         settlement.setBizType(ORDER_SETTLEMENT);
         settlement.setBizNo(safeOrderNo);
         settlement.setBalanceType(BALANCE_TYPE_WITHDRAWABLE);
-        settlement.setAmount(order.amount());
+        settlement.setAmount(order.sellerAmount());
         walletLedgerService.credit(settlement);
 
         int changed = jdbcTemplate.update("""
@@ -283,6 +297,7 @@ public class OrderApplicationService {
 
     @Transactional
     public OrderReviewResponse submitReview(String orderNo, Long reviewerId, OrderReviewRequest request) {
+        ensureOrderPricingSchemaCompatibility();
         if (reviewerId == null || reviewerId <= 0) throw new IllegalArgumentException("reviewerId required");
         if (request == null) throw new IllegalArgumentException("review request required");
         String safeOrderNo = requireText(orderNo, "orderNo required");
@@ -307,6 +322,7 @@ public class OrderApplicationService {
     }
 
     public OrderDetailResponse detailOrder(String orderNo, Long userId) {
+        ensureOrderPricingSchemaCompatibility();
         if (userId == null || userId <= 0) throw new IllegalArgumentException("userId required");
         String safeOrderNo = requireText(orderNo, "orderNo required");
         try {
@@ -317,7 +333,7 @@ public class OrderApplicationService {
                     where o.order_no = ? and (o.buyer_id = ? or o.seller_id = ?)
                     """, (rs, rowNum) -> new OrderDetailResponse(
                     rs.getString("order_no"), rs.getLong("buyer_id"), rs.getLong("seller_id"), rs.getLong("product_id"), rs.getLong("goods_id"),
-                    rs.getString("product_no"), rs.getString("product_title"), rs.getBigDecimal("amount"), rs.getString("trade_rule_snapshot"),
+                    rs.getString("product_no"), rs.getString("product_title"), rs.getBigDecimal("amount"), sellerAmount(rs), rs.getBigDecimal("platform_markup_rate"), rs.getBigDecimal("platform_markup_amount"), rs.getString("trade_rule_snapshot"),
                     rs.getString("order_status"), Objects.equals(rs.getLong("buyer_id"), userId) ? "buyer" : "seller", Objects.equals(rs.getLong("buyer_id"), userId) ? "卖家" : "买家", rs.getString("after_sales_no"), rs.getString("after_sales_status"),
                     rs.getString("shipping_type"), rs.getString("shipping_company"), rs.getString("tracking_no"), rs.getString("shipping_remark"),
                     timeText(rs.getTimestamp("created_at")), timeText(rs.getTimestamp("paid_at")), timeText(rs.getTimestamp("shipped_at")), timeText(rs.getTimestamp("completed_at"))
@@ -328,6 +344,7 @@ public class OrderApplicationService {
     }
 
     public OrderDetailResponse adminDetailOrder(String orderNo) {
+        ensureOrderPricingSchemaCompatibility();
         String safeOrderNo = requireAdminOrderNo(orderNo);
         try {
             return jdbcTemplate.queryForObject("""
@@ -337,7 +354,7 @@ public class OrderApplicationService {
                     where o.order_no = ?
                     """, (rs, rowNum) -> new OrderDetailResponse(
                     rs.getString("order_no"), rs.getLong("buyer_id"), rs.getLong("seller_id"), rs.getLong("product_id"), rs.getLong("goods_id"),
-                    rs.getString("product_no"), rs.getString("product_title"), rs.getBigDecimal("amount"), rs.getString("trade_rule_snapshot"),
+                    rs.getString("product_no"), rs.getString("product_title"), rs.getBigDecimal("amount"), sellerAmount(rs), rs.getBigDecimal("platform_markup_rate"), rs.getBigDecimal("platform_markup_amount"), rs.getString("trade_rule_snapshot"),
                     rs.getString("order_status"), "admin", "后台", rs.getString("after_sales_no"), rs.getString("after_sales_status"),
                     rs.getString("shipping_type"), rs.getString("shipping_company"), rs.getString("tracking_no"), rs.getString("shipping_remark"),
                     timeText(rs.getTimestamp("created_at")), timeText(rs.getTimestamp("paid_at")), timeText(rs.getTimestamp("shipped_at")), timeText(rs.getTimestamp("completed_at"))
@@ -352,6 +369,7 @@ public class OrderApplicationService {
     }
 
     public List<OrderListItemResponse> adminListOrders(String status, String keyword, Integer limit) {
+        ensureOrderPricingSchemaCompatibility();
         String safeStatus = normalizeStatusFilter(status);
         String safeKeyword = normalizeAdminKeyword(keyword);
         int safeLimit = limit == null ? 20 : limit;
@@ -401,12 +419,13 @@ public class OrderApplicationService {
         args.add(safeLimit);
         return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> new OrderListItemResponse(
                 rs.getString("order_no"), rs.getLong("buyer_id"), rs.getLong("seller_id"), rs.getLong("product_id"), rs.getLong("goods_id"),
-                rs.getString("product_no"), rs.getString("product_title"), rs.getBigDecimal("amount"), rs.getString("trade_rule_snapshot"),
+                rs.getString("product_no"), rs.getString("product_title"), rs.getBigDecimal("amount"), sellerAmount(rs), rs.getBigDecimal("platform_markup_rate"), rs.getBigDecimal("platform_markup_amount"), rs.getString("trade_rule_snapshot"),
                 rs.getString("order_status"), "admin", "后台", rs.getString("after_sales_no"), rs.getString("after_sales_status"), timeText(rs.getTimestamp("created_at"))
         ), args.toArray());
     }
 
     public List<OrderListItemResponse> listOrders(Long userId, String role, String status) {
+        ensureOrderPricingSchemaCompatibility();
         if (userId == null || userId <= 0) throw new IllegalArgumentException("userId required");
         String safeRole = normalizeRole(role);
         String safeStatus = normalizeStatusFilter(status);
@@ -430,7 +449,7 @@ public class OrderApplicationService {
         sql.append(" order by o.created_at desc limit 100");
         return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> new OrderListItemResponse(
                 rs.getString("order_no"), rs.getLong("buyer_id"), rs.getLong("seller_id"), rs.getLong("product_id"), rs.getLong("goods_id"),
-                rs.getString("product_no"), rs.getString("product_title"), rs.getBigDecimal("amount"), rs.getString("trade_rule_snapshot"),
+                rs.getString("product_no"), rs.getString("product_title"), rs.getBigDecimal("amount"), sellerAmount(rs), rs.getBigDecimal("platform_markup_rate"), rs.getBigDecimal("platform_markup_amount"), rs.getString("trade_rule_snapshot"),
                 rs.getString("order_status"), safeRole, buyer ? "卖家" : "买家", rs.getString("after_sales_no"), rs.getString("after_sales_status"), timeText(rs.getTimestamp("created_at"))
         ), args.toArray());
     }
@@ -448,6 +467,7 @@ public class OrderApplicationService {
     }
 
     private OrderRecord findByOrderNoRequired(String orderNo) {
+        ensureOrderPricingSchemaCompatibility();
         try {
             return jdbcTemplate.queryForObject(
                     "select * from trade_order where order_no = ?",
@@ -460,6 +480,9 @@ public class OrderApplicationService {
                             rs.getString("product_no"),
                             rs.getString("product_title"),
                             rs.getBigDecimal("amount"),
+                            sellerAmount(rs),
+                            rs.getBigDecimal("platform_markup_rate"),
+                            rs.getBigDecimal("platform_markup_amount"),
                             rs.getString("trade_rule_snapshot"),
                             rs.getString("order_status"),
                             rs.getBoolean("accepted_trade_rule"),
@@ -607,12 +630,13 @@ public class OrderApplicationService {
 
     private CreateOrderResponse toResponse(OrderRecord order) {
         return new CreateOrderResponse(order.orderNo(), order.buyerId(), order.goodsId(), order.productId(), order.productNo(),
-                order.productTitle(), order.amount(), order.tradeRuleSnapshot(), order.status(), order.acceptedTradeRule(), order.createdAt());
+                order.productTitle(), order.amount(), order.sellerAmount(), order.platformMarkupRate(), order.platformMarkupAmount(),
+                order.tradeRuleSnapshot(), order.status(), order.acceptedTradeRule(), order.createdAt());
     }
 
     private PayOrderResponse toPayResponse(OrderRecord order, boolean idempotentReplay) {
         return new PayOrderResponse(order.orderNo(), order.buyerId(), order.goodsId(), order.productId(), order.productNo(),
-                order.productTitle(), order.amount(), order.status(), order.ledgerNo(), order.balanceType(),
+                order.productTitle(), order.amount(), order.sellerAmount(), order.platformMarkupRate(), order.platformMarkupAmount(), order.status(), order.ledgerNo(), order.balanceType(),
                 order.balanceBefore(), order.balanceAfter(), order.paidAt(), idempotentReplay);
     }
 
@@ -692,13 +716,54 @@ public class OrderApplicationService {
         return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
+    private BigDecimal sellerAmount(ResultSet rs) throws SQLException {
+        BigDecimal sellerAmount = rs.getBigDecimal("seller_amount");
+        return sellerAmount == null || sellerAmount.compareTo(BigDecimal.ZERO) == 0 ? rs.getBigDecimal("amount") : sellerAmount;
+    }
+
+    private void ensureOrderPricingSchemaCompatibility() {
+        ensureColumn("trade_order", "seller_amount", "ALTER TABLE trade_order ADD COLUMN seller_amount DECIMAL(18,2) NOT NULL DEFAULT 0.00");
+        ensureColumn("trade_order", "platform_markup_rate", "ALTER TABLE trade_order ADD COLUMN platform_markup_rate DECIMAL(8,4) NOT NULL DEFAULT 0.0000");
+        ensureColumn("trade_order", "platform_markup_amount", "ALTER TABLE trade_order ADD COLUMN platform_markup_amount DECIMAL(18,2) NOT NULL DEFAULT 0.00");
+        jdbcTemplate.update("update trade_order set seller_amount = amount where seller_amount = 0.00");
+    }
+
+    private void ensureColumn(String tableName, String columnName, String alterSql) {
+        try {
+            if (!columnExists(tableName, columnName)) {
+                jdbcTemplate.execute(alterSql);
+            }
+        } catch (Exception ex) {
+            throw new IllegalStateException("order schema compatibility check failed: " + tableName + "." + columnName, ex);
+        }
+    }
+
+    private boolean columnExists(String tableName, String columnName) throws SQLException {
+        if (jdbcTemplate.getDataSource() == null) {
+            throw new SQLException("dataSource unavailable");
+        }
+        try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            return columnExists(metaData, tableName, columnName)
+                    || columnExists(metaData, tableName.toUpperCase(Locale.ROOT), columnName.toUpperCase(Locale.ROOT))
+                    || columnExists(metaData, tableName.toLowerCase(Locale.ROOT), columnName.toLowerCase(Locale.ROOT));
+        }
+    }
+
+    private boolean columnExists(DatabaseMetaData metaData, String tableName, String columnName) throws SQLException {
+        try (ResultSet columns = metaData.getColumns(null, null, tableName, columnName)) {
+            return columns.next();
+        }
+    }
+
     private String generateNo(String prefix, Object a, Object b, Object c) {
         String seed = Objects.toString(a, "") + ':' + Objects.toString(b, "") + ':' + Objects.toString(c, "") + ':' + System.nanoTime();
         return prefix + '-' + Integer.toUnsignedString(seed.hashCode()).toUpperCase(Locale.ROOT);
     }
 
     private record OrderRecord(String orderNo, Long buyerId, Long sellerId, Long goodsId, Long productId, String productNo,
-                               String productTitle, java.math.BigDecimal amount, String tradeRuleSnapshot,
+                               String productTitle, java.math.BigDecimal amount, java.math.BigDecimal sellerAmount,
+                               java.math.BigDecimal platformMarkupRate, java.math.BigDecimal platformMarkupAmount, String tradeRuleSnapshot,
                                String status, Boolean acceptedTradeRule, String createdAt, Long paidUserId,
                                String ledgerNo, String balanceType, java.math.BigDecimal balanceBefore,
                                java.math.BigDecimal balanceAfter, String paidAt, String shippedAt,

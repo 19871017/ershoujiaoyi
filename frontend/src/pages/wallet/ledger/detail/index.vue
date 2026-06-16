@@ -50,7 +50,7 @@ interface LedgerDetail {
 }
 
 const launchReadinessMarkers = [
-  '账本详情加载失败，未展示本地账本样例'
+  '账本详情暂时加载失败，请稍后重试'
 ]
 
 const businessLabels: Record<string, string> = {
@@ -164,7 +164,7 @@ async function loadDetail(): Promise<void> {
     Object.assign(detail, mapLedgerDetail(response))
   } catch (error) {
     console.warn('wallet ledger detail unavailable', { ledgerNo, error })
-    loadMessage.value = '账本详情加载失败，未展示本地账本样例'
+    loadMessage.value = '账本详情暂时加载失败，请稍后重试'
   } finally {
     loading.value = false
   }

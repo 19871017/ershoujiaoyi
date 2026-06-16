@@ -1,5 +1,6 @@
 import type { ProductDetailResponse } from '../../../api/modules/product'
 import type { UserProfileResponse } from '../../../api/modules/user'
+import { isDefaultAvatarUrl } from '../../../utils/default-avatar'
 
 export const productImageStoragePrefix = '/uploads/product-image/'
 export const communityImageStoragePrefix = '/uploads/community-image/'
@@ -39,6 +40,7 @@ export function isUnsupportedDisplayMediaUrl(url: string, expectedPrefix: string
 
 export function validatedDisplayMediaUrl(url: unknown, expectedPrefix: string | string[], purpose: string): string {
   if (!url) return ''
+  if (isDefaultAvatarUrl(url)) return url
   const prefixes = Array.isArray(expectedPrefix) ? expectedPrefix : [expectedPrefix]
   const matchedPrefix = typeof url === 'string' ? prefixes.find((prefix) => url.startsWith(prefix)) : ''
   if (typeof url !== 'string' || !matchedPrefix || isUnsupportedDisplayMediaUrl(url, matchedPrefix)) {

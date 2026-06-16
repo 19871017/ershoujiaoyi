@@ -8,8 +8,8 @@
 
     <template v-else>
       <view class="profile-card ds-card">
-        <view class="avatar tapable" :class="{ image: !!form.avatarUrl }" @click="chooseAvatar">
-          <image v-if="form.avatarUrl" class="avatar-image" :src="form.avatarUrl" mode="aspectFill" />
+        <view class="avatar tapable" :class="{ image: !!displayAvatarUrl }" @click="chooseAvatar">
+          <image v-if="displayAvatarUrl" class="avatar-image" :src="displayAvatarUrl" mode="aspectFill" />
           <text v-else>{{ avatarText }}</text>
           <view class="avatar-badge">换</view>
         </view>
@@ -87,6 +87,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createMediaUploadTicket, uploadMediaTicketFile } from '../../../api/modules/media'
 import { getMyProfile, updateMyProfile, updateMyUserNo, type UpdateUserProfileRequest, type UserProfileResponse } from '../../../api/modules/user'
+import { avatarUrlWithGenderFallback } from '../../../utils/default-avatar'
 import {
   MAX_SHOWCASE_PHOTOS,
   assertBackendProfile,
@@ -116,6 +117,7 @@ const changingUserNo = ref(false)
 const userNoDialogVisible = ref(false)
 const userNoDraft = ref('')
 const avatarText = computed(() => (form.nickname || '原').slice(0, 1))
+const displayAvatarUrl = computed(() => avatarUrlWithGenderFallback(form.avatarUrl, form.gender))
 const displayNickname = computed(() => form.nickname || '小原圈用户')
 const genderSymbol = computed(() => form.gender === 'god' ? '♂' : '♀')
 const canEditProfile = computed(() => !loadingProfile.value && !profileError.value)

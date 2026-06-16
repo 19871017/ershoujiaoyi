@@ -14,6 +14,9 @@ public class ProductListItemResponse {
     private final String sellerCity;
     private final Boolean sellerVideoVerified;
     private final BigDecimal price;
+    private final BigDecimal sellerPrice;
+    private final BigDecimal platformMarkupRate;
+    private final BigDecimal platformMarkupAmount;
     private final String coverImageUrl;
     private final String status;
     private final String auditState;
@@ -22,11 +25,20 @@ public class ProductListItemResponse {
 
     public ProductListItemResponse(Long productId, String productNo, String title, BigDecimal price, String coverImageUrl,
             String status, String auditState, Boolean visible, String createdAt) {
-        this(productId, productNo, null, null, null, null, title, null, null, null, price, coverImageUrl, status, auditState, visible, createdAt);
+        this(productId, productNo, null, null, null, null, title, null, null, null, price, price, BigDecimal.ZERO.setScale(4), BigDecimal.ZERO.setScale(2), coverImageUrl, status, auditState, visible, createdAt);
     }
 
     public ProductListItemResponse(Long productId, String productNo, Long sellerId, String sellerNickname, String sellerAvatarUrl,
             String sellerGender, String title, String category, String sellerCity, Boolean sellerVideoVerified, BigDecimal price, String coverImageUrl,
+            String status, String auditState, Boolean visible, String createdAt) {
+        this(productId, productNo, sellerId, sellerNickname, sellerAvatarUrl, sellerGender, title, category, sellerCity,
+                sellerVideoVerified, price, price, BigDecimal.ZERO.setScale(4), BigDecimal.ZERO.setScale(2), coverImageUrl, status,
+                auditState, visible, createdAt);
+    }
+
+    public ProductListItemResponse(Long productId, String productNo, Long sellerId, String sellerNickname, String sellerAvatarUrl,
+            String sellerGender, String title, String category, String sellerCity, Boolean sellerVideoVerified, BigDecimal price,
+            BigDecimal sellerPrice, BigDecimal platformMarkupRate, BigDecimal platformMarkupAmount, String coverImageUrl,
             String status, String auditState, Boolean visible, String createdAt) {
         this.productId = productId;
         this.productNo = productNo;
@@ -39,6 +51,9 @@ public class ProductListItemResponse {
         this.sellerCity = sellerCity;
         this.sellerVideoVerified = sellerVideoVerified;
         this.price = price;
+        this.sellerPrice = sellerPrice;
+        this.platformMarkupRate = platformMarkupRate;
+        this.platformMarkupAmount = platformMarkupAmount;
         this.coverImageUrl = coverImageUrl;
         this.status = status;
         this.auditState = auditState;
@@ -57,6 +72,9 @@ public class ProductListItemResponse {
     public String getSellerCity() { return sellerCity; }
     public Boolean getSellerVideoVerified() { return sellerVideoVerified; }
     public BigDecimal getPrice() { return price; }
+    public BigDecimal getSellerPrice() { return sellerPrice; }
+    public BigDecimal getPlatformMarkupRate() { return platformMarkupRate; }
+    public BigDecimal getPlatformMarkupAmount() { return platformMarkupAmount; }
     public String getCoverImageUrl() { return coverImageUrl; }
     public String getStatus() { return status; }
     public String getAuditState() { return auditState; }

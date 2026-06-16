@@ -60,7 +60,10 @@
               <span>{{ sellerName(item) }}</span>
               <small>ID {{ item.sellerId }}</small>
             </td>
-            <td>¥{{ formatPrice(item.price) }}</td>
+            <td>
+              <span>买家 ¥{{ formatPrice(item.price) }}</span>
+              <small v-if="item.sellerPrice">卖家底价 ¥{{ formatPrice(item.sellerPrice) }}</small>
+            </td>
             <td>{{ item.createdAt || '暂无' }}</td>
             <td><button class="link-btn" :disabled="reviewing" @click="selectProduct(item.productId)">查看</button></td>
           </tr>
@@ -83,7 +86,9 @@
         <div><dt>商品状态</dt><dd>{{ detail.status }}</dd></div>
         <div><dt>审核状态</dt><dd>{{ detailAuditStatus }}</dd></div>
         <div><dt>卖家</dt><dd>{{ sellerName(detail) }} / {{ detail.sellerId }}</dd></div>
-        <div><dt>价格</dt><dd>¥{{ formatPrice(detail.price) }}</dd></div>
+        <div><dt>买家展示价</dt><dd>¥{{ formatPrice(detail.price) }}</dd></div>
+        <div><dt>卖家底价</dt><dd>¥{{ formatPrice(detail.sellerPrice || detail.price) }}</dd></div>
+        <div><dt>平台加价</dt><dd>{{ markupText(detail) }}</dd></div>
         <div><dt>类目</dt><dd>{{ detail.category || '暂无' }}</dd></div>
         <div><dt>可见性</dt><dd>{{ detail.visible ? '可见' : '不可见' }}</dd></div>
         <div><dt>创建时间</dt><dd>{{ detail.createdAt || '暂无' }}</dd></div>
@@ -196,6 +201,13 @@ function formatPrice(price: number) {
   return value.toFixed(2)
 }
 
+function markupText(item: AdminProductListItem | AdminProductDetail) {
+  const rate = Number(item.platformMarkupRate)
+  const amount = Number(item.platformMarkupAmount)
+  if (!Number.isFinite(rate) || !Number.isFinite(amount)) return '暂无'
+  return `${(rate * 100).toFixed(2)}% / ¥${amount.toFixed(2)}`
+}
+
 function statusClass(status: string) {
   if (status === 'ACTIVE' || status === 'SOLD') return 'approved'
   if (status === 'OFFLINE' || status === 'DELETED') return 'rejected'
@@ -262,7 +274,6 @@ async function reviewProduct(action: 'approve' | 'reject') {
     error.value = '商品编号无效，未提交审核。'
     return
   }
-  if (action === 'reject' && !window.confirm('确认拒绝该待审商品？')) return
   reviewing.value = true
   error.value = ''
   try {
@@ -290,7 +301,6 @@ async function offlineProduct() {
     error.value = '商品下架原因无效：不能为空、最多 128 字，不能包含测试占位语义。'
     return
   }
-  if (!window.confirm('确认将该在售商品运营下架？')) return
   reviewing.value = true
   error.value = ''
   try {
@@ -318,7 +328,6 @@ async function hideProduct() {
     error.value = '商品处理原因无效：不能为空、最多 128 字，不能包含测试占位语义。'
     return
   }
-  if (!window.confirm('确认隐藏该商品？用户端将不再展示，后台仍可追溯。')) return
   reviewing.value = true
   error.value = ''
   try {
@@ -346,7 +355,6 @@ async function deleteProduct() {
     error.value = '商品处理原因无效：不能为空、最多 128 字，不能包含测试占位语义。'
     return
   }
-  if (!window.confirm('确认删除该商品？这是运营软删除，用户端不可见，后台仍保留追溯。')) return
   reviewing.value = true
   error.value = ''
   try {

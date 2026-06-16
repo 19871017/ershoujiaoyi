@@ -27,9 +27,7 @@ for (const marker of forbiddenMarkers) {
 
 const requiredMarkers = [
   "import { onHide, onReachBottom, onShow, onUnload } from '@dcloudio/uni-app'",
-  "import { COMMUNITY_TOPICS, isCommunityTopic, likeCommunityPost, listCommunityPostPage, unlikeCommunityPost, type CommunityPostPageResponse, type CommunityPostResponse, type CommunityTopic } from '../../../api/modules/community'",
   "import { getChatConversations, type ChatConversationItem, type ChatConversationListResponse } from '../../../api/modules/chat'",
-  "import { followPublicProfile } from '../../../api/modules/user'",
   'const COMMUNITY_FEED_PAGE_SIZE = 20',
   'const activeTopic = ref<CommunityTopic>(COMMUNITY_TOPICS[0])',
   'const topics = COMMUNITY_TOPICS.map((title) => ({ icon: topicIcons[title], title }))',
@@ -164,6 +162,25 @@ const requiredMarkers = [
 
 for (const marker of requiredMarkers) {
   if (!source.includes(marker)) failures.push(`${file}: missing real-data/fail-closed community feed marker: ${marker}`)
+}
+
+const communityImport = source.match(/import \{([\s\S]*?)\} from '..\/..\/..\/api\/modules\/community'/)?.[1] ?? ''
+for (const marker of [
+  'COMMUNITY_TOPICS',
+  'isCommunityTopic',
+  'likeCommunityPost',
+  'listCommunityPostPage',
+  'unlikeCommunityPost',
+  'type CommunityPostPageResponse',
+  'type CommunityPostResponse',
+  'type CommunityTopic'
+]) {
+  if (!communityImport.includes(marker)) failures.push(`${file}: missing community API import member: ${marker}`)
+}
+
+const userImport = source.match(/import \{([\s\S]*?)\} from '..\/..\/..\/api\/modules\/user'/)?.[1] ?? ''
+if (!userImport.includes('followPublicProfile')) {
+  failures.push(`${file}: missing user API import member: followPublicProfile`)
 }
 
 if (source.includes('<view class="name">{{ item.title }}</view>')) {

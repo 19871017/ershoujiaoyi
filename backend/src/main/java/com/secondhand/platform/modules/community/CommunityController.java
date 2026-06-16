@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -46,6 +47,12 @@ public class CommunityController {
         return Result.ok(communityApplicationService.listPublishedPostPage(limit, currentUserResolver.resolveOptional(request), topic, cursor));
     }
 
+    @GetMapping("/mine")
+    public Result<List<CommunityPostResponse>> mine(@RequestParam(defaultValue = "20") int limit,
+                                                    HttpServletRequest request) {
+        return Result.ok(communityApplicationService.listMyPosts(currentUserResolver.resolve(request), limit));
+    }
+
     @GetMapping("/{postId}")
     public Result<CommunityPostDetailResponse> detail(@PathVariable String postId, HttpServletRequest request) {
         return Result.ok(communityApplicationService.detail(postId, currentUserResolver.resolveOptional(request)));
@@ -54,6 +61,18 @@ public class CommunityController {
     @PostMapping
     public Result<CommunityPostResponse> create(@RequestBody CreateCommunityPostRequest body, HttpServletRequest request) {
         return Result.ok(communityApplicationService.createPost(currentUserResolver.resolve(request), body));
+    }
+
+    @PutMapping("/{postId}")
+    public Result<CommunityPostDetailResponse> update(@PathVariable Long postId,
+                                                      @RequestBody CreateCommunityPostRequest body,
+                                                      HttpServletRequest request) {
+        return Result.ok(communityApplicationService.updateMyPost(currentUserResolver.resolve(request), postId, body));
+    }
+
+    @DeleteMapping("/{postId}")
+    public Result<CommunityPostDetailResponse> delete(@PathVariable Long postId, HttpServletRequest request) {
+        return Result.ok(communityApplicationService.deleteMyPost(currentUserResolver.resolve(request), postId));
     }
 
     @PostMapping("/{postId}/comments")

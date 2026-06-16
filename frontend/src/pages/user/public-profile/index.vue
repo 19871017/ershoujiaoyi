@@ -339,7 +339,7 @@ async function loadProfile(): Promise<boolean> {
     failClosedSoldProducts()
     loadError.value = unavailableProfileMessage
     console.warn('public profile load failed', { userId: userId.value, error })
-    uni.showToast({ title: '卖家数据暂时不可用', icon: 'none' })
+    uni.showToast({ title: '卖家资料暂时不可用', icon: 'none' })
     return false
   }
 }

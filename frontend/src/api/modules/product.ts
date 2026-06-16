@@ -47,6 +47,9 @@ export interface ProductListItemResponse {
   sellerCity?: string
   sellerVideoVerified?: boolean
   price: string
+  sellerPrice?: string
+  platformMarkupRate?: string
+  platformMarkupAmount?: string
   coverImageUrl: string | null
   status: ProductCreateStatus
   auditState: ProductAuditState
@@ -60,6 +63,9 @@ export interface ProductDetailResponse {
   title: string
   description?: string
   price: string
+  sellerPrice?: string
+  platformMarkupRate?: string
+  platformMarkupAmount?: string
   imageUrls: string[]
   status: ProductCreateStatus
   auditState: ProductAuditState

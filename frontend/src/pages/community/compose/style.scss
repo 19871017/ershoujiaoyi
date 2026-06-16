@@ -437,11 +437,11 @@
 .post-success-overlay {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 100010;
   box-sizing: border-box;
-  padding: 32rpx 28rpx calc(42rpx + env(safe-area-inset-bottom));
+  padding: calc(34rpx + env(safe-area-inset-top)) 34rpx calc(34rpx + env(safe-area-inset-bottom));
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   background:
     radial-gradient(circle at 18% 18%, rgba(255, 174, 104, .28), transparent 28%),
@@ -453,7 +453,7 @@
   width: 100%;
   max-width: 660rpx;
   box-sizing: border-box;
-  padding: 34rpx 28rpx 26rpx;
+  padding: 38rpx 30rpx 30rpx;
   border-radius: 34rpx;
   color: #fff8ef;
   background:

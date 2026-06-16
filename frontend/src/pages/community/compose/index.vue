@@ -2,9 +2,9 @@
   <view class="page-shell compose-page">
     <view class="hero ds-card">
       <view>
-        <view class="kicker">♡ 发布社区动态</view>
-        <view class="page-title">发一条穿搭/避坑分享</view>
-        <view class="page-desc">可以聊穿搭、交易经验、求购心愿；订单、支付和售后状态以平台记录为准。</view>
+        <view class="kicker">♡ {{ composeKicker }}</view>
+        <view class="page-title">{{ composeTitle }}</view>
+        <view class="page-desc">{{ composeDesc }}</view>
       </view>
       <view class="hero-icon">✎</view>
     </view>
@@ -89,13 +89,13 @@
       <view v-if="submitMessage" class="safe-line strong">{{ submitMessage }}</view>
     </view>
 
-    <button class="primary-btn submit" :disabled="submitting || uploadingImages" @click="submitPost">{{ submitting ? '提交中...' : '提交发布' }}</button>
+    <button class="primary-btn submit" :disabled="submitting || uploadingImages || editLoading" @click="submitPost">{{ submitButtonText }}</button>
 
     <view v-if="postSuccessDialog.visible" class="post-success-overlay">
       <view class="post-success-panel" @click.stop>
         <view class="post-success-mark">✓</view>
-        <view class="post-success-title">发布成功</view>
-        <view class="post-success-copy">动态已进入社区，评论、点赞和私信都会以平台记录为准。</view>
+        <view class="post-success-title">{{ successTitle }}</view>
+        <view class="post-success-copy">{{ successCopy }}</view>
         <view class="post-success-actions">
           <button class="post-success-btn ghost" @click="handlePostSuccessBack">回社区</button>
           <button class="post-success-btn primary" @click="handlePostSuccessView">查看动态</button>
@@ -108,7 +108,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { COMMUNITY_TOPICS, createCommunityPost, isCommunityTopic, type CommunityTopic } from '../../../api/modules/community'
+import { COMMUNITY_TOPICS, createCommunityPost, getCommunityPostDetail, isCommunityTopic, updateCommunityPost, type CommunityTopic } from '../../../api/modules/community'
 import { createMediaUploadTicket, uploadMediaTicketFile } from '../../../api/modules/media'
 import { getProductDetail, listMyProducts } from '../../../api/modules/product'
 import {
@@ -132,9 +132,11 @@ import {
 
 const submitting = ref(false)
 const uploadingImages = ref(false)
+const editLoading = ref(false)
 const submitMessage = ref('')
 const topics = COMMUNITY_TOPICS
 const form = reactive({ topic: COMMUNITY_TOPICS[0] as CommunityTopic, title: '', content: '', images: [] as string[] })
+const editPostId = ref<number | null>(null)
 const relatedProductId = ref<number | null>(null)
 const relatedProductTitle = ref('平台商品待校验')
 const relatedProductPrice = ref<string | number | null>(null)
@@ -167,9 +169,34 @@ const productPickerActionText = computed(() => {
   if (myProductsLoading.value) return '加载中'
   return productPickerOpen.value ? '收起' : '选择我的商品'
 })
-onLoad((options) => {
-  applyRelatedProductRoute(options as Record<string, string | undefined> | undefined)
+const isEditMode = computed(() => editPostId.value !== null)
+const composeKicker = computed(() => isEditMode.value ? '编辑社区动态' : '发布社区动态')
+const composeTitle = computed(() => isEditMode.value ? '修改我的社区动态' : '发一条穿搭/避坑分享')
+const composeDesc = computed(() => isEditMode.value ? '只允许修改自己已发布的动态；删除或违规处理后的帖子不能再编辑。' : '可以聊穿搭、交易经验、求购心愿；订单、支付和售后状态以平台记录为准。')
+const submitButtonText = computed(() => {
+  if (editLoading.value) return '读取中...'
+  if (submitting.value) return isEditMode.value ? '保存中...' : '提交中...'
+  return isEditMode.value ? '保存修改' : '提交发布'
 })
+const successTitle = computed(() => isEditMode.value ? '修改成功' : '发布成功')
+const successCopy = computed(() => isEditMode.value ? '动态已保存，公开社区会按最新内容展示。' : '动态已进入社区，评论、点赞和私信都会以平台记录为准。')
+onLoad((options) => {
+  applyComposeRoute(options as Record<string, string | undefined> | undefined)
+})
+function applyComposeRoute(options?: Record<string, string | undefined>): void {
+  const mode = safeDecode(options?.mode || '').trim()
+  const routePostId = positiveRouteNumber(options?.postId)
+  if (mode === 'edit' || routePostId) {
+    if (!routePostId) {
+      uni.showToast({ title: '动态编号无效，无法编辑', icon: 'none' })
+      return
+    }
+    editPostId.value = routePostId
+    void loadEditPost(routePostId)
+    return
+  }
+  applyRelatedProductRoute(options)
+}
 function applyRelatedProductRoute(options?: Record<string, string | undefined>): void {
   const routeProductId = positiveRouteNumber(options?.productId)
   if (!routeProductId) {
@@ -183,6 +210,33 @@ function applyRelatedProductRoute(options?: Record<string, string | undefined>):
   relatedProductTitle.value = '平台商品待校验'
   relatedProductPrice.value = null
   void hydrateRelatedProductFromBackend(routeProductId)
+}
+async function loadEditPost(postId: number): Promise<void> {
+  editLoading.value = true
+  submitMessage.value = ''
+  try {
+    const detail = await getCommunityPostDetail(postId)
+    if (detail.postId !== postId || detail.status !== 'PUBLISHED') {
+      throw new Error('动态当前不可编辑')
+    }
+    if (!isCommunityTopic(detail.topic)) {
+      throw new Error('动态话题异常，暂不能编辑')
+    }
+    form.title = detail.title.trim()
+    form.topic = detail.topic
+    form.content = detail.content.trim()
+    form.images = (detail.imageUrls || []).map(validatedCommunityImageUrl)
+    relatedProductId.value = detail.relatedProductId || null
+    relatedProductTitle.value = detail.relatedProductTitle || '平台商品待校验'
+    relatedProductPrice.value = detail.relatedProductPrice ?? null
+  } catch (error) {
+    console.warn('community compose edit post load failed', { postId, error })
+    editPostId.value = null
+    submitMessage.value = '动态读取失败，未进入编辑状态'
+    uni.showToast({ title: error instanceof Error ? error.message : '动态读取失败，无法编辑', icon: 'none' })
+  } finally {
+    editLoading.value = false
+  }
 }
 function positiveRouteNumber(value?: string): number | null {
   const decoded = safeDecode(value || '')
@@ -344,13 +398,16 @@ async function submitPost() {
   }
   submitting.value = true
   try {
-    const created = await createCommunityPost({ title: form.title, topic: form.topic, content: form.content, imageUrls: form.images.map(validatedCommunityImageUrl), relatedProductId: relatedProductId.value })
+    const payload = { title: form.title, topic: form.topic, content: form.content, imageUrls: form.images.map(validatedCommunityImageUrl), relatedProductId: relatedProductId.value }
+    const created = isEditMode.value && editPostId.value
+      ? await updateCommunityPost(editPostId.value, payload)
+      : await createCommunityPost(payload)
     assertCreatedCommunityPost(created, form.topic)
-    submitMessage.value = `已提交发布：${created.postNo || created.postId}`
+    submitMessage.value = isEditMode.value ? `已保存修改：${created.postNo || created.postId}` : `已提交发布：${created.postNo || created.postId}`
     openPostSuccessDialog(created.postId)
   } catch (error) {
-    submitMessage.value = '发布没有提交成功，未进入社区广场'
-    uni.showToast({ title: error instanceof Error ? error.message : '发布失败，请稍后重试', icon: 'none' })
+    submitMessage.value = isEditMode.value ? '修改没有保存成功，原动态未变更' : '发布没有提交成功，未进入社区广场'
+    uni.showToast({ title: error instanceof Error ? error.message : isEditMode.value ? '保存失败，请稍后重试' : '发布失败，请稍后重试', icon: 'none' })
   } finally {
     submitting.value = false
   }

@@ -11,6 +11,9 @@ public class OrderListItemResponse {
     private String productNo;
     private String productTitle;
     private BigDecimal amount;
+    private BigDecimal sellerAmount;
+    private BigDecimal platformMarkupRate;
+    private BigDecimal platformMarkupAmount;
     private String tradeRuleSnapshot;
     private String status;
     private String role;
@@ -22,6 +25,15 @@ public class OrderListItemResponse {
     public OrderListItemResponse(String orderNo, Long buyerId, Long sellerId, Long productId, Long goodsId, String productNo,
                                  String productTitle, BigDecimal amount, String tradeRuleSnapshot, String status,
                                  String role, String counterpartyName, String afterSalesNo, String afterSalesStatus, String createdAt) {
+        this(orderNo, buyerId, sellerId, productId, goodsId, productNo, productTitle, amount, amount,
+                BigDecimal.ZERO.setScale(4), BigDecimal.ZERO.setScale(2), tradeRuleSnapshot, status, role, counterpartyName,
+                afterSalesNo, afterSalesStatus, createdAt);
+    }
+
+    public OrderListItemResponse(String orderNo, Long buyerId, Long sellerId, Long productId, Long goodsId, String productNo,
+                                 String productTitle, BigDecimal amount, BigDecimal sellerAmount, BigDecimal platformMarkupRate,
+                                 BigDecimal platformMarkupAmount, String tradeRuleSnapshot, String status,
+                                 String role, String counterpartyName, String afterSalesNo, String afterSalesStatus, String createdAt) {
         this.orderNo = orderNo;
         this.buyerId = buyerId;
         this.sellerId = sellerId;
@@ -30,6 +42,9 @@ public class OrderListItemResponse {
         this.productNo = productNo;
         this.productTitle = productTitle;
         this.amount = amount;
+        this.sellerAmount = sellerAmount;
+        this.platformMarkupRate = platformMarkupRate;
+        this.platformMarkupAmount = platformMarkupAmount;
         this.tradeRuleSnapshot = tradeRuleSnapshot;
         this.status = status;
         this.role = role;
@@ -47,6 +62,9 @@ public class OrderListItemResponse {
     public String getProductNo() { return productNo; }
     public String getProductTitle() { return productTitle; }
     public BigDecimal getAmount() { return amount; }
+    public BigDecimal getSellerAmount() { return sellerAmount; }
+    public BigDecimal getPlatformMarkupRate() { return platformMarkupRate; }
+    public BigDecimal getPlatformMarkupAmount() { return platformMarkupAmount; }
     public String getTradeRuleSnapshot() { return tradeRuleSnapshot; }
     public String getStatus() { return status; }
     public String getRole() { return role; }
