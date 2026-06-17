@@ -210,6 +210,7 @@ public class CommunityApplicationService {
                                a.avatar_url AS author_avatar,
                                up.gender AS author_gender,
                                up.city AS author_city,
+                               COALESCE(author_login.ip_location, 'IP属地未知') AS author_ip_location,
                                rp.title AS related_product_title,
                                rp.price AS related_product_price,
                                CASE WHEN ? = TRUE AND EXISTS (
@@ -221,6 +222,13 @@ public class CommunityApplicationService {
                         FROM community_post p
                         JOIN user_account a ON a.id = p.author_id AND a.status = 'ACTIVE'
                         LEFT JOIN user_profile up ON up.user_id = p.author_id
+                        LEFT JOIN user_login_record author_login ON author_login.id = (
+                            SELECT login.id
+                            FROM user_login_record login
+                            WHERE login.user_id = p.author_id
+                            ORDER BY login.login_at DESC, login.id DESC
+                            LIMIT 1
+                        )
                         LEFT JOIN product_item rp ON rp.id = p.related_product_id
                          AND rp.seller_id = p.author_id
                          AND rp.visible = TRUE
@@ -251,7 +259,7 @@ public class CommunityApplicationService {
                         """);
         args.add(capped);
         return jdbcTemplate.query(sql.toString(),
-                (rs, rowNum) -> mapPost(rs.getString("post_no"), rs.getLong("id"), rs.getLong("author_id"), rs.getString("author_name"), defaultAvatarUrl(rs.getString("author_avatar"), rs.getString("author_gender")), rs.getString("author_city"), rs.getString("title"), rs.getString("topic"), rs.getString("content"), rs.getString("image_urls"), rs.getString("status"), rs.getInt("like_count"), rs.getInt("comment_count"), rs.getTimestamp("created_at"), rs.getBoolean("liked_by_me"), rs.getBoolean("followed_by_me"), nullableLong(rs, "related_product_id"), rs.getString("related_product_title"), rs.getBigDecimal("related_product_price")),
+                (rs, rowNum) -> mapPost(rs.getString("post_no"), rs.getLong("id"), rs.getLong("author_id"), rs.getString("author_name"), defaultAvatarUrl(rs.getString("author_avatar"), rs.getString("author_gender")), rs.getString("author_city"), rs.getString("author_ip_location"), rs.getString("title"), rs.getString("topic"), rs.getString("content"), rs.getString("image_urls"), rs.getString("status"), rs.getInt("like_count"), rs.getInt("comment_count"), rs.getTimestamp("created_at"), rs.getBoolean("liked_by_me"), rs.getBoolean("followed_by_me"), nullableLong(rs, "related_product_id"), rs.getString("related_product_title"), rs.getBigDecimal("related_product_price")),
                 args.toArray());
     }
 
@@ -290,7 +298,7 @@ public class CommunityApplicationService {
         boolean liked = currentUserId != null && currentUserId > 0 && jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM community_like WHERE post_id = ? AND user_id = ?", Integer.class, postId, currentUserId) > 0;
         boolean followed = isViewerFollowingAuthor(currentUserId, post.getAuthorId());
-        return new CommunityPostDetailResponse(post.getPostNo(), post.getPostId(), post.getAuthorId(), post.getAuthorName(), post.getAuthorAvatar(), post.getCity(), post.getTitle(), post.getTopic(), post.getContent(),
+        return new CommunityPostDetailResponse(post.getPostNo(), post.getPostId(), post.getAuthorId(), post.getAuthorName(), post.getAuthorAvatar(), post.getCity(), post.getIpLocation(), post.getTitle(), post.getTopic(), post.getContent(),
                 post.getImageUrls(), post.getStatus(), post.getLikeCount(), post.getCommentCount(), post.getCreatedAt(), liked, followed, comments,
                 post.getRelatedProductId(), post.getRelatedProductTitle(), post.getRelatedProductPrice());
     }
@@ -712,11 +720,19 @@ public class CommunityApplicationService {
                                a.avatar_url AS author_avatar,
                                up.gender AS author_gender,
                                up.city AS author_city,
+                               COALESCE(author_login.ip_location, 'IP属地未知') AS author_ip_location,
                                rp.title AS related_product_title,
                                rp.price AS related_product_price
                         FROM community_post p
                         JOIN user_account a ON a.id = p.author_id AND a.status = 'ACTIVE'
                         LEFT JOIN user_profile up ON up.user_id = p.author_id
+                        LEFT JOIN user_login_record author_login ON author_login.id = (
+                            SELECT login.id
+                            FROM user_login_record login
+                            WHERE login.user_id = p.author_id
+                            ORDER BY login.login_at DESC, login.id DESC
+                            LIMIT 1
+                        )
                         LEFT JOIN product_item rp ON rp.id = p.related_product_id
                          AND rp.seller_id = p.author_id
                          AND rp.visible = TRUE
@@ -725,7 +741,7 @@ public class CommunityApplicationService {
                         """ + CERTIFIED_SELLER_RELATED_PRODUCT_FILTER + """
                         WHERE p.id = ?
                         """,
-                (rs, rowNum) -> mapPost(rs.getString("post_no"), rs.getLong("id"), rs.getLong("author_id"), rs.getString("author_name"), rs.getString("author_avatar"), rs.getString("author_gender"), rs.getString("author_city"), rs.getString("title"), rs.getString("topic"), rs.getString("content"), rs.getString("image_urls"), rs.getString("status"), rs.getInt("like_count"), rs.getInt("comment_count"), rs.getTimestamp("created_at"), false, nullableLong(rs, "related_product_id"), rs.getString("related_product_title"), rs.getBigDecimal("related_product_price")), postId);
+                (rs, rowNum) -> mapPost(rs.getString("post_no"), rs.getLong("id"), rs.getLong("author_id"), rs.getString("author_name"), rs.getString("author_avatar"), rs.getString("author_gender"), rs.getString("author_city"), rs.getString("author_ip_location"), rs.getString("title"), rs.getString("topic"), rs.getString("content"), rs.getString("image_urls"), rs.getString("status"), rs.getInt("like_count"), rs.getInt("comment_count"), rs.getTimestamp("created_at"), false, nullableLong(rs, "related_product_id"), rs.getString("related_product_title"), rs.getBigDecimal("related_product_price")), postId);
         if (posts.isEmpty()) {
             throw new IllegalArgumentException("post not found");
         }
@@ -787,6 +803,14 @@ public class CommunityApplicationService {
     }
 
     private CommunityPostResponse mapPost(String postNo, Long postId, Long authorId, String authorName, String authorAvatar, String authorGender, String city,
+                                          String ipLocation,
+                                          String title, String topic, String content, String imageUrls, String status,
+                                          int likeCount, int commentCount, Timestamp createdAt, boolean likedByMe,
+                                          Long relatedProductId, String relatedProductTitle, BigDecimal relatedProductPrice) {
+        return mapPost(postNo, postId, authorId, authorName, defaultAvatarUrl(authorAvatar, authorGender), city, ipLocation, title, topic, content, imageUrls, status, likeCount, commentCount, createdAt, likedByMe, false, relatedProductId, relatedProductTitle, relatedProductPrice);
+    }
+
+    private CommunityPostResponse mapPost(String postNo, Long postId, Long authorId, String authorName, String authorAvatar, String authorGender, String city,
                                           String title, String topic, String content, String imageUrls, String status,
                                           int likeCount, int commentCount, Timestamp createdAt, boolean likedByMe,
                                           Long relatedProductId, String relatedProductTitle, BigDecimal relatedProductPrice) {
@@ -798,6 +822,16 @@ public class CommunityApplicationService {
                                           int likeCount, int commentCount, Timestamp createdAt, boolean likedByMe,
                                           Long relatedProductId, String relatedProductTitle, BigDecimal relatedProductPrice) {
         return mapPost(postNo, postId, authorId, authorName, authorAvatar, city, title, topic, content, imageUrls, status, likeCount, commentCount, createdAt, likedByMe, false, relatedProductId, relatedProductTitle, relatedProductPrice);
+    }
+
+    private CommunityPostResponse mapPost(String postNo, Long postId, Long authorId, String authorName, String authorAvatar, String city,
+                                          String ipLocation,
+                                          String title, String topic, String content, String imageUrls, String status,
+                                          int likeCount, int commentCount, Timestamp createdAt, boolean likedByMe, boolean followedByMe,
+                                          Long relatedProductId, String relatedProductTitle, BigDecimal relatedProductPrice) {
+        return new CommunityPostResponse(postNo, postId, authorId, normalizeAuthorName(authorName, authorId), normalizeBlank(authorAvatar), normalizeBlank(city), normalizeBlank(ipLocation),
+                title, topic, content, splitImages(imageUrls), status, likeCount, commentCount, toInstant(createdAt), likedByMe, followedByMe,
+                relatedProductTitle == null ? null : relatedProductId, normalizeBlank(relatedProductTitle), relatedProductPrice);
     }
 
     private CommunityPostResponse mapPost(String postNo, Long postId, Long authorId, String authorName, String authorAvatar, String city,

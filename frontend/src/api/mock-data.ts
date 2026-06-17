@@ -490,17 +490,5 @@ export function mockResponse<T>(url: string, method: string, data?: unknown): T 
     ] as T
   }
 
-  if (url === '/api/location/config') {
-    return {
-      provider: 'BAIDU',
-      enabled: true,
-      configured: false,
-      defaultCity: '请选择城市',
-      defaultProvince: '',
-      coordinateType: 'wgs84ll',
-      updatedAt: new Date().toISOString()
-    } as T
-  }
-
   return undefined
 }

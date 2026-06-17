@@ -231,12 +231,6 @@
       }
     },
     {
-      "path": "pages/location/city/index",
-      "style": {
-        "navigationBarTitleText": ""
-      }
-    },
-    {
       "path": "pages/user/public-profile/index",
       "style": {
         "navigationBarTitleText": ""

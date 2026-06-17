@@ -8,6 +8,7 @@
     "dev:h5": "npm run clean:uni-output --silent && uni -p h5",
     "build:h5": "npm run clean:uni-output --silent && VITE_ENABLE_MOCK_DATA=true VITE_ENABLE_DEV_HEADERS=true VITE_ENABLE_LAN_API_FALLBACK=true uni build -p h5 && node scripts/copy-public-assets-to-h5.cjs",
     "build:h5:prod": "npm run clean:uni-output --silent && VITE_ENABLE_MOCK_DATA=false VITE_ENABLE_DEV_HEADERS=false VITE_ENABLE_LAN_API_FALLBACK=false uni build -p h5 && node scripts/copy-public-assets-to-h5.cjs",
+    "build:app:prod": "npm run clean:uni-output --silent && VITE_API_BASE_URL=https://old.tiklxd09.club VITE_ENABLE_MOCK_DATA=false VITE_ENABLE_DEV_HEADERS=false VITE_ENABLE_LAN_API_FALLBACK=false uni build -p app",
     "typecheck": "vue-tsc --noEmit",
     "check:order-copy": "node scripts/check-order-sensitive-action-copy.cjs",
     "check:community-comment": "node scripts/check-community-detail-real-comment.cjs",
@@ -73,6 +74,9 @@
     "vue": "3.5.34"
   },
   "devDependencies": {
+    "@dcloudio/uni-app-plus": "^3.0.0-alpha-5000820260430001",
+    "@dcloudio/uni-app-uts": "^3.0.0-alpha-5000820260430001",
+    "@dcloudio/uni-app-vite": "^3.0.0-alpha-5000820260430001",
     "@dcloudio/vite-plugin-uni": "3.0.0-alpha-5000820260430001",
     "@vue/tsconfig": "^0.9.1",
     "playwright": "1.60.0",

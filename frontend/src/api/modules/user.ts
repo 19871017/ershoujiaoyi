@@ -11,6 +11,7 @@ export interface UserProfileResponse {
   gender?: UserGender
   age?: number | null
   city?: string
+  ipLocation?: string
   bio?: string
   identityStatus?: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED' | string
   videoIdentityStatus: 'UNVERIFIED' | 'PENDING' | 'APPROVED' | 'REJECTED' | string
@@ -41,6 +42,7 @@ export interface AccountSecurityResponse {
     deviceName: string
     loginAt: string
     city: string
+    ipLocation?: string
     status: string
   }>
 }
@@ -60,7 +62,6 @@ export interface UpdateUserProfileRequest {
   avatarUrl?: string
   mainRole?: string
   gender: 'god' | 'goddess' | string
-  city?: string
   bio?: string
   showcaseImageUrls?: string[]
 }

@@ -165,6 +165,7 @@ public class ChatApplicationService {
                        peer.nickname AS peer_nickname, peer.avatar_url AS peer_avatar_url,
                        profile.gender AS peer_gender,
                        profile.city AS peer_city,
+                       COALESCE(peer_login.ip_location, 'IP属地未知') AS peer_ip_location,
                        COALESCE(profile.main_role, 'BUYER') AS peer_main_role,
                        CASE WHEN COALESCE(profile.video_identity_status, 'UNVERIFIED') = 'APPROVED'
                                  AND COALESCE(profile.video_verified, FALSE) = TRUE
@@ -192,6 +193,13 @@ public class ChatApplicationService {
                 FROM im_conversation c
                 JOIN user_account peer ON peer.id = CASE WHEN c.owner_user_id = ? THEN c.peer_user_id ELSE c.owner_user_id END AND peer.status = 'ACTIVE'
                 LEFT JOIN user_profile profile ON profile.user_id = peer.id
+                LEFT JOIN user_login_record peer_login ON peer_login.id = (
+                    SELECT login.id
+                    FROM user_login_record login
+                    WHERE login.user_id = peer.id
+                    ORDER BY login.login_at DESC, login.id DESC
+                    LIMIT 1
+                )
                 LEFT JOIN (
                     SELECT receiver_id, FLOOR(COALESCE(SUM(total_amount), 0)) AS seller_charm_score
                     FROM gift_order
@@ -226,6 +234,7 @@ public class ChatApplicationService {
                        peer.nickname AS peer_nickname, peer.avatar_url AS peer_avatar_url,
                        profile.gender AS peer_gender,
                        profile.city AS peer_city,
+                       COALESCE(peer_login.ip_location, 'IP属地未知') AS peer_ip_location,
                        COALESCE(profile.main_role, 'BUYER') AS peer_main_role,
                        CASE WHEN COALESCE(profile.video_identity_status, 'UNVERIFIED') = 'APPROVED'
                                  AND COALESCE(profile.video_verified, FALSE) = TRUE
@@ -253,6 +262,13 @@ public class ChatApplicationService {
                 FROM im_conversation c
                 JOIN user_account peer ON peer.id = CASE WHEN c.owner_user_id = ? THEN c.peer_user_id ELSE c.owner_user_id END AND peer.status = 'ACTIVE'
                 LEFT JOIN user_profile profile ON profile.user_id = peer.id
+                LEFT JOIN user_login_record peer_login ON peer_login.id = (
+                    SELECT login.id
+                    FROM user_login_record login
+                    WHERE login.user_id = peer.id
+                    ORDER BY login.login_at DESC, login.id DESC
+                    LIMIT 1
+                )
                 LEFT JOIN (
                     SELECT receiver_id, FLOOR(COALESCE(SUM(total_amount), 0)) AS seller_charm_score
                     FROM gift_order
@@ -563,6 +579,7 @@ public class ChatApplicationService {
         item.setPeerGender(rs.getString("peer_gender"));
         item.setPeerAvatarUrl(defaultAvatarUrl(rs.getString("peer_avatar_url"), item.getPeerGender()));
         item.setPeerCity(rs.getString("peer_city"));
+        item.setPeerIpLocation(rs.getString("peer_ip_location"));
         item.setPeerMainRole(rs.getString("peer_main_role"));
         item.setPeerVideoVerified(rs.getBoolean("peer_video_verified"));
         item.setPeerSellerCharmScore(rs.getInt("peer_seller_charm_score"));

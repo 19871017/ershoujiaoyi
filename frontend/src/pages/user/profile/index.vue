@@ -43,8 +43,8 @@
           </view>
         </view>
         <view class="form-field">
-          <view class="field-label">所在城市</view>
-          <input :value="form.city" class="field" maxlength="24" placeholder="填写城市/区域" confirm-type="next" @input="updateTextField('city', $event)" @blur="trimTextField('city')" />
+          <view class="field-label">IP属地</view>
+          <view class="field readonly-field">{{ form.ipLocation || 'IP属地未知' }}</view>
         </view>
         <view class="form-field">
           <view class="field-label">个人简介</view>
@@ -103,9 +103,9 @@ import {
   type ChosenImageFile
 } from './profile-helpers'
 
-type TextFieldKey = 'nickname' | 'city' | 'bio'
+type TextFieldKey = 'nickname' | 'bio'
 
-const form = reactive({ userId: 0, userNo: '', avatarUrl: '', nickname: '', mainRole: 'BUYER', gender: 'goddess', city: '', bio: '', videoIdentityStatus: 'UNVERIFIED', videoVerified: false, showcaseImageUrls: [] as string[] })
+const form = reactive({ userId: 0, userNo: '', avatarUrl: '', nickname: '', mainRole: 'BUYER', gender: 'goddess', city: '', ipLocation: '', bio: '', videoIdentityStatus: 'UNVERIFIED', videoVerified: false, showcaseImageUrls: [] as string[] })
 const loadingProfile = ref(true)
 const profileError = ref('')
 const saving = ref(false)
@@ -145,6 +145,7 @@ function applyProfile(profile: UserProfileResponse) {
     mainRole: approvedVideoIdentity ? (profile.mainRole || 'BUYER') : 'BUYER',
     gender: profile.gender || 'goddess',
     city: profile.city || '',
+    ipLocation: profile.ipLocation || '',
     bio: profile.bio || '',
     videoIdentityStatus: profile.videoIdentityStatus,
     videoVerified: profile.videoVerified,
@@ -326,7 +327,6 @@ function removeShowcasePhoto(index: number) {
 async function saveProfile() {
   if (!canEditProfile.value || saving.value || uploadingAvatar.value || uploadingShowcase.value) return
   trimTextField('nickname')
-  trimTextField('city')
   trimTextField('bio')
   if (!form.nickname) { showToast('昵称不能为空'); return }
   saving.value = true
@@ -338,7 +338,6 @@ async function saveProfile() {
       avatarUrl: safeAvatarUrl,
       gender: form.gender,
       mainRole: hasApprovedVideoIdentity.value ? form.mainRole : 'BUYER',
-      city: form.city,
       bio: form.bio
     }
     if (safeShowcaseUrls) profilePayload.showcaseImageUrls = safeShowcaseUrls

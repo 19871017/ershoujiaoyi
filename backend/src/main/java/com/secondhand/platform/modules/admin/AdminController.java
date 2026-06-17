@@ -12,9 +12,6 @@ import com.secondhand.platform.modules.audit.application.AuditRecordResponse;
 import com.secondhand.platform.modules.community.application.CommunityApplicationService;
 import com.secondhand.platform.modules.community.application.CommunityPostDetailResponse;
 import com.secondhand.platform.modules.community.application.CommunityPostResponse;
-import com.secondhand.platform.modules.location.AdminUpdateLocationConfigRequest;
-import com.secondhand.platform.modules.location.LocationApplicationService;
-import com.secondhand.platform.modules.location.LocationConfigResponse;
 import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
 import com.secondhand.platform.modules.media.application.VideoIdentityMediaInspector;
 import com.secondhand.platform.modules.order.OrderDetailResponse;
@@ -111,7 +108,6 @@ public class AdminController {
     private final AuditApplicationService auditApplicationService;
     private final WalletLedgerService walletLedgerService;
     private final AnnouncementApplicationService announcementApplicationService;
-    private final LocationApplicationService locationApplicationService;
     private final AfterSalesApplicationService afterSalesApplicationService;
     private final OrderApplicationService orderApplicationService;
     private final ProductApplicationService productApplicationService;
@@ -128,7 +124,6 @@ public class AdminController {
     public AdminController(AuditApplicationService auditApplicationService,
                            WalletLedgerService walletLedgerService,
                            AnnouncementApplicationService announcementApplicationService,
-                           LocationApplicationService locationApplicationService,
                            AfterSalesApplicationService afterSalesApplicationService,
                            OrderApplicationService orderApplicationService,
                            ProductApplicationService productApplicationService,
@@ -143,7 +138,6 @@ public class AdminController {
         this.auditApplicationService = auditApplicationService;
         this.walletLedgerService = walletLedgerService;
         this.announcementApplicationService = announcementApplicationService;
-        this.locationApplicationService = locationApplicationService;
         this.afterSalesApplicationService = afterSalesApplicationService;
         this.orderApplicationService = orderApplicationService;
         this.productApplicationService = productApplicationService;
@@ -160,7 +154,6 @@ public class AdminController {
     public AdminController(AuditApplicationService auditApplicationService,
                            WalletLedgerService walletLedgerService,
                            AnnouncementApplicationService announcementApplicationService,
-                           LocationApplicationService locationApplicationService,
                            AfterSalesApplicationService afterSalesApplicationService,
                            OrderApplicationService orderApplicationService,
                            ProductApplicationService productApplicationService,
@@ -172,7 +165,6 @@ public class AdminController {
         this(auditApplicationService,
                 walletLedgerService,
                 announcementApplicationService,
-                locationApplicationService,
                 afterSalesApplicationService,
                 orderApplicationService,
                 productApplicationService,
@@ -189,7 +181,6 @@ public class AdminController {
     public AdminController(AuditApplicationService auditApplicationService,
                            WalletLedgerService walletLedgerService,
                            AnnouncementApplicationService announcementApplicationService,
-                           LocationApplicationService locationApplicationService,
                            AfterSalesApplicationService afterSalesApplicationService,
                            OrderApplicationService orderApplicationService,
                            ProductApplicationService productApplicationService,
@@ -203,7 +194,6 @@ public class AdminController {
         this(auditApplicationService,
                 walletLedgerService,
                 announcementApplicationService,
-                locationApplicationService,
                 afterSalesApplicationService,
                 orderApplicationService,
                 productApplicationService,
@@ -495,11 +485,6 @@ public class AdminController {
         return Result.ok(auditApplicationService.getAdminDetail(auditNo));
     }
 
-    @GetMapping("/location/config")
-    public Result<LocationConfigResponse> locationConfig(HttpServletRequest request) {
-        adminAccessGuard.requireAdmin(request, "system:config");
-        return Result.ok(locationApplicationService.getConfig());
-    }
 
     @GetMapping("/announcements/ticker")
     public Result<AnnouncementTickerResponse> announcementTicker(HttpServletRequest request) {
@@ -574,21 +559,6 @@ public class AdminController {
         return Result.ok(response);
     }
 
-    @PostMapping("/location/config")
-    public Result<LocationConfigResponse> updateLocationConfig(@RequestBody(required = false) AdminUpdateLocationConfigRequest body,
-                                                               HttpServletRequest request) {
-        long adminUserId = adminAccessGuard.requireAdmin(request, "system:config");
-        LocationConfigResponse response = locationApplicationService.adminUpdateConfig(body);
-        auditApplicationService.recordAdminOperation(
-                "LOCATION_CONFIG_UPDATE",
-                adminUserId,
-                "SYSTEM_CONFIG",
-                "location",
-                "SUCCESS",
-                "位置配置已更新：provider=" + response.provider() + ", enabled=" + response.enabled()
-        );
-        return Result.ok(response);
-    }
 
     @PostMapping("/announcements/ticker")
     public Result<AnnouncementTickerResponse> updateAnnouncementTicker(@RequestBody(required = false) AdminUpdateAnnouncementTickerRequest body,

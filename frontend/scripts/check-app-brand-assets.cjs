@@ -65,11 +65,11 @@ for (const file of manifests) {
   if (manifest.plus?.distribute?.android?.packagename !== 'com.tiklxd09.xiaoyuanquan') failures.push(`${file}: missing Android package name`)
   if (manifest.plus?.distribute?.ios?.bundleIdentifier !== 'com.tiklxd09.xiaoyuanquan') failures.push(`${file}: missing iOS bundle identifier`)
   const androidPermissions = manifest.plus?.distribute?.android?.permissions || []
-  for (const permission of ['android.permission.INTERNET', 'android.permission.CAMERA', 'android.permission.RECORD_AUDIO']) {
+  for (const permission of ['android.permission.INTERNET', 'android.permission.CAMERA', 'android.permission.RECORD_AUDIO', 'android.permission.ACCESS_FINE_LOCATION', 'android.permission.ACCESS_COARSE_LOCATION']) {
     if (!androidPermissions.some((item) => String(item).includes(permission))) failures.push(`${file}: missing Android permission ${permission}`)
   }
   const iosPrivacy = manifest.plus?.distribute?.ios?.privacyDescription || {}
-  for (const key of ['NSCameraUsageDescription', 'NSMicrophoneUsageDescription', 'NSPhotoLibraryUsageDescription']) {
+  for (const key of ['NSCameraUsageDescription', 'NSMicrophoneUsageDescription', 'NSPhotoLibraryUsageDescription', 'NSLocationWhenInUseUsageDescription']) {
     if (!iosPrivacy[key]) failures.push(`${file}: missing iOS privacy description ${key}`)
   }
   if (manifest.h5?.favicon !== 'static/brand/xiaoyuanquan-logo-mark.png') failures.push(`${file}: H5 favicon must use the app logo mark`)

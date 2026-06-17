@@ -57,7 +57,7 @@ for (const { pattern, message } of forbiddenRegexes) {
 
 const requiredMarkers = [
   'sellerName',
-  'sellerCity',
+  'sellerIpLocation',
   'sellerTrustText',
   'sellerTags',
   'sellerId?: number | null',

@@ -5,10 +5,8 @@ export const conditions = ['全新未拆', '几乎全新', '轻微使用', '有�
 export const platformTradeRule = '按平台订单流程交易'
 export const productImageStoragePrefix = '/uploads/product-image/'
 export const tradeOptions = [platformTradeRule]
-export const locationMaxLength = 24
 
-export type TextFieldKey = 'title' | 'description' | 'price' | 'location'
-export type GetLocationResult = { latitude: number; longitude: number }
+export type TextFieldKey = 'title' | 'description' | 'price'
 
 export function fileNameFromPath(path: string) {
   const clean = path.split('?')[0] || ''
@@ -61,10 +59,6 @@ export function inputValue(event: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
-export function normalizeLocation(value: string) {
-  return value.trim().slice(0, locationMaxLength)
-}
-
 export function assertBackendProfile(value: unknown): asserts value is UserProfileResponse {
   if (!value || typeof value !== 'object') throw new Error('product publish invalid backend profile')
   const profile = value as UserProfileResponse
@@ -72,7 +66,6 @@ export function assertBackendProfile(value: unknown): asserts value is UserProfi
   if (typeof profile.mainRole !== 'string' || !profile.mainRole.trim()) throw new Error('product publish invalid mainRole')
   if (typeof profile.videoVerified !== 'boolean') throw new Error('product publish invalid video verified state')
   if (typeof profile.videoIdentityStatus !== 'string' || !profile.videoIdentityStatus) throw new Error('product publish invalid video identity status')
-  if (profile.city != null && typeof profile.city !== 'string') throw new Error('product publish invalid city')
 }
 
 export function resolvePublishPermission(profile: UserProfileResponse) {
@@ -85,19 +78,4 @@ export function resolvePublishBlockMessage(profile: UserProfileResponse) {
   if (status === 'PENDING') return '卖家认证审核中'
   if (status === 'REJECTED') return '卖家认证未通过，请重新提交认证'
   return '请先完成卖家认证'
-}
-
-export function locationErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : ''
-  switch (message) {
-    case 'location reverse geocode disabled':
-      return '定位服务已关闭，请手动填写城市/区域'
-    case 'location reverse geocode not configured':
-      return '定位服务未配置完成，请手动填写城市/区域'
-    case '定位服务未返回真实城市':
-    case '定位结果为空':
-      return message
-    default:
-      return '定位失败，请手动填写城市/区域'
-  }
 }

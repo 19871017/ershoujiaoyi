@@ -7,8 +7,7 @@ const files = [
   'pages.json',
   'src/pages/tabbar/me/index.vue',
   'src/pages/risk/index.vue',
-  'src/api/modules/admin.ts',
-  'src/api/modules/location.ts'
+  'src/api/modules/admin.ts'
 ]
 const forbiddenDirs = [
   'src/pages/admin'

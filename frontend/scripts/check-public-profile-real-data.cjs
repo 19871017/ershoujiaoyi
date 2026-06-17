@@ -37,6 +37,9 @@ const requiredMarkers = [
   "const noBackendProductsMessage = '这位卖家暂时没有公开在售宝贝'",
   'const sellerProducts = ref<ProductListItemResponse[]>([])',
   'listSellerProducts(userId.value)',
+  'IP属地',
+  'profile.ipLocation',
+  "throw new Error('public profile invalid ip location')",
   "assertProductList(activeData, 'ACTIVE')",
   "assertProductList(soldData, 'SOLD')",
   '卖家宝贝暂时加载失败，请稍后重试',
@@ -142,7 +145,7 @@ if (!source.includes('assertPublicProfile(data, userId.value)') || !source.inclu
   failures.push(`${file}: public profile must validate backend-returned userId before assigning profile state`)
 }
 
-if (!/function assertPublicProfile\(value: unknown, expectedUserId: string\): asserts value is UserProfileResponse[\s\S]*Number\.isSafeInteger\(backendProfile\.userId\)[\s\S]*typeof backendProfile\.nickname !== 'string'[\s\S]*typeof backendProfile\.videoVerified !== 'boolean'[\s\S]*backendProfile\.videoVerified === true && !validatedPublicMediaUrl\(backendProfile\.videoIdentityUrl, videoIdentityStoragePrefix\)[\s\S]*backendProfile\.showcaseImageUrls\.some\(\(url\) => typeof url !== 'string' \|\| !validatedPublicMediaUrl\(url, showcaseImageStoragePrefix\)\)[\s\S]*typeof backendProfile\.followedByMe !== 'boolean'/s.test(source)) {
+if (!/function assertPublicProfile\(value: unknown, expectedUserId: string\): asserts value is UserProfileResponse[\s\S]*Number\.isSafeInteger\(backendProfile\.userId\)[\s\S]*typeof backendProfile\.nickname !== 'string'[\s\S]*typeof backendProfile\.ipLocation !== 'string'[\s\S]*typeof backendProfile\.videoVerified !== 'boolean'[\s\S]*backendProfile\.videoVerified === true && !validatedPublicMediaUrl\(backendProfile\.videoIdentityUrl, videoIdentityStoragePrefix\)[\s\S]*backendProfile\.showcaseImageUrls\.some\(\(url\) => typeof url !== 'string' \|\| !validatedPublicMediaUrl\(url, showcaseImageStoragePrefix\)\)[\s\S]*typeof backendProfile\.followedByMe !== 'boolean'/s.test(source)) {
   failures.push(`${file}: public profile must validate backend profile shape and approved media URLs before rendering trust/profile state`)
 }
 

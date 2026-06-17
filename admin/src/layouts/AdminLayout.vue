@@ -34,7 +34,6 @@ const moduleMenus = new Map([
   { path: '/users', label: '用户管理', permission: 'user:read' },
   { path: '/audit-logs', label: '审计日志', permission: 'audit:log' },
   { path: '/operators', label: '运营授权', permission: 'operator:grant' },
-  { path: '/system/location', label: '位置配置', permission: 'system:config' },
   { path: '/system/payment', label: '支付配置', permission: 'system:config' },
   { path: '/system/product-pricing', label: '商品加价', permission: 'system:config' },
   { path: '/system/banners', label: '首页轮播', permission: 'system:config' },

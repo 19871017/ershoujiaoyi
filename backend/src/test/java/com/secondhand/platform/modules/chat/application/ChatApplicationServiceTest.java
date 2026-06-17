@@ -256,6 +256,7 @@ class ChatApplicationServiceTest {
         Long conversationId = service.createConversation(conversation(1L, 2L));
         updateUserAccount(2L, "真实卖家", "/uploads/avatar/seller.png");
         insertUserProfile(2L, "goddess", "杭州", "SELLER", true);
+        insertUserLoginRecord(2L, "浙江 杭州");
         approveVideoIdentity(2L, issueVideoIdentityTicket(2L));
         insertGiftOrder("GIFT-2", 1L, 2L, 88);
         insertTradeOrder("TRADE-2", 2L, 1L, 36);
@@ -268,10 +269,14 @@ class ChatApplicationServiceTest {
         assertEquals("/uploads/avatar/seller.png", item.getPeerAvatarUrl());
         assertEquals("goddess", item.getPeerGender());
         assertEquals("杭州", item.getPeerCity());
+        assertEquals("浙江 杭州", item.getPeerIpLocation());
         assertEquals("SELLER", item.getPeerMainRole());
         assertTrue(item.getPeerVideoVerified());
         assertEquals(88, item.getPeerSellerCharmScore());
         assertEquals(36, item.getPeerBuyerPowerScore());
+
+        ConversationListItemResponse detail = service.getConversation(conversationId, 1L);
+        assertEquals("浙江 杭州", detail.getPeerIpLocation());
 	    }
 
     @Test
@@ -633,6 +638,14 @@ class ChatApplicationServiceTest {
                   buyer_id, seller_id, amount, order_status, accepted_trade_rule
                 ) VALUES (?, 1, 1, ?, '测试商品', 'PLATFORM_ORDER', ?, ?, ?, 'PAID', TRUE)
                 """, orderNo, "P-" + orderNo, buyerId, sellerId, amount);
+    }
+
+    private void insertUserLoginRecord(Long userId, String ipLocation) {
+        jdbcTemplate.update("""
+                INSERT INTO user_login_record (
+                  user_id, login_ip_hash, ip_location, device_name, login_at, created_at
+                ) VALUES (?, ?, ?, 'JUnit', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, userId, "hash-" + userId + "-" + Math.abs(ipLocation.hashCode()), ipLocation);
     }
 
     private CreateConversationCommand conversation(Long ownerUserId, Long peerUserId) {

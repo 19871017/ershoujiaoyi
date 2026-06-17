@@ -28,6 +28,7 @@ export interface CommunityPostResponse {
   authorName?: string
   authorAvatar?: string
   city?: string
+  ipLocation?: string
   relatedProductId?: number | null
   relatedProductTitle?: string | null
   relatedProductPrice?: string | number | null

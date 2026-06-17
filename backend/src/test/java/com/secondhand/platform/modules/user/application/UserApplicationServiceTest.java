@@ -46,17 +46,21 @@ class UserApplicationServiceTest {
     }
 
     @Test
-    void accountSecurityShouldReturnMaskedPhoneAndEmptyBackendDeviceState() {
+    void accountSecurityShouldReturnMaskedPhoneAndRecentBackendLoginRecords() {
         AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
         auth.register(login("13800138666", "pass-123456"), "test-13800138666");
+        auth.login(login("13800138666", "pass-123456"), "203.0.113.66");
         Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138666");
 
         com.secondhand.platform.modules.user.AccountSecurityResponse security = service.accountSecurity(userId);
 
         assertEquals(userId, security.getUserId());
         assertEquals("138****8666", security.getMaskedPhone());
-        assertEquals("--", security.getSecurityScore());
-        assertEquals(0, security.getRecentDevices().size());
+        assertEquals("已记录", security.getSecurityScore());
+        assertEquals(2, security.getRecentDevices().size());
+        assertEquals("当前账号登录", security.getRecentDevices().get(0).getDeviceName());
+        assertEquals("IP属地未知", security.getRecentDevices().get(0).getCity());
+        assertEquals("平台记录", security.getRecentDevices().get(0).getStatus());
     }
 
     @Test
@@ -82,6 +86,19 @@ class UserApplicationServiceTest {
         assertEquals(userId, profile.getUserId());
         assertEquals("小原圈用户8002", profile.getNickname());
         assertEquals("SELLER", profile.getMainRole());
+    }
+
+    @Test
+    void publicProfileShouldExposeLatestIpLocationSeparatelyFromManualCity() {
+        AuthApplicationService auth = new AuthApplicationService(jdbcTemplate);
+        auth.register(login("13800138668", "pass-123456"), "192.168.1.8");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138668");
+        jdbcTemplate.update("UPDATE user_profile SET city = ? WHERE user_id = ?", "广州", userId);
+
+        UserProfileResponse profile = service.publicProfile(userId);
+
+        assertEquals("广州", profile.getCity());
+        assertEquals("内网", profile.getIpLocation());
     }
 
     @Test

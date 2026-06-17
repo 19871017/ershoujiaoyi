@@ -9,6 +9,7 @@ public class ConversationListItemResponse {
     private String peerAvatarUrl;
     private String peerGender;
     private String peerCity;
+    private String peerIpLocation;
     private String peerMainRole;
     private Boolean peerVideoVerified;
     private Integer peerSellerCharmScore;
@@ -66,6 +67,14 @@ public class ConversationListItemResponse {
 
     public void setPeerCity(String peerCity) {
         this.peerCity = peerCity;
+    }
+
+    public String getPeerIpLocation() {
+        return peerIpLocation;
+    }
+
+    public void setPeerIpLocation(String peerIpLocation) {
+        this.peerIpLocation = peerIpLocation;
     }
 
     public String getPeerMainRole() {

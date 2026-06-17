@@ -101,6 +101,41 @@ class AuthApplicationServiceTest {
     }
 
     @Test
+    void loginAndRegisterShouldRecordHashedClientIpForAccountSecurity() {
+        service.register(login("13800138017", "pass-123456"), "198.51.100.17");
+        service.login(login("13800138017", "pass-123456"), "203.0.113.17");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138017");
+
+        assertEquals(2, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_login_record WHERE user_id = ?", Integer.class, userId));
+        assertEquals(0, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_login_record WHERE login_ip_hash LIKE '%203.0.113.17%'",
+                Integer.class));
+        assertEquals("IP属地未知", jdbcTemplate.queryForObject("""
+                SELECT ip_location
+                FROM user_login_record
+                WHERE user_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """, String.class, userId));
+    }
+
+    @Test
+    void loginShouldStoreResolvedIpLocationWhenResolverProvidesRealLocation() {
+        AuthApplicationService resolvedService = new AuthApplicationService(jdbcTemplate, clientIp -> "浙江 杭州");
+        resolvedService.register(login("13800138018", "pass-123456"), "203.0.113.18");
+        Long userId = jdbcTemplate.queryForObject("SELECT id FROM user_account WHERE phone = ?", Long.class, "13800138018");
+
+        assertEquals("浙江 杭州", jdbcTemplate.queryForObject("""
+                SELECT ip_location
+                FROM user_login_record
+                WHERE user_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """, String.class, userId));
+    }
+
+    @Test
     void repeatedLoginShouldReuseExistingUserWithoutDuplicatingRows() {
         AuthTokenResponse first = service.register(login("13800138001", "pass-123456"), "203.0.113.15");
         AuthTokenResponse second = service.login(login("13800138001", "pass-123456"));
@@ -122,6 +157,19 @@ class AuthApplicationServiceTest {
         assertEquals(1, jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM system_config WHERE config_group = 'auth-registration-limit'",
                 Integer.class));
+    }
+
+    @Test
+    void repeatedRegistrationLimitShouldRollbackNewUserWhenLimitKeyAlreadyExists() {
+        service.register(login("13800138015", "pass-123456"), "203.0.113.11");
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> service.register(login("13800138016", "pass-123456"), "203.0.113.11"));
+
+        assertEquals("daily registration limit exceeded", error.getMessage());
+        assertEquals(1, count("user_account"));
+        assertEquals(0, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_account WHERE phone = ?", Integer.class, "13800138016"));
     }
 
     @Test

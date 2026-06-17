@@ -85,7 +85,7 @@ export function assertUserNoResponse(profile: UserProfileResponse, requestedUser
 }
 
 export function assertProfileSaveResponse(profile: UserProfileResponse, payload: UpdateUserProfileRequest, expectedAvatarUrl: string | undefined, expectedShowcaseUrls: string[] | undefined): void {
-  if (profile.nickname !== payload.nickname || profile.gender !== payload.gender || (profile.city || '') !== (payload.city || '') || (profile.bio || '') !== (payload.bio || '') || profile.mainRole !== payload.mainRole) throw new Error('资料响应未确认本次修改')
+  if (profile.nickname !== payload.nickname || profile.gender !== payload.gender || (profile.bio || '') !== (payload.bio || '') || profile.mainRole !== payload.mainRole) throw new Error('资料响应未确认本次修改')
   if (expectedAvatarUrl !== undefined && storedAvatarUrl(profile.avatarUrl || '') !== expectedAvatarUrl) throw new Error('头像响应未确认本次修改')
   if (expectedShowcaseUrls !== undefined && JSON.stringify(filterStoredShowcaseUrls(profile.showcaseImageUrls || [])) !== JSON.stringify(expectedShowcaseUrls)) throw new Error('照片秀响应未确认本次修改')
 }

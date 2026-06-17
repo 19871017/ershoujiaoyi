@@ -58,6 +58,34 @@ class AuthControllerTest {
                 Integer.class));
     }
 
+    @Test
+    void loginRecordShouldUseCloudflareConnectingIpForDisplayButRegistrationLimitStillUsesRemoteAddress() throws Exception {
+        String remoteAddr = "10.0.0.9";
+        mvc.perform(registrationRequest("13800139903", remoteAddr, "198.51.100.3", "198.51.100.13")
+                        .header("CF-Connecting-IP", "198.51.100.103"))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/auth/login")
+                        .with(request -> {
+                            request.setRemoteAddr(remoteAddr);
+                            return request;
+                        })
+                        .header("CF-Connecting-IP", "198.51.100.103")
+                        .header("X-Forwarded-For", "198.51.100.200")
+                        .contentType("application/json")
+                        .content(loginPayload("13800139903")))
+                .andExpect(status().isOk());
+
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM system_config WHERE config_group = 'auth-registration-limit'",
+                Integer.class));
+        assertEquals(2, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_login_record WHERE user_id = (SELECT id FROM user_account WHERE phone = ?)",
+                Integer.class, "13800139903"));
+        assertEquals(0, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_login_record WHERE login_ip_hash LIKE '%198.51.100.103%'",
+                Integer.class));
+    }
+
     private MockHttpServletRequestBuilder registrationRequest(
             String mobile,
             String remoteAddr,
@@ -77,6 +105,10 @@ class AuthControllerTest {
 
     private String registerPayload(String mobile) {
         return "{\"mobile\":\"" + mobile + "\",\"password\":\"pass-123456\",\"gender\":\"goddess\"}";
+    }
+
+    private String loginPayload(String mobile) {
+        return "{\"mobile\":\"" + mobile + "\",\"password\":\"pass-123456\"}";
     }
 
     private int count(String table) {

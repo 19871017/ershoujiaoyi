@@ -25,7 +25,7 @@
         <view class="meta-row">
           <view class="pill">{{ statusText }}</view>
           <view class="pill green">{{ auditText }}</view>
-          <view class="pill soft">{{ sellerCity }}</view>
+          <view class="pill soft">{{ sellerIpLocation }}</view>
         </view>
         <view class="desc">{{ detail.description || '暂无描述' }}</view>
       </view>
@@ -137,7 +137,7 @@ const sellerName = computed(() => {
   if (detail.value?.sellerId) return `卖家 ${detail.value.sellerId}`
   return '商品卖家'
 })
-const sellerCity = computed(() => sellerProfile.value?.city || '卖家城市待完善')
+const sellerIpLocation = computed(() => sellerProfile.value?.ipLocation ? `IP属地 ${sellerProfile.value.ipLocation}` : 'IP属地未知')
 const sellerAvatarUrl = computed(() => validatedDisplayMediaUrl(sellerProfile.value?.avatarUrl || '', [avatarImageStoragePrefix, communityImageStoragePrefix], 'seller-avatar'))
 const sellerIsSellerProfile = computed(() => ['SELLER', 'BOTH'].includes((sellerProfile.value?.mainRole || '').toUpperCase()))
 const sellerScoreLabel = computed(() => sellerIsSellerProfile.value ? '魅力值' : '实力值')

@@ -129,9 +129,11 @@ class CommunityApplicationServiceTest {
         assertEquals("发帖卖家", listRow.getAuthorName());
         assertEquals("/uploads/community-image/seller/avatar.jpg", listRow.getAuthorAvatar());
         assertEquals("杭州", listRow.getCity());
+        assertEquals("浙江 杭州", listRow.getIpLocation());
         assertEquals("发帖卖家", detail.getAuthorName());
         assertEquals("/uploads/community-image/seller/avatar.jpg", detail.getAuthorAvatar());
         assertEquals("杭州", detail.getCity());
+        assertEquals("浙江 杭州", detail.getIpLocation());
         assertEquals("真实评论者", comment.getAuthorName());
         assertEquals("/uploads/community-image/commenter/avatar.jpg", comment.getAuthorAvatar());
         assertEquals("真实评论者", detailComment.getAuthorName());
@@ -731,6 +733,10 @@ class CommunityApplicationServiceTest {
                 INSERT INTO user_profile (user_id, city, main_role, video_identity_status, video_verified)
                 VALUES (?, ?, 'SELLER', 'APPROVED', TRUE)
                 """, userId, city);
+        new JdbcTemplate(database).update("""
+                INSERT INTO user_login_record (user_id, login_ip_hash, ip_location, device_name, login_at, created_at)
+                VALUES (?, ?, '浙江 杭州', '当前账号登录', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, userId, "hash-" + userId);
     }
 
     private void seedUserProfileWithoutAvatar(Long userId, String nickname, String gender, String city) {

@@ -30,6 +30,7 @@ function loadConversationHelpersForFixture() {
   const helperFile = path.join(root, 'src/pages/chat/conversation/chat-conversation-helpers.ts')
   const helperSource = fs.readFileSync(helperFile, 'utf8')
     .replace(/import\s+type\s+\{[\s\S]*?\}\s+from\s+['"][^'"]+['"]\s*/g, '')
+    .replace(/import\s+\{[^}]*isDefaultAvatarUrl[^}]*\}\s+from\s+['"][^'"]+['"]\s*/g, '')
     .replace(/import\s+\{[^}]*assertChatPeerIdentityFields[^}]*\}\s+from\s+['"][^'"]+['"]\s*/g, '')
   const compiled = ts.transpileModule(helperSource, {
     compilerOptions: {
@@ -181,6 +182,7 @@ const requiredConversationMarkers = [
   "const peerName = ref('聊天用户')",
   'const peerGender = ref<string | null>(null)',
   'const peerCity = ref<string | null>(null)',
+  'const peerIpLocation = ref<string | null>(null)',
   'const peerVideoVerified = ref(false)',
   'const peerSellerCharmScore = ref(0)',
   'const peerBuyerPowerScore = ref(0)',
@@ -192,8 +194,10 @@ const requiredConversationMarkers = [
   'const peerIdentityBadges = computed(() => chatPeerIdentityBadges(peerIdentitySource.value).filter((badge) => !badge.startsWith(\'LV.\') && badge !== \'♂\' && badge !== \'♀\'))',
   'function applyPeerProfile(profile: UserProfileResponse): void',
   'function applyPeerConversationItem(item: ChatConversationItem): void',
-  "peerAvatarUrl.value = resolveBackendMediaUrl(validatedChatAvatarUrl(profile.avatarUrl || ''))",
-  "peerAvatarUrl.value = resolveBackendMediaUrl(validatedChatAvatarUrl(item.peerAvatarUrl || ''))",
+  'peerIpLocation.value = typeof profile.ipLocation === \'string\' ? profile.ipLocation : null',
+  'peerIpLocation.value = item.peerIpLocation || null',
+  'peerAvatarUrl.value = resolveBackendMediaUrl(validatedChatAvatarUrl(avatarUrlWithGenderFallback(profile.avatarUrl, peerGender.value)))',
+  'peerAvatarUrl.value = resolveBackendMediaUrl(validatedChatAvatarUrl(avatarUrlWithGenderFallback(item.peerAvatarUrl, peerGender.value)))',
   'const peerProfileUnavailableText =',
   'function hasTrustedPeerProfileContext(peerUserId: number): boolean',
   'peerProfileTrusted.value &&',
@@ -924,8 +928,13 @@ if (!/function validatedCommunityImageUrl\(url: unknown\): string[\s\S]*communit
   failed = true
 }
 
-if (!sessionList.includes("function peerAvatarUrl(item: ChatConversationItem): string { return resolveBackendMediaUrl(validatedCommunityImageUrl(item.peerAvatarUrl || '')) }")) {
+if (!sessionList.includes("return resolveBackendMediaUrl(validatedCommunityImageUrl(avatarUrlWithGenderFallback(item.peerAvatarUrl, item.peerGender)))")) {
   console.error(`${sessionFile}: session list avatar URLs must resolve through backend media URL helper after validation`)
+  failed = true
+}
+
+if (!sessionList.includes("${peerName(item)} ${item.lastMessageSummary || ''} ${chatPeerIdentityBadges(item).join(' ')}")) {
+  console.error(`${sessionFile}: session list keyword search must include server-derived peer identity badges such as IP location`)
   failed = true
 }
 

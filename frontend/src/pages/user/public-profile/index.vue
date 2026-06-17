@@ -228,7 +228,8 @@ const profileBioText = computed(() => {
 })
 const profileMetaText = computed(() => {
   const ageText = profile.age ? `${profile.age}岁` : ''
-  const parts = [ageText, profile.city, profile.userNo].map((item) => String(item || '').trim()).filter(Boolean)
+  const ipText = profile.ipLocation ? `IP属地 ${profile.ipLocation}` : ''
+  const parts = [ageText, ipText, profile.userNo].map((item) => String(item || '').trim()).filter(Boolean)
   return parts.join(' · ') || '小原圈'
 })
 const isSelfProfile = computed(() => isValidBackendUserId(userId.value) && userId.value === currentUserId.value)

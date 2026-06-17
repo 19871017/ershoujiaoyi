@@ -36,6 +36,7 @@ export interface ChatConversationItem {
   peerAvatarUrl?: string | null
   peerGender?: string | null
   peerCity?: string | null
+  peerIpLocation?: string | null
   peerMainRole?: string | null
   peerVideoVerified?: boolean | null
   peerSellerCharmScore?: number | null

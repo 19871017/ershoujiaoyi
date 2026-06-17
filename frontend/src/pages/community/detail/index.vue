@@ -13,7 +13,7 @@
             </view>
             <view class="author">
               <view class="name">{{ authorName }}</view>
-              <view class="meta">{{ topic }} · {{ createdText }} · {{ cityText }}</view>
+              <view class="meta">{{ topic }} · {{ createdText }} · {{ ipLocationText }}</view>
             </view>
           </view>
           <view class="author-actions">
@@ -115,7 +115,7 @@ const authorFollowSubmitting = ref(false)
 const authorName = ref('平台用户')
 const authorAvatar = ref('用')
 const authorAvatarUrl = ref('')
-const cityText = ref('城市未公开')
+const ipLocationText = ref('IP属地未知')
 const createdText = ref('--')
 const productId = ref<number | null>(null)
 const relatedProductTitle = ref('未关联商品')
@@ -173,7 +173,7 @@ function applyCommunityPostDetail(detail: CommunityPostDetailResponse): void {
   authorName.value = detail.authorName || `用户 ${detail.authorId}`
   authorAvatarUrl.value = resolveBackendMediaUrl(validatedCommunityAvatarUrl(detail.authorAvatar || ''))
   authorAvatar.value = firstChar(authorName.value)
-  cityText.value = detail.city || '城市未公开'
+  ipLocationText.value = detail.ipLocation ? `IP属地 ${detail.ipLocation}` : 'IP属地未知'
   createdText.value = formatDateTime(detail.createdAt)
   authorFollowed.value = Boolean(detail.followedByMe)
   authorFollowLoaded.value = true

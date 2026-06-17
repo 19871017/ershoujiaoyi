@@ -27,9 +27,9 @@
       <view v-else-if="loadError" class="empty-state">{{ loadError }}</view>
       <view v-else-if="devices.length === 0" class="empty-state">暂无登录设备记录。</view>
       <view v-else v-for="item in devices" :key="`${item.deviceName}-${item.loginAt}`" class="device-row">
-        <view>
+        <view class="device-main">
           <view class="label">{{ item.deviceName }}</view>
-          <view class="desc">{{ item.loginAt || '暂无时间' }} · {{ item.city || '暂无城市' }}</view>
+          <view class="desc">{{ item.loginAt || '暂无时间' }} · IP属地 {{ item.ipLocation || item.city || '未知' }}</view>
         </view>
         <text class="safe-tag">{{ item.status || '平台记录' }}</text>
       </view>
@@ -99,16 +99,18 @@ onMounted(loadSecurity)
 .security-page { background: linear-gradient(180deg,#fff7ed 0%,#fffdfa 55%,#fff7ed 100%); }
 .hero,.section-card { margin-top:18rpx; padding:24rpx; border-color:#ffd9bd; }
 .hero { display:flex; justify-content:space-between; align-items:center; background:linear-gradient(135deg,#fff,#fff3e7); }
-.kicker { color:#ff7a45; font-size:22rpx; font-weight:950; }
-.hero-score { width:92rpx; height:92rpx; border-radius:50%; background:#ffd9bd; color:#9b7560; display:flex; align-items:center; justify-content:center; font-size:34rpx; font-weight:950; }
-.section-title { color:#3a2a1f; font-size:30rpx; font-weight:950; }
+.kicker { color:#ff7a45; font-size:22rpx; font-weight:700; }
+.hero-score { width:92rpx; height:92rpx; border-radius:50%; background:#ffd9bd; color:#9b7560; display:flex; align-items:center; justify-content:center; font-size:34rpx; font-weight:700; }
+.section-title { color:#3a2a1f; font-size:30rpx; font-weight:700; }
 .row,.device-row { min-height:104rpx; border-bottom:1rpx solid #ffe5ef; display:flex; align-items:center; gap:16rpx; }
 .row:last-child,.device-row:last-child { border-bottom:0; }
 .row-icon { width:64rpx; height:64rpx; border-radius:20rpx; background:#fff3e7; display:flex; align-items:center; justify-content:center; }
 .row-main { flex:1; min-width:0; }
-.label { color:#3a2a1f; font-size:26rpx; font-weight:950; }
+.device-main { flex:1; min-width:0; }
+.label { color:#3a2a1f; font-size:26rpx; font-weight:700; }
 .desc,.tip,.page-desc,.empty-state { margin-top:6rpx; color:#9b7560; font-size:22rpx; line-height:1.5; }
+.device-main .desc { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .empty-state { padding:22rpx 0 4rpx; }
 .mini-btn { margin:0; padding:0 20rpx; height:52rpx; line-height:52rpx; border-radius:999rpx; background:#ff7a45; color:#fff; font-size:21rpx; }
-.safe-tag { padding:8rpx 14rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:20rpx; font-weight:900; }
+.safe-tag { flex:0 0 auto; padding:8rpx 14rpx; border-radius:999rpx; background:#fff3e7; color:#ff7a45; font-size:20rpx; font-weight:700; }
 </style>

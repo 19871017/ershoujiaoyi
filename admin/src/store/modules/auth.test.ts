@@ -181,7 +181,7 @@ describe('admin auth helpers', () => {
 
     expect(menuAllowsSession({ path: '/audit', label: '审核工作台', permission: 'audit:read' }, auditOnly)).toBe(true)
     expect(menuAllowsSession({ path: '/finance/withdrawals', label: '提现审核', permission: 'finance:read' }, auditOnly)).toBe(false)
-    expect(menuAllowsSession({ path: '/system/location', label: '位置配置', permission: 'system:config' }, null)).toBe(false)
+    expect(menuAllowsSession({ path: '/system/payment', label: '支付配置', permission: 'system:config' }, null)).toBe(false)
   })
 
   it('maps protected admin routes to explicit permissions and blocks deep links without permission', () => {
@@ -288,7 +288,7 @@ describe('admin auth helpers', () => {
     })
 
     expect(dashboardActionsForSession(financeOnly).map((item) => item.path)).toEqual(['/finance/withdrawals'])
-    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/chat-trace', '/community-trace', '/products', '/finance/withdrawals', '/after-sales', '/orders', '/users', '/audit-logs', '/operators', '/system/location', '/system/payment', '/system/product-pricing', '/system/banners', '/system/announcements'])
+    expect(dashboardActionsForSession(allAccess).map((item) => item.path)).toEqual(['/audit', '/chat-trace', '/community-trace', '/products', '/finance/withdrawals', '/after-sales', '/orders', '/users', '/audit-logs', '/operators', '/system/payment', '/system/product-pricing', '/system/banners', '/system/announcements'])
     expect(dashboardActionsForSession(null)).toEqual([])
   })
 

@@ -52,7 +52,7 @@
   height: 70rpx;
   color: #342116;
   font-size: 24rpx;
-  font-weight: 780;
+  font-weight: 650;
   letter-spacing: .16rpx;
 }
 
@@ -63,7 +63,7 @@
   border-radius: 999rpx;
   color: #fffaf4;
   font-size: 22rpx;
-  font-weight: 950;
+  font-weight: 700;
   background: linear-gradient(135deg, #ef6f3f, #ff8b76);
   box-shadow: 0 10rpx 20rpx rgba(255, 122, 69, .18);
 }
@@ -84,7 +84,7 @@
   flex-direction: column;
   gap: 6rpx;
   font-size: 22rpx;
-  font-weight: 920;
+  font-weight: 650;
   box-shadow: 0 10rpx 22rpx rgba(132, 70, 36, .07);
 }
 
@@ -125,7 +125,7 @@
 .panel-title,
 .product-section-title {
   color: #342116;
-  font-weight: 950;
+  font-weight: 700;
   text-shadow: 0 1rpx 0 rgba(255, 255, 255, .74);
 }
 
@@ -141,7 +141,7 @@
   background: rgba(255, 243, 231, .92);
   color: #df6735;
   font-size: 21rpx;
-  font-weight: 920;
+  font-weight: 650;
   border: 1rpx solid rgba(255, 195, 150, .54);
 }
 
@@ -177,7 +177,7 @@
   margin-top: 8rpx;
   color: #3a261a;
   font-size: 22rpx;
-  font-weight: 920;
+  font-weight: 650;
   letter-spacing: .16rpx;
 }
 
@@ -189,8 +189,8 @@
 
 .sub-count {
   margin-top: 4rpx;
-  font-size: 18rpx;
-  font-weight: 720;
+  font-size: 19rpx;
+  font-weight: 600;
 }
 
 .product-section-head {
@@ -214,8 +214,8 @@
 
 .product-section-subtitle {
   margin-top: 7rpx;
-  font-size: 20rpx;
-  font-weight: 760;
+  font-size: 21rpx;
+  font-weight: 600;
 }
 
 .filter-row {
@@ -235,7 +235,7 @@
   border-radius: 999rpx;
   color: #8f6b57;
   font-size: 21rpx;
-  font-weight: 920;
+  font-weight: 650;
   text-align: center;
 }
 
@@ -296,8 +296,8 @@
   border-radius: 999rpx;
   color: #df6735;
   background: rgba(255, 255, 255, .94);
-  font-size: 18rpx;
-  font-weight: 920;
+  font-size: 19rpx;
+  font-weight: 650;
   box-shadow: 0 8rpx 18rpx rgba(58, 42, 31, .10);
   backdrop-filter: blur(10rpx);
 }
@@ -325,7 +325,7 @@
   min-height: 68rpx;
   color: #342116;
   font-size: 25rpx;
-  font-weight: 920;
+  font-weight: 650;
   line-height: 1.36;
   letter-spacing: .12rpx;
   display: -webkit-box;
@@ -337,8 +337,8 @@
 .product-meta {
   margin-top: 9rpx;
   gap: 8rpx;
-  font-size: 18rpx;
-  font-weight: 760;
+  font-size: 19rpx;
+  font-weight: 600;
 }
 
 .product-no,
@@ -370,7 +370,7 @@
   color: #ef6f3f;
   font-size: 30rpx;
   line-height: 1.08;
-  font-weight: 950;
+  font-weight: 700;
   letter-spacing: 0;
   text-shadow: 0 1rpx 0 rgba(255, 255, 255, .70);
   white-space: nowrap;
@@ -386,8 +386,8 @@
   color: #df6735;
   background: rgba(255, 242, 232, .92);
   border: 1rpx solid rgba(255, 195, 150, .52);
-  font-size: 19rpx;
-  font-weight: 920;
+  font-size: 20rpx;
+  font-weight: 650;
   line-height: 1.1;
   text-align: center;
   white-space: nowrap;
@@ -408,7 +408,7 @@
   margin-top: 12rpx;
   color: #342116;
   font-size: 27rpx;
-  font-weight: 920;
+  font-weight: 650;
 }
 
 .empty-copy {
@@ -416,7 +416,7 @@
   margin: 10rpx auto 0;
   color: #8f6b57;
   font-size: 22rpx;
-  font-weight: 720;
+  font-weight: 600;
   line-height: 1.5;
 }
 
@@ -441,7 +441,7 @@
   color: #7b5542;
   border: 1rpx solid rgba(255, 195, 150, .52);
   font-size: 21rpx;
-  font-weight: 920;
+  font-weight: 650;
 }
 
 .empty-action.primary {
@@ -458,7 +458,7 @@
   border-radius: 50%;
   color: #fff8df;
   font-size: 35rpx;
-  font-weight: 950;
+  font-weight: 700;
   line-height: 1;
   background: linear-gradient(135deg, #3a261a, #ef6f3f);
   border: 1rpx solid rgba(255, 242, 204, .42);

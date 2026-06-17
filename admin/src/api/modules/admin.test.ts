@@ -9,7 +9,6 @@ import {
   getAdminAuditList,
   getAdminAuditLogs,
   getAdminDashboard,
-  getAdminLocationConfig,
   getAdminOrderDetail,
   getAdminOrderList,
   getAdminProductDetail,
@@ -55,7 +54,6 @@ import {
   restoreAdminCommunityPost,
   reviewAdminAfterSales,
   reviewAdminWithdrawal,
-  updateAdminLocationConfig,
   updateAdminProductPricingConfig
 } from './admin'
 import { setAdminHeaderProvider } from '../http'
@@ -436,68 +434,6 @@ describe('admin finance api', () => {
     await expect(reviewAdminWithdrawal('preview-withdrawal', 'AU-20260510-0001', 'approve', 'ok')).rejects.toThrow('提现编号无效')
     await expect(reviewAdminWithdrawal('WD-20260510-0001', 'preview-audit', 'reject', 'bad')).rejects.toThrow('审核编号无效')
     expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('loads location config without exposing provider secrets', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        data: {
-          provider: 'baidu',
-          enabled: true,
-          configured: true,
-          defaultCity: '上海',
-          defaultProvince: '上海市',
-          coordinateType: 'bd09ll',
-          updatedAt: '2026-05-10T12:00:00'
-        }
-      })
-    })
-    vi.stubGlobal('fetch', fetchMock)
-
-    const config = await getAdminLocationConfig()
-
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/location/config'), expect.any(Object))
-    expect(config.configured).toBe(true)
-    expect(Object.prototype.hasOwnProperty.call(config, 'baiduAk')).toBe(false)
-  })
-
-  it('updates location config through admin endpoint using explicit config fields only', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        data: {
-          provider: 'baidu',
-          enabled: false,
-          configured: false,
-          defaultCity: '杭州',
-          defaultProvince: '浙江省',
-          coordinateType: 'bd09ll',
-          updatedAt: '2026-05-10T12:10:00'
-        }
-      })
-    })
-    vi.stubGlobal('fetch', fetchMock)
-
-    const config = await updateAdminLocationConfig({
-      provider: 'baidu',
-      enabled: false,
-      defaultCity: '杭州',
-      defaultProvince: '浙江省',
-      coordinateType: 'bd09ll'
-    })
-
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/admin/location/config'), expect.objectContaining({
-      method: 'POST',
-      body: JSON.stringify({
-        provider: 'baidu',
-        enabled: false,
-        defaultCity: '杭州',
-        defaultProvince: '浙江省',
-        coordinateType: 'bd09ll'
-      })
-    }))
-    expect(config.defaultCity).toBe('杭州')
   })
 
   it('loads audit detail only for positive backend audit numbers', async () => {

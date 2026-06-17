@@ -116,6 +116,7 @@ export function assertPublicProfile(value: unknown, expectedUserId: string): ass
   if (typeof backendProfile.nickname !== 'string' || !backendProfile.nickname.trim()) throw new Error('public profile invalid nickname')
   if (backendProfile.userNo != null && typeof backendProfile.userNo !== 'string') throw new Error('public profile invalid userNo')
   if (backendProfile.avatarUrl != null && typeof backendProfile.avatarUrl !== 'string') throw new Error('public profile invalid avatarUrl')
+  if (backendProfile.ipLocation != null && typeof backendProfile.ipLocation !== 'string') throw new Error('public profile invalid ip location')
   if (typeof backendProfile.mainRole !== 'string' || !backendProfile.mainRole.trim()) throw new Error('public profile invalid mainRole')
   if (!isValidVideoIdentityStatus(backendProfile.videoIdentityStatus)) throw new Error('public profile invalid backend video status')
   if (typeof backendProfile.videoVerified !== 'boolean') throw new Error('public profile invalid video verified state')

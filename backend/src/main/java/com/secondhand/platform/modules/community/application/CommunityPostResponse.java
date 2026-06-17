@@ -11,6 +11,7 @@ public class CommunityPostResponse {
     private final String authorName;
     private final String authorAvatar;
     private final String city;
+    private final String ipLocation;
     private final String title;
     private final String topic;
     private final String content;
@@ -53,12 +54,20 @@ public class CommunityPostResponse {
                                  String title, String topic, String content, List<String> imageUrls, String status,
                                  int likeCount, int commentCount, Instant createdAt, boolean likedByMe,
                                  boolean followedByMe, Long relatedProductId, String relatedProductTitle, BigDecimal relatedProductPrice) {
+        this(postNo, postId, authorId, authorName, authorAvatar, city, null, title, topic, content, imageUrls, status, likeCount, commentCount, createdAt, likedByMe, followedByMe, relatedProductId, relatedProductTitle, relatedProductPrice);
+    }
+
+    public CommunityPostResponse(String postNo, Long postId, Long authorId, String authorName, String authorAvatar, String city, String ipLocation,
+                                 String title, String topic, String content, List<String> imageUrls, String status,
+                                 int likeCount, int commentCount, Instant createdAt, boolean likedByMe,
+                                 boolean followedByMe, Long relatedProductId, String relatedProductTitle, BigDecimal relatedProductPrice) {
         this.postNo = postNo;
         this.postId = postId;
         this.authorId = authorId;
         this.authorName = authorName;
         this.authorAvatar = authorAvatar;
         this.city = city;
+        this.ipLocation = ipLocation;
         this.title = title;
         this.topic = topic;
         this.content = content;
@@ -80,6 +89,7 @@ public class CommunityPostResponse {
     public String getAuthorName() { return authorName; }
     public String getAuthorAvatar() { return authorAvatar; }
     public String getCity() { return city; }
+    public String getIpLocation() { return ipLocation; }
     public String getTitle() { return title; }
     public String getTopic() { return topic; }
     public String getContent() { return content; }

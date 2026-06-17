@@ -16,6 +16,8 @@ import java.util.Locale;
 import java.util.Objects;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,9 +37,17 @@ public class AuthApplicationService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final JdbcTemplate jdbcTemplate;
+    private final IpLocationResolver ipLocationResolver;
 
     public AuthApplicationService(JdbcTemplate jdbcTemplate) {
+        this(jdbcTemplate, new DefaultIpLocationResolver());
+    }
+
+    @Autowired
+    public AuthApplicationService(JdbcTemplate jdbcTemplate, IpLocationResolver ipLocationResolver) {
         this.jdbcTemplate = jdbcTemplate;
+        this.ipLocationResolver = ipLocationResolver;
+        ensureLoginRecordTable();
     }
 
     @Transactional
@@ -53,7 +63,7 @@ public class AuthApplicationService {
         if (user == null || !"ACTIVE".equals(user.status()) || !verifyPassword(request.getPassword(), user.passwordHash())) {
             throw new IllegalArgumentException("mobile or password invalid");
         }
-        return issueSession(user.id());
+        return issueSession(user.id(), clientIp);
     }
 
     @Transactional
@@ -65,10 +75,9 @@ public class AuthApplicationService {
         if (existingUser != null) {
             throw new IllegalStateException("mobile already registered");
         }
-        enforceDailyRegistrationLimit(clientIp);
-        UserAuthRow user = createUser(normalizedMobile, passwordHash(request.getPassword()), normalizedGender);
         recordDailyRegistration(clientIp);
-        return issueSession(user.id());
+        UserAuthRow user = createUser(normalizedMobile, passwordHash(request.getPassword()), normalizedGender);
+        return issueSession(user.id(), clientIp);
     }
 
     private UserAuthRow createUser(String mobile, String passwordHash, String gender) {
@@ -117,23 +126,16 @@ public class AuthApplicationService {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
-    private void enforceDailyRegistrationLimit(String clientIp) {
-        Integer existing = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM system_config WHERE config_key = ?",
-                Integer.class,
-                registrationLimitKey(clientIp)
-        );
-        if (existing != null && existing > 0) {
-            throw new IllegalStateException("daily registration limit exceeded");
-        }
-    }
-
     private void recordDailyRegistration(String clientIp) {
         String key = registrationLimitKey(clientIp);
-        jdbcTemplate.update("""
-                INSERT INTO system_config (config_key, config_value, config_type, config_group, remark, created_at, updated_at)
-                VALUES (?, '1', 'number', 'auth-registration-limit', 'one account per client ip per day', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """, key);
+        try {
+            jdbcTemplate.update("""
+                    INSERT INTO system_config (config_key, config_value, config_type, config_group, remark, created_at, updated_at)
+                    VALUES (?, '1', 'number', 'auth-registration-limit', 'one account per client ip per day', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """, key);
+        } catch (DuplicateKeyException exception) {
+            throw new IllegalStateException("daily registration limit exceeded", exception);
+        }
     }
 
     private String registrationLimitKey(String clientIp) {
@@ -168,14 +170,38 @@ public class AuthApplicationService {
         }
     }
 
-    private AuthTokenResponse issueSession(Long userId) {
+    private AuthTokenResponse issueSession(Long userId, String clientIp) {
         String accessToken = opaqueToken();
         String refreshToken = opaqueToken();
         jdbcTemplate.update("""
                 INSERT INTO user_session (access_token, refresh_token, user_id, expires_at, revoked)
                 VALUES (?, ?, ?, ?, FALSE)
                 """, accessToken, refreshToken, userId, LocalDateTime.now().plusDays(30));
+        recordLogin(userId, clientIp);
         return new AuthTokenResponse(accessToken, refreshToken);
+    }
+
+    private void recordLogin(Long userId, String clientIp) {
+        String normalizedIp = normalizeClientIp(clientIp);
+        jdbcTemplate.update("""
+                INSERT INTO user_login_record (user_id, login_ip_hash, ip_location, device_name, login_at, created_at)
+                VALUES (?, ?, ?, '当前账号登录', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, userId, sha256("login-ip:" + normalizedIp), ipLocationResolver.resolve(normalizedIp));
+    }
+
+    private void ensureLoginRecordTable() {
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS user_login_record (
+                  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                  user_id BIGINT NOT NULL,
+                  login_ip_hash VARCHAR(128) NOT NULL,
+                  ip_location VARCHAR(64) NOT NULL DEFAULT 'IP属地未知',
+                  device_name VARCHAR(64) NOT NULL DEFAULT '当前账号登录',
+                  login_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """);
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_user_login_record_user ON user_login_record(user_id, login_at)");
     }
 
     private String opaqueToken() {

@@ -10,6 +10,7 @@ public class UserProfileResponse {
     private String mainRole;
     private String gender;
     private String city;
+    private String ipLocation;
     private String bio;
     private String identityStatus;
     private String videoIdentityStatus;
@@ -51,6 +52,10 @@ public class UserProfileResponse {
     }
 
     public UserProfileResponse(Long userId, String userNo, String nickname, String avatarUrl, String mainRole, String gender, String city, String bio, String identityStatus, String videoIdentityStatus, boolean videoVerified, String videoIdentityUrl, boolean exposeVideoIdentityUrl, List<String> showcaseImageUrls, boolean followedByMe, int followerCount, int followingCount, int sellerCharmScore, int buyerPowerScore) {
+        this(userId, userNo, nickname, avatarUrl, mainRole, gender, city, null, bio, identityStatus, videoIdentityStatus, videoVerified, videoIdentityUrl, exposeVideoIdentityUrl, showcaseImageUrls, followedByMe, followerCount, followingCount, sellerCharmScore, buyerPowerScore);
+    }
+
+    public UserProfileResponse(Long userId, String userNo, String nickname, String avatarUrl, String mainRole, String gender, String city, String ipLocation, String bio, String identityStatus, String videoIdentityStatus, boolean videoVerified, String videoIdentityUrl, boolean exposeVideoIdentityUrl, List<String> showcaseImageUrls, boolean followedByMe, int followerCount, int followingCount, int sellerCharmScore, int buyerPowerScore) {
         this.userId = userId;
         this.userNo = userNo;
         this.nickname = nickname;
@@ -58,6 +63,7 @@ public class UserProfileResponse {
         this.mainRole = mainRole;
         this.gender = gender;
         this.city = city;
+        this.ipLocation = ipLocation;
         this.bio = bio;
         this.identityStatus = identityStatus == null ? "UNVERIFIED" : identityStatus;
         this.videoIdentityStatus = videoIdentityStatus == null ? "UNVERIFIED" : videoIdentityStatus;
@@ -98,6 +104,10 @@ public class UserProfileResponse {
 
     public String getCity() {
         return city;
+    }
+
+    public String getIpLocation() {
+        return ipLocation;
     }
 
     public String getBio() {

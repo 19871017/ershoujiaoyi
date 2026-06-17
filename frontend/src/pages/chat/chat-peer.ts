@@ -11,10 +11,10 @@ export interface ChatPeerLevel {
   score: number
 }
 
-export type ChatPeerIdentitySource = Pick<ChatConversationItem, 'peerGender' | 'peerCity' | 'peerVideoVerified' | 'peerSellerCharmScore' | 'peerBuyerPowerScore'>
+export type ChatPeerIdentitySource = Pick<ChatConversationItem, 'peerGender' | 'peerCity' | 'peerIpLocation' | 'peerVideoVerified' | 'peerSellerCharmScore' | 'peerBuyerPowerScore'>
 
 export function assertChatPeerIdentityFields(item: ChatConversationItem): void {
-  for (const field of ['peerGender', 'peerCity', 'peerMainRole'] as const) {
+  for (const field of ['peerGender', 'peerCity', 'peerIpLocation', 'peerMainRole'] as const) {
     if (item[field] != null && typeof item[field] !== 'string') throw new Error(`chat conversation invalid ${field}`)
   }
   if (item.peerVideoVerified != null && typeof item.peerVideoVerified !== 'boolean') throw new Error('chat conversation invalid peerVideoVerified')
@@ -55,6 +55,7 @@ export function chatPeerIdentityBadges(item: ChatPeerIdentitySource): string[] {
   return [
     peerGenderSymbol(item),
     item.peerCity?.trim() || '',
+    item.peerIpLocation?.trim() ? `IP属地 ${item.peerIpLocation.trim()}` : '',
     `LV.${level.level} ${level.title}`,
     item.peerVideoVerified ? '视频认证' : ''
   ].filter(Boolean)

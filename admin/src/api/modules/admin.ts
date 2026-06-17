@@ -380,15 +380,6 @@ export interface AdminDashboardSummary {
   grossMerchandiseValue: number
 }
 
-export interface AdminLocationConfig {
-  provider: string
-  enabled: boolean
-  configured: boolean
-  defaultCity: string
-  defaultProvince: string
-  coordinateType: string
-  updatedAt?: string
-}
 
 export interface AdminAnnouncementTicker {
   enabled: boolean
@@ -475,14 +466,6 @@ export interface AdminHomeBannerRequest {
   enabled: boolean
 }
 
-export interface AdminUpdateLocationConfigRequest {
-  provider: string
-  enabled: boolean
-  defaultCity: string
-  defaultProvince: string
-  coordinateType: string
-  baiduAk?: string
-}
 
 export interface AdminUpdateAnnouncementTickerRequest {
   enabled: boolean
@@ -1121,9 +1104,6 @@ export async function reviewAdminWithdrawal(
   return getAdminWithdrawalDetail(withdrawalNo)
 }
 
-export function getAdminLocationConfig() {
-  return request<AdminLocationConfig>({ url: '/api/admin/location/config' })
-}
 
 export function getAdminHomeBanners() {
   return request<AdminHomeBanner[]>({ url: '/api/admin/home/banners' })
@@ -1262,12 +1242,4 @@ function validateAdminHomeBannerRequest(data: AdminHomeBannerRequest) {
   if (!adminHomeBannerActions.includes(data.action)) throw new Error('轮播图跳转动作无效')
   if (!adminHomeBannerPlacements.includes(data.placement)) throw new Error('轮播图展示位置无效')
   if (!Number.isInteger(data.sortOrder) || data.sortOrder < 1 || data.sortOrder > 999) throw new Error('轮播图排序无效')
-}
-
-export function updateAdminLocationConfig(data: AdminUpdateLocationConfigRequest) {
-  return request<AdminLocationConfig>({
-    url: '/api/admin/location/config',
-    method: 'POST',
-    data
-  })
 }

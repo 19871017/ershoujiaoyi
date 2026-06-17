@@ -27,16 +27,6 @@ const checks = [
     ]
   },
   {
-    file: 'src/pages/location/city/index.vue',
-    forbidden: [
-      '同城交易',
-      '同城约看',
-      '同城',
-      'nearby',
-      '离开平台聊天和支付'
-    ]
-  },
-  {
     file: 'src/pages/community/compose/index.vue',
     forbidden: [
       '同城约看'

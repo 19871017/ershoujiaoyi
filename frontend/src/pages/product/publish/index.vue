@@ -46,14 +46,6 @@
           <view class="field-label">售价</view>
           <input :value="form.price" class="field-input" type="text" inputmode="decimal" placeholder="¥ 0.00" confirm-type="next" @input="updateTextField('price', $event)" @blur="normalizePrice" />
         </view>
-        <view class="form-section half">
-          <view class="field-label">位置</view>
-          <input :value="form.location" class="field-input" :maxlength="locationMaxLength" placeholder="城市/区域" confirm-type="done" @input="updateTextField('location', $event)" @blur="trimTextField('location')" />
-          <view class="location-actions">
-            <button class="mini-btn" :disabled="!profileCity" @click="useProfileCity">资料城市</button>
-            <button class="mini-btn" :disabled="locating" @click="detectCurrentCity">{{ locating ? '定位中' : '定位' }}</button>
-          </view>
-        </view>
       </view>
 
       <view class="form-section">
@@ -81,7 +73,6 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { reverseGeocode } from '../../../api/modules/location'
 import { createMediaUploadTicket, uploadMediaTicketFile } from '../../../api/modules/media'
 import { createProduct } from '../../../api/modules/product'
 import { getMyProfile } from '../../../api/modules/user'
@@ -94,15 +85,11 @@ import {
   hasInvalidTempImagePath,
   imageContentType,
   inputValue,
-  locationErrorMessage,
-  locationMaxLength,
-  normalizeLocation,
   platformTradeRule,
   resolvePublishBlockMessage,
   resolvePublishPermission,
   tradeOptions,
   validatedProductImageUrl,
-  type GetLocationResult,
   type TextFieldKey
 } from './publish-integrity'
 
@@ -111,15 +98,12 @@ const form = reactive({
   title: '',
   description: '',
   price: '',
-  location: '',
   condition: '几乎全新',
   tradeRule: platformTradeRule,
   imageUrls: [] as string[]
 })
 const submitting = ref(false)
 const uploadingPhotos = ref(false)
-const locating = ref(false)
-const profileCity = ref('')
 const publishReady = ref(false)
 const publishBlockMessage = ref('请先完成卖家认证')
 const errorMessage = ref('')
@@ -197,56 +181,23 @@ function normalizePrice() {
   form.price = dotIndex === -1 ? value : `${value.slice(0, dotIndex + 1)}${value.slice(dotIndex + 1).replace(/\./g, '')}`
 }
 
-function getCurrentLocation() {
-  return new Promise<GetLocationResult>((resolve, reject) => {
-    uni.getLocation({ type: 'wgs84', success: resolve, fail: reject })
-  })
-}
-
 async function loadProfileCity() {
   try {
     const profile = await getMyProfile()
     assertBackendProfile(profile)
     publishReady.value = resolvePublishPermission(profile)
     publishBlockMessage.value = publishReady.value ? '' : resolvePublishBlockMessage(profile)
-    profileCity.value = normalizeLocation(profile.city || '')
-    if (!form.location && profileCity.value) form.location = profileCity.value
     if (!publishReady.value) errorMessage.value = publishBlockMessage.value
   } catch (error) {
     console.warn('product publish profile load failed', { error })
-    profileCity.value = ''
     publishReady.value = false
     publishBlockMessage.value = '请先登录后再申请卖家认证'
     errorMessage.value = publishBlockMessage.value
   }
 }
 
-function useProfileCity() {
-  if (!profileCity.value) return
-  form.location = profileCity.value
-}
-
-async function detectCurrentCity(): Promise<void> {
-  if (locating.value) return
-  locating.value = true
-  try {
-    const location = await getCurrentLocation()
-    const result = await reverseGeocode({ latitude: location.latitude, longitude: location.longitude })
-    if (result.fallback !== false) throw new Error('定位服务未返回真实城市')
-    const city = normalizeLocation([result.city, result.district].filter(Boolean).join('') || result.address || result.province || '')
-    if (!city) throw new Error('定位结果为空')
-    form.location = city
-    showToast('已填入当前城市')
-  } catch (error) {
-    showToast(locationErrorMessage(error))
-  } finally {
-    locating.value = false
-  }
-}
-
 function validateForm() {
   trimTextField('title')
-  trimTextField('location')
   normalizePrice()
   form.tradeRule = platformTradeRule
   if (!form.title || form.title.length < 4) return '标题至少 4 个字'
@@ -308,7 +259,6 @@ async function submitProduct() {
     assertBackendProfile(profile)
     publishReady.value = resolvePublishPermission(profile)
     publishBlockMessage.value = publishReady.value ? '' : resolvePublishBlockMessage(profile)
-    profileCity.value = normalizeLocation(profile.city || '')
   } catch (error) {
     console.warn('product publish profile refresh failed', { error })
     publishReady.value = false
@@ -336,7 +286,7 @@ async function submitProduct() {
     const safeImageUrls = form.imageUrls.map(validatedProductImageUrl)
     const product = await createProduct({
       title: `[${form.category}] ${form.title}`,
-      description: `${form.description}\n成色：${form.condition}\n位置：${form.location}\n交易方式：${form.tradeRule}`,
+      description: `${form.description}\n成色：${form.condition}\n交易方式：${form.tradeRule}`,
       price: Number(form.price).toFixed(2),
       imageUrls: safeImageUrls
     })

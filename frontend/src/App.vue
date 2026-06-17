@@ -121,8 +121,9 @@ page {
   min-height: 100%;
   background: var(--c-bg);
   color: var(--c-text);
-  font-size: 28rpx;
+  font-size: 29rpx;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 400;
 }
 
 view, text, button, input, textarea { box-sizing: border-box; }
@@ -137,14 +138,14 @@ button { margin: 0; padding: 0; border: 0; background: none; line-height: 1.2; }
 .page-title {
   font-size: 36rpx;
   line-height: 1.16;
-  font-weight: 900;
+  font-weight: 700;
   color: var(--c-text);
 }
 
 .page-desc {
   margin-top: 6rpx;
   color: var(--c-muted);
-  font-size: 23rpx;
+  font-size: 24rpx;
   line-height: 1.42;
 }
 
@@ -168,7 +169,7 @@ button { margin: 0; padding: 0; border: 0; background: none; line-height: 1.2; }
   align-items: center;
   justify-content: center;
   font-size: 26rpx;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .secondary-btn {
@@ -180,8 +181,8 @@ button { margin: 0; padding: 0; border: 0; background: none; line-height: 1.2; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24rpx;
-  font-weight: 800;
+  font-size: 25rpx;
+  font-weight: 650;
 }
 
 uni-tabbar {

@@ -12,7 +12,6 @@ import com.secondhand.platform.modules.wallet_ledger.CreateWithdrawalRequest;
 import com.secondhand.platform.modules.wallet_ledger.PayoutAccountRequest;
 import com.secondhand.platform.modules.wallet_ledger.WithdrawalResponse;
 import com.secondhand.platform.modules.wallet_ledger.application.CreditCommand;
-import com.secondhand.platform.modules.location.LocationApplicationService;
 import com.secondhand.platform.modules.media.application.MediaUploadTicketService;
 import com.secondhand.platform.modules.order.application.OrderApplicationService;
 import com.secondhand.platform.modules.product.CreateProductResponse;
@@ -65,7 +64,6 @@ class AdminControllerRbacTest {
                 auditApplicationService,
                 walletLedgerService,
                 new AnnouncementApplicationService(jdbcTemplate),
-                new LocationApplicationService(new com.secondhand.platform.modules.location.BaiduReverseGeocodeClient(), "", jdbcTemplate),
                 new AfterSalesApplicationService(jdbcTemplate, mediaUploadTicketService),
                 orderApplicationService,
                 productApplicationService,
@@ -195,31 +193,6 @@ class AdminControllerRbacTest {
                         .header("X-User-Id", "15")
                         .header("X-Admin-Session", issueAdminSession(15L)))
                 .andExpect(status().isOk());
-    }
-
-    @Test
-    void adminLocationConfigUpdatePersistsOperatorAuditLog() throws Exception {
-        createActiveUser(21L);
-        grantPermission(21L, "system:config");
-
-        mvc.perform(post("/api/admin/location/config")
-                        .header("X-User-Id", "21")
-                        .header("X-Admin-Session", issueAdminSession(21L))
-                        .contentType("application/json")
-                        .content("{\"defaultCity\":\"杭州\",\"coordinateType\":\"gcj02ll\"}"))
-                .andExpect(status().isOk());
-
-        Integer count = jdbcTemplate.queryForObject("""
-                select count(1)
-                from admin_audit_log
-                where action = 'LOCATION_CONFIG_UPDATE'
-                  and operator_id = 21
-                  and target_type = 'SYSTEM_CONFIG'
-                  and target_id = 'location'
-                  and result = 'SUCCESS'
-                  and summary not like '%SECRET%'
-                """, Integer.class);
-        org.junit.jupiter.api.Assertions.assertEquals(1, count);
     }
 
     @Test

@@ -2,43 +2,26 @@ const fs = require('fs')
 const path = require('path')
 
 const root = path.resolve(__dirname, '..')
-const file = 'src/pages/location/city/index.vue'
-const source = fs.readFileSync(path.join(root, file), 'utf8')
+const removedPaths = [
+  'src/pages/location/city/index.vue',
+  'src/api/modules/location.ts'
+]
+const routeFiles = ['src/pages.json', 'pages.json']
+const forbiddenRoute = 'pages/location/city/index'
+
 const failures = []
-
-const forbiddenMarkers = [
-  'const selected = ref(\'深圳\')',
-  '本地城市偏好样例',
-  '未展示本地',
-  '资料接口加载失败',
-  "setTimeout(() => uni.switchTab({ url: '/pages/tabbar/home/index' }), 300)",
-  '@click="selected = city"',
-  '城市偏好接口尚未接入，未保存为正式位置偏好'
-]
-
-for (const marker of forbiddenMarkers) {
-  if (source.includes(marker)) failures.push(`${file}: city picker must not keep local-only selection or claim no-op success: ${marker}`)
+for (const file of removedPaths) {
+  if (fs.existsSync(path.join(root, file))) {
+    failures.push(`${file}: manual/fixed location entry must be removed; keep only server-derived IP location`)
+  }
 }
-
-const requiredMarkers = [
-  "import { computed, onMounted, reactive, ref } from 'vue'",
-  "import { getMyProfile, updateMyProfile } from '../../../api/modules/user'",
-  "const profile = reactive({ userId: 0, nickname: '', mainRole: 'UNVERIFIED', gender: 'god', city: '', bio: '' })",
-  "async function loadProfile()",
-  'const selected = ref(\'\')',
-  'function selectCity(city: string)',
-  'updateMyProfile({ nickname: profile.nickname, mainRole: profile.mainRole, gender: profile.gender, city: selected.value, bio: profile.bio })',
-  '城市偏好已保存至平台资料',
-  '城市偏好保存失败，未修改平台资料',
-  '城市偏好暂时加载失败，请稍后重试'
-]
-
-for (const marker of requiredMarkers) {
-  if (!source.includes(marker)) failures.push(`${file}: missing backend-backed city preference marker: ${marker}`)
-}
-
-if (/uni\.showModal\(\{[\s\S]*title:\s*['"]城市偏好接口尚未接入['"]/.test(source)) {
-  failures.push(`${file}: city picker must not present interface-not-connected copy once backend profile persistence is wired`)
+for (const file of routeFiles) {
+  const full = path.join(root, file)
+  if (!fs.existsSync(full)) continue
+  const source = fs.readFileSync(full, 'utf8')
+  if (source.includes(forbiddenRoute)) {
+    failures.push(`${file}: must not route to removed manual city picker`)
+  }
 }
 
 if (failures.length) {
@@ -46,4 +29,4 @@ if (failures.length) {
   process.exit(1)
 }
 
-console.log('location city page persists city preference via backend profile API and no longer behaves as local-only no-op')
+console.log('manual city picker and frontend location API are removed; user-facing location stays IP-derived')

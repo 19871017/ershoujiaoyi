@@ -35,12 +35,14 @@ public class AccountSecurityResponse {
         private String deviceName;
         private String loginAt;
         private String city;
+        private String ipLocation;
         private String status;
 
-        public LoginDeviceResponse(String deviceName, String loginAt, String city, String status) {
+        public LoginDeviceResponse(String deviceName, String loginAt, String ipLocation, String status) {
             this.deviceName = deviceName;
             this.loginAt = loginAt;
-            this.city = city;
+            this.city = ipLocation;
+            this.ipLocation = ipLocation;
             this.status = status;
         }
 
@@ -54,6 +56,10 @@ public class AccountSecurityResponse {
 
         public String getCity() {
             return city;
+        }
+
+        public String getIpLocation() {
+            return ipLocation;
         }
 
         public String getStatus() {

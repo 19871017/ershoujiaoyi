@@ -1,6 +1,6 @@
 {
   "name": "小原圈",
-  "appid": "",
+  "appid": "__UNI__FC8A342",
   "id": "com.tiklxd09.xiaoyuanquan",
   "description": "小原圈用户端 uni-app 壳工程",
   "versionName": "1.0.0",
@@ -75,6 +75,8 @@
           "<uses-permission android:name=\"android.permission.INTERNET\"/>",
           "<uses-permission android:name=\"android.permission.CAMERA\"/>",
           "<uses-permission android:name=\"android.permission.RECORD_AUDIO\"/>",
+          "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
+          "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>",
           "<uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\"/>",
           "<uses-permission android:name=\"android.permission.READ_MEDIA_VIDEO\"/>",
           "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" android:maxSdkVersion=\"32\"/>"
@@ -86,7 +88,8 @@
           "NSCameraUsageDescription": "用于上传商品图片、头像、聊天图片和视频认证。",
           "NSMicrophoneUsageDescription": "用于私聊语音录制。",
           "NSPhotoLibraryUsageDescription": "用于选择头像、商品图片、聊天图片和聊天视频。",
-          "NSPhotoLibraryAddUsageDescription": "用于保存平台图片或视频到相册。"
+          "NSPhotoLibraryAddUsageDescription": "用于保存平台图片或视频到相册。",
+          "NSLocationWhenInUseUsageDescription": "用于发布商品时识别城市/区域，也可以手动填写。"
         }
       }
     }
@@ -94,5 +97,47 @@
   "h5": {
     "title": "小原圈",
     "favicon": "static/brand/xiaoyuanquan-logo-mark.png"
+  },
+  "locale": "zh-Hans",
+  "fallbackLocale": "en",
+  "app-plus": {
+    "statusbar": {
+      "immersed": false,
+      "background": "#fff7ed"
+    },
+    "splashscreen": {
+      "autoclose": true,
+      "waiting": true,
+      "alwaysShowBeforeRender": true
+    },
+    "popGesture": "close",
+    "launchwebview": {
+      "kernel": "WKWebview"
+    },
+    "distribute": {
+      "android": {
+        "packagename": "com.tiklxd09.xiaoyuanquan",
+        "permissions": [
+          "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+          "<uses-permission android:name=\"android.permission.CAMERA\"/>",
+          "<uses-permission android:name=\"android.permission.RECORD_AUDIO\"/>",
+          "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
+          "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>",
+          "<uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\"/>",
+          "<uses-permission android:name=\"android.permission.READ_MEDIA_VIDEO\"/>",
+          "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" android:maxSdkVersion=\"32\"/>"
+        ]
+      },
+      "ios": {
+        "bundleIdentifier": "com.tiklxd09.xiaoyuanquan",
+        "privacyDescription": {
+          "NSCameraUsageDescription": "用于上传商品图片、头像、聊天图片和视频认证。",
+          "NSMicrophoneUsageDescription": "用于私聊语音录制。",
+          "NSPhotoLibraryUsageDescription": "用于选择头像、商品图片、聊天图片和聊天视频。",
+          "NSPhotoLibraryAddUsageDescription": "用于保存平台图片或视频到相册。",
+          "NSLocationWhenInUseUsageDescription": "用于发布商品时识别城市/区域，也可以手动填写。"
+        }
+      }
+    }
   }
 }

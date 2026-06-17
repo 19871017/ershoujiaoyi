@@ -344,6 +344,7 @@ const peerName = ref('聊天用户')
 const peerAvatarUrl = ref('')
 const peerGender = ref<string | null>(null)
 const peerCity = ref<string | null>(null)
+const peerIpLocation = ref<string | null>(null)
 const peerVideoVerified = ref(false)
 const peerSellerCharmScore = ref(0)
 const peerBuyerPowerScore = ref(0)
@@ -353,6 +354,7 @@ const peerAvatar = computed(() => peerName.value.slice(0, 1))
 const peerIdentitySource = computed(() => ({
   peerGender: peerGender.value,
   peerCity: peerCity.value,
+  peerIpLocation: peerIpLocation.value,
   peerVideoVerified: peerVideoVerified.value,
   peerSellerCharmScore: peerSellerCharmScore.value,
   peerBuyerPowerScore: peerBuyerPowerScore.value
@@ -503,6 +505,7 @@ function hasTrustedPeerProfileContext(peerUserId: number): boolean {
     !!peerAvatarUrl.value ||
     !!peerGender.value ||
     !!peerCity.value ||
+    !!peerIpLocation.value ||
     peerVideoVerified.value ||
     peerSellerCharmScore.value > 0 ||
     peerBuyerPowerScore.value > 0)
@@ -513,6 +516,7 @@ function applyPeerProfile(profile: UserProfileResponse): void {
   peerGender.value = typeof profile.gender === 'string' ? profile.gender : null
   peerAvatarUrl.value = resolveBackendMediaUrl(validatedChatAvatarUrl(avatarUrlWithGenderFallback(profile.avatarUrl, peerGender.value)))
   peerCity.value = typeof profile.city === 'string' ? profile.city : null
+  peerIpLocation.value = typeof profile.ipLocation === 'string' ? profile.ipLocation : null
   peerVideoVerified.value = profile.videoVerified === true
   peerSellerCharmScore.value = Math.max(0, Math.floor(Number(profile.sellerCharmScore || 0)))
   peerBuyerPowerScore.value = Math.max(0, Math.floor(Number(profile.buyerPowerScore || 0)))
@@ -525,6 +529,7 @@ function applyPeerConversationItem(item: ChatConversationItem): void {
   peerGender.value = item.peerGender || null
   peerAvatarUrl.value = resolveBackendMediaUrl(validatedChatAvatarUrl(avatarUrlWithGenderFallback(item.peerAvatarUrl, peerGender.value)))
   peerCity.value = item.peerCity || null
+  peerIpLocation.value = item.peerIpLocation || null
   peerVideoVerified.value = item.peerVideoVerified === true
   peerSellerCharmScore.value = Math.max(0, Math.floor(Number(item.peerSellerCharmScore || 0)))
   peerBuyerPowerScore.value = Math.max(0, Math.floor(Number(item.peerBuyerPowerScore || 0)))
