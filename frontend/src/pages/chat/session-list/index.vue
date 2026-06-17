@@ -49,8 +49,9 @@
           </view>
           <view class="session-summary">{{ item.lastMessageSummary || '还没有消息，打个招呼吧～' }}</view>
           <view class="session-meta">
+            <text v-if="peerGenderSymbol(item)" class="gender-mark" :class="peerGenderClass(item)">{{ peerGenderSymbol(item) }}</text>
             <text v-if="scenarioLabel(item.lastMessageSummary)" class="scenario-chip">{{ scenarioLabel(item.lastMessageSummary) }}</text>
-            <text v-for="badge in chatPeerIdentityBadges(item)" :key="badge" class="identity-chip">{{ badge }}</text>
+            <text v-for="badge in chatPeerTextBadges(item)" :key="badge" class="identity-chip">{{ badge }}</text>
           </view>
         </view>
         <view class="session-side">
@@ -67,7 +68,7 @@ import { onShow, onUnload } from '@dcloudio/uni-app'
 import { resolveBackendMediaUrl } from '../../../api/http'
 import { getChatConversations, type ChatConversationItem, type ChatConversationListResponse } from '../../../api/modules/chat'
 import { avatarUrlWithGenderFallback, isDefaultAvatarUrl } from '../../../utils/default-avatar'
-import { assertChatPeerIdentityFields, chatPeerIdentityBadges } from '../chat-peer'
+import { assertChatPeerIdentityFields, chatPeerIdentityBadges, chatPeerTextBadges, peerGenderClass, peerGenderSymbol } from '../chat-peer'
 
 type Filter = 'ALL' | 'UNREAD' | 'ORDER' | 'GIFT'
 const filters: Array<{ label: string; value: Filter }> = [
@@ -319,6 +320,9 @@ onUnload(stopConversationRefresh)
 .session-time { flex:0 0 auto; color:#b9856a; font-size:18rpx; white-space:nowrap; }
 .session-summary { margin-top:6rpx; overflow:hidden; color:#7b5542; font-size:21rpx; text-overflow:ellipsis; white-space:nowrap; }
 .session-meta { margin-top:6rpx; display:flex; gap:9rpx; color:#b9856a; font-size:18rpx; align-items:center; flex-wrap:wrap; }
+.gender-mark { flex:0 0 28rpx; width:28rpx; height:28rpx; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; color:#fff; background:linear-gradient(135deg,#ff6fa7,#ff9fbd); font-size:18rpx; line-height:1; font-weight:700; box-sizing:border-box; box-shadow:0 5rpx 12rpx rgba(255,111,167,.16),inset 0 1rpx 0 rgba(255,255,255,.48); }
+.gender-mark.god { background:linear-gradient(135deg,#4f8cff,#5bc6ff); box-shadow:0 5rpx 12rpx rgba(79,140,255,.16),inset 0 1rpx 0 rgba(255,255,255,.48); }
+.gender-mark.goddess { background:linear-gradient(135deg,#ff6fa7,#ff9fbd); }
 .scenario-chip { padding:3rpx 0; border-radius:0; background:transparent; color:#ff7a45; font-weight:900; }
 .identity-chip { padding:3rpx 0; border-radius:0; background:transparent; color:#7b5542; border:0; font-weight:900; }
 .session-side { display:flex; flex-direction:column; align-items:flex-end; gap:8rpx; }
@@ -335,6 +339,7 @@ onUnload(stopConversationRefresh)
   .session-title { font-size:23rpx; }
   .session-summary { font-size:20rpx; }
   .session-meta { gap:6rpx; max-height:30rpx; overflow:hidden; flex-wrap:nowrap; }
+  .gender-mark { flex-basis:25rpx; width:25rpx; height:25rpx; font-size:16rpx; }
   .identity-chip,.scenario-chip { max-width:120rpx; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 }
 </style>

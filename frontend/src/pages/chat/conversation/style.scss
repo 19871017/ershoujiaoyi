@@ -15,10 +15,10 @@
 .peer-level { padding:5rpx 10rpx; border-radius:999rpx; color:#fff; font-size:18rpx; font-weight:700; }
 .peer-level.charm { background:linear-gradient(135deg,#ff6f8f,#ffb36b); }
 .peer-level.power { background:linear-gradient(135deg,#4f8cff,#5bc6ff); }
-.peer-badges { margin-top:7rpx; display:flex; gap:7rpx; flex-wrap:wrap; }
+.peer-badges { margin-top:7rpx; display:flex; gap:7rpx; align-items:center; flex-wrap:wrap; }
 .peer-badges text { padding:2rpx 0; border-radius:0; background:transparent; border:0; color:#7b5542; font-size:18rpx; font-weight:650; }
-.peer-badges .peer-gender-mark { width:31rpx; height:31rpx; padding:0; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; border-radius:50%; color:#fff; border:0; font-size:21rpx; line-height:31rpx; font-weight:700; background:linear-gradient(135deg,#ff6fa7,#ff9fbd); box-shadow:0 7rpx 14rpx rgba(255,111,167,.18),inset 0 1rpx 0 rgba(255,255,255,.46); }
-.peer-badges .peer-gender-mark.god { background:linear-gradient(135deg,#4f8cff,#5bc6ff); box-shadow:0 7rpx 14rpx rgba(79,140,255,.18),inset 0 1rpx 0 rgba(255,255,255,.46); }
+.peer-badges .peer-gender-mark { width:28rpx; height:28rpx; padding:0; display:inline-flex; align-items:center; justify-content:center; flex:0 0 28rpx; border-radius:50%; color:#fff; border:0; font-size:18rpx; line-height:1; font-weight:700; box-sizing:border-box; background:linear-gradient(135deg,#ff6fa7,#ff9fbd); box-shadow:0 5rpx 12rpx rgba(255,111,167,.16),inset 0 1rpx 0 rgba(255,255,255,.48); }
+.peer-badges .peer-gender-mark.god { background:linear-gradient(135deg,#4f8cff,#5bc6ff); box-shadow:0 5rpx 12rpx rgba(79,140,255,.16),inset 0 1rpx 0 rgba(255,255,255,.48); }
 .peer-badges .peer-gender-mark.goddess { background:linear-gradient(135deg,#ff6fa7,#ff9fbd); }
 .header-actions { flex:0 0 auto; display:flex; align-items:center; gap:6rpx; }
 .header-action { padding:8rpx 6rpx; border-radius:0; background:transparent; color:#8b5b43; font-size:19rpx; font-weight:700; white-space:nowrap; }
@@ -152,7 +152,7 @@
   .peer-level { flex:0 0 auto; max-width:116rpx; padding:4rpx 8rpx; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16rpx; }
   .peer-badges { max-height:28rpx; margin-top:4rpx; overflow:hidden; flex-wrap:nowrap; gap:5rpx; }
   .peer-badges text { flex:0 1 auto; max-width:104rpx; padding:3rpx 7rpx; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16rpx; }
-  .peer-badges .peer-gender-mark { width:26rpx; height:26rpx; padding:0; max-width:26rpx; font-size:18rpx; line-height:26rpx; }
+  .peer-badges .peer-gender-mark { flex:0 0 25rpx; width:25rpx; height:25rpx; padding:0; max-width:25rpx; font-size:16rpx; line-height:1; }
   .header-actions { flex-direction:column; gap:4rpx; }
   .header-action { min-width:52rpx; padding:5rpx 8rpx; text-align:center; font-size:17rpx; }
   .message-scroll-wrap { margin-top:4rpx; }

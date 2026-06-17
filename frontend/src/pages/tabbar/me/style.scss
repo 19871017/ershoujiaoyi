@@ -132,6 +132,42 @@
   white-space: nowrap;
 }
 
+.profile-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  min-width: 0;
+}
+
+.profile-gender-mark {
+  flex: 0 0 28rpx;
+  width: 28rpx;
+  height: 28rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(135deg, #ff6fa7, #ff9fbd);
+  font-size: 18rpx;
+  line-height: 1;
+  font-weight: 700;
+  box-sizing: border-box;
+  box-shadow: 0 5rpx 12rpx rgba(255, 111, 167, .16), inset 0 1rpx 0 rgba(255, 255, 255, .48);
+}
+
+.profile-gender-mark.god {
+  background: linear-gradient(135deg, #4f8cff, #5bc6ff);
+  box-shadow: 0 5rpx 12rpx rgba(79, 140, 255, .16), inset 0 1rpx 0 rgba(255, 255, 255, .48);
+}
+
+.profile-user-no {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tag-row {
   margin-top: 10rpx;
   display: flex;

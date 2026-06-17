@@ -35,6 +35,13 @@ export function peerGenderSymbol(item: Pick<ChatConversationItem, 'peerGender'>)
   return ''
 }
 
+export function peerGenderClass(item: Pick<ChatConversationItem, 'peerGender'>): string {
+  const gender = normalizedPeerGender(item)
+  if (gender === 'god') return 'god'
+  if (gender === 'goddess') return 'goddess'
+  return ''
+}
+
 export function buildChatPeerLevel(item: Pick<ChatConversationItem, 'peerGender' | 'peerSellerCharmScore' | 'peerBuyerPowerScore'>): ChatPeerLevel {
   const powerTrack = normalizedPeerGender(item) === 'god'
   const score = Math.max(0, Math.floor(Number(powerTrack ? item.peerBuyerPowerScore : item.peerSellerCharmScore) || 0))
@@ -59,4 +66,8 @@ export function chatPeerIdentityBadges(item: ChatPeerIdentitySource): string[] {
     `LV.${level.level} ${level.title}`,
     item.peerVideoVerified ? '视频认证' : ''
   ].filter(Boolean)
+}
+
+export function chatPeerTextBadges(item: ChatPeerIdentitySource): string[] {
+  return chatPeerIdentityBadges(item).filter((badge) => badge !== '♂' && badge !== '♀')
 }

@@ -13,7 +13,11 @@
       </view>
       <view class="profile-main">
         <view class="nickname">{{ profileNameText }}</view>
-        <view class="id-line">{{ profileMetaText }}</view>
+        <view v-if="profileMetaPlainText" class="id-line">{{ profileMetaPlainText }}</view>
+        <view v-else class="id-line profile-meta-row">
+          <text class="profile-gender-mark" :class="profileGenderClass">{{ profileGenderSymbol }}</text>
+          <text class="profile-user-no">{{ profileUserNoText }}</text>
+        </view>
         <view class="tag-row">
           <text class="mini-tag">{{ trustTagText }}</text>
         </view>
@@ -146,7 +150,9 @@ const canPublish = computed(() => {
   return profile.videoVerified === true && videoStatus === 'APPROVED' && publishRoles.includes(role)
 })
 const sellerEntryDisabled = computed(() => profileLoading.value || Boolean(profileError.value))
-const genderSymbol = computed(() => String(profile.gender || '').toLowerCase() === 'god' ? '♂' : '♀')
+const profileGender = computed(() => String(profile.gender || '').trim().toLowerCase())
+const profileGenderSymbol = computed(() => profileGender.value === 'god' ? '♂' : '♀')
+const profileGenderClass = computed(() => profileGender.value === 'god' ? 'god' : 'goddess')
 const sellerEntryTitleText = computed(() => {
   if (profileLoading.value && !profileLoaded.value) return '资料加载中'
   if (profileError.value) return '资料暂不可用'
@@ -190,10 +196,11 @@ const profileNameText = computed(() => {
   if (profileLoading.value && !profileLoaded.value) return '资料加载中'
   return profileError.value ? '资料暂时不可用' : profile.nickname
 })
-const profileMetaText = computed(() => {
+const profileMetaPlainText = computed(() => {
   if (profileLoading.value && !profileLoaded.value) return '正在读取真实账号资料'
-  return profileError.value ? '请稍后刷新个人资料' : `${genderSymbol.value} ${profile.userNo || '小原圈号待生成'}`
+  return profileError.value ? '请稍后刷新个人资料' : ''
 })
+const profileUserNoText = computed(() => profile.userNo || '小原圈号待生成')
 const walletLabelText = computed(() => walletLoading.value && !walletLoaded.value ? '钱包加载中' : '钱包')
 const totalAvailable = computed(() => {
   if (walletLoading.value && !walletLoaded.value) return '--'
